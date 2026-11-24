@@ -1,0 +1,475 @@
+# Customer organisation: profile, sites, settings, users and invitations (API_CONTRACTS.md §3,
+# FR-ONB-01..03). Customer-owned data (TENANT_ISOLATION.md §1): only members of the organisation
+# read it, and it is never returned to a lab. The organisation is always the one of the caller's
+# active membership; no request here carries an organisation id. PAN and trust flags
+# (`organisation_private`) are not part of this API. Examples use obviously fake values.
+
+Gstin:
+  type: string
+  pattern: ^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$
+  description: A GST identification number (15 characters, upper case).
+  examples:
+    - 09AAAAA0000A1Z5
+
+CustomerAddress:
+  type: object
+  description: >-
+    A postal address of the customer organisation or one of its sites
+    (`organisation.registered_address`, `customer_site.address`).
+  required:
+    - line1
+    - line2
+    - city
+    - district
+    - stateCode
+    - pincode
+  additionalProperties: false
+  properties:
+    line1:
+      type: string
+      minLength: 1
+      maxLength: 200
+    line2:
+      type:
+        - string
+        - 'null'
+      maxLength: 200
+    city:
+      type: string
+      minLength: 1
+      maxLength: 100
+    district:
+      type:
+        - string
+        - 'null'
+      maxLength: 100
+    stateCode:
+      type: string
+      minLength: 2
+      maxLength: 4
+      examples:
+        - UP
+    pincode:
+      $ref: './lab-sites.yaml#/Pincode'
+
+CustomerOrganisation:
+  type: object
+  description: >-
+    The caller's customer organisation (`organisation`, `org_type = CUSTOMER`). Returned with an
+    `ETag`; send it back in `If-Match` to change the profile.
+  required:
+    - id
+    - customerSegment
+    - legalName
+    - displayName
+    - gstin
+    - registeredAddress
+    - status
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    customerSegment:
+      $ref: './enums.yaml#/CustomerSegment'
+    legalName:
+      type: string
+    displayName:
+      type: string
+      description: The name labs see on bookings.
+    gstin:
+      oneOf:
+        - $ref: '#/Gstin'
+        - type: 'null'
+    registeredAddress:
+      oneOf:
+        - $ref: '#/CustomerAddress'
+        - type: 'null'
+    status:
+      $ref: './enums.yaml#/OrgStatus'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+CustomerOrganisationCreate:
+  type: object
+  description: >-
+    A new customer organisation (FR-ONB-01). GSTIN is optional for an individual and required for
+    the other segments; without it a non-individual organisation is refused with 422
+    `VALIDATION_FAILED`.
+  required:
+    - customerSegment
+    - legalName
+    - displayName
+  additionalProperties: false
+  properties:
+    customerSegment:
+      $ref: './enums.yaml#/CustomerSegment'
+    legalName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 100
+    gstin:
+      $ref: '#/Gstin'
+    registeredAddress:
+      $ref: '#/CustomerAddress'
+  examples:
+    - customerSegment: BUSINESS
+      legalName: Example Steel Works Private Limited
+      displayName: Example Steel Works
+      gstin: 09AAAAA0000A1Z5
+      registeredAddress:
+        line1: Plot 0, Example Industrial Area
+        line2: null
+        city: Noida
+        district: Gautam Buddha Nagar
+        stateCode: UP
+        pincode: '201310'
+
+CustomerOrganisationUpdate:
+  type: object
+  description: >-
+    Changes the listed fields; fields that are not listed are unchanged. The segment cannot be
+    changed. Removing the GSTIN (`null`) is allowed only for an `INDIVIDUAL`.
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    legalName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 100
+    gstin:
+      oneOf:
+        - $ref: '#/Gstin'
+        - type: 'null'
+    registeredAddress:
+      oneOf:
+        - $ref: '#/CustomerAddress'
+        - type: 'null'
+
+CustomerSiteLocation:
+  type: object
+  description: >-
+    The geocoded point of a customer site (`customer_site.geo_point`), used as a search location
+    (FR-DIS-02).
+  required:
+    - lat
+    - lng
+  additionalProperties: false
+  properties:
+    lat:
+      type: number
+      minimum: -90
+      maximum: 90
+    lng:
+      type: number
+      minimum: -180
+      maximum: 180
+
+CustomerSiteContact:
+  type: object
+  description: A contact person at the site (`customer_site.contact`). Customer-owned.
+  additionalProperties: false
+  properties:
+    name:
+      type:
+        - string
+        - 'null'
+      maxLength: 100
+    email:
+      oneOf:
+        - $ref: './auth.yaml#/Email'
+        - type: 'null'
+    phone:
+      type:
+        - string
+        - 'null'
+      maxLength: 20
+
+CustomerSite:
+  type: object
+  description: >-
+    A plant or office of the customer organisation (FR-ONB-03), used for search and billing.
+    Returned with an `ETag`.
+  required:
+    - id
+    - name
+    - address
+    - location
+    - gstin
+    - contact
+    - isDefaultBilling
+    - status
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    name:
+      type: string
+    address:
+      $ref: '#/CustomerAddress'
+    location:
+      description: The geocoded address. `null` until the address has been geocoded.
+      oneOf:
+        - $ref: '#/CustomerSiteLocation'
+        - type: 'null'
+    gstin:
+      description: The site's GSTIN, when it differs from the organisation's.
+      oneOf:
+        - $ref: '#/Gstin'
+        - type: 'null'
+    contact:
+      oneOf:
+        - $ref: '#/CustomerSiteContact'
+        - type: 'null'
+    isDefaultBilling:
+      type: boolean
+      description: At most one active site is the default billing site.
+    status:
+      $ref: './enums.yaml#/CustomerSiteStatus'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+CustomerSiteList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/CustomerSite'
+    page:
+      $ref: './common.yaml#/Page'
+
+CustomerSiteCreate:
+  type: object
+  required:
+    - name
+    - address
+  additionalProperties: false
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+    address:
+      $ref: '#/CustomerAddress'
+    gstin:
+      $ref: '#/Gstin'
+    contact:
+      $ref: '#/CustomerSiteContact'
+    isDefaultBilling:
+      type: boolean
+      default: false
+      description: '`true` makes this the default billing site and clears the flag on the others.'
+
+CustomerSiteUpdate:
+  type: object
+  description: >-
+    Changes the listed fields. A changed address is geocoded again. `status: INACTIVE` retires the
+    site; it is never deleted.
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+    address:
+      $ref: '#/CustomerAddress'
+    gstin:
+      oneOf:
+        - $ref: '#/Gstin'
+        - type: 'null'
+    contact:
+      oneOf:
+        - $ref: '#/CustomerSiteContact'
+        - type: 'null'
+    isDefaultBilling:
+      type: boolean
+      description: '`true` makes this the default billing site and clears the flag on the others.'
+    status:
+      $ref: './enums.yaml#/CustomerSiteStatus'
+
+CustomerSettings:
+  type: object
+  description: Organisation settings (`customer_settings`, FR-ONB-02). Returned with an `ETag`.
+  required:
+    - requesterCanPay
+    - defaultCustomerSiteId
+    - lockVersion
+  additionalProperties: false
+  properties:
+    requesterCanPay:
+      type: boolean
+      description: >-
+        Whether `CUSTOMER_REQUESTER` members may pay for bookings (ROLES_AND_PERMISSIONS §2, note
+        3). Default `false`.
+    defaultCustomerSiteId:
+      description: The site preselected for search and booking. `null` when none is set.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+CustomerSettingsUpdate:
+  type: object
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    requesterCanPay:
+      type: boolean
+    defaultCustomerSiteId:
+      description: An active site of the organisation, or `null`.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+
+CustomerUser:
+  type: object
+  description: >-
+    A member of the caller's customer organisation. `id` is the membership id, which the user
+    endpoints take.
+  required:
+    - id
+    - fullName
+    - email
+    - designation
+    - roles
+    - status
+    - activatedAt
+    - deactivatedAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    fullName:
+      type: string
+    email:
+      $ref: './auth.yaml#/Email'
+    designation:
+      type:
+        - string
+        - 'null'
+    roles:
+      type: array
+      description: Active roles in this organisation.
+      items:
+        $ref: './enums.yaml#/CustomerRoleCode'
+    status:
+      $ref: './enums.yaml#/MembershipStatus'
+    activatedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    deactivatedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+
+CustomerUserList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/CustomerUser'
+    page:
+      $ref: './common.yaml#/Page'
+
+CustomerInvitation:
+  type: object
+  description: >-
+    An invitation to join the caller's customer organisation. The invitation token is emailed to
+    the invitee and never returned.
+  required:
+    - id
+    - email
+    - roles
+    - expiresAt
+    - acceptedAt
+    - revokedAt
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    email:
+      $ref: './auth.yaml#/Email'
+    roles:
+      type: array
+      minItems: 1
+      items:
+        $ref: './enums.yaml#/CustomerRoleCode'
+    expiresAt:
+      $ref: './common.yaml#/Timestamp'
+    acceptedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    revokedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+CustomerInvitationList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/CustomerInvitation'
+    page:
+      $ref: './common.yaml#/Page'
+
+CustomerInvitationCreate:
+  type: object
+  required:
+    - email
+    - roles
+  additionalProperties: false
+  properties:
+    email:
+      $ref: './auth.yaml#/Email'
+    roles:
+      type: array
+      minItems: 1
+      maxItems: 3
+      uniqueItems: true
+      items:
+        $ref: './enums.yaml#/CustomerRoleCode'
+  examples:
+    - email: user@example.com
+      roles:
+        - CUSTOMER_REQUESTER

@@ -1,0 +1,71 @@
+# Lab inbox (API_CONTRACTS.md §6, FR-LAB-01). Makers and Checkers see the bookings of the sites
+# they are assigned to (RR-3); decisions, receipts and reports have their own endpoints (§4, §7,
+# §8). Each top-level key is one path item, referenced from openapi.yaml.
+
+inbox:
+  get:
+    operationId: getLabInbox
+    tags:
+      - Lab inbox
+    summary: Get the lab inbox
+    description: >-
+      Bookings of the caller's assigned sites that need the lab: new requests (with the decision
+      deadline, BR-012), requests waiting for the customer, paid bookings expecting a drop
+      (overdue once `dropDeadlineAt` has passed), and receipts and report versions waiting for a
+      Checker. Without `status`, every booking that is not in a terminal state, or that has a
+      pending approval. Most urgent deadline first. Both `LAB_MAKER` and `LAB_CHECKER` see the
+      inbox (FR-LAB-01); only Checkers act on decisions and approvals, and never on a record they
+      made as Maker (`viewerWasMaker`). About the customer only the organisation's display name
+      is shown.
+    parameters:
+      - name: status
+        in: query
+        required: false
+        description: Only bookings in one of these states (comma-separated).
+        style: form
+        explode: false
+        schema:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '../components/schemas/enums.yaml#/BookingStatus'
+      - name: siteId
+        in: query
+        required: false
+        description: Only this one of the caller's sites.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of inbox items.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-inbox.yaml#/LabInboxList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_MAKER` or `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: >-
+          `NOT_FOUND`: `siteId` is not one of the caller's sites, or `X-Active-Membership` is not
+          an active membership of this user.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unknown status or an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

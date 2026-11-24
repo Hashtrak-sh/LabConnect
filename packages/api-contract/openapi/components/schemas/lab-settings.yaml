@@ -1,0 +1,680 @@
+# Lab site settings: profile, receiving hours, closures, slot templates, slots, retention rules,
+# scope-line availability and proposals (API_CONTRACTS.md §6, FR-LAB-06, FR-LAB-07, FR-ONB-07,
+# EC-04, EC-13). The lab's own view: it adds private fields (capacity counts, bookability,
+# lock versions) to the public shapes of lab-sites.yaml, which are reused where the data is the
+# same. Every site is one of the caller's assigned sites (RR-3).
+
+LabPublicContact:
+  type: object
+  description: >-
+    The contact the lab sets for its customers (`lab_site_private.public_contact`). Shown to the
+    customer of a booking after payment only, never publicly.
+  required:
+    - name
+    - phone
+    - email
+  additionalProperties: false
+  properties:
+    name:
+      type:
+        - string
+        - 'null'
+      maxLength: 200
+    phone:
+      type:
+        - string
+        - 'null'
+      maxLength: 20
+      examples:
+        - '+910000000000'
+    email:
+      oneOf:
+        - $ref: './auth.yaml#/Email'
+        - type: 'null'
+
+LabSite:
+  type: object
+  description: >-
+    The lab's view of one of its sites. Name, address and accreditations come from NABL data and
+    change only through master-data change sets; a pin correction is proposed with
+    `/lab/sites/{siteId}/proposals`. The Checker edits the operational fields with PATCH.
+  required:
+    - id
+    - siteCode
+    - name
+    - address
+    - location
+    - geocodeStatus
+    - listingStatus
+    - isBookable
+    - bookabilityReasons
+    - submissionInstructions
+    - maxOpenJobs
+    - publicContact
+    - accreditations
+    - receivingHours
+    - rating
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    siteCode:
+      type: string
+      maxLength: 30
+      examples:
+        - LS-UP-000123
+    name:
+      type: string
+    address:
+      $ref: './lab-sites.yaml#/PublicAddress'
+    location:
+      description: The approved pin. `null` while the site has none.
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicLocation'
+        - type: 'null'
+    geocodeStatus:
+      $ref: './enums.yaml#/GeocodeStatus'
+    listingStatus:
+      $ref: './enums.yaml#/ListingStatus'
+    isBookable:
+      type: boolean
+    bookabilityReasons:
+      type: array
+      items:
+        type: string
+        pattern: ^[A-Z][A-Z0-9_]*$
+    submissionInstructions:
+      description: Sample submission instructions shown to customers (FR-LAB-06).
+      type:
+        - string
+        - 'null'
+    maxOpenJobs:
+      description: The most open jobs the site takes at once (FR-LAB-06). `null` for no limit.
+      type:
+        - integer
+        - 'null'
+      minimum: 1
+    publicContact:
+      oneOf:
+        - $ref: '#/LabPublicContact'
+        - type: 'null'
+    accreditations:
+      type: array
+      items:
+        $ref: './lab-sites.yaml#/PublicAccreditation'
+    receivingHours:
+      type: array
+      description: Weekly receiving windows, ordered by weekday and opening time.
+      items:
+        $ref: './lab-sites.yaml#/PublicReceivingHours'
+    rating:
+      $ref: './lab-sites.yaml#/PublicRating'
+    lockVersion:
+      $ref: './lab.yaml#/LockVersion'
+
+LabSiteUpdate:
+  type: object
+  description: The operational fields the Checker edits. Fields that are absent are unchanged.
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    submissionInstructions:
+      type:
+        - string
+        - 'null'
+      maxLength: 5000
+    maxOpenJobs:
+      type:
+        - integer
+        - 'null'
+      minimum: 1
+    publicContact:
+      oneOf:
+        - $ref: '#/LabPublicContact'
+        - type: 'null'
+
+LabReceivingHoursSet:
+  type: object
+  description: >-
+    The site's complete weekly receiving windows. Several windows per weekday are allowed (split
+    shifts) but they must not overlap; a weekday without a window is closed.
+  required:
+    - hours
+  additionalProperties: false
+  properties:
+    hours:
+      type: array
+      maxItems: 70
+      items:
+        $ref: './lab-sites.yaml#/PublicReceivingHours'
+
+LabSiteClosureCreate:
+  type: object
+  required:
+    - startsOn
+    - endsOn
+    - reason
+  additionalProperties: false
+  properties:
+    startsOn:
+      $ref: './common.yaml#/Date'
+    endsOn:
+      description: The last closed day. Not before `startsOn`.
+      $ref: './common.yaml#/Date'
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 500
+
+LabSiteClosure:
+  type: object
+  description: An ad hoc closure of the site (EC-13), inclusive of both dates (IST).
+  required:
+    - id
+    - startsOn
+    - endsOn
+    - reason
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    startsOn:
+      $ref: './common.yaml#/Date'
+    endsOn:
+      $ref: './common.yaml#/Date'
+    reason:
+      type: string
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+LabSiteClosureResult:
+  type: object
+  description: A new closure, with what it did to the site's slots (EC-13).
+  required:
+    - closure
+    - cancelledSlotCount
+    - affectedBookingCount
+  additionalProperties: false
+  properties:
+    closure:
+      $ref: '#/LabSiteClosure'
+    cancelledSlotCount:
+      type: integer
+      minimum: 0
+      description: Slots in the closed days that were set to `CANCELLED`.
+    affectedBookingCount:
+      type: integer
+      minimum: 0
+      description: Bookings holding one of those slots. Their holders are notified.
+
+LabSiteClosureList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/LabSiteClosure'
+    page:
+      $ref: './common.yaml#/Page'
+
+LabSlotTemplate:
+  type: object
+  description: >-
+    A weekly capacity template (SCHEMA_SPECIFICATION §5.15). Slots are generated from active
+    templates 30 days ahead by a nightly job, only inside receiving hours and outside holidays
+    and closures (EC-13).
+  required:
+    - id
+    - discipline
+    - weekday
+    - startTime
+    - endTime
+    - capacity
+    - active
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    discipline:
+      description: The discipline the slots are for. `null` for slots open to every discipline.
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - type: 'null'
+    weekday:
+      type: integer
+      minimum: 1
+      maximum: 7
+      description: 1 = Monday … 7 = Sunday.
+    startTime:
+      $ref: './lab-sites.yaml#/LocalTime'
+    endTime:
+      $ref: './lab-sites.yaml#/LocalTime'
+    capacity:
+      type: integer
+      minimum: 1
+    active:
+      type: boolean
+    lockVersion:
+      $ref: './lab.yaml#/LockVersion'
+
+LabSlotTemplateInput:
+  type: object
+  description: >-
+    One template to create (no `id`) or update (`id` and the `lockVersion` last read; a mismatch
+    fails the whole request with 412). A template is retired with `active: false`; templates are
+    never deleted.
+  required:
+    - disciplineCode
+    - weekday
+    - startTime
+    - endTime
+    - capacity
+    - active
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    lockVersion:
+      $ref: './lab.yaml#/LockVersion'
+    disciplineCode:
+      description: Code of a DISCIPLINE node of the SCOPE taxonomy, or `null` for every discipline.
+      oneOf:
+        - $ref: './lab-sites.yaml#/NodeCode'
+        - type: 'null'
+    weekday:
+      type: integer
+      minimum: 1
+      maximum: 7
+    startTime:
+      $ref: './lab-sites.yaml#/LocalTime'
+    endTime:
+      description: After `startTime`.
+      $ref: './lab-sites.yaml#/LocalTime'
+    capacity:
+      type: integer
+      minimum: 1
+    active:
+      type: boolean
+
+LabSlotTemplateSet:
+  type: object
+  description: The site's slot templates, ordered by weekday and start time.
+  required:
+    - templates
+  additionalProperties: false
+  properties:
+    templates:
+      type: array
+      items:
+        $ref: '#/LabSlotTemplate'
+
+LabSlotTemplateSetUpdate:
+  type: object
+  description: >-
+    Templates to create or update. Templates that are not listed are unchanged.
+  required:
+    - templates
+  additionalProperties: false
+  properties:
+    templates:
+      type: array
+      minItems: 1
+      maxItems: 200
+      items:
+        $ref: '#/LabSlotTemplateInput'
+
+LabSlot:
+  type: object
+  description: >-
+    A generated slot with its capacity figures (SCHEMA_SPECIFICATION §5.16). `heldCount` counts
+    soft holds of bookings awaiting a lab decision (BR-010), `bookedCount` confirmed bookings.
+  required:
+    - id
+    - date
+    - startsAt
+    - endsAt
+    - discipline
+    - capacity
+    - heldCount
+    - bookedCount
+    - status
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    date:
+      $ref: './common.yaml#/Date'
+    startsAt:
+      $ref: './common.yaml#/Timestamp'
+    endsAt:
+      $ref: './common.yaml#/Timestamp'
+    discipline:
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - type: 'null'
+    capacity:
+      type: integer
+      minimum: 0
+    heldCount:
+      type: integer
+      minimum: 0
+    bookedCount:
+      type: integer
+      minimum: 0
+    status:
+      $ref: './enums.yaml#/SlotStatus'
+    lockVersion:
+      $ref: './lab.yaml#/LockVersion'
+
+LabSlotList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/LabSlot'
+    page:
+      $ref: './common.yaml#/Page'
+
+LabSlotUpdate:
+  type: object
+  description: Adjusts the capacity of a slot, or closes or reopens it. Absent fields are unchanged.
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    capacity:
+      type: integer
+      minimum: 0
+      description: Not below `heldCount + bookedCount`.
+    status:
+      $ref: './enums.yaml#/LabSlotSettableStatus'
+
+LabRetentionRule:
+  type: object
+  description: >-
+    How long the site keeps samples of a discipline after receipt approval (BR-049, CD-13), and
+    the maximum time from sampling to receipt it accepts (EC-30).
+  required:
+    - id
+    - discipline
+    - retentionDays
+    - maxSamplingToReceiptHours
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    discipline:
+      description: '`null` for the site default, used for disciplines without a rule of their own.'
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - type: 'null'
+    retentionDays:
+      type: integer
+      minimum: 1
+    maxSamplingToReceiptHours:
+      type:
+        - integer
+        - 'null'
+      minimum: 1
+    lockVersion:
+      $ref: './lab.yaml#/LockVersion'
+
+LabRetentionRuleInput:
+  type: object
+  description: >-
+    Sets the rule of one discipline (or the default). When the rule already exists, send the
+    `lockVersion` last read; a missing or stale one fails the whole request with 412.
+  required:
+    - disciplineCode
+    - retentionDays
+    - maxSamplingToReceiptHours
+  additionalProperties: false
+  properties:
+    disciplineCode:
+      description: Code of a DISCIPLINE node of the SCOPE taxonomy, or `null` for the default.
+      oneOf:
+        - $ref: './lab-sites.yaml#/NodeCode'
+        - type: 'null'
+    retentionDays:
+      type: integer
+      minimum: 1
+      maximum: 36500
+    maxSamplingToReceiptHours:
+      type:
+        - integer
+        - 'null'
+      minimum: 1
+    lockVersion:
+      $ref: './lab.yaml#/LockVersion'
+
+LabRetentionRuleSet:
+  type: object
+  description: The site's retention rules, the default first.
+  required:
+    - rules
+  additionalProperties: false
+  properties:
+    rules:
+      type: array
+      items:
+        $ref: '#/LabRetentionRule'
+
+LabRetentionRuleSetUpdate:
+  type: object
+  description: Rules to set. Rules for disciplines that are not listed are unchanged.
+  required:
+    - rules
+  additionalProperties: false
+  properties:
+    rules:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: '#/LabRetentionRuleInput'
+
+LabScopeLine:
+  type: object
+  description: >-
+    An active scope line of the site as the lab sees it: the public line, its lock version and
+    whether the effective published price list prices it.
+  required:
+    - scopeLine
+    - pricedInEffectiveList
+    - lockVersion
+  additionalProperties: false
+  properties:
+    scopeLine:
+      $ref: './lab-sites.yaml#/PublicScopeLine'
+    pricedInEffectiveList:
+      type: boolean
+    lockVersion:
+      $ref: './lab.yaml#/LockVersion'
+
+LabScopeLineList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/LabScopeLine'
+    page:
+      $ref: './common.yaml#/Page'
+
+LabScopeLineAvailabilityUpdate:
+  type: object
+  required:
+    - temporarilyUnavailable
+  additionalProperties: false
+  properties:
+    temporarilyUnavailable:
+      type: boolean
+      description: '`true` stops new bookings of the line until it is set back to `false` (FR-LAB-07).'
+
+# --- Proposals (MASTER_DATA_MANAGEMENT §3, EC-04) ---
+
+LabPinProposalCreate:
+  type: object
+  description: A map-pin correction (EC-04). Ops approves it; only approved pins are used (BR-004).
+  required:
+    - kind
+    - location
+    - note
+  additionalProperties: false
+  properties:
+    kind:
+      type: string
+      const: MAP_PIN
+    location:
+      $ref: './lab-sites.yaml#/PublicLocation'
+    note:
+      type: string
+      minLength: 1
+      maxLength: 2000
+
+LabScopeLineProposed:
+  type: object
+  description: >-
+    The proposed state of a scope line, by master-data codes, as the certificate's scope shows
+    it.
+  required:
+    - certificateNo
+    - disciplineCode
+    - groupCode
+    - productCode
+    - parameterCode
+    - methodCode
+    - methodText
+    - rangeText
+    - siteType
+  additionalProperties: false
+  properties:
+    certificateNo:
+      $ref: './lab.yaml#/CertificateNo'
+    disciplineCode:
+      $ref: './lab-sites.yaml#/NodeCode'
+    groupCode:
+      oneOf:
+        - $ref: './lab-sites.yaml#/NodeCode'
+        - type: 'null'
+    productCode:
+      oneOf:
+        - $ref: './lab-sites.yaml#/NodeCode'
+        - type: 'null'
+    parameterCode:
+      $ref: './lab-sites.yaml#/NodeCode'
+    methodCode:
+      description: Code of a METHOD taxonomy node, if the method is normalised.
+      oneOf:
+        - $ref: './lab-sites.yaml#/NodeCode'
+        - type: 'null'
+    methodText:
+      type:
+        - string
+        - 'null'
+      maxLength: 500
+    rangeText:
+      type:
+        - string
+        - 'null'
+      maxLength: 500
+    siteType:
+      $ref: './enums.yaml#/ScopeSiteType'
+
+LabScopeProposalItem:
+  type: object
+  description: >-
+    One change. `CREATE` needs `proposed` and no `scopeLineId`; `UPDATE` needs both;
+    `DEACTIVATE` and `REACTIVATE` need `scopeLineId` only.
+  required:
+    - operation
+    - scopeLineId
+    - proposed
+  additionalProperties: false
+  properties:
+    operation:
+      $ref: './enums.yaml#/LabScopeProposalOperation'
+    scopeLineId:
+      description: A scope line of this site.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    proposed:
+      oneOf:
+        - $ref: '#/LabScopeLineProposed'
+        - type: 'null'
+
+LabScopeProposalCreate:
+  type: object
+  description: A scope correction, reviewed by platform staff like any change set.
+  required:
+    - kind
+    - items
+    - note
+  additionalProperties: false
+  properties:
+    kind:
+      type: string
+      const: SCOPE_CORRECTION
+    items:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: '#/LabScopeProposalItem'
+    note:
+      type: string
+      minLength: 1
+      maxLength: 2000
+      description: What is wrong and where the accreditation scope shows it.
+
+LabProposalCreate:
+  description: A map-pin or scope correction proposal, told apart by `kind`.
+  oneOf:
+    - $ref: '#/LabPinProposalCreate'
+    - $ref: '#/LabScopeProposalCreate'
+
+LabProposal:
+  type: object
+  description: >-
+    The change set a proposal created (source `LAB_PROPOSAL`). Platform staff review, approve and
+    publish it; nothing changes until it is published.
+  required:
+    - id
+    - kind
+    - title
+    - status
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      description: The change set id.
+      $ref: './common.yaml#/Uuid'
+    kind:
+      type: string
+      enum:
+        - MAP_PIN
+        - SCOPE_CORRECTION
+    title:
+      type: string
+    status:
+      $ref: './enums.yaml#/ChangeSetStatus'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'

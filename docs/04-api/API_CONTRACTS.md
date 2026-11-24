@@ -37,7 +37,7 @@
 | GET/PATCH | `/customer/organisation` | C-Admin | Profile, GSTIN | ONB-01 |
 | GET/POST/PATCH | `/customer/sites[/{id}]` | C-Admin | Customer sites | ONB-03 |
 | GET/PATCH | `/customer/settings` | C-Admin | `requesterCanPay`, etc. | ONB-02 |
-| GET/POST/DELETE | `/customer/users`, `/customer/invitations` | C-Admin | Users and roles | ONB-02 |
+| GET/POST/DELETE | GET `/customer/users` · DELETE `/customer/users/{id}` · GET/POST `/customer/invitations` · DELETE `/customer/invitations/{id}` | C-Admin | Users and roles: list and deactivate members, invite and revoke | ONB-02 |
 
 ## 4. Bookings
 | Method | Path | Who | Transition | FR |
@@ -107,22 +107,22 @@ The `gatewayCheckout` shape is **adapter-defined** and stays opaque to the contr
 | Method | Path | Who | Purpose | FR |
 |---|---|---|---|---|
 | POST | `/lab/claims` | auth | Start a claim (`{certificateNo}`) → OTP to the NABL email | DAT-07 |
-| POST | `/lab/claims/{id}/verify-otp` · `/lab/claims/{id}/manual` | auth | Verify, or upload a letterhead | DAT-07 |
+| POST | `/lab/claims/{id}/verify-otp` · `/lab/claims/{id}/manual/upload-url` · `/lab/claims/{id}/manual` | auth | Verify, or upload a letterhead | DAT-07 |
 | GET | `/lab/onboarding` | L-Checker | Checklist and bookability reasons | ONB-04 |
 | POST | `/lab/kyc-documents/upload-url` · POST `/lab/kyc-documents` | L-Checker | KYC | ONB-04 |
 | POST | `/lab/bank-accounts` | L-Checker (step-up) | Add bank details (masked in responses) | ONB-04 |
-| GET/POST/PATCH | `/lab/users`, `/lab/invitations` | L-Checker | Makers and Checkers, site assignment | ONB-06 |
+| GET/POST/PATCH | GET `/lab/users` · PATCH `/lab/users/{id}` · GET/POST `/lab/invitations` · PATCH `/lab/invitations/{id}` | L-Checker | Makers and Checkers, site assignment; revoke an invitation | ONB-06 |
 | GET/PATCH | `/lab/sites/{siteId}` | L-Checker | Instructions, contact, max jobs | LAB-06 |
 | PUT | `/lab/sites/{siteId}/receiving-hours` | L-Checker | Hours | LAB-06 |
-| POST/DELETE | `/lab/sites/{siteId}/closures` | L-Checker | Closures (cancels slots) | EC-13 |
+| GET/POST/DELETE | GET/POST `/lab/sites/{siteId}/closures` · DELETE `/lab/sites/{siteId}/closures/{closureId}` | L-Checker | Closures (cancels slots) | EC-13 |
 | GET/PUT | `/lab/sites/{siteId}/slot-templates` | L-Checker | Capacity templates | LAB-06 |
-| GET/PATCH | `/lab/sites/{siteId}/slots` | L-Checker | Adjust or close generated slots | LAB-06 |
-| PUT | `/lab/sites/{siteId}/retention-rules` | L-Checker | Retention | ONB-07 |
-| PATCH | `/lab/sites/{siteId}/scope-lines/{id}/availability` | L-Checker | Temporarily unavailable | LAB-07 |
-| POST | `/lab/sites/{siteId}/price-lists` | L-Checker | New DRAFT (copy of current) | ONB-05 |
-| POST | `/lab/sites/{siteId}/price-lists/imports` | L-Checker | Bulk import → preview | ONB-05 |
-| PATCH | `/lab/price-lists/{id}/items` | L-Checker | Edit the draft | ONB-05 |
-| POST | `/lab/price-lists/{id}/publish` | L-Checker | Publish (supersedes the previous one) | ONB-05 |
+| GET/PATCH | GET `/lab/sites/{siteId}/slots` · PATCH `/lab/sites/{siteId}/slots/{slotId}` | L-Checker | Adjust or close generated slots | LAB-06 |
+| GET/PUT | `/lab/sites/{siteId}/retention-rules` | L-Checker | Retention | ONB-07 |
+| GET/PATCH | GET `/lab/sites/{siteId}/scope-lines` · PATCH `/lab/sites/{siteId}/scope-lines/{id}/availability` | L-Checker | Temporarily unavailable | LAB-07 |
+| GET/POST | `/lab/sites/{siteId}/price-lists` | L-Checker | Versions; new DRAFT (copy of current) | ONB-05 |
+| GET/POST | POST `/lab/sites/{siteId}/price-lists/imports/upload-url` · `/lab/sites/{siteId}/price-lists/imports` · GET `/lab/price-list-imports/{id}` · `/lab/price-list-imports/{id}/rows` · POST `/lab/price-list-imports/{id}/commit` · `/lab/price-list-imports/{id}/discard` | L-Checker | Bulk import → preview → commit to a DRAFT | ONB-05 |
+| GET/PATCH | `/lab/price-lists/{id}/items` | L-Checker | Read and edit the draft | ONB-05 |
+| POST | `/lab/price-lists/{id}/publish` · `/lab/price-lists/{id}/discard` | L-Checker | Publish (supersedes the previous one), or discard a draft | ONB-05 |
 | POST | `/lab/sites/{siteId}/proposals` | L-Checker | Pin or scope correction proposal → change set | EC-04 |
 | GET | `/lab/inbox?status=` | L-Maker, L-Checker | Requests, pending approvals, expected drops | LAB-01 |
 

@@ -1,0 +1,297 @@
+# Lab price lists and price-list imports (API_CONTRACTS.md §6, FR-ONB-05, CD-06,
+# VERSIONING_AND_SNAPSHOTS.md B). A published price list is immutable: only a DRAFT is edited,
+# and publishing a new version supersedes the previous one. Drafts are private to the lab
+# (TENANT_ISOLATION.md §1). Items reuse the public item shape.
+
+LabPriceList:
+  type: object
+  description: One version of a site's price list.
+  required:
+    - id
+    - siteId
+    - versionNo
+    - status
+    - itemCount
+    - effectiveFrom
+    - effectiveTo
+    - publishedAt
+    - importId
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    siteId:
+      $ref: './common.yaml#/Uuid'
+    versionNo:
+      type: integer
+      minimum: 1
+    status:
+      $ref: './enums.yaml#/PriceListStatus'
+    itemCount:
+      type: integer
+      minimum: 0
+    effectiveFrom:
+      description: Set on publish.
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    effectiveTo:
+      description: Set when a newer version supersedes this one.
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    publishedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    importId:
+      description: The import the draft was created from, if any.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      description: Changes only while the list is a DRAFT.
+      $ref: './lab.yaml#/LockVersion'
+
+LabPriceListList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/LabPriceList'
+    page:
+      $ref: './common.yaml#/Page'
+
+LabPriceItemList:
+  type: object
+  description: A page of the items of one price list, ordered along the scope tree.
+  required:
+    - priceList
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    priceList:
+      $ref: '#/LabPriceList'
+    data:
+      type: array
+      items:
+        $ref: './lab-sites.yaml#/PublicPriceItem'
+    page:
+      $ref: './common.yaml#/Page'
+
+LabPriceItemInput:
+  type: object
+  description: >-
+    The price and sample requirements of one scope line of the site (SCHEMA_SPECIFICATION §5.14).
+    Every amount is integer paise.
+  required:
+    - scopeLineId
+    - price
+    - samplePrep
+    - gstRateBp
+    - sampleQty
+    - sampleUnitCode
+    - packagingInstructions
+    - tatDays
+    - isAvailable
+  additionalProperties: false
+  properties:
+    scopeLineId:
+      description: An active scope line of the price list's site.
+      $ref: './common.yaml#/Uuid'
+    price:
+      $ref: './common.yaml#/Money'
+    samplePrep:
+      description: Sample preparation charge. Zero when there is none.
+      $ref: './common.yaml#/Money'
+    gstRateBp:
+      type: integer
+      minimum: 0
+      maximum: 2800
+      description: GST rate in basis points (1800 = 18.00%).
+    sampleQty:
+      type: number
+      minimum: 0
+      description: Sample quantity, up to three decimals.
+    sampleUnitCode:
+      description: Code of a node of the UNIT taxonomy.
+      $ref: './lab-sites.yaml#/NodeCode'
+    packagingInstructions:
+      type:
+        - string
+        - 'null'
+      maxLength: 2000
+    tatDays:
+      type: integer
+      minimum: 1
+    isAvailable:
+      type: boolean
+
+LabPriceItemsUpdate:
+  type: object
+  description: >-
+    Edits a DRAFT. Each `upsert` item sets the line's price (added if the line is not priced
+    yet); each `remove` id takes the line out of the draft. A line may not appear in both.
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    upsert:
+      type: array
+      maxItems: 500
+      items:
+        $ref: '#/LabPriceItemInput'
+    remove:
+      type: array
+      maxItems: 500
+      uniqueItems: true
+      items:
+        description: A scope line id.
+        $ref: './common.yaml#/Uuid'
+
+LabPriceListImportCreate:
+  type: object
+  required:
+    - fileId
+  additionalProperties: false
+  properties:
+    fileId:
+      description: >-
+        The uploaded CSV or XLSX file (`/lab/sites/{siteId}/price-lists/imports/upload-url`). It
+        must be `CLEAN`.
+      $ref: './common.yaml#/Uuid'
+
+LabPriceListImport:
+  type: object
+  description: >-
+    A price-list import job (SCHEMA_SPECIFICATION §4.9). The file is parsed, mapped with the
+    platform's current price-list mapping template, validated and matched against the site's
+    scope lines and its effective price list; nothing changes until it is committed.
+  required:
+    - id
+    - siteId
+    - status
+    - fileName
+    - rowCount
+    - errorCount
+    - warningCount
+    - conflictCount
+    - priceListId
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    siteId:
+      $ref: './common.yaml#/Uuid'
+    status:
+      $ref: './enums.yaml#/ImportStatus'
+    fileName:
+      type:
+        - string
+        - 'null'
+    rowCount:
+      type: integer
+      minimum: 0
+    errorCount:
+      type: integer
+      minimum: 0
+    warningCount:
+      type: integer
+      minimum: 0
+    conflictCount:
+      type: integer
+      minimum: 0
+    priceListId:
+      description: The DRAFT created on commit.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      $ref: './lab.yaml#/LockVersion'
+
+LabImportMessage:
+  type: object
+  required:
+    - severity
+    - field
+    - message
+  additionalProperties: false
+  properties:
+    severity:
+      type: string
+      enum:
+        - ERROR
+        - WARNING
+    field:
+      description: The mapped field the message is about, if any.
+      type:
+        - string
+        - 'null'
+    message:
+      type: string
+
+LabPriceListImportRow:
+  type: object
+  description: One row of the file and what committing would do with it (import preview).
+  required:
+    - rowNumber
+    - raw
+    - mapped
+    - matchResult
+    - scopeLineId
+    - action
+    - messages
+  additionalProperties: false
+  properties:
+    rowNumber:
+      type: integer
+      minimum: 1
+    raw:
+      type: object
+      description: The row's cells as read from the file, by column heading.
+      additionalProperties:
+        type: string
+    mapped:
+      type: object
+      description: The row after mapping, by target field of the mapping template.
+      additionalProperties: true
+    matchResult:
+      $ref: './enums.yaml#/ImportMatchResult'
+    scopeLineId:
+      description: The scope line of the site the row matched.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    action:
+      $ref: './enums.yaml#/ImportRowAction'
+    messages:
+      type: array
+      items:
+        $ref: '#/LabImportMessage'
+
+LabPriceListImportRowList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/LabPriceListImportRow'
+    page:
+      $ref: './common.yaml#/Page'

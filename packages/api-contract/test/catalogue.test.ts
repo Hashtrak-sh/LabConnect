@@ -7,7 +7,7 @@ import {
   parseRow,
   parseSection,
 } from './catalogue.js';
-import { readRepoFile } from './helpers.js';
+import { readRepoFile, transitionIds } from './helpers.js';
 
 // Unit tests of the API_CONTRACTS.md table parser. Every cell below is copied from a section of
 // the catalogue (§1 to §10), so a later section can be added to doc-equality.test.ts without
@@ -15,6 +15,15 @@ import { readRepoFile } from './helpers.js';
 
 const keys = (methodCell: string, pathCell: string): string[] =>
   parseRow(methodCell, pathCell).flatMap(allowedKeys);
+
+describe('transitionIds', () => {
+  it('reads the Transition cells of §4, §7 and §8', () => {
+    expect(transitionIds('T-13 / T-17')).toEqual(['T-13', 'T-17']);
+    expect(transitionIds('T-25/26/27')).toEqual(['T-25', 'T-26', 'T-27']);
+    expect(transitionIds('T-14 (`labSampleId`)')).toEqual(['T-14']);
+    expect(transitionIds('(none) Validate a QR or short code')).toEqual([]);
+  });
+});
 
 describe('parseRow', () => {
   it('reads one method and one path (§1)', () => {
