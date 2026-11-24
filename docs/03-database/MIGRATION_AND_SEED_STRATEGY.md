@@ -25,13 +25,18 @@ Shared-change rule: any PR touching `packages/database/` needs approval from bot
 
 | Set | Contents | Environments |
 |---|---|---|
-| `seed:reference` | Taxonomies and node types (SCOPE levels, METHOD, UNIT, all reason-code taxonomies), accreditation body (NABL), standards (17025 testing and calibration, 15189 unsupported), ledger chart of accounts, fee rules (platform fee 0, cancellation 10%, no-show 10%), config defaults (all BR defaults), notification templates (en-IN), holiday calendar (current and next year), first QR key registry entries (pointing to the environment's KMS keys) | All |
-| `seed:platform-admin` | First `PLATFORM_ADMIN` user (email from an env var, MFA enrolment forced on first login) | All (separate command) |
-| `seed:demo` | ~200 lab sites across Delhi NCR (fictitious, clearly marked "DEMO"), ~5,000 scope lines, 3 onboarded labs with Makers and Checkers, 3 customer orgs (individual, business, government), price lists, slots, sample bookings in every state | Local, UAT |
-| `seed:load` | 15k sites, 2M scope lines, 5k customer orgs (synthetic) | Load-test env only |
+| `seed:reference` | Taxonomies and node types (SCOPE levels, METHOD, UNIT, all reason-code taxonomies) with starter values for units and reason codes, accreditation body (NABL), standards (17025 testing and calibration, 15189 unsupported), ledger chart of accounts, fee rules (platform fee 0, cancellation 10%, no-show 10%), config defaults (the BR defaults), notification templates (en-IN, version 1), holiday calendar (the three fixed national holidays of the current and next year; the rest is OQ-32), first QR key registry entries (pointing to the environment's KMS keys) | All |
+| `seed:platform-admin` | The platform organisation and the first `PLATFORM_ADMIN` user (`PLATFORM_ADMIN_EMAIL` and `PLATFORM_ADMIN_NAME` from the environment, MFA enrolment forced on first login) | All (separate command) |
+| `seed:demo` | 200 lab sites across Delhi NCR (fictitious, clearly marked "DEMO"), 5,000 scope lines, 3 onboarded labs (4 bookable sites) with Makers and Checkers, 3 customer orgs (individual, business, government), price lists, slots, one booking in every state | Local, UAT |
+| `seed:load` | 15k sites, 2M scope lines, 5k customer orgs (synthetic). **Not built yet.** | Load-test env only |
 
 Rules:
-- Seeds are **idempotent** (upsert by stable `code`). Reference seeds run on every deploy.
+- Seeds are **idempotent**. `seed:reference` adds what is missing, found by its stable `code` or key, and **never changes or removes a row that exists**, so a value an administrator has edited survives the next deploy. A corrected default therefore needs a migration or an administrator action, not a change to the seed. Reference seeds run on every deploy.
+- `seed:demo` is all or nothing: it runs in one transaction, and does nothing if the demo data is already there. It runs `seed:reference` first.
+- Seeds connect with `DATABASE_URL` as the owner role. The email address of the platform administrator is not printed or logged.
+- `seed:reference` needs `QR_KMS_KEY_ARN_BOOKING`, `QR_KMS_KEY_ARN_PACKAGE` and `QR_KMS_KEY_ARN_REPORT` in every deployed environment and fails without them. Only when `APP_ENV` is unset, `local` or `test` does it use a placeholder ARN.
+- Values in the reference seed that no document specified are proposals and are listed in OQ-31: the configuration key names, the starter reason codes and units, the ledger normal balances and the lab share of the cancellation and no-show fees. Seeded master-data values have no `md_node_version` row, because a change set needs a user and none exists yet.
+- Code: `packages/database/src/seed/` (data in `reference-data.ts`). Commands, from the repository root: `pnpm seed:reference`, `pnpm seed:platform-admin`, `pnpm seed:demo`, and for a developer machine `pnpm db:migrate` and `pnpm db:local-users`. `pnpm dev:setup` runs the migrations, the local login users and the reference seed.
 - **No real personal data or real NABL data in the repository.** Real NABL data enters only through the admin import in each environment.
 - Demo data never runs in production. The seed script refuses to run if `APP_ENV=production`.
 

@@ -50,7 +50,7 @@
   - writes to another tenant are refused (`update` finds no record, `create` fails the policy check);
   - 600 concurrent units of work in mixed contexts stayed apart on a pool of 4 connections, and again through PgBouncer in transaction mode on 3 server connections.
 - Not covered by the spike: RDS Proxy (cannot be run locally), read replicas, and throughput figures. If a pooler other than PgBouncer is chosen, this test file is run through it before it is used.
-- The login users are created by each environment's infrastructure: one that inherits `app_rw` for the API, one that inherits `app_worker` for the worker. **The application never connects as the owner or a superuser, which bypass the policies.** The local Docker database currently has only its superuser; creating the two login users locally is part of the seed and setup work (P1-10).
+- The login users are created by each environment's infrastructure: one that inherits `app_rw` for the API, one that inherits `app_worker` for the worker. **The application never connects as the owner or a superuser, which bypass the policies.** On a developer machine `pnpm db:local-users` creates both (`API_DATABASE_URL`, `WORKER_DATABASE_URL` in `.env`); `DATABASE_URL` stays the owner and is for migrations and seeds only.
 - The `system` context is not tied to the database role. The API needs it before a user is known (finding a session by its token, a user by email), so `app_rw` can set it. Whether to narrow that is OQ-30.
 
 ## 4. Testing
