@@ -61,7 +61,7 @@ module.exports = {
   ],
   options: {
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: '(^|/)(dist|\\.next|\\.turbo|coverage|node_modules)/' },
+    exclude: { path: '(^|/)(dist|\\.next|\\.turbo|coverage|node_modules|generated)/' },
     tsPreCompilationDeps: true,
   },
 };
