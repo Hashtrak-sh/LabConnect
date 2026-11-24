@@ -1,0 +1,375 @@
+// 10. Payments and finance
+
+model PaymentOrder {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  attemptNo Int @map("attempt_no")
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  gateway GatewayCode
+  gatewayOrderRef String? @map("gateway_order_ref") @db.VarChar(100)
+  amountPaise BigInt @map("amount_paise")
+  status PaymentOrderStatus @default(CREATED)
+  initiatedByUserId String @map("initiated_by_user_id") @db.Uuid
+  checkoutExpiresAt DateTime? @map("checkout_expires_at") @db.Timestamptz(6)
+  reconcileUntil DateTime? @map("reconcile_until") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  initiatedByUser AppUser @relation("payment_order_initiated_by_user_id", fields: [initiatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("payment_order_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("payment_order_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  paymentTransactions PaymentTransaction[] @relation("payment_transaction_payment_order_id_customer_org_id_lab_org_id")
+  refunds Refund[] @relation("refund_payment_order_id")
+
+  @@unique([idempotencyKey])
+  @@unique([bookingId, attemptNo])
+  @@unique([gateway, gatewayOrderRef])
+  @@unique([id, customerOrgId, labOrgId])
+  @@unique([bookingId], map: "uq_payment_order_captured", where: raw("(status = ANY (ARRAY['CAPTURED'::payment_order_status, 'REFUNDED_PARTIAL'::payment_order_status, 'REFUNDED_FULL'::payment_order_status]))"))
+  @@index([status, reconcileUntil], map: "ix_payment_order_pending", where: { status: "PENDING" })
+  @@map("payment_order")
+}
+
+model PaymentTransaction {
+  id String @id @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  paymentOrderId String @map("payment_order_id") @db.Uuid
+  gateway GatewayCode
+  gatewayTxnRef String @map("gateway_txn_ref") @db.VarChar(100)
+  txnType PaymentTxnType @map("txn_type")
+  method String? @db.VarChar(30)
+  amountPaise BigInt @map("amount_paise")
+  status PaymentTxnStatus
+  isDuplicate Boolean @default(false) @map("is_duplicate")
+  gatewayReportedAt DateTime? @map("gateway_reported_at") @db.Timestamptz(6)
+  webhookEventId String? @map("webhook_event_id") @db.Uuid
+  rawSummary Json? @map("raw_summary")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  webhookEvent GatewayWebhookEvent? @relation("payment_transaction_webhook_event_id", fields: [webhookEventId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("payment_transaction_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  paymentOrder PaymentOrder @relation("payment_transaction_payment_order_id_customer_org_id_lab_org_id", fields: [paymentOrderId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  ledgerJournals LedgerJournal[] @relation("ledger_journal_payment_transaction_id")
+  settlementReportLines SettlementReportLine[] @relation("settlement_report_line_matched_transaction_id")
+
+  @@unique([gateway, gatewayTxnRef, txnType])
+  @@index([paymentOrderId])
+  @@map("payment_transaction")
+}
+
+model GatewayWebhookEvent {
+  id String @id @db.Uuid
+  gateway GatewayCode
+  eventId String @map("event_id") @db.VarChar(100)
+  eventType String @map("event_type") @db.VarChar(60)
+  signatureValid Boolean @map("signature_valid")
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz(6)
+  payloadCiphertext Bytes @map("payload_ciphertext")
+  payloadSha256 Bytes @map("payload_sha256")
+  processingStatus WebhookProcessingStatus @default(RECEIVED) @map("processing_status")
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(6)
+  error String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  paymentTransactions PaymentTransaction[] @relation("payment_transaction_webhook_event_id")
+
+  @@unique([gateway, eventId])
+  @@index([receivedAt], map: "ix_gateway_webhook_event_unprocessed", where: raw("(processing_status = ANY (ARRAY['RECEIVED'::webhook_processing_status, 'FAILED'::webhook_processing_status]))"))
+  @@map("gateway_webhook_event")
+}
+
+model Refund {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  paymentOrderId String @map("payment_order_id") @db.Uuid
+  amountPaise BigInt @map("amount_paise")
+  reasonCodeNodeId String @map("reason_code_node_id") @db.Uuid
+  policyRule String? @map("policy_rule") @db.VarChar(10)
+  initiatedByParty PartyType @map("initiated_by_party")
+  initiatedByUserId String? @map("initiated_by_user_id") @db.Uuid
+  approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+  status RefundStatus @default(REQUESTED)
+  gatewayRefundRef String? @map("gateway_refund_ref") @db.VarChar(100)
+  creditNoteId String? @map("credit_note_id") @db.Uuid
+  disputeId String? @map("dispute_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  paymentOrder PaymentOrder @relation("refund_payment_order_id", fields: [paymentOrderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reasonCodeNode MdNode @relation("refund_reason_code_node_id", fields: [reasonCodeNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  initiatedByUser AppUser? @relation("refund_initiated_by_user_id", fields: [initiatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  approvedByUser AppUser? @relation("refund_approved_by_user_id", fields: [approvedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  creditNote FinancialDocument? @relation("refund_credit_note_id", fields: [creditNoteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  dispute Dispute? @relation("refund_dispute_id", fields: [disputeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("refund_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("refund_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  ledgerJournals LedgerJournal[] @relation("ledger_journal_refund_id")
+
+  @@index([bookingId])
+  @@index([paymentOrderId])
+  @@index([status])
+  @@map("refund")
+}
+
+model Payout {
+  id String @id @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  bankAccountId String @map("bank_account_id") @db.Uuid
+  amountPaise BigInt @map("amount_paise")
+  status PayoutStatus @default(PENDING)
+  mechanism PayoutMechanism @default(TBD)
+  eligibleAt DateTime? @map("eligible_at") @db.Timestamptz(6)
+  releasedByUserId String? @map("released_by_user_id") @db.Uuid
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(6)
+  externalRef String? @map("external_ref") @db.VarChar(100)
+  failureReason String? @map("failure_reason")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  labOrg Organisation @relation("payout_lab_org_id", fields: [labOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  releasedByUser AppUser? @relation("payout_released_by_user_id", fields: [releasedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("payout_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  bankAccount BankAccount @relation("payout_bank_account_id_lab_org_id", fields: [bankAccountId, labOrgId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+  payoutItems PayoutItem[] @relation("payout_item_payout_id")
+  ledgerJournals LedgerJournal[] @relation("ledger_journal_payout_id")
+
+  @@index([labOrgId, status])
+  @@index([status, eligibleAt])
+  @@map("payout")
+}
+
+model PayoutItem {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  payoutId String @map("payout_id") @db.Uuid
+  amountPaise BigInt @map("amount_paise")
+  voidedAt DateTime? @map("voided_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  payout Payout @relation("payout_item_payout_id", fields: [payoutId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("payout_item_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("payout_item_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([bookingId], map: "uq_payout_item_booking_live", where: { voidedAt: null })
+  @@index([payoutId])
+  @@map("payout_item")
+}
+
+model PayoutHold {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  reasonType PayoutHoldReason @map("reason_type")
+  disputeId String? @map("dispute_id") @db.Uuid
+  placedByUserId String? @map("placed_by_user_id") @db.Uuid
+  placedAt DateTime @default(now()) @map("placed_at") @db.Timestamptz(6)
+  releasedByUserId String? @map("released_by_user_id") @db.Uuid
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(6)
+  notes String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  dispute Dispute? @relation("payout_hold_dispute_id", fields: [disputeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  placedByUser AppUser? @relation("payout_hold_placed_by_user_id", fields: [placedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  releasedByUser AppUser? @relation("payout_hold_released_by_user_id", fields: [releasedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("payout_hold_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("payout_hold_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([bookingId], map: "ix_payout_hold_open", where: { releasedAt: null })
+  @@map("payout_hold")
+}
+
+model LedgerAccount {
+  id String @id @db.Uuid
+  code String @db.VarChar(40)
+  partyOrgId String? @map("party_org_id") @db.Uuid
+  normalBalance LedgerNormalBalance @map("normal_balance")
+  status MdStatus @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  partyOrg Organisation? @relation("ledger_account_party_org_id", fields: [partyOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("ledger_account_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  ledgerEntries LedgerEntry[] @relation("ledger_entry_account_id")
+
+  @@unique([code, partyOrgId], map: "uq_ledger_account_code_party")
+  @@map("ledger_account")
+}
+
+model LedgerJournal {
+  id String @id @db.Uuid
+  bookingId String? @map("booking_id") @db.Uuid
+  customerOrgId String? @map("customer_org_id") @db.Uuid
+  labOrgId String? @map("lab_org_id") @db.Uuid
+  journalType LedgerJournalType @map("journal_type")
+  paymentTransactionId String? @map("payment_transaction_id") @db.Uuid
+  refundId String? @map("refund_id") @db.Uuid
+  payoutId String? @map("payout_id") @db.Uuid
+  description String
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(6)
+  postedByUserId String? @map("posted_by_user_id") @db.Uuid
+  reversesJournalId String? @map("reverses_journal_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  paymentTransaction PaymentTransaction? @relation("ledger_journal_payment_transaction_id", fields: [paymentTransactionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  refund Refund? @relation("ledger_journal_refund_id", fields: [refundId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  payout Payout? @relation("ledger_journal_payout_id", fields: [payoutId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  postedByUser AppUser? @relation("ledger_journal_posted_by_user_id", fields: [postedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reversesJournal LedgerJournal? @relation("ledger_journal_reverses_journal_id", fields: [reversesJournalId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("ledger_journal_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking? @relation("ledger_journal_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  ledgerJournals LedgerJournal[] @relation("ledger_journal_reverses_journal_id")
+  ledgerEntries LedgerEntry[] @relation("ledger_entry_journal_id")
+
+  @@index([bookingId])
+  @@index([paymentTransactionId])
+  @@index([refundId])
+  @@index([payoutId])
+  @@map("ledger_journal")
+}
+
+model LedgerEntry {
+  id String @id @db.Uuid
+  journalId String @map("journal_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  debitPaise BigInt @default(0) @map("debit_paise")
+  creditPaise BigInt @default(0) @map("credit_paise")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  journal LedgerJournal @relation("ledger_entry_journal_id", fields: [journalId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  account LedgerAccount @relation("ledger_entry_account_id", fields: [accountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("ledger_entry_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([accountId, journalId])
+  @@index([journalId])
+  @@map("ledger_entry")
+}
+
+model DocumentSeries {
+  id String @id @db.Uuid
+  issuerOrgId String @map("issuer_org_id") @db.Uuid
+  docType FinDocType @map("doc_type")
+  financialYear String @map("financial_year") @db.Char(7)
+  prefix String @db.VarChar(16)
+  nextNumber Int @default(1) @map("next_number")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  issuerOrg Organisation @relation("document_series_issuer_org_id", fields: [issuerOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("document_series_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  financialDocuments FinancialDocument[] @relation("financial_document_document_series_id")
+
+  @@unique([issuerOrgId, docType, financialYear])
+  @@map("document_series")
+}
+
+model FinancialDocument {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  docType FinDocType @map("doc_type")
+  documentSeriesId String @map("document_series_id") @db.Uuid
+  docNo String @map("doc_no") @db.VarChar(30)
+  issuerOrgId String @map("issuer_org_id") @db.Uuid
+  issuerGstin String? @map("issuer_gstin") @db.VarChar(15)
+  recipientOrgId String @map("recipient_org_id") @db.Uuid
+  recipientGstin String? @map("recipient_gstin") @db.VarChar(15)
+  relatedDocumentId String? @map("related_document_id") @db.Uuid
+  taxablePaise BigInt @map("taxable_paise")
+  cgstPaise BigInt @default(0) @map("cgst_paise")
+  sgstPaise BigInt @default(0) @map("sgst_paise")
+  igstPaise BigInt @default(0) @map("igst_paise")
+  totalPaise BigInt @map("total_paise")
+  placeOfSupplyState String? @map("place_of_supply_state") @db.VarChar(4)
+  sacCode String? @map("sac_code") @db.VarChar(8)
+  lineSnapshot Json @map("line_snapshot")
+  fileId String? @map("file_id") @db.Uuid
+  issuedAt DateTime @map("issued_at") @db.Timestamptz(6)
+  eInvoiceIrn String? @map("e_invoice_irn") @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  documentSeries DocumentSeries @relation("financial_document_document_series_id", fields: [documentSeriesId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  issuerOrg Organisation @relation("financial_document_issuer_org_id", fields: [issuerOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  recipientOrg Organisation @relation("financial_document_recipient_org_id", fields: [recipientOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  relatedDocument FinancialDocument? @relation("financial_document_related_document_id", fields: [relatedDocumentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  file FileObject? @relation("financial_document_file_id", fields: [fileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("financial_document_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("financial_document_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  refunds Refund[] @relation("refund_credit_note_id")
+  financialDocuments FinancialDocument[] @relation("financial_document_related_document_id")
+
+  @@unique([documentSeriesId, docNo])
+  @@index([bookingId])
+  @@map("financial_document")
+}
+
+model FeeRule {
+  id String @id @db.Uuid
+  feeType FeeType @map("fee_type")
+  scopeType ConfigScope @map("scope_type")
+  scopeId String? @map("scope_id") @db.Uuid
+  calc FeeCalc
+  value BigInt
+  labShareBp Int @default(0) @map("lab_share_bp")
+  effectiveFrom DateTime @map("effective_from") @db.Timestamptz(6)
+  effectiveTo DateTime? @map("effective_to") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  createdByUser AppUser? @relation("fee_rule_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("fee_rule")
+}
+
+model SettlementReportLine {
+  id String @id @db.Uuid
+  gateway GatewayCode
+  settlementDate DateTime @map("settlement_date") @db.Date
+  gatewayTxnRef String @map("gateway_txn_ref") @db.VarChar(100)
+  grossPaise BigInt @map("gross_paise")
+  feePaise BigInt @map("fee_paise")
+  taxPaise BigInt @map("tax_paise")
+  netPaise BigInt @map("net_paise")
+  utr String? @db.VarChar(40)
+  importJobId String? @map("import_job_id") @db.Uuid
+  matchStatus SettlementMatchStatus @default(UNMATCHED) @map("match_status")
+  matchedTransactionId String? @map("matched_transaction_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  importJob ImportJob? @relation("settlement_report_line_import_job_id", fields: [importJobId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  matchedTransaction PaymentTransaction? @relation("settlement_report_line_matched_transaction_id", fields: [matchedTransactionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("settlement_report_line_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([gatewayTxnRef])
+  @@index([matchStatus])
+  @@map("settlement_report_line")
+}

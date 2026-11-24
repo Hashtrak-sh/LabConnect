@@ -1,0 +1,67 @@
+// 12. Notifications
+
+model NotificationTemplate {
+  id String @id @db.Uuid
+  eventCode String @map("event_code") @db.VarChar(100)
+  channel NotifChannel
+  locale String @db.VarChar(10)
+  version Int
+  subject String?
+  body String
+  externalTemplateId String? @map("external_template_id") @db.VarChar(100)
+  status MdStatus @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  createdByUser AppUser? @relation("notification_template_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([eventCode, channel, locale, version])
+  @@map("notification_template")
+}
+
+model Notification {
+  id String @id @db.Uuid
+  recipientUserId String @map("recipient_user_id") @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  eventCode String @map("event_code") @db.VarChar(100)
+  eventId String @map("event_id") @db.Uuid
+  channel NotifChannel
+  templateVersion Int @map("template_version")
+  payload Json
+  isActionRequired Boolean @default(false) @map("is_action_required")
+  status NotifStatus @default(QUEUED)
+  providerMessageId String? @map("provider_message_id") @db.VarChar(200)
+  sentAt DateTime? @map("sent_at") @db.Timestamptz(6)
+  readAt DateTime? @map("read_at") @db.Timestamptz(6)
+  error String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  recipientUser AppUser @relation("notification_recipient_user_id", fields: [recipientUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  organisation Organisation @relation("notification_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("notification_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([eventId, recipientUserId, channel])
+  @@index([recipientUserId, channel, readAt])
+  @@map("notification")
+}
+
+model NotificationPreference {
+  id String @id @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  eventCode String @map("event_code") @db.VarChar(100)
+  channel NotifChannel
+  muted Boolean @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  user AppUser @relation("notification_preference_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("notification_preference_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([userId, eventCode, channel])
+  @@map("notification_preference")
+}

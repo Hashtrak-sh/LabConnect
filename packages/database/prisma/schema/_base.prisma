@@ -1,0 +1,12 @@
+// LabConnect database schema. See docs/03-database/SCHEMA_SPECIFICATION.md.
+// What Prisma cannot express (CHECKs, exclusion constraints, NULLS NOT DISTINCT,
+// triggers, grants, RLS, partitioning) lives in the SQL migrations.
+generator client {
+  provider        = "prisma-client"
+  output          = "../../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}

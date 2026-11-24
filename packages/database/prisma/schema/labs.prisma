@@ -1,0 +1,489 @@
+// 5. Labs
+
+model LabSite {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  siteCode String @map("site_code") @db.VarChar(30)
+  name String
+  address Json
+  pincode String @db.Char(6)
+  stateCode String @map("state_code") @db.VarChar(4)
+  geoPoint Unsupported("geography(Point,4326)")? @map("geo_point")
+  geocodeConfidence Decimal? @map("geocode_confidence") @db.Decimal(4, 3)
+  geocodeStatus GeocodeStatus @default(PENDING) @map("geocode_status")
+  submissionInstructions String? @map("submission_instructions")
+  maxOpenJobs Int? @map("max_open_jobs")
+  listingStatus ListingStatus @default(LISTED) @map("listing_status")
+  isBookable Boolean @default(false) @map("is_bookable")
+  bookabilityReasons String[] @default([]) @map("bookability_reasons")
+  ratingAvg Decimal? @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount Int @default(0) @map("rating_count")
+  responsivenessScore Decimal? @map("responsiveness_score") @db.Decimal(5, 2)
+  status MdStatus @default(ACTIVE)
+  currentVersionNo Int @default(1) @map("current_version_no")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  organisation Organisation @relation("lab_site_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("lab_site_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  membershipSites MembershipSite[] @relation("membership_site_lab_site_id")
+  invitationSites InvitationSite[] @relation("invitation_site_lab_site_id")
+  importJobs ImportJob[] @relation("import_job_lab_site_id")
+  labSiteVersions LabSiteVersion[] @relation("lab_site_version_lab_site_id")
+  accreditations Accreditation[] @relation("accreditation_lab_site_id_organisation_id")
+  scopeLines ScopeLine[] @relation("scope_line_lab_site_id_organisation_id")
+  labClaimRequests LabClaimRequest[] @relation("lab_claim_request_lab_site_id")
+  bankAccounts BankAccount[] @relation("bank_account_lab_site_id")
+  receivingHourses ReceivingHours[] @relation("receiving_hours_lab_site_id_organisation_id")
+  siteClosures SiteClosure[] @relation("site_closure_lab_site_id_organisation_id")
+  retentionRules RetentionRule[] @relation("retention_rule_lab_site_id_organisation_id")
+  priceLists PriceList[] @relation("price_list_lab_site_id_organisation_id")
+  slotTemplates SlotTemplate[] @relation("slot_template_lab_site_id_organisation_id")
+  slots Slot[] @relation("slot_lab_site_id_organisation_id")
+  labSitePrivates LabSitePrivate[] @relation("lab_site_private_lab_site_id_organisation_id")
+  labPenalties LabPenalty[] @relation("lab_penalty_lab_site_id")
+  leadRequests LeadRequest[] @relation("lead_request_lab_site_id")
+  bookings Booking[] @relation("booking_lab_site_id_lab_org_id")
+  custodyEvents CustodyEvent[] @relation("custody_event_lab_site_id")
+  reports Report[] @relation("report_lab_site_id")
+
+  @@unique([siteCode])
+  @@unique([id, organisationId])
+  @@index([isBookable, listingStatus])
+  @@index([organisationId])
+  @@index([pincode])
+  @@index([geoPoint], type: Gist)
+  @@map("lab_site")
+}
+
+model LabSiteVersion {
+  id String @id @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  versionNo Int @map("version_no")
+  snapshot Json
+  changeSetId String @map("change_set_id") @db.Uuid
+  publishedAt DateTime @map("published_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  labSite LabSite @relation("lab_site_version_lab_site_id", fields: [labSiteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  changeSet MdChangeSet @relation("lab_site_version_change_set_id", fields: [changeSetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("lab_site_version_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([labSiteId, versionNo])
+  @@map("lab_site_version")
+}
+
+model Accreditation {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  accreditationBodyId String @map("accreditation_body_id") @db.Uuid
+  standardId String @map("standard_id") @db.Uuid
+  labCategory LabCategory @map("lab_category")
+  certificateNo String @map("certificate_no") @db.VarChar(50)
+  validFrom DateTime @map("valid_from") @db.Date
+  validTo DateTime @map("valid_to") @db.Date
+  status AccreditationStatus
+  statusAsOf DateTime @map("status_as_of") @db.Date
+  sourceRef String? @map("source_ref")
+  currentVersionNo Int @default(1) @map("current_version_no")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  accreditationBody AccreditationBody @relation("accreditation_accreditation_body_id", fields: [accreditationBodyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  standard AccreditationStandard @relation("accreditation_standard_id", fields: [standardId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("accreditation_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("accreditation_lab_site_id_organisation_id", fields: [labSiteId, organisationId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+  accreditationVersions AccreditationVersion[] @relation("accreditation_version_accreditation_id")
+  scopeLines ScopeLine[] @relation("scope_line_accreditation_id_lab_site_id")
+
+  @@unique([accreditationBodyId, certificateNo])
+  @@unique([id, labSiteId])
+  @@index([labSiteId, status])
+  @@index([validTo])
+  @@map("accreditation")
+}
+
+model AccreditationVersion {
+  id String @id @db.Uuid
+  accreditationId String @map("accreditation_id") @db.Uuid
+  versionNo Int @map("version_no")
+  snapshot Json
+  changeSetId String @map("change_set_id") @db.Uuid
+  publishedAt DateTime @map("published_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  accreditation Accreditation @relation("accreditation_version_accreditation_id", fields: [accreditationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  changeSet MdChangeSet @relation("accreditation_version_change_set_id", fields: [changeSetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("accreditation_version_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([accreditationId, versionNo])
+  @@map("accreditation_version")
+}
+
+model ScopeLine {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  accreditationId String @map("accreditation_id") @db.Uuid
+  disciplineNodeId String @map("discipline_node_id") @db.Uuid
+  groupNodeId String? @map("group_node_id") @db.Uuid
+  productNodeId String? @map("product_node_id") @db.Uuid
+  parameterNodeId String @map("parameter_node_id") @db.Uuid
+  methodNodeId String? @map("method_node_id") @db.Uuid
+  methodText String? @map("method_text")
+  rangeText String? @map("range_text")
+  rangeMin Decimal? @map("range_min") @db.Decimal(24, 8)
+  rangeMax Decimal? @map("range_max") @db.Decimal(24, 8)
+  rangeUnitNodeId String? @map("range_unit_node_id") @db.Uuid
+  siteType ScopeSiteType @map("site_type")
+  status MdStatus @default(ACTIVE)
+  temporarilyUnavailable Boolean @default(false) @map("temporarily_unavailable")
+  effectiveFrom DateTime? @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  sourceRef String? @map("source_ref")
+  naturalKeyHash Bytes @map("natural_key_hash")
+  currentVersionNo Int @default(1) @map("current_version_no")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  disciplineNode MdNode @relation("scope_line_discipline_node_id", fields: [disciplineNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  groupNode MdNode? @relation("scope_line_group_node_id", fields: [groupNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  productNode MdNode? @relation("scope_line_product_node_id", fields: [productNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  parameterNode MdNode @relation("scope_line_parameter_node_id", fields: [parameterNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  methodNode MdNode? @relation("scope_line_method_node_id", fields: [methodNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  rangeUnitNode MdNode? @relation("scope_line_range_unit_node_id", fields: [rangeUnitNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("scope_line_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("scope_line_lab_site_id_organisation_id", fields: [labSiteId, organisationId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+  accreditation Accreditation @relation("scope_line_accreditation_id_lab_site_id", fields: [accreditationId, labSiteId], references: [id, labSiteId], onDelete: Restrict, onUpdate: Restrict)
+  scopeLineVersions ScopeLineVersion[] @relation("scope_line_version_scope_line_id")
+  priceItems PriceItem[] @relation("price_item_scope_line_id")
+  bookingLines BookingLine[] @relation("booking_line_scope_line_id")
+
+  @@unique([labSiteId, naturalKeyHash], map: "uq_scope_line_natural_key_active", where: { status: "ACTIVE" })
+  @@unique([id, labSiteId])
+  @@index([labSiteId, status])
+  @@index([parameterNodeId, status])
+  @@index([productNodeId])
+  @@index([disciplineNodeId])
+  @@index([methodNodeId])
+  @@map("scope_line")
+}
+
+model ScopeLineVersion {
+  id String @id @db.Uuid
+  scopeLineId String @map("scope_line_id") @db.Uuid
+  versionNo Int @map("version_no")
+  snapshot Json
+  changeSetId String @map("change_set_id") @db.Uuid
+  publishedAt DateTime @map("published_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  scopeLine ScopeLine @relation("scope_line_version_scope_line_id", fields: [scopeLineId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  changeSet MdChangeSet @relation("scope_line_version_change_set_id", fields: [changeSetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("scope_line_version_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  bookingLines BookingLine[] @relation("booking_line_scope_line_version_id_scope_line_id")
+
+  @@unique([scopeLineId, versionNo])
+  @@unique([id, scopeLineId])
+  @@map("scope_line_version")
+}
+
+model LabClaimRequest {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  requestedByUserId String @map("requested_by_user_id") @db.Uuid
+  method ClaimMethod
+  status ClaimRequestStatus
+  authorisationFileId String? @map("authorisation_file_id") @db.Uuid
+  reviewedByUserId String? @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  decisionNotes String? @map("decision_notes")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  organisation Organisation @relation("lab_claim_request_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("lab_claim_request_lab_site_id", fields: [labSiteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  requestedByUser AppUser @relation("lab_claim_request_requested_by_user_id", fields: [requestedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  authorisationFile FileObject? @relation("lab_claim_request_authorisation_file_id", fields: [authorisationFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reviewedByUser AppUser? @relation("lab_claim_request_reviewed_by_user_id", fields: [reviewedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("lab_claim_request_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organisationId], map: "uq_lab_claim_request_pending", where: raw("(status = ANY (ARRAY['PENDING_OTP'::claim_request_status, 'PENDING_REVIEW'::claim_request_status]))"))
+  @@index([organisationId, status])
+  @@map("lab_claim_request")
+}
+
+model KycDocument {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  documentTypeNodeId String @map("document_type_node_id") @db.Uuid
+  fileId String @map("file_id") @db.Uuid
+  status VerificationStatus @default(SUBMITTED)
+  reviewedByUserId String? @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  notes String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  organisation Organisation @relation("kyc_document_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  documentTypeNode MdNode @relation("kyc_document_document_type_node_id", fields: [documentTypeNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  file FileObject @relation("kyc_document_file_id", fields: [fileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reviewedByUser AppUser? @relation("kyc_document_reviewed_by_user_id", fields: [reviewedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("kyc_document_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([organisationId])
+  @@map("kyc_document")
+}
+
+model BankAccount {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  labSiteId String? @map("lab_site_id") @db.Uuid
+  accountHolderName String @map("account_holder_name")
+  accountNumberCiphertext Bytes @map("account_number_ciphertext")
+  accountNumberLast4 String @map("account_number_last4") @db.VarChar(4)
+  ifsc String @db.Char(11)
+  status VerificationStatus @default(SUBMITTED)
+  verifiedByUserId String? @map("verified_by_user_id") @db.Uuid
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(6)
+  isPrimary Boolean @default(false) @map("is_primary")
+  retiredAt DateTime? @map("retired_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  organisation Organisation @relation("bank_account_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite? @relation("bank_account_lab_site_id", fields: [labSiteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  verifiedByUser AppUser? @relation("bank_account_verified_by_user_id", fields: [verifiedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("bank_account_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  payouts Payout[] @relation("payout_bank_account_id_lab_org_id")
+
+  @@unique([id, organisationId])
+  @@unique([organisationId, labSiteId], map: "uq_bank_account_primary", where: { isPrimary: true, retiredAt: null })
+  @@map("bank_account")
+}
+
+model ReceivingHours {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  weekday Int @db.SmallInt
+  opensAt DateTime @map("opens_at") @db.Time(6)
+  closesAt DateTime @map("closes_at") @db.Time(6)
+  cutoffAt DateTime? @map("cutoff_at") @db.Time(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  createdByUser AppUser? @relation("receiving_hours_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("receiving_hours_lab_site_id_organisation_id", fields: [labSiteId, organisationId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([labSiteId, weekday])
+  @@map("receiving_hours")
+}
+
+model SiteClosure {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  startsOn DateTime @map("starts_on") @db.Date
+  endsOn DateTime @map("ends_on") @db.Date
+  reason String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  createdByUser AppUser? @relation("site_closure_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("site_closure_lab_site_id_organisation_id", fields: [labSiteId, organisationId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([labSiteId, startsOn])
+  @@map("site_closure")
+}
+
+model RetentionRule {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  disciplineNodeId String? @map("discipline_node_id") @db.Uuid
+  retentionDays Int @map("retention_days")
+  maxSamplingToReceiptHours Int? @map("max_sampling_to_receipt_hours")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  disciplineNode MdNode? @relation("retention_rule_discipline_node_id", fields: [disciplineNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("retention_rule_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("retention_rule_lab_site_id_organisation_id", fields: [labSiteId, organisationId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([labSiteId, disciplineNodeId], map: "uq_retention_rule_site_discipline")
+  @@map("retention_rule")
+}
+
+model PriceList {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  versionNo Int @map("version_no")
+  status PriceListStatus @default(DRAFT)
+  effectiveFrom DateTime? @map("effective_from") @db.Timestamptz(6)
+  effectiveTo DateTime? @map("effective_to") @db.Timestamptz(6)
+  publishedByUserId String? @map("published_by_user_id") @db.Uuid
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(6)
+  importJobId String? @map("import_job_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  publishedByUser AppUser? @relation("price_list_published_by_user_id", fields: [publishedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  importJob ImportJob? @relation("price_list_import_job_id", fields: [importJobId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("price_list_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("price_list_lab_site_id_organisation_id", fields: [labSiteId, organisationId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+  importJobs ImportJob[] @relation("import_job_price_list_id")
+  priceItems PriceItem[] @relation("price_item_price_list_id_organisation_id")
+  bookings Booking[] @relation("booking_price_list_id_lab_site_id")
+
+  @@unique([labSiteId, versionNo])
+  @@unique([labSiteId], map: "uq_price_list_published", where: { status: "PUBLISHED" })
+  @@unique([id, labSiteId])
+  @@unique([id, organisationId])
+  @@map("price_list")
+}
+
+model PriceItem {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  priceListId String @map("price_list_id") @db.Uuid
+  scopeLineId String @map("scope_line_id") @db.Uuid
+  pricePaise BigInt @map("price_paise")
+  samplePrepPaise BigInt @default(0) @map("sample_prep_paise")
+  gstRateBp Int @default(1800) @map("gst_rate_bp")
+  sampleQty Decimal @map("sample_qty") @db.Decimal(12, 3)
+  sampleUnitNodeId String @map("sample_unit_node_id") @db.Uuid
+  packagingInstructions String? @map("packaging_instructions")
+  tatDays Int @map("tat_days")
+  isAvailable Boolean @default(true) @map("is_available")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  scopeLine ScopeLine @relation("price_item_scope_line_id", fields: [scopeLineId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sampleUnitNode MdNode @relation("price_item_sample_unit_node_id", fields: [sampleUnitNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("price_item_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  priceList PriceList @relation("price_item_price_list_id_organisation_id", fields: [priceListId, organisationId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+  bookingLines BookingLine[] @relation("booking_line_price_item_id")
+
+  @@unique([priceListId, scopeLineId])
+  @@index([scopeLineId])
+  @@map("price_item")
+}
+
+model SlotTemplate {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  disciplineNodeId String? @map("discipline_node_id") @db.Uuid
+  weekday Int @db.SmallInt
+  startTime DateTime @map("start_time") @db.Time(6)
+  endTime DateTime @map("end_time") @db.Time(6)
+  capacity Int
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  disciplineNode MdNode? @relation("slot_template_discipline_node_id", fields: [disciplineNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("slot_template_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("slot_template_lab_site_id_organisation_id", fields: [labSiteId, organisationId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([labSiteId, weekday])
+  @@map("slot_template")
+}
+
+model Slot {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  disciplineNodeId String? @map("discipline_node_id") @db.Uuid
+  slotDate DateTime @map("slot_date") @db.Date
+  startsAt DateTime @map("starts_at") @db.Timestamptz(6)
+  endsAt DateTime @map("ends_at") @db.Timestamptz(6)
+  capacity Int
+  heldCount Int @default(0) @map("held_count")
+  bookedCount Int @default(0) @map("booked_count")
+  status SlotStatus @default(OPEN)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  disciplineNode MdNode? @relation("slot_discipline_node_id", fields: [disciplineNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("slot_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("slot_lab_site_id_organisation_id", fields: [labSiteId, organisationId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+  bookings Booking[] @relation("booking_slot_id_lab_site_id")
+  counterOffers CounterOffer[] @relation("counter_offer_proposed_slot_id")
+  slotHolds SlotHold[] @relation("slot_hold_slot_id")
+
+  @@unique([labSiteId, disciplineNodeId, startsAt], map: "uq_slot_site_discipline_start")
+  @@unique([id, labSiteId])
+  @@index([labSiteId, slotDate, status])
+  @@map("slot")
+}
+
+model LabSitePrivate {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  contactEmail String? @map("contact_email") @db.Citext
+  contactPhone String? @map("contact_phone") @db.VarChar(20)
+  publicContact Json? @map("public_contact")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  createdByUser AppUser? @relation("lab_site_private_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("lab_site_private_lab_site_id_organisation_id", fields: [labSiteId, organisationId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([labSiteId])
+  @@map("lab_site_private")
+}
+
+model LabPenalty {
+  id String @id @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  bookingId String? @map("booking_id") @db.Uuid
+  rule String @db.VarChar(10)
+  reason String
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(6)
+  recordedByUserId String? @map("recorded_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  labOrg Organisation @relation("lab_penalty_lab_org_id", fields: [labOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("lab_penalty_lab_site_id", fields: [labSiteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking? @relation("lab_penalty_booking_id", fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  recordedByUser AppUser? @relation("lab_penalty_recorded_by_user_id", fields: [recordedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("lab_penalty_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([labOrgId, occurredAt])
+  @@map("lab_penalty")
+}
