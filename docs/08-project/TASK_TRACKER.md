@@ -14,7 +14,7 @@
 | P0-07 | GitHub Project board + issue templates in use | S (A) | P0-02 | ☐ |
 | P0-08 | Obtain the QCI Brand & Communication Guidelines PDF content into `09-design-handoff/BRAND_GUIDELINES.md` (OQ-19) | H | — | ☑ |
 
-P0-02 remaining items: required status checks on `main` and `production` (set once `ci.yml` from P0-06 is on `main`, since a check that has never run would block every PR) and GitHub OIDC → AWS roles (P3-11). Everything else in GIT_WORKFLOW §5 is applied; `dependabot.yml` comes with the skeleton PR.
+P0-02: everything in GIT_WORKFLOW §5 is applied except GitHub OIDC → AWS roles (P3-11). Required status checks on `main` and `production` were switched on on 2026-11-24 (lint, typecheck, unit, build, db, audit, codeql). During the single-developer period the owner set required approvals on `main` to 0; this goes back to 1 approval with code-owner review when A starts.
 
 P0-03 to P0-06 are implemented on `feature/P0-03-monorepo-skeleton` and marked done when that PR merges. P0-04 and P0-05 were done by H together with P0-03 at the owner's request.
 
