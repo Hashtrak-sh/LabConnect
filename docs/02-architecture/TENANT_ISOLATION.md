@@ -25,7 +25,7 @@
 8. File access is never granted from `file_object` alone. The API resolves the entity a file is attached to and checks access to that.
 
 ## 3. Defence in depth: PostgreSQL RLS (ADR-005)
-- Roles: the API connects as `app_rw`, the worker as `app_worker`. Neither has `BYPASSRLS`. Migrations run as `app_owner`, and every table with a policy has `FORCE ROW LEVEL SECURITY`, so the owner is subject to it as well.
+- Roles: the API connects as `app_rw`, the worker as `app_worker`. Neither has `BYPASSRLS`. Migrations run as `app_owner`, which owns the tables and is therefore **not** subject to the policies. `FORCE ROW LEVEL SECURITY` is deliberately not set: the validation triggers run as the owner (`SECURITY DEFINER`) and must see every row, for example to check a refund against all refunds of a payment order. The owner role is never used by the application.
 - Each request transaction sets `SET LOCAL app.org_id = '<uuid>'`, `app.org_type`, `app.user_id`, `app.is_platform`, using a Prisma client extension that wraps queries in an interactive transaction. Worker jobs set `app.is_system = 'true'` instead. "Platform staff" and "system job" are separate settings and separate branches in every policy.
 - Policies read settings through helper functions (`app_org_id()`, `app_is_platform()`, `app_is_system()`), which treat an unset **or empty** setting as "no access". On a pooled connection a setting that was used earlier returns an empty string, not NULL.
 - Every policy states `WITH CHECK` as well as `USING`.
@@ -41,6 +41,7 @@
     WITH CHECK ( /* same expression */ );
   ```
 - Public reference tables have no RLS (or a permissive SELECT policy). `price_list` and `price_item` are public only when the list is PUBLISHED or SUPERSEDED; drafts are visible to the owning lab. `md_change_set` is visible to the platform and to the lab named in `proposed_by_org_id`. `app_user` is visible to the user, to members of an organisation the user belongs to, and to the platform.
+- The policies exist from the first migration and are tested with raw SQL as `app_rw` and `app_worker`. What is **not** proven yet is the application side.
 - Phase 1 spike (task P1-08): confirm Prisma + `SET LOCAL` + connection pooling works under load. If not, fall back to application-level scoping plus a nightly isolation audit query, and record the result in ADR-005.
 
 ## 4. Testing

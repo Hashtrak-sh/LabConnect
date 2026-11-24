@@ -33,6 +33,8 @@
 | OQ-25 | Can a billing dispute be raised while the booking is in a state other than REPORT_RELEASED (BR-080)? If so, does the booking state change? (Review A-06) | Product owner | Disputes are raised only through T-22. One open dispute per booking. | I6 | Open |
 | OQ-26 | Can a booking exist without a slot (drop date only)? `booking.slot_id` is nullable and a counter-offer can carry a drop date, but BR-017 names only slot and quantity. (Review A-08) | H + A | The schema allows both. The API requires a slot. | G2 (booking contract) | Open |
 | OQ-27 | What happens to a payment captured after the booking reached EXPIRED_UNPAID? (Review A-11) | H + Finance | Treated like a duplicate capture: recorded and auto-refunded in full. | I4 | Open |
+| OQ-28 | Who creates the monthly `audit_log` partitions? It is DDL, and `app_worker` has none. Options: a scheduled task that runs as the owner role, or a narrowly scoped SECURITY DEFINER function the worker may call. | H | A default partition catches every row, so nothing fails. Partitions for the first months are added by migration. | Before production (H-07) | Open |
+| OQ-29 | How does one party see the name of the other party's user (for example the Checker named on a report)? RLS hides `app_user` rows of other organisations. Options: store the name in the snapshot at the time of the action, or a SECURITY DEFINER view limited to counterparties of a shared booking. | H + A | Names are copied into snapshots (`lab_snapshot`, audit rows). No cross-organisation read of `app_user`. | P1-08 spike, I5 | Open |
 
 ## 2. Risk register
 

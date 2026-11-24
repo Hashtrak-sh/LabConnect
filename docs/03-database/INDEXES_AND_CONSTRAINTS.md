@@ -1,6 +1,8 @@
 # Indexes, constraints and triggers
 
-**Status:** DRAFT for gate G1, revised after the P1-01 design review (`DESIGN_REVIEW_P1-01.md`). This is the **register**: every CHECK, unique key, exclusion constraint and trigger in the schema is listed here, and every row needs a migration test (see `06-engineering/TESTING_STRATEGY.md` §4). **Crit** = critical to money, custody, separation of duties or tenant isolation.
+**Status:** DRAFT for gate G1, revised after the P1-01 design review (`DESIGN_REVIEW_P1-01.md`). This is the **register**: every CHECK, unique key, exclusion constraint and trigger in the schema is listed here, and every row needs a migration test (see `06-engineering/TESTING_STRATEGY.md` §4). **Crit** = critical to money, custody, separation of duties or tenant isolation. The tests are in `packages/database/test/db/`; a test there fails if a registered constraint has none.
+
+Triggers raise their own SQLSTATE codes so that callers and tests can tell them apart: `LC001` append-only table, `LC002` illegal booking transition, `LC003` frozen row, `LC004` cross-row rule.
 
 Kinds: **CHECK**, **UNIQUE** (including partial), **FK** (composite foreign key that enforces a rule), **EXCL** (exclusion constraint), **TRG** (trigger), **GRANT**.
 
@@ -73,7 +75,7 @@ Kinds: **CHECK**, **UNIQUE** (including partial), **FK** (composite foreign key 
 | C-12 | `price_list` | Partial unique (`lab_site_id`) WHERE `status = 'PUBLISHED'` | UNIQUE | ✔ | One effective list |
 | C-13 | `price_list`, `price_item` | Trigger: no UPDATE or DELETE when published (except PUBLISHED → SUPERSEDED with `effective_to`) | TRG | ✔ | Price immutability |
 | C-58 | `price_item` | `price_paise ≥ 0`, `sample_prep_paise ≥ 0`, `gst_rate_bp` 0–2800, `tat_days > 0`, `sample_qty > 0`; trigger: the scope line is on the price list's site | CHECK + TRG | | Sane prices |
-| C-14 | `scope_line` | Trigger: `accreditation.lab_site_id = scope_line.lab_site_id` | TRG | | Coherence |
+| C-14 | `scope_line` | FK (`accreditation_id`, `lab_site_id`) → `accreditation (id, lab_site_id)` | FK | | Coherence |
 | C-59 | `scope_line` | Partial unique (`lab_site_id`, `natural_key_hash`) WHERE `status = 'ACTIVE'` | UNIQUE | | De-duplication |
 | C-60 | `accreditation` | `valid_to >= valid_from`; unique (`accreditation_body_id`, `certificate_no`) | CHECK + UNIQUE | | Sane validity |
 | C-61 | `lab_site` | `(listing_status = 'BOOKABLE') = is_bookable` | CHECK | | The two derived flags agree |
@@ -185,5 +187,5 @@ Unique keys from the register above are not repeated here.
 `postgis`, `pg_trgm`, `ltree`, `citext`, `pgcrypto`, `btree_gist` (for the exclusion constraints in C-62 and C-70). Use the `pg_uuidv7` extension if it's available on RDS, otherwise generate IDs in the application (default).
 
 ## 4. Partitioning
-- `audit_log`: monthly range partitions, created ahead by the worker. The primary key is (`id`, `occurred_at`).
+- `audit_log`: monthly range partitions. The primary key is (`id`, `occurred_at`). A default partition exists, so an insert never fails for want of a partition. Creating monthly partitions is DDL and needs the owner role; how that job runs is OQ-28.
 - `custody_event`, `notification`, `verification_event`: plain tables in year 1, with monthly partitioning considered once they pass ~50M rows.

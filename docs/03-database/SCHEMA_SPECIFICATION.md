@@ -26,7 +26,8 @@ Other conventions:
 - **+ORG (E-02).** A lab-owned table keyed by site carries `organisation_id` with a composite foreign key (`lab_site_id`, `organisation_id`) to `lab_site`, which is `UNIQUE (id, organisation_id)`.
 - **Same-booking references (C-06).** Where two children of one booking reference each other, the foreign key includes `booking_id`, so the database guarantees both belong to the same booking.
 - A unique key that includes a nullable column is declared `NULLS NOT DISTINCT` in raw SQL, so the "null means default" row is unique too (C-01).
-- Database roles: `app_owner` (migrations), `app_rw` (API), `app_worker` (worker and SYSTEM jobs), `app_ro` (reporting). See `TENANT_ISOLATION.md` §3.
+- Database roles: `app_owner` (migrations), `app_rw` (API), `app_worker` (worker and SYSTEM jobs), `app_ro` (reporting, no grants yet). See `TENANT_ISOLATION.md` §3. The application roles have SELECT, INSERT and UPDATE on ordinary tables and no DELETE, with two exceptions: `booking_line` and `price_item` rows may be deleted while their parent is still editable (a REQUESTED booking, a DRAFT price list), which the triggers enforce.
+- Which standard columns and markers each table has is listed in §14.
 
 ---
 
@@ -86,7 +87,7 @@ Primary key (`id`, `occurred_at`), because the table is partitioned. No table re
 | `published_at` | `timestamptz` | yes | Set by the relay |
 | `attempts` | `int` | no | default 0 |
 | `last_error` | `text` | yes | |
-No `updated_at` trigger. `app_rw` may only INSERT. `app_worker` (the relay) may SELECT and may UPDATE only `published_at`, `attempts` and `last_error` (E-06).
+No `updated_at` trigger. `app_rw` may only INSERT, and must insert without `RETURNING` because it has no SELECT privilege (with Prisma: `createMany`, not `create`). `app_worker` (the relay) may SELECT and may UPDATE only `published_at`, `attempts` and `last_error` (E-06).
 
 ### 1.5 `processed_event` (AO)
 | Column | Type | Null | Notes |
@@ -330,7 +331,7 @@ Unique (`node_type_id`, `key`).
 | `name` | `text` | no | |
 | `aliases` | `text[]` | no | default `{}`. Feeds synonyms. |
 | `attributes` | `jsonb` | no | default `{}`. Validated against definitions. |
-| `path` | `ltree` | no | Materialised path of codes |
+| `path` | `ltree` | no | Materialised path of node ids (hyphens removed), filled by the trigger `trg_md_node_path`. Ids are used rather than codes because a code may contain characters an `ltree` label cannot. A node that has children cannot be moved. |
 | `status` | `md_status` | no | |
 | `effective_from` | `date` | yes | |
 | `effective_to` | `date` | yes | CHECK `effective_to > effective_from` |
@@ -459,7 +460,7 @@ Unique (`accreditation_body_id`, `certificate_no`). A nightly job sets `EXPIRED`
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `lab_site_id` | `uuid` | no | |
-| `accreditation_id` | `uuid` | no | Must belong to the same site (trigger) |
+| `accreditation_id` | `uuid` | no | Must belong to the same site: composite foreign key (`accreditation_id`, `lab_site_id`) |
 | `discipline_node_id` | `uuid` | no | `md_node` of type DISCIPLINE |
 | `group_node_id` | `uuid` | yes | GROUP |
 | `product_node_id` | `uuid` | yes | PRODUCT |
@@ -681,6 +682,7 @@ Unique (`booking_id`, `version_no`).
 The legal transitions, one row per (transition, from-state). Reference data written by migrations from `BOOKING_STATE_MACHINE.md` §3; a test asserts it equals `packages/shared/src/booking-state-machine.ts`. Read by `trg_booking_status_guard` (A-10). No STD columns.
 | Column | Type | Null | Notes |
 |---|---|---|---|
+| `seq` | `smallint` | no | PK. Row number, in document order. |
 | `transition_id` | `varchar(6)` | no | e.g. `T-14` |
 | `from_status` | `booking_status` | yes | Null for T-01 |
 | `to_status` | `booking_status` | no | |
@@ -901,7 +903,7 @@ Unique (`booking_id`, `attempt_no`). Unique (`gateway`, `gateway_order_ref`). Un
 | `place_of_supply_state` | `varchar(4)` | yes | |
 | `sac_code` | `varchar(8)` | yes | Testing services. Tax review. |
 | `line_snapshot` | `jsonb` | no | |
-| `file_id` | `uuid` | yes | Rendered PDF |
+| `file_id` | `uuid` | yes | Rendered PDF, if it exists when the document is issued. The row is append-only, so a PDF rendered later is attached through `file_link` instead. |
 | `issued_at` | `timestamptz` | no | |
 | `e_invoice_irn` | `varchar(64)` | yes | Future |
 A row exists only once the document is issued, and never changes. A document is cancelled by issuing a `CREDIT_NOTE` whose `related_document_id` points at it; there is no status column (B-04). CHECK `total_paise = taxable_paise + cgst_paise + sgst_paise + igst_paise`, and `igst_paise = 0 OR (cgst_paise = 0 AND sgst_paise = 0)` (C-05).
@@ -967,3 +969,113 @@ Unique (`dispute_no`). Unique (`id`, `customer_org_id`, `lab_org_id`). Partial u
 Value lists that were inline in earlier drafts are named enums too (B-06): `import_source_format` (§4.8), `import_match_result` and `import_row_action` (§4.10), `report_access_type` (§9.5), `payment_txn_type` and `payment_txn_status` (§10.2), `webhook_processing_status` (§10.3), `payout_hold_reason` (§10.7), `ledger_normal_balance` (§10.8), `ledger_journal_type` (§10.9), `fee_type` and `fee_calc` (§10.13), `settlement_match_status` (§10.14), `rating_direction` (§11.4), `message_visibility` (§11.2). `document_series.doc_type` uses `fin_doc_type`. `fee_rule.scope_type` uses `config_scope`. `fin_doc_status` is removed (B-04).
 
 Adding a value to an enum is a migration (`ALTER TYPE … ADD VALUE`) and a **shared change** that needs review by both developers.
+
+---
+
+## 14. Table matrix
+
+Generated from the Prisma schema, in schema order. **Std** lists the standard columns the table has (`created_by` = `created_by_user_id`). **AO** = append-only. **LV** = `lock_version`. **TK** = carries `customer_org_id` and `lab_org_id`, tied by composite foreign key to the table named. **ORG** = carries `organisation_id`, tied to `lab_site`.
+
+| Table | Module | Std | AO | LV | TK | ORG |
+|---|---|---|---|---|---|---|
+| `config_parameter` | platform | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `holiday_calendar` | platform | id, created_at, updated_at, created_by |  |  |  |  |
+| `audit_log` | platform | none | ✔ |  |  |  |
+| `outbox_event` | platform | id, created_at |  |  |  |  |
+| `processed_event` | platform | none | ✔ |  |  |  |
+| `timer` | platform | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `idempotency_record` | platform | id, created_at, updated_at, created_by |  |  |  |  |
+| `audit_log_chain` | platform | id, created_at | ✔ |  |  |  |
+| `organisation` | identity | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `app_user` | identity | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `membership` | identity | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `membership_role` | identity | id, created_at, updated_at, created_by |  |  |  |  |
+| `membership_site` | identity | id, created_at, updated_at, created_by |  |  |  |  |
+| `invitation` | identity | id, created_at, updated_at, created_by |  |  |  |  |
+| `otp_challenge` | identity | id, created_at, updated_at, created_by |  |  |  |  |
+| `mfa_factor` | identity | id, created_at, updated_at, created_by |  |  |  |  |
+| `mfa_recovery_code` | identity | id, created_at, updated_at, created_by |  |  |  |  |
+| `user_session` | identity | id, created_at, updated_at, created_by |  |  |  |  |
+| `invitation_site` | identity | id, created_at, updated_at, created_by |  |  |  |  |
+| `organisation_private` | identity | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `organisation_version` | identity | id, created_at, created_by | ✔ |  |  |  |
+| `file_object` | files | id, created_at, updated_at, created_by |  |  |  |  |
+| `file_link` | files | id, created_at, updated_at, created_by |  |  |  |  |
+| `md_taxonomy` | masterdata | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `md_node_type` | masterdata | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `md_attribute_definition` | masterdata | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `md_node` | masterdata | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `md_node_version` | masterdata | id, created_at, created_by | ✔ |  |  |  |
+| `md_change_set` | masterdata | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `md_change_item` | masterdata | id, created_at, updated_at, created_by |  |  |  |  |
+| `import_mapping_template` | masterdata | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `import_job` | masterdata | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `import_row` | masterdata | id, created_at, updated_at, created_by |  |  |  |  |
+| `accreditation_body` | masterdata | id, created_at, updated_at, created_by |  |  |  |  |
+| `accreditation_standard` | masterdata | id, created_at, updated_at, created_by |  |  |  |  |
+| `search_synonym` | masterdata | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `search_synonym_version` | masterdata | id, created_at, created_by | ✔ |  |  |  |
+| `lab_site` | labs | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `lab_site_version` | labs | id, created_at, created_by | ✔ |  |  |  |
+| `accreditation` | labs | id, created_at, updated_at, created_by |  | ✔ |  | ✔ |
+| `accreditation_version` | labs | id, created_at, created_by | ✔ |  |  |  |
+| `scope_line` | labs | id, created_at, updated_at, created_by |  | ✔ |  | ✔ |
+| `scope_line_version` | labs | id, created_at, created_by | ✔ |  |  |  |
+| `lab_claim_request` | labs | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `kyc_document` | labs | id, created_at, updated_at, created_by |  |  |  |  |
+| `bank_account` | labs | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `receiving_hours` | labs | id, created_at, updated_at, created_by |  |  |  | ✔ |
+| `site_closure` | labs | id, created_at, updated_at, created_by |  |  |  | ✔ |
+| `retention_rule` | labs | id, created_at, updated_at, created_by |  | ✔ |  | ✔ |
+| `price_list` | labs | id, created_at, updated_at, created_by |  | ✔ |  | ✔ |
+| `price_item` | labs | id, created_at, updated_at, created_by |  |  |  |  |
+| `slot_template` | labs | id, created_at, updated_at, created_by |  | ✔ |  | ✔ |
+| `slot` | labs | id, created_at, updated_at, created_by |  | ✔ |  | ✔ |
+| `lab_site_private` | labs | id, created_at, updated_at, created_by |  | ✔ |  | ✔ |
+| `lab_penalty` | labs | id, created_at, created_by | ✔ |  |  |  |
+| `customer_site` | customers | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `customer_settings` | customers | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `lead_request` | customers | id, created_at, updated_at, created_by |  |  |  |  |
+| `booking` | booking | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `booking_line` | booking | id, created_at, updated_at, created_by |  | ✔ | via `booking` |  |
+| `trf` | booking | id, created_at, created_by | ✔ |  | via `booking` |  |
+| `booking_status_history` | booking | id, created_at, created_by | ✔ |  | via `booking` |  |
+| `counter_offer` | booking | id, created_at, updated_at, created_by |  | ✔ | via `booking` |  |
+| `slot_hold` | booking | id, created_at, updated_at, created_by |  |  | via `booking` |  |
+| `booking_transition` | booking | none |  |  |  |  |
+| `qr_signing_key` | custody | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `package` | custody | id, created_at, updated_at, created_by |  | ✔ | via `booking` |  |
+| `custody_event` | custody | id, created_at, created_by | ✔ |  | via `booking` |  |
+| `receipt_record` | custody | id, created_at, updated_at, created_by |  | ✔ | via `booking` |  |
+| `receipt_package` | custody | id, created_at, updated_at, created_by |  |  | via `booking` |  |
+| `hold_case` | custody | id, created_at, updated_at, created_by |  | ✔ | via `booking` |  |
+| `label_print` | custody | id, created_at, created_by | ✔ |  | via `booking` |  |
+| `custody_event_photo` | custody | id, created_at, created_by | ✔ |  | via `custody_event` |  |
+| `report` | reports | id, created_at, updated_at, created_by |  | ✔ | via `booking` |  |
+| `report_version` | reports | id, created_at, updated_at, created_by |  | ✔ | via `booking` |  |
+| `report_parameter_result` | reports | id, created_at, updated_at, created_by |  |  | via `booking` |  |
+| `report_share_link` | reports | id, created_at, updated_at, created_by |  | ✔ | via `report_version` |  |
+| `report_access_log` | reports | id, created_at, created_by | ✔ |  | via `report_version` |  |
+| `verification_event` | reports | id, created_at | ✔ |  |  |  |
+| `break_glass_grant` | reports | id, created_at, updated_at, created_by |  | ✔ | via `report_version` |  |
+| `payment_order` | payments | id, created_at, updated_at, created_by |  | ✔ | via `booking` |  |
+| `payment_transaction` | payments | id, created_at, created_by | ✔ |  | via `payment_order` |  |
+| `gateway_webhook_event` | payments | id, created_at |  |  |  |  |
+| `refund` | payments | id, created_at, updated_at, created_by |  | ✔ | via `booking` |  |
+| `payout` | payments | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `payout_item` | payments | id, created_at, updated_at, created_by |  |  | via `booking` |  |
+| `payout_hold` | payments | id, created_at, updated_at, created_by |  | ✔ | via `booking` |  |
+| `ledger_account` | payments | id, created_at, updated_at, created_by |  |  |  |  |
+| `ledger_journal` | payments | id, created_at, created_by | ✔ |  | nullable |  |
+| `ledger_entry` | payments | id, created_at, created_by | ✔ |  |  |  |
+| `document_series` | payments | id, created_at, updated_at, created_by |  |  |  |  |
+| `financial_document` | payments | id, created_at, created_by | ✔ |  | via `booking` |  |
+| `fee_rule` | payments | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `settlement_report_line` | payments | id, created_at, updated_at, created_by |  |  |  |  |
+| `dispute` | disputes | id, created_at, updated_at, created_by |  | ✔ | via `booking` |  |
+| `dispute_message` | disputes | id, created_at, created_by | ✔ |  | via `dispute` |  |
+| `dispute_evidence` | disputes | id, created_at, created_by | ✔ |  | via `dispute` |  |
+| `rating` | disputes | id, created_at, updated_at, created_by |  |  | via `booking` |  |
+| `notification_template` | notifications | id, created_at, updated_at, created_by |  | ✔ |  |  |
+| `notification` | notifications | id, created_at, updated_at, created_by |  |  |  |  |
+| `notification_preference` | notifications | id, created_at, updated_at, created_by |  |  |  |  |
