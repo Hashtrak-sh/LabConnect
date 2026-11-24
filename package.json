@@ -1,0 +1,32 @@
+{
+  "name": "labconnect",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.23.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "prettier": "@labconnect/config/prettier",
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "depcruise": "depcruise apps packages --config .dependency-cruiser.cjs",
+    "dev": "turbo run dev",
+    "dev:setup": "node scripts/dev-setup.mjs",
+    "dev:up": "docker compose up -d --wait",
+    "dev:down": "docker compose down"
+  },
+  "devDependencies": {
+    "@labconnect/config": "workspace:*",
+    "dependency-cruiser": "^18.9.0",
+    "eslint": "catalog:",
+    "prettier": "^3.10.1",
+    "turbo": "^2.11.13",
+    "typescript": "catalog:"
+  }
+}

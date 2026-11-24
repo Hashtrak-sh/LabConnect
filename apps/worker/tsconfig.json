@@ -1,0 +1,7 @@
+{
+  "extends": "@labconnect/config/tsconfig/nest.json",
+  "compilerOptions": {
+    "outDir": "dist"
+  },
+  "include": ["src", "vitest.config.ts"]
+}
