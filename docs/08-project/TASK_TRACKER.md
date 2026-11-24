@@ -43,13 +43,13 @@ Single-developer period (from 2026-11-24): A is not working on the project for n
 ## Phase 2: API contracts (gate G2)
 | ID | Task | Owner | Depends | Status |
 |---|---|---|---|---|
-| P2-01 | OpenAPI skeleton, conventions, error schema, auth endpoints | S (H) | G1 | ◐ |
-| P2-02 | Public search, lab pages, slots, leads | A | P2-01 | ◐ |
+| P2-01 | OpenAPI skeleton, conventions, error schema, auth endpoints | S (H) | G1 | ☑ |
+| P2-02 | Public search, lab pages, slots, leads | A | P2-01 | ☑ |
 | P2-03 | Booking, counter, cancel, handover, hold decision | S (A) | P2-01 | ☐ |
 | P2-04 | Lab onboarding, catalogue, capacity, inbox, decisions | H | P2-01 | ☐ |
 | P2-05 | Custody, receipts, reports, verification, share | H | P2-01 | ☐ |
 | P2-06 | Payments (adapter-level), disputes, admin | S (H) | P2-01 | ☐ |
-| P2-07 | `packages/shared`: state machine table + doc-equality test, permissions map, error codes | S (H) | P2-01 | ◐ |
+| P2-07 | `packages/shared`: state machine table + doc-equality test, permissions map, error codes | S (H) | P2-01 | ☑ |
 | P2-08 | Contract test harness | S (A) | P2-01 | ☐ |
 | P2-09 | **G2 review and sign-off** | S | P2-02..08 | ☐ |
 
