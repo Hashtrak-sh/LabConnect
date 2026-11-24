@@ -168,7 +168,7 @@ receipt-photo-upload-url:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/custody.yaml#/ReceiptPhotoUploadUrlRequest'
+            $ref: '../components/schemas/files.yaml#/ReceiptPhotoUploadUrlRequest'
     responses:
       '201':
         description: The upload URL.
@@ -178,7 +178,7 @@ receipt-photo-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/custody.yaml#/ReceiptPhotoUploadUrl'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrl'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':

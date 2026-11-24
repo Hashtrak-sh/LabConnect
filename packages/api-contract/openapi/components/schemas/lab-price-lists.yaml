@@ -55,7 +55,7 @@ LabPriceList:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
       description: Changes only while the list is a DRAFT.
-      $ref: './lab.yaml#/LockVersion'
+      $ref: './common.yaml#/LockVersion'
 
 LabPriceListList:
   type: object
@@ -85,7 +85,7 @@ LabPriceItemList:
     data:
       type: array
       items:
-        $ref: './lab-sites.yaml#/PublicPriceItem'
+        $ref: './public-lab-sites.yaml#/PublicPriceItem'
     page:
       $ref: './common.yaml#/Page'
 
@@ -125,7 +125,7 @@ LabPriceItemInput:
       description: Sample quantity, up to three decimals.
     sampleUnitCode:
       description: Code of a node of the UNIT taxonomy.
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     packagingInstructions:
       type:
         - string
@@ -220,7 +220,7 @@ LabPriceListImport:
     createdAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      $ref: './lab.yaml#/LockVersion'
+      $ref: './common.yaml#/LockVersion'
 
 LabImportMessage:
   type: object

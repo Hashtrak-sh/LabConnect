@@ -44,13 +44,6 @@ BookingTransitionId:
     - T-27
     - T-28
 
-BookingNo:
-  type: string
-  pattern: ^LC-[0-9]{4}-[0-9]{7}$
-  description: Human-readable booking reference, `LC-YYMM-NNNNNNN`.
-  examples:
-    - LC-0000-0000001
-
 BookingLineRef:
   type: object
   description: A scope line of the booked site, chosen for testing.
@@ -254,20 +247,20 @@ BookingLineSnapshot:
   additionalProperties: false
   properties:
     discipline:
-      $ref: './lab-sites.yaml#/PublicCodeName'
+      $ref: './common.yaml#/CodeName'
     group:
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - $ref: './common.yaml#/CodeName'
         - type: 'null'
     product:
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - $ref: './common.yaml#/CodeName'
         - type: 'null'
     parameter:
-      $ref: './lab-sites.yaml#/PublicCodeName'
+      $ref: './common.yaml#/CodeName'
     method:
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - $ref: './common.yaml#/CodeName'
         - type: 'null'
     methodText:
       type:
@@ -284,7 +277,7 @@ BookingLineSnapshot:
       minimum: 0
       description: Sample quantity the lab needs, in `sampleUnit` (FR-BKG-03).
     sampleUnit:
-      $ref: './lab-sites.yaml#/PublicCodeName'
+      $ref: './common.yaml#/CodeName'
     packagingInstructions:
       type:
         - string
@@ -477,7 +470,7 @@ BookingDuplicateMatch:
     id:
       $ref: './common.yaml#/Uuid'
     bookingNo:
-      $ref: '#/BookingNo'
+      $ref: './common.yaml#/BookingNo'
     status:
       $ref: './enums.yaml#/BookingStatus'
     createdAt:
@@ -528,11 +521,11 @@ BookingLabSite:
     name:
       type: string
     address:
-      $ref: './lab-sites.yaml#/PublicAddress'
+      $ref: './public-lab-sites.yaml#/PublicAddress'
     location:
       description: '`null` while the site has no approved pin.'
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicLocation'
+        - $ref: './common.yaml#/GeoPoint'
         - type: 'null'
 
 BookingLabSnapshot:
@@ -549,9 +542,9 @@ BookingLabSnapshot:
     siteName:
       type: string
     address:
-      $ref: './lab-sites.yaml#/PublicAddress'
+      $ref: './public-lab-sites.yaml#/PublicAddress'
     accreditation:
-      $ref: './lab-sites.yaml#/PublicAccreditation'
+      $ref: './public-lab-sites.yaml#/PublicAccreditation'
 
 BookingLabContact:
   type: object
@@ -574,7 +567,7 @@ BookingLabContact:
         - 'null'
     email:
       oneOf:
-        - $ref: './auth.yaml#/Email'
+        - $ref: './common.yaml#/Email'
         - type: 'null'
 
 BookingAttachment:
@@ -596,80 +589,14 @@ BookingAttachment:
     fileName:
       type: string
     contentType:
-      $ref: '#/BookingAttachmentContentType'
+      $ref: './files.yaml#/BookingAttachmentContentType'
     sizeBytes:
       type: integer
+      format: int64
       minimum: 1
     scanStatus:
       $ref: './enums.yaml#/ScanStatus'
     uploadedAt:
-      $ref: './common.yaml#/Timestamp'
-
-BookingAttachmentContentType:
-  type: string
-  description: Allowed attachment types (BR-021, FILES_AND_REPORTS.md §1).
-  enum:
-    - application/pdf
-    - image/jpeg
-    - image/png
-    - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-    - application/vnd.openxmlformats-officedocument.wordprocessingml.document
-
-BookingUploadUrlRequest:
-  type: object
-  description: >-
-    Requests a pre-signed upload for one booking attachment (FILES_AND_REPORTS.md §1). The total
-    of the booking's attachments, this one included, may not exceed 25 MB (BR-021).
-  required:
-    - fileName
-    - contentType
-    - sizeBytes
-  additionalProperties: false
-  properties:
-    fileName:
-      type: string
-      minLength: 1
-      maxLength: 200
-      description: The original file name. It is sanitised before it is stored.
-    contentType:
-      $ref: '#/BookingAttachmentContentType'
-    sizeBytes:
-      type: integer
-      minimum: 1
-      maximum: 26214400
-  examples:
-    - fileName: example-drawing.pdf
-      contentType: application/pdf
-      sizeBytes: 120000
-
-BookingUploadUrl:
-  type: object
-  description: >-
-    A pre-signed `PUT` to the quarantine prefix, valid for 15 minutes. Send the file with exactly
-    the `headers` given. The file is scanned and validated after upload; it is attached to the
-    booking once it is `CLEAN`.
-  required:
-    - fileId
-    - uploadUrl
-    - method
-    - headers
-    - expiresAt
-  additionalProperties: false
-  properties:
-    fileId:
-      $ref: './common.yaml#/Uuid'
-    uploadUrl:
-      type: string
-      format: uri
-    method:
-      type: string
-      const: PUT
-    headers:
-      type: object
-      description: Headers the upload must carry, for example `Content-Type` and `Content-Length`.
-      additionalProperties:
-        type: string
-    expiresAt:
       $ref: './common.yaml#/Timestamp'
 
 BookingCounterLineQuantity:
@@ -688,7 +615,7 @@ BookingCounterLineQuantity:
       exclusiveMinimum: 0
     unitCode:
       description: A UNIT node code; the line's snapshot unit.
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
 
 BookingCounterCreate:
   type: object
@@ -742,7 +669,7 @@ BookingCounterOffer:
       $ref: './enums.yaml#/CounterStatus'
     proposedSlot:
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicSlot'
+        - $ref: './public-lab-sites.yaml#/PublicSlot'
         - type: 'null'
     perLineQuantity:
       type: array
@@ -783,7 +710,7 @@ BookingHoldCase:
       $ref: './enums.yaml#/HoldStatus'
     reason:
       description: A node of the HOLD_REASON taxonomy.
-      $ref: './lab-sites.yaml#/PublicCodeName'
+      $ref: './common.yaml#/CodeName'
     details:
       type:
         - string
@@ -813,7 +740,7 @@ BookingCancellation:
   properties:
     reason:
       description: A node of the CANCELLATION_REASON taxonomy.
-      $ref: './lab-sites.yaml#/PublicCodeName'
+      $ref: './common.yaml#/CodeName'
     byParty:
       $ref: './enums.yaml#/PartyType'
     notes:
@@ -830,7 +757,7 @@ BookingRejection:
   properties:
     reason:
       description: A node of the REJECTION_REASON taxonomy.
-      $ref: './lab-sites.yaml#/PublicCodeName'
+      $ref: './common.yaml#/CodeName'
     notes:
       type:
         - string
@@ -994,7 +921,7 @@ BookingCommon:
     id:
       $ref: './common.yaml#/Uuid'
     bookingNo:
-      $ref: '#/BookingNo'
+      $ref: './common.yaml#/BookingNo'
     status:
       $ref: './enums.yaml#/BookingStatus'
     statusChangedAt:
@@ -1015,7 +942,7 @@ BookingCommon:
     slot:
       description: The chosen drop-off slot.
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicSlot'
+        - $ref: './public-lab-sites.yaml#/PublicSlot'
         - type: 'null'
     preferredDropDate:
       $ref: './common.yaml#/Date'
@@ -1118,8 +1045,7 @@ BookingCommon:
     createdAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
       description: Also returned as the `ETag`; send it back in `If-Match`.
 
 BookingRequester:
@@ -1245,7 +1171,7 @@ BookingSummary:
     id:
       $ref: './common.yaml#/Uuid'
     bookingNo:
-      $ref: '#/BookingNo'
+      $ref: './common.yaml#/BookingNo'
     status:
       $ref: './enums.yaml#/BookingStatus'
     statusChangedAt:
@@ -1278,7 +1204,7 @@ BookingSummary:
           type: string
     slot:
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicSlot'
+        - $ref: './public-lab-sites.yaml#/PublicSlot'
         - type: 'null'
     preferredDropDate:
       $ref: './common.yaml#/Date'
@@ -1327,7 +1253,7 @@ BookingRejectRequest:
   properties:
     reasonCode:
       description: A node code of the REJECTION_REASON taxonomy.
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     notes:
       type: string
       minLength: 1
@@ -1341,7 +1267,7 @@ BookingCancelRequest:
   properties:
     reasonCode:
       description: A node code of the CANCELLATION_REASON taxonomy.
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     notes:
       type: string
       maxLength: 2000
@@ -1361,7 +1287,7 @@ BookingHoldDecisionRequest:
       description: >-
         Required for `CANCEL` and refused with any other decision (422 `VALIDATION_FAILED`). A
         node code of the CANCELLATION_REASON taxonomy.
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     notes:
       type: string
       maxLength: 2000
@@ -1391,16 +1317,6 @@ BookingExpectedReportDateUpdate:
       minLength: 1
       maxLength: 2000
 
-BookingLineTargetStatus:
-  type: string
-  description: >-
-    The statuses a line can be moved to (BOOKING_STATE_MACHINE.md §4). A subset of the database
-    enum `BookingLineStatus`.
-  enum:
-    - IN_PROGRESS
-    - DONE
-    - CANCELLED
-
 BookingLineStatusChange:
   type: object
   description: '`reason` is required for `CANCELLED` (422 `VALIDATION_FAILED` otherwise).'
@@ -1409,7 +1325,7 @@ BookingLineStatusChange:
   additionalProperties: false
   properties:
     status:
-      $ref: '#/BookingLineTargetStatus'
+      $ref: './enums.yaml#/BookingLineTargetStatus'
     reason:
       type: string
       minLength: 1
@@ -1443,11 +1359,7 @@ BookingHandoverPackage:
       type: boolean
       description: A top-up package for a booking on hold (EC-34).
     shortCode:
-      type: string
-      pattern: ^[0-9A-HJKMNP-TV-Z]{6}$
-      description: The 6-character Crockford base32 code printed on the label.
-      examples:
-        - 0ABC12
+      $ref: './common.yaml#/PackageShortCode'
     labelVersion:
       type: integer
       minimum: 1
@@ -1481,7 +1393,7 @@ BookingHandover:
     bookingId:
       $ref: './common.yaml#/Uuid'
     bookingNo:
-      $ref: '#/BookingNo'
+      $ref: './common.yaml#/BookingNo'
     status:
       $ref: './enums.yaml#/BookingStatus'
     labSite:
@@ -1489,7 +1401,7 @@ BookingHandover:
     receivingHours:
       type: array
       items:
-        $ref: './lab-sites.yaml#/PublicReceivingHours'
+        $ref: './public-lab-sites.yaml#/PublicReceivingHours'
     submissionInstructions:
       type:
         - string
@@ -1501,7 +1413,7 @@ BookingHandover:
         - type: 'null'
     slot:
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicSlot'
+        - $ref: './public-lab-sites.yaml#/PublicSlot'
         - type: 'null'
     preferredDropDate:
       $ref: './common.yaml#/Date'

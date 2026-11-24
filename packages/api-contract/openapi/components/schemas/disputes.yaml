@@ -29,7 +29,7 @@ DisputeCreate:
   additionalProperties: false
   properties:
     typeCode:
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     description:
       type: string
       minLength: 1
@@ -125,52 +125,6 @@ DisputeEvidenceCreate:
       minLength: 1
       maxLength: 500
 
-DisputeUploadUrlRequest:
-  type: object
-  description: >-
-    Declares the evidence file to be uploaded (FILES_AND_REPORTS §1, purpose
-    `DISPUTE_EVIDENCE`: PDF, JPEG or PNG, at most 10 MB each).
-  required:
-    - contentType
-    - sizeBytes
-  additionalProperties: false
-  properties:
-    contentType:
-      type: string
-      enum:
-        - application/pdf
-        - image/jpeg
-        - image/png
-    sizeBytes:
-      type: integer
-      minimum: 1
-      maximum: 10485760
-    fileName:
-      type: string
-      minLength: 1
-      maxLength: 255
-      description: The original file name. Stored sanitised.
-
-DisputeUploadUrl:
-  type: object
-  description: >-
-    A pre-signed PUT to the quarantine area, valid for 15 minutes (FILES_AND_REPORTS §1). Upload
-    the file with the declared `Content-Type` and exactly the declared size. The file can be
-    attached once its malware scan has passed.
-  required:
-    - fileId
-    - uploadUrl
-    - expiresAt
-  additionalProperties: false
-  properties:
-    fileId:
-      $ref: './common.yaml#/Uuid'
-    uploadUrl:
-      type: string
-      format: uri
-    expiresAt:
-      $ref: './common.yaml#/Timestamp'
-
 Dispute:
   type: object
   description: >-
@@ -208,7 +162,7 @@ Dispute:
       $ref: '#/DisputeBookingSummary'
     type:
       description: The `DISPUTE_TYPE` code and its display name.
-      $ref: './lab-sites.yaml#/PublicCodeName'
+      $ref: './common.yaml#/CodeName'
     status:
       $ref: './enums.yaml#/DisputeStatus'
     raisedByParty:

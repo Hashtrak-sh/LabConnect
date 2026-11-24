@@ -54,8 +54,7 @@ AdminLabClaim:
     createdAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminLabClaimList:
   type: object
@@ -219,8 +218,7 @@ AdminBankAccount:
     createdAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminLabSiteGeocode:
   type: object
@@ -251,7 +249,7 @@ AdminLabSiteGeocode:
     organisationId:
       $ref: './common.yaml#/Uuid'
     address:
-      $ref: './lab-sites.yaml#/PublicAddress'
+      $ref: './public-lab-sites.yaml#/PublicAddress'
     geocodeStatus:
       $ref: './enums.yaml#/GeocodeStatus'
     geocodeConfidence:
@@ -263,11 +261,10 @@ AdminLabSiteGeocode:
       maximum: 1
     location:
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicLocation'
+        - $ref: './common.yaml#/GeoPoint'
         - type: 'null'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminLabSiteGeocodeList:
   type: object
@@ -291,4 +288,4 @@ AdminPinApproval:
   additionalProperties: false
   properties:
     location:
-      $ref: './lab-sites.yaml#/PublicLocation'
+      $ref: './common.yaml#/GeoPoint'

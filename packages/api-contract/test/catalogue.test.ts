@@ -9,9 +9,9 @@ import {
 } from './catalogue.js';
 import { readRepoFile, transitionIds } from './helpers.js';
 
-// Unit tests of the API_CONTRACTS.md table parser. Every cell below is copied from a section of
-// the catalogue (§1 to §10), so a later section can be added to doc-equality.test.ts without
-// parser work.
+// Unit tests of the API_CONTRACTS.md table parser. Each cell below is copied from the section of
+// the catalogue named in the test, except where a test says it pins a parser rule that the
+// current catalogue no longer uses.
 
 const keys = (methodCell: string, pathCell: string): string[] =>
   parseRow(methodCell, pathCell).flatMap(allowedKeys);
@@ -172,11 +172,20 @@ describe('parseRow', () => {
     expect(groups[0]?.queryNames).toEqual([]);
   });
 
-  it('keeps a templated file name (§10 exports)', () => {
+  it('keeps a templated file name (parser rule: §10 exports is now `/admin/exports/{kind}`)', () => {
     expect(keys('GET', '`/admin/exports/{kind}.csv`')).toEqual(['GET /admin/exports/{kind}.csv']);
   });
 
-  it('refuses a continuation it cannot place (§10 `/admin/disputes`, `/assign`)', () => {
+  it('reads a per-part method and alternatives after a plain path (§10 disputes)', () => {
+    expect(keys('GET', '`/admin/disputes` · POST `/admin/disputes/{id}/assign\\|decide`')).toEqual([
+      'GET /admin/disputes',
+      'POST /admin/disputes/{id}/assign',
+      'POST /admin/disputes/{id}/decide',
+    ]);
+  });
+
+  it('refuses a continuation it cannot place (no path parameter to continue from)', () => {
+    // A continuation needs a parameter in the previous path: `/admin/disputes` has none.
     expect(() => parseRow('GET/POST', '`/admin/disputes`, `/assign`, `/decide`')).toThrow(
       /Write the full path in API_CONTRACTS.md/,
     );
@@ -200,7 +209,7 @@ describe('firstTable and parseSection', () => {
     expect(table.rows).toEqual([['GET', '`/x`', 'y']]);
   });
 
-  it('parses every table of the real catalogue from §1 to §9', () => {
+  it('parses every table of the real catalogue, §1 to §10', () => {
     const markdown = readRepoFile('docs/04-api/API_CONTRACTS.md');
     const headings = [
       '## 1. ',
@@ -212,6 +221,7 @@ describe('firstTable and parseSection', () => {
       '## 7. ',
       '## 8. ',
       '## 9. ',
+      '## 10. ',
     ];
     for (const heading of headings) {
       expect(parseSection(markdown, heading).groups.length, heading).toBeGreaterThan(0);

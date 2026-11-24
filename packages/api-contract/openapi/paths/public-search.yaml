@@ -35,7 +35,7 @@ search-labs:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/search.yaml#/SearchText'
+          $ref: '../components/schemas/common.yaml#/SearchText'
       - name: lat
         in: query
         required: false
@@ -57,37 +57,37 @@ search-labs:
         required: false
         description: Search around the centroid of this pincode. Not together with `lat` and `lng`.
         schema:
-          $ref: '../components/schemas/lab-sites.yaml#/Pincode'
+          $ref: '../components/schemas/common.yaml#/Pincode'
       - name: radiusKm
         in: query
         required: false
         description: Only sites within this distance. Needs `lat` and `lng`, or `pincode`.
         schema:
-          $ref: '../components/schemas/search.yaml#/SearchRadiusKm'
+          $ref: '../components/schemas/public-search.yaml#/SearchRadiusKm'
       - name: discipline
         in: query
         required: false
         description: Code of a DISCIPLINE node of the SCOPE taxonomy.
         schema:
-          $ref: '../components/schemas/lab-sites.yaml#/NodeCode'
+          $ref: '../components/schemas/common.yaml#/NodeCode'
       - name: parameter
         in: query
         required: false
         description: Code of a PARAMETER node of the SCOPE taxonomy.
         schema:
-          $ref: '../components/schemas/lab-sites.yaml#/NodeCode'
+          $ref: '../components/schemas/common.yaml#/NodeCode'
       - name: method
         in: query
         required: false
         description: Code of a node of the METHOD taxonomy (method or standard).
         schema:
-          $ref: '../components/schemas/lab-sites.yaml#/NodeCode'
+          $ref: '../components/schemas/common.yaml#/NodeCode'
       - name: tatMax
         in: query
         required: false
         description: Only lines with a turnaround of at most this many days.
         schema:
-          $ref: '../components/schemas/search.yaml#/TatDays'
+          $ref: '../components/schemas/public-search.yaml#/TatDays'
       - name: priceMax
         in: query
         required: false
@@ -116,7 +116,7 @@ search-labs:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/search.yaml#/LabSearchResultList'
+              $ref: '../components/schemas/public-search.yaml#/LabSearchResultList'
       '422':
         $ref: '../components/responses.yaml#/UnprocessableEntity'
         description: >-
@@ -146,7 +146,7 @@ search-suggest:
         in: query
         required: true
         schema:
-          $ref: '../components/schemas/search.yaml#/SearchText'
+          $ref: '../components/schemas/common.yaml#/SearchText'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -157,7 +157,7 @@ search-suggest:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/search.yaml#/SearchSuggestionList'
+              $ref: '../components/schemas/public-search.yaml#/SearchSuggestionList'
       '422':
         $ref: '../components/responses.yaml#/UnprocessableEntity'
         description: '`VALIDATION_FAILED`.'
@@ -183,13 +183,13 @@ taxonomy-nodes:
         in: path
         required: true
         schema:
-          $ref: '../components/schemas/lab-sites.yaml#/TaxonomyCode'
+          $ref: '../components/schemas/common.yaml#/TaxonomyCode'
       - name: parent
         in: query
         required: false
         description: Code of the parent node. Without it, the top-level nodes.
         schema:
-          $ref: '../components/schemas/lab-sites.yaml#/NodeCode'
+          $ref: '../components/schemas/common.yaml#/NodeCode'
       - $ref: '../components/parameters.yaml#/Cursor'
       - $ref: '../components/parameters.yaml#/Limit'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -202,7 +202,7 @@ taxonomy-nodes:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-sites.yaml#/PublicTaxonomyNodeList'
+              $ref: '../components/schemas/public-lab-sites.yaml#/PublicTaxonomyNodeList'
       '404':
         $ref: '../components/responses.yaml#/NotFound'
         description: '`NOT_FOUND`: no active taxonomy with this code, or no active `parent` node in it.'
@@ -232,7 +232,7 @@ leads:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/search.yaml#/LeadCreate'
+            $ref: '../components/schemas/public-search.yaml#/LeadCreate'
     responses:
       '204':
         description: Recorded.

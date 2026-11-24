@@ -1,5 +1,10 @@
-# Enumerations that also exist in the database (packages/database/prisma/schema/enums.prisma).
-# The names and values must match the Prisma enums exactly; the test suite checks this.
+# Enumerations that mirror a database enum (packages/database/prisma/schema/enums.prisma), one
+# definition each, grouped by topic. With the database name an enum carries exactly its values;
+# with another name (for example `LabRoleCode`) it accepts a documented subset of them, for a
+# request that may set only some values. test/enums.test.ts checks every enum of this file
+# through its `mirrored` list. Enums that exist only in the contract stay in their module file.
+
+# --- Identity, organisations and memberships ---
 
 RoleCode:
   type: string
@@ -15,12 +20,112 @@ RoleCode:
     - PLATFORM_FINANCE
     - PLATFORM_ADMIN
 
+CustomerRoleCode:
+  type: string
+  description: >-
+    The roles of a customer organisation (CD-21). A subset of the database enum `RoleCode`. One
+    user may hold several of them (RR-1).
+  enum:
+    - CUSTOMER_ADMIN
+    - CUSTOMER_REQUESTER
+    - CUSTOMER_FINANCE
+
+LabRoleCode:
+  type: string
+  description: >-
+    The lab role of a membership. A subset of `RoleCode`: a user holds exactly one of these in a
+    lab organisation (RR-2).
+  enum:
+    - LAB_MAKER
+    - LAB_CHECKER
+
+AdminPlatformRoleCode:
+  type: string
+  description: >-
+    A platform role (ROLES_AND_PERMISSIONS.md §1, ADR-012). A subset of the database enum
+    `RoleCode`. Platform roles never combine with customer or lab roles (RR-5).
+  enum:
+    - PLATFORM_OPS
+    - PLATFORM_DATA_STEWARD
+    - PLATFORM_FINANCE
+    - PLATFORM_ADMIN
+
 OrgType:
   type: string
   enum:
     - CUSTOMER
     - LAB
     - PLATFORM
+
+OrgStatus:
+  type: string
+  enum:
+    - ACTIVE
+    - SUSPENDED
+    - CLOSED
+
+CustomerSegment:
+  type: string
+  description: >-
+    Kind of customer organisation (FR-ONB-01, CD-02). `INDIVIDUAL` is a person booking for
+    themselves; the others are organisations.
+  enum:
+    - INDIVIDUAL
+    - BUSINESS
+    - INDUSTRY
+    - GOVERNMENT
+
+ClaimStatus:
+  type: string
+  description: >-
+    Claim status of an organisation (`organisation.claim_status`). Lab organisations are
+    `UNCLAIMED`, `CLAIM_PENDING` or `CLAIMED`; other organisations are `NOT_APPLICABLE`.
+  enum:
+    - UNCLAIMED
+    - CLAIM_PENDING
+    - CLAIMED
+    - NOT_APPLICABLE
+
+UserStatus:
+  type: string
+  enum:
+    - INVITED
+    - ACTIVE
+    - DISABLED
+
+AdminUserStatusUpdate:
+  type: string
+  description: >-
+    The statuses an administrator can set on a platform user. A subset of the database enum
+    `UserStatus`. Users are deactivated (`DISABLED`), never deleted.
+  enum:
+    - ACTIVE
+    - DISABLED
+
+MembershipStatus:
+  type: string
+  enum:
+    - INVITED
+    - ACTIVE
+    - DEACTIVATED
+
+LabMembershipSettableStatus:
+  type: string
+  description: >-
+    The membership statuses a Checker can set. A subset of the database enum `MembershipStatus`:
+    `INVITED` is set only by an invitation.
+  enum:
+    - ACTIVE
+    - DEACTIVATED
+
+OtpRequestPurpose:
+  type: string
+  description: >-
+    The purposes this endpoint accepts. A subset of the database enum `OtpPurpose`: the lab-claim
+    OTP goes only to the NABL-registered address through the claim endpoints, and phone OTP waits
+    for an SMS provider (FR-IAM-02).
+  enum:
+    - LOGIN
 
 NotifChannel:
   type: string
@@ -32,6 +137,49 @@ NotifChannel:
     - IN_APP
     - SMS
     - WHATSAPP
+
+# --- Lab onboarding: claims and verification ---
+
+ClaimMethod:
+  type: string
+  description: >-
+    How a lab claim is verified: an OTP to the NABL-registered email, or a letterhead reviewed by
+    `PLATFORM_OPS` (FR-DAT-07).
+  enum:
+    - EMAIL_OTP
+    - MANUAL
+
+ClaimRequestStatus:
+  type: string
+  description: Status of a lab claim request (SCHEMA_SPECIFICATION §5.7).
+  enum:
+    - PENDING_OTP
+    - PENDING_REVIEW
+    - APPROVED
+    - REJECTED
+    - EXPIRED
+
+VerificationStatus:
+  type: string
+  description: >-
+    Review status of KYC and bank details (`verification_status`). Platform staff verify them
+    (FR-ONB-04).
+  enum:
+    - NOT_STARTED
+    - SUBMITTED
+    - VERIFIED
+    - REJECTED
+
+AdminVerificationDecision:
+  type: string
+  description: >-
+    The decision of a KYC or bank verification. A subset of the database enum
+    `VerificationStatus`.
+  enum:
+    - VERIFIED
+    - REJECTED
+
+# --- Lab sites: accreditation, listing, pin, prices, slots and leads ---
 
 AccreditationStatus:
   type: string
@@ -55,6 +203,16 @@ PublicLabCategory:
     - CALIBRATION
     - OTHER
 
+ListingStatus:
+  type: string
+  description: >-
+    Listing status of a lab site, derived: `HIDDEN` sites are not public, `LISTED` sites can be
+    found but not booked, `BOOKABLE` sites meet BR-001.
+  enum:
+    - LISTED
+    - BOOKABLE
+    - HIDDEN
+
 PublicListingStatus:
   type: string
   description: >-
@@ -73,6 +231,56 @@ ScopeSiteType:
     - SITE
     - MOBILE
 
+GeocodeStatus:
+  type: string
+  description: >-
+    State of the site's map pin. Only an approved pin is published and used for distance
+    (BR-004); a correction is proposed by the Checker and approved by Ops (EC-04).
+  enum:
+    - PENDING
+    - AUTO_OK
+    - LOW_CONFIDENCE
+    - MANUAL_APPROVED
+
+AdminGeocodeQueueStatus:
+  type: string
+  description: >-
+    The geocode states that put a site in the Ops pin queue. A subset of the database enum
+    `GeocodeStatus`.
+  enum:
+    - PENDING
+    - LOW_CONFIDENCE
+
+PriceListStatus:
+  type: string
+  description: >-
+    `DRAFT` lists are private to the lab and editable. `PUBLISHED` lists are immutable; publishing
+    a new version makes the previous one `SUPERSEDED`. A discarded draft is `DISCARDED`.
+  enum:
+    - DRAFT
+    - PUBLISHED
+    - SUPERSEDED
+    - DISCARDED
+
+SlotStatus:
+  type: string
+  description: >-
+    `OPEN` slots can be chosen; `CLOSED` slots are closed by the Checker; `CANCELLED` slots were
+    cancelled by a site closure (EC-13).
+  enum:
+    - OPEN
+    - CLOSED
+    - CANCELLED
+
+LabSlotSettableStatus:
+  type: string
+  description: >-
+    The slot statuses a Checker can set. A subset of the database enum `SlotStatus`: `CANCELLED`
+    is set only by a site closure (EC-13).
+  enum:
+    - OPEN
+    - CLOSED
+
 LeadKind:
   type: string
   description: >-
@@ -82,96 +290,137 @@ LeadKind:
     - REQUEST_LAB
     - NO_RESULT
 
-VerificationResult:
+LeadStatus:
+  type: string
+  enum:
+    - NEW
+    - IN_PROGRESS
+    - CLOSED_ONBOARDED
+    - CLOSED_NO_ACTION
+
+# --- Master data, change sets and imports ---
+
+MdStatus:
   type: string
   description: >-
-    Result of a public report verification (QR_AND_VERIFICATION §5): genuine and current, genuine
-    but superseded by a newer version, not found, or revoked.
+    Active or inactive. Master data, templates and other configuration are never deleted; they
+    are deactivated.
   enum:
-    - GENUINE_CURRENT
-    - GENUINE_SUPERSEDED
-    - NOT_FOUND
-    - REVOKED
+    - ACTIVE
+    - INACTIVE
 
-# ---- P2-06a: payments and disputes (API_CONTRACTS.md §5 and §9) ----
-
-PartyType:
+MdDataType:
   type: string
-  description: The side of a booking an actor belongs to. `SYSTEM` is the platform's own jobs.
+  description: Data type of a master-data attribute (SCHEMA_SPECIFICATION §4.3).
   enum:
-    - CUSTOMER
-    - LAB
-    - PLATFORM
-    - SYSTEM
+    - STRING
+    - INTEGER
+    - DECIMAL
+    - BOOLEAN
+    - DATE
+    - ENUM
+    - NODE_REF
+    - STRING_ARRAY
 
-GatewayCode:
-  type: string
-  description: >-
-    The payment gateway adapter (ICICI_PAYMENT_INTEGRATION §4). `FAKE` is the deterministic test
-    gateway used in local, CI and early UAT environments.
-  enum:
-    - ICICI
-    - FAKE
-
-PaymentOrderStatus:
+MdTargetType:
   type: string
   description: >-
-    Status of a payment order (BOOKING_STATE_MACHINE §4): `CREATED → PENDING → CAPTURED | FAILED |
-    EXPIRED`, plus `CAPTURED → REFUNDED_PARTIAL | REFUNDED_FULL`.
+    The kind of record a change item changes. Each kind keeps its published history in a version
+    table (VERSIONING_AND_SNAPSHOTS.md §1, pattern A).
   enum:
-    - CREATED
-    - PENDING
-    - CAPTURED
+    - MD_NODE
+    - LAB_ORG
+    - LAB_SITE
+    - ACCREDITATION
+    - SCOPE_LINE
+    - SYNONYM
+
+ChangeSource:
+  type: string
+  description: >-
+    Where a change set comes from. `NABL_SYNC` is deferred (FR-MDM-10); `LAB_PROPOSAL` sets come
+    from a lab Checker (EC-04).
+  enum:
+    - MANUAL
+    - IMPORT
+    - LAB_PROPOSAL
+    - NABL_SYNC
+
+ChangeSetStatus:
+  type: string
+  description: Status of a master-data change set (MASTER_DATA_MANAGEMENT §3).
+  enum:
+    - DRAFT
+    - IN_REVIEW
+    - APPROVED
+    - PUBLISHED
+    - REJECTED
+    - CANCELLED
+
+ChangeOperation:
+  type: string
+  description: What a change item does. Records are never deleted, only deactivated.
+  enum:
+    - CREATE
+    - UPDATE
+    - DEACTIVATE
+    - REACTIVATE
+
+ValidationStatus:
+  type: string
+  enum:
+    - VALID
+    - WARNING
+    - ERROR
+
+ImportKind:
+  type: string
+  description: >-
+    What an import loads. `LAB_PRICE_LIST` imports belong to the lab and are not reviewed by the
+    platform (CD-06).
+  enum:
+    - NABL_LABS
+    - NABL_SCOPE
+    - TAXONOMY_NODES
+    - LAB_PRICE_LIST
+
+ImportStatus:
+  type: string
+  description: Status of an import job (MASTER_DATA_MANAGEMENT §4).
+  enum:
+    - UPLOADED
+    - PARSING
+    - PREVIEW_READY
     - FAILED
-    - EXPIRED
-    - REFUNDED_PARTIAL
-    - REFUNDED_FULL
+    - COMMITTED
+    - DISCARDED
 
-FinDocType:
+ImportSourceFormat:
   type: string
-  description: Type of a financial document (FR-FIN-02, PAYMENTS_AND_LEDGER §6).
   enum:
-    - TAX_INVOICE
-    - PAYMENT_RECEIPT
-    - CREDIT_NOTE
-    - REFUND_NOTE
+    - CSV
+    - XLSX
 
-DisputeStatus:
+ImportMatchResult:
   type: string
-  description: >-
-    Status of a dispute. BOOKING_STATE_MACHINE §4 states `OPEN → AWAITING_LAB → UNDER_REVIEW →
-    DECIDED → CLOSED` (or `WITHDRAWN`); the other moves, including `AWAITING_CUSTOMER`, are not
-    stated yet (OQ-38).
+  description: How an import row matched existing data.
   enum:
-    - OPEN
-    - AWAITING_LAB
-    - AWAITING_CUSTOMER
-    - UNDER_REVIEW
-    - DECIDED
-    - CLOSED
-    - WITHDRAWN
+    - NEW
+    - MATCHED
+    - DUPLICATE_IN_FILE
+    - CONFLICT
 
-DisputeOutcome:
+ImportRowAction:
   type: string
-  description: >-
-    The commercial outcome Ops records (FR-SUP-03, BR-083). Technical result questions are
-    referred to the lab's own ISO/IEC 17025 complaint process (BR-082).
+  description: What committing the import does with the row.
   enum:
-    - NO_ACTION
-    - PARTIAL_REFUND
-    - FULL_REFUND
-    - REPORT_AMENDMENT_REQUIRED
-    - REFERRED_TO_LAB_COMPLAINT_PROCESS
+    - CREATE
+    - UPDATE
+    - NO_CHANGE
+    - SKIP
+    - ERROR
 
-MessageVisibility:
-  type: string
-  description: >-
-    Who sees a dispute message. `PLATFORM_ONLY` messages are never shown to either party
-    (TENANT_ISOLATION §1).
-  enum:
-    - ALL
-    - PLATFORM_ONLY
-# --- P2-04 Lab (API_CONTRACTS.md §6) ---
+# --- Bookings: status, lines, counter-offers, holds, timers and ratings ---
 
 BookingStatus:
   type: string
@@ -196,177 +445,6 @@ BookingStatus:
     - NO_SHOW
     - CANCELLED
 
-ClaimStatus:
-  type: string
-  description: >-
-    Claim status of an organisation (`organisation.claim_status`). Lab organisations are
-    `UNCLAIMED`, `CLAIM_PENDING` or `CLAIMED`; other organisations are `NOT_APPLICABLE`.
-  enum:
-    - UNCLAIMED
-    - CLAIM_PENDING
-    - CLAIMED
-    - NOT_APPLICABLE
-
-VerificationStatus:
-  type: string
-  description: >-
-    Review status of KYC and bank details (`verification_status`). Platform staff verify them
-    (FR-ONB-04).
-  enum:
-    - NOT_STARTED
-    - SUBMITTED
-    - VERIFIED
-    - REJECTED
-
-MembershipStatus:
-  type: string
-  enum:
-    - INVITED
-    - ACTIVE
-    - DEACTIVATED
-
-ClaimMethod:
-  type: string
-  description: >-
-    How a lab claim is verified: an OTP to the NABL-registered email, or a letterhead reviewed by
-    `PLATFORM_OPS` (FR-DAT-07).
-  enum:
-    - EMAIL_OTP
-    - MANUAL
-
-ClaimRequestStatus:
-  type: string
-  description: Status of a lab claim request (SCHEMA_SPECIFICATION §5.7).
-  enum:
-    - PENDING_OTP
-    - PENDING_REVIEW
-    - APPROVED
-    - REJECTED
-    - EXPIRED
-
-ListingStatus:
-  type: string
-  description: >-
-    Listing status of a lab site, derived: `HIDDEN` sites are not public, `LISTED` sites can be
-    found but not booked, `BOOKABLE` sites meet BR-001.
-  enum:
-    - LISTED
-    - BOOKABLE
-    - HIDDEN
-
-GeocodeStatus:
-  type: string
-  description: >-
-    State of the site's map pin. Only an approved pin is published and used for distance
-    (BR-004); a correction is proposed by the Checker and approved by Ops (EC-04).
-  enum:
-    - PENDING
-    - AUTO_OK
-    - LOW_CONFIDENCE
-    - MANUAL_APPROVED
-
-PriceListStatus:
-  type: string
-  description: >-
-    `DRAFT` lists are private to the lab and editable. `PUBLISHED` lists are immutable; publishing
-    a new version makes the previous one `SUPERSEDED`. A discarded draft is `DISCARDED`.
-  enum:
-    - DRAFT
-    - PUBLISHED
-    - SUPERSEDED
-    - DISCARDED
-
-SlotStatus:
-  type: string
-  description: >-
-    `OPEN` slots can be chosen; `CLOSED` slots are closed by the Checker; `CANCELLED` slots were
-    cancelled by a site closure (EC-13).
-  enum:
-    - OPEN
-    - CLOSED
-    - CANCELLED
-
-ImportStatus:
-  type: string
-  description: Status of an import job (MASTER_DATA_MANAGEMENT §4).
-  enum:
-    - UPLOADED
-    - PARSING
-    - PREVIEW_READY
-    - FAILED
-    - COMMITTED
-    - DISCARDED
-
-ImportMatchResult:
-  type: string
-  description: How an import row matched existing data.
-  enum:
-    - NEW
-    - MATCHED
-    - DUPLICATE_IN_FILE
-    - CONFLICT
-
-ImportRowAction:
-  type: string
-  description: What committing the import does with the row.
-  enum:
-    - CREATE
-    - UPDATE
-    - NO_CHANGE
-    - SKIP
-    - ERROR
-
-ChangeSetStatus:
-  type: string
-  description: Status of a master-data change set (MASTER_DATA_MANAGEMENT §3).
-  enum:
-    - DRAFT
-    - IN_REVIEW
-    - APPROVED
-    - PUBLISHED
-    - REJECTED
-    - CANCELLED
-
-LabRoleCode:
-  type: string
-  description: >-
-    The lab role of a membership. A subset of `RoleCode`: a user holds exactly one of these in a
-    lab organisation (RR-2).
-  enum:
-    - LAB_MAKER
-    - LAB_CHECKER
-
-LabMembershipSettableStatus:
-  type: string
-  description: >-
-    The membership statuses a Checker can set. A subset of the database enum `MembershipStatus`:
-    `INVITED` is set only by an invitation.
-  enum:
-    - ACTIVE
-    - DEACTIVATED
-
-LabSlotSettableStatus:
-  type: string
-  description: >-
-    The slot statuses a Checker can set. A subset of the database enum `SlotStatus`: `CANCELLED`
-    is set only by a site closure (EC-13).
-  enum:
-    - OPEN
-    - CLOSED
-
-LabScopeProposalOperation:
-  type: string
-  description: >-
-    What a scope correction proposes for one scope line. Equal to the database enum
-    `ChangeOperation`.
-  enum:
-    - CREATE
-    - UPDATE
-    - DEACTIVATE
-    - REACTIVATE
-
-# --- P2-05: custody, receipt and reports (API_CONTRACTS.md §7 and §8) ---
-
 BookingLineStatus:
   type: string
   description: >-
@@ -378,6 +456,86 @@ BookingLineStatus:
     - DONE
     - CANCELLED
 
+BookingLineTargetStatus:
+  type: string
+  description: >-
+    The statuses a line can be moved to (BOOKING_STATE_MACHINE.md §4). A subset of the database
+    enum `BookingLineStatus`.
+  enum:
+    - IN_PROGRESS
+    - DONE
+    - CANCELLED
+
+PartyType:
+  type: string
+  description: The side of a booking an actor belongs to. `SYSTEM` is the platform's own jobs.
+  enum:
+    - CUSTOMER
+    - LAB
+    - PLATFORM
+    - SYSTEM
+
+CounterStatus:
+  type: string
+  enum:
+    - PENDING
+    - ACCEPTED
+    - DECLINED
+    - EXPIRED
+    - WITHDRAWN
+
+HoldDecision:
+  type: string
+  description: >-
+    The customer's decision on a booking `ON_HOLD` (FR-RPT-03, EC-25, EC-29, EC-33, EC-34):
+    proceed as received (T-16), bring a replacement or top-up sample, or cancel (T-27).
+  enum:
+    - PROCEED
+    - REPLACE
+    - CANCEL
+
+HoldStatus:
+  type: string
+  description: >-
+    `OPEN` while the customer decides, `ESCALATED` to Ops when the window lapses without a decision
+    (BR-047; never cancelled automatically), `DECIDED`, then `CLOSED`.
+  enum:
+    - OPEN
+    - DECIDED
+    - ESCALATED
+    - CLOSED
+
+TimerType:
+  type: string
+  description: A booking deadline or reminder (AUDIT_AND_EVENT_ARCHITECTURE.md §4).
+  enum:
+    - LAB_DECISION_REMINDER_50
+    - LAB_DECISION_REMINDER_90
+    - LAB_DECISION_DUE
+    - COUNTER_RESPONSE_DUE
+    - PAYMENT_REMINDER
+    - PAYMENT_DUE
+    - DROP_REMINDER
+    - DROP_DEADLINE
+    - NO_SHOW_DUE
+    - RECEIPT_APPROVAL_REMINDER
+    - HOLD_DECISION_DUE
+    - REPORT_DUE
+    - REPORT_APPROVAL_REMINDER
+    - DISPUTE_WINDOW_END
+    - PAYMENT_RECONCILE
+
+RatingDirection:
+  type: string
+  description: >-
+    `CUSTOMER_TO_LAB`, or `LAB_TO_CUSTOMER`, which is private to the lab and the platform
+    (FR-SUP-01, TENANT_ISOLATION.md §1).
+  enum:
+    - CUSTOMER_TO_LAB
+    - LAB_TO_CUSTOMER
+
+# --- Custody, receipt and files ---
+
 PackageStatus:
   type: string
   description: >-
@@ -388,6 +546,23 @@ PackageStatus:
     - RECEIVED
     - MISSING
     - VOIDED
+
+CustodyEventType:
+  type: string
+  description: An event in the chain of custody of a booking's packages (`custody_event`).
+  enum:
+    - QR_ISSUED
+    - LABELS_PRINTED
+    - LABEL_REPRINTED
+    - LABEL_VOIDED
+    - SCAN_ACCEPTED
+    - SCAN_REJECTED
+    - MANUAL_LOOKUP
+    - RECEIPT_SUBMITTED
+    - RECEIPT_APPROVED
+    - RECEIPT_ON_HOLD
+    - SAMPLE_REJECTED
+    - REPORT_BOUND
 
 CustodyScanEventType:
   type: string
@@ -410,6 +585,20 @@ ReceiptDecision:
     - APPROVED
     - HOLD_CONFIRMED
     - REJECTED_UNFIT
+
+ScanStatus:
+  type: string
+  description: >-
+    Malware scan and validation status of an uploaded file (FILES_AND_REPORTS.md §1). Only `CLEAN`
+    files can be used; the others are kept in quarantine.
+  enum:
+    - PENDING
+    - CLEAN
+    - INFECTED
+    - ERROR
+    - REJECTED
+
+# --- Reports and verification ---
 
 ReportStatus:
   type: string
@@ -444,239 +633,50 @@ ConformityResult:
     - NOT_STATED
     - NOT_APPLICABLE
 
-# --- P2-03: customer organisation and bookings (API_CONTRACTS.md §3 and §4) ---
-
-CustomerSegment:
+VerificationResult:
   type: string
   description: >-
-    Kind of customer organisation (FR-ONB-01, CD-02). `INDIVIDUAL` is a person booking for
-    themselves; the others are organisations.
+    Result of a public report verification (QR_AND_VERIFICATION §5): genuine and current, genuine
+    but superseded by a newer version, not found, or revoked.
   enum:
-    - INDIVIDUAL
-    - BUSINESS
-    - INDUSTRY
-    - GOVERNMENT
+    - GENUINE_CURRENT
+    - GENUINE_SUPERSEDED
+    - NOT_FOUND
+    - REVOKED
 
-OrgStatus:
-  type: string
-  enum:
-    - ACTIVE
-    - SUSPENDED
-    - CLOSED
+# --- Payments, refunds, payouts and reconciliation ---
 
-CustomerRoleCode:
+GatewayCode:
   type: string
   description: >-
-    The roles of a customer organisation (CD-21). A subset of the database enum `RoleCode`. One
-    user may hold several of them (RR-1).
+    The payment gateway adapter (ICICI_PAYMENT_INTEGRATION §4). `FAKE` is the deterministic test
+    gateway used in local, CI and early UAT environments.
   enum:
-    - CUSTOMER_ADMIN
-    - CUSTOMER_REQUESTER
-    - CUSTOMER_FINANCE
+    - ICICI
+    - FAKE
 
-CustomerSiteStatus:
+PaymentOrderStatus:
   type: string
   description: >-
-    Status of a customer site (`customer_site.status`, database enum `MdStatus`). An `INACTIVE`
-    site cannot be chosen for a new booking; bookings that already use it keep it.
+    Status of a payment order (BOOKING_STATE_MACHINE §4): `CREATED → PENDING → CAPTURED | FAILED |
+    EXPIRED`, plus `CAPTURED → REFUNDED_PARTIAL | REFUNDED_FULL`.
   enum:
-    - ACTIVE
-    - INACTIVE
-
-CounterStatus:
-  type: string
-  enum:
+    - CREATED
     - PENDING
-    - ACCEPTED
-    - DECLINED
+    - CAPTURED
+    - FAILED
     - EXPIRED
-    - WITHDRAWN
+    - REFUNDED_PARTIAL
+    - REFUNDED_FULL
 
-HoldDecision:
+FinDocType:
   type: string
-  description: >-
-    The customer's decision on a booking `ON_HOLD` (FR-RPT-03, EC-25, EC-29, EC-33, EC-34):
-    proceed as received (T-16), bring a replacement or top-up sample, or cancel (T-27).
+  description: Type of a financial document (FR-FIN-02, PAYMENTS_AND_LEDGER §6).
   enum:
-    - PROCEED
-    - REPLACE
-    - CANCEL
-
-HoldStatus:
-  type: string
-  description: >-
-    `OPEN` while the customer decides, `ESCALATED` to Ops when the window lapses without a decision
-    (BR-047; never cancelled automatically), `DECIDED`, then `CLOSED`.
-  enum:
-    - OPEN
-    - DECIDED
-    - ESCALATED
-    - CLOSED
-
-CustodyEventType:
-  type: string
-  description: An event in the chain of custody of a booking's packages (`custody_event`).
-  enum:
-    - QR_ISSUED
-    - LABELS_PRINTED
-    - LABEL_REPRINTED
-    - LABEL_VOIDED
-    - SCAN_ACCEPTED
-    - SCAN_REJECTED
-    - MANUAL_LOOKUP
-    - RECEIPT_SUBMITTED
-    - RECEIPT_APPROVED
-    - RECEIPT_ON_HOLD
-    - SAMPLE_REJECTED
-    - REPORT_BOUND
-
-ScanStatus:
-  type: string
-  description: >-
-    Malware scan and validation status of an uploaded file (FILES_AND_REPORTS.md §1). Only `CLEAN`
-    files can be used; the others are kept in quarantine.
-  enum:
-    - PENDING
-    - CLEAN
-    - INFECTED
-    - ERROR
-    - REJECTED
-
-RatingDirection:
-  type: string
-  description: >-
-    `CUSTOMER_TO_LAB`, or `LAB_TO_CUSTOMER`, which is private to the lab and the platform
-    (FR-SUP-01, TENANT_ISOLATION.md §1).
-  enum:
-    - CUSTOMER_TO_LAB
-    - LAB_TO_CUSTOMER
-
-# --- P2-06b: admin (API_CONTRACTS.md §10) ---
-
-TimerType:
-  type: string
-  description: A booking deadline or reminder (AUDIT_AND_EVENT_ARCHITECTURE.md §4).
-  enum:
-    - LAB_DECISION_REMINDER_50
-    - LAB_DECISION_REMINDER_90
-    - LAB_DECISION_DUE
-    - COUNTER_RESPONSE_DUE
-    - PAYMENT_REMINDER
-    - PAYMENT_DUE
-    - DROP_REMINDER
-    - DROP_DEADLINE
-    - NO_SHOW_DUE
-    - RECEIPT_APPROVAL_REMINDER
-    - HOLD_DECISION_DUE
-    - REPORT_DUE
-    - REPORT_APPROVAL_REMINDER
-    - DISPUTE_WINDOW_END
-    - PAYMENT_RECONCILE
-
-AdminVerificationDecision:
-  type: string
-  description: >-
-    The decision of a KYC or bank verification. A subset of the database enum
-    `VerificationStatus`.
-  enum:
-    - VERIFIED
-    - REJECTED
-
-AdminGeocodeQueueStatus:
-  type: string
-  description: >-
-    The geocode states that put a site in the Ops pin queue. A subset of the database enum
-    `GeocodeStatus`.
-  enum:
-    - PENDING
-    - LOW_CONFIDENCE
-
-MdStatus:
-  type: string
-  description: >-
-    Active or inactive. Master data, templates and other configuration are never deleted; they
-    are deactivated.
-  enum:
-    - ACTIVE
-    - INACTIVE
-
-MdDataType:
-  type: string
-  description: Data type of a master-data attribute (SCHEMA_SPECIFICATION §4.3).
-  enum:
-    - STRING
-    - INTEGER
-    - DECIMAL
-    - BOOLEAN
-    - DATE
-    - ENUM
-    - NODE_REF
-    - STRING_ARRAY
-
-ChangeSource:
-  type: string
-  description: >-
-    Where a change set comes from. `NABL_SYNC` is deferred (FR-MDM-10); `LAB_PROPOSAL` sets come
-    from a lab Checker (EC-04).
-  enum:
-    - MANUAL
-    - IMPORT
-    - LAB_PROPOSAL
-    - NABL_SYNC
-
-MdTargetType:
-  type: string
-  description: >-
-    The kind of record a change item changes. Each kind keeps its published history in a version
-    table (VERSIONING_AND_SNAPSHOTS.md §1, pattern A).
-  enum:
-    - MD_NODE
-    - LAB_ORG
-    - LAB_SITE
-    - ACCREDITATION
-    - SCOPE_LINE
-    - SYNONYM
-
-ChangeOperation:
-  type: string
-  description: What a change item does. Records are never deleted, only deactivated.
-  enum:
-    - CREATE
-    - UPDATE
-    - DEACTIVATE
-    - REACTIVATE
-
-ValidationStatus:
-  type: string
-  enum:
-    - VALID
-    - WARNING
-    - ERROR
-
-ImportKind:
-  type: string
-  description: >-
-    What an import loads. `LAB_PRICE_LIST` imports belong to the lab and are not reviewed by the
-    platform (CD-06).
-  enum:
-    - NABL_LABS
-    - NABL_SCOPE
-    - TAXONOMY_NODES
-    - LAB_PRICE_LIST
-
-ImportSourceFormat:
-  type: string
-  enum:
-    - CSV
-    - XLSX
-
-LeadStatus:
-  type: string
-  enum:
-    - NEW
-    - IN_PROGRESS
-    - CLOSED_ONBOARDED
-    - CLOSED_NO_ACTION
+    - TAX_INVOICE
+    - PAYMENT_RECEIPT
+    - CREDIT_NOTE
+    - REFUND_NOTE
 
 RefundStatus:
   type: string
@@ -734,6 +734,46 @@ SettlementMatchStatus:
     - UNMATCHED
     - MISMATCH
 
+# --- Disputes ---
+
+DisputeStatus:
+  type: string
+  description: >-
+    Status of a dispute. BOOKING_STATE_MACHINE §4 states `OPEN → AWAITING_LAB → UNDER_REVIEW →
+    DECIDED → CLOSED` (or `WITHDRAWN`); the other moves, including `AWAITING_CUSTOMER`, are not
+    stated yet (OQ-38).
+  enum:
+    - OPEN
+    - AWAITING_LAB
+    - AWAITING_CUSTOMER
+    - UNDER_REVIEW
+    - DECIDED
+    - CLOSED
+    - WITHDRAWN
+
+DisputeOutcome:
+  type: string
+  description: >-
+    The commercial outcome Ops records (FR-SUP-03, BR-083). Technical result questions are
+    referred to the lab's own ISO/IEC 17025 complaint process (BR-082).
+  enum:
+    - NO_ACTION
+    - PARTIAL_REFUND
+    - FULL_REFUND
+    - REPORT_AMENDMENT_REQUIRED
+    - REFERRED_TO_LAB_COMPLAINT_PROCESS
+
+MessageVisibility:
+  type: string
+  description: >-
+    Who sees a dispute message. `PLATFORM_ONLY` messages are never shown to either party
+    (TENANT_ISOLATION §1).
+  enum:
+    - ALL
+    - PLATFORM_ONLY
+
+# --- Platform configuration ---
+
 ConfigScope:
   type: string
   description: The scope a configuration value applies to. `scopeId` is null for `GLOBAL`.
@@ -742,30 +782,3 @@ ConfigScope:
     - LAB_ORG
     - LAB_SITE
     - CATEGORY
-
-UserStatus:
-  type: string
-  enum:
-    - INVITED
-    - ACTIVE
-    - DISABLED
-
-AdminUserStatusUpdate:
-  type: string
-  description: >-
-    The statuses an administrator can set on a platform user. A subset of the database enum
-    `UserStatus`. Users are deactivated (`DISABLED`), never deleted.
-  enum:
-    - ACTIVE
-    - DISABLED
-
-AdminPlatformRoleCode:
-  type: string
-  description: >-
-    A platform role (ROLES_AND_PERMISSIONS.md §1, ADR-012). A subset of the database enum
-    `RoleCode`. Platform roles never combine with customer or lab roles (RR-5).
-  enum:
-    - PLATFORM_OPS
-    - PLATFORM_DATA_STEWARD
-    - PLATFORM_FINANCE
-    - PLATFORM_ADMIN

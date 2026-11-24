@@ -333,7 +333,7 @@ financial-document-download:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/payments.yaml#/FinancialDocumentDownload'
+              $ref: '../components/schemas/files.yaml#/FileDownloadUrl'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'

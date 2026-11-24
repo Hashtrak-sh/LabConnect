@@ -65,8 +65,7 @@ AdminPayoutHold:
         - string
         - 'null'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminRefund:
   type: object
@@ -135,8 +134,7 @@ AdminRefund:
     createdAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminRefundList:
   type: object
@@ -214,8 +212,7 @@ AdminPayout:
     createdAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminPayoutList:
   type: object

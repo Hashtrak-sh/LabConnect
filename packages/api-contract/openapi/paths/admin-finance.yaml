@@ -486,7 +486,7 @@ settlement-upload-url:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/admin-common.yaml#/AdminUploadUrlRequest'
+            $ref: '../components/schemas/files.yaml#/ImportSourceUploadUrlRequest'
     responses:
       '201':
         description: The file is registered and can be uploaded.
@@ -496,7 +496,7 @@ settlement-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/admin-common.yaml#/AdminUploadUrl'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrl'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':

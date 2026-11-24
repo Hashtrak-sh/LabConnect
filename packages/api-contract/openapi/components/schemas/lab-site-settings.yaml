@@ -1,8 +1,8 @@
 # Lab site settings: profile, receiving hours, closures, slot templates, slots, retention rules,
 # scope-line availability and proposals (API_CONTRACTS.md §6, FR-LAB-06, FR-LAB-07, FR-ONB-07,
 # EC-04, EC-13). The lab's own view: it adds private fields (capacity counts, bookability,
-# lock versions) to the public shapes of lab-sites.yaml, which are reused where the data is the
-# same. Every site is one of the caller's assigned sites (RR-3).
+# lock versions) to the public shapes of public-lab-sites.yaml, which are reused where the data
+# is the same. Every site is one of the caller's assigned sites (RR-3).
 
 LabPublicContact:
   type: object
@@ -29,7 +29,7 @@ LabPublicContact:
         - '+910000000000'
     email:
       oneOf:
-        - $ref: './auth.yaml#/Email'
+        - $ref: './common.yaml#/Email'
         - type: 'null'
 
 LabSite:
@@ -67,11 +67,11 @@ LabSite:
     name:
       type: string
     address:
-      $ref: './lab-sites.yaml#/PublicAddress'
+      $ref: './public-lab-sites.yaml#/PublicAddress'
     location:
       description: The approved pin. `null` while the site has none.
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicLocation'
+        - $ref: './common.yaml#/GeoPoint'
         - type: 'null'
     geocodeStatus:
       $ref: './enums.yaml#/GeocodeStatus'
@@ -102,16 +102,16 @@ LabSite:
     accreditations:
       type: array
       items:
-        $ref: './lab-sites.yaml#/PublicAccreditation'
+        $ref: './public-lab-sites.yaml#/PublicAccreditation'
     receivingHours:
       type: array
       description: Weekly receiving windows, ordered by weekday and opening time.
       items:
-        $ref: './lab-sites.yaml#/PublicReceivingHours'
+        $ref: './public-lab-sites.yaml#/PublicReceivingHours'
     rating:
-      $ref: './lab-sites.yaml#/PublicRating'
+      $ref: './public-lab-sites.yaml#/PublicRating'
     lockVersion:
-      $ref: './lab.yaml#/LockVersion'
+      $ref: './common.yaml#/LockVersion'
 
 LabSiteUpdate:
   type: object
@@ -147,7 +147,7 @@ LabReceivingHoursSet:
       type: array
       maxItems: 70
       items:
-        $ref: './lab-sites.yaml#/PublicReceivingHours'
+        $ref: './public-lab-sites.yaml#/PublicReceivingHours'
 
 LabSiteClosureCreate:
   type: object
@@ -245,7 +245,7 @@ LabSlotTemplate:
     discipline:
       description: The discipline the slots are for. `null` for slots open to every discipline.
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - $ref: './common.yaml#/CodeName'
         - type: 'null'
     weekday:
       type: integer
@@ -253,16 +253,16 @@ LabSlotTemplate:
       maximum: 7
       description: 1 = Monday … 7 = Sunday.
     startTime:
-      $ref: './lab-sites.yaml#/LocalTime'
+      $ref: './common.yaml#/LocalTime'
     endTime:
-      $ref: './lab-sites.yaml#/LocalTime'
+      $ref: './common.yaml#/LocalTime'
     capacity:
       type: integer
       minimum: 1
     active:
       type: boolean
     lockVersion:
-      $ref: './lab.yaml#/LockVersion'
+      $ref: './common.yaml#/LockVersion'
 
 LabSlotTemplateInput:
   type: object
@@ -282,21 +282,21 @@ LabSlotTemplateInput:
     id:
       $ref: './common.yaml#/Uuid'
     lockVersion:
-      $ref: './lab.yaml#/LockVersion'
+      $ref: './common.yaml#/LockVersion'
     disciplineCode:
       description: Code of a DISCIPLINE node of the SCOPE taxonomy, or `null` for every discipline.
       oneOf:
-        - $ref: './lab-sites.yaml#/NodeCode'
+        - $ref: './common.yaml#/NodeCode'
         - type: 'null'
     weekday:
       type: integer
       minimum: 1
       maximum: 7
     startTime:
-      $ref: './lab-sites.yaml#/LocalTime'
+      $ref: './common.yaml#/LocalTime'
     endTime:
       description: After `startTime`.
-      $ref: './lab-sites.yaml#/LocalTime'
+      $ref: './common.yaml#/LocalTime'
     capacity:
       type: integer
       minimum: 1
@@ -358,7 +358,7 @@ LabSlot:
       $ref: './common.yaml#/Timestamp'
     discipline:
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - $ref: './common.yaml#/CodeName'
         - type: 'null'
     capacity:
       type: integer
@@ -372,7 +372,7 @@ LabSlot:
     status:
       $ref: './enums.yaml#/SlotStatus'
     lockVersion:
-      $ref: './lab.yaml#/LockVersion'
+      $ref: './common.yaml#/LockVersion'
 
 LabSlotList:
   type: object
@@ -419,7 +419,7 @@ LabRetentionRule:
     discipline:
       description: '`null` for the site default, used for disciplines without a rule of their own.'
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - $ref: './common.yaml#/CodeName'
         - type: 'null'
     retentionDays:
       type: integer
@@ -430,7 +430,7 @@ LabRetentionRule:
         - 'null'
       minimum: 1
     lockVersion:
-      $ref: './lab.yaml#/LockVersion'
+      $ref: './common.yaml#/LockVersion'
 
 LabRetentionRuleInput:
   type: object
@@ -446,7 +446,7 @@ LabRetentionRuleInput:
     disciplineCode:
       description: Code of a DISCIPLINE node of the SCOPE taxonomy, or `null` for the default.
       oneOf:
-        - $ref: './lab-sites.yaml#/NodeCode'
+        - $ref: './common.yaml#/NodeCode'
         - type: 'null'
     retentionDays:
       type: integer
@@ -458,7 +458,7 @@ LabRetentionRuleInput:
         - 'null'
       minimum: 1
     lockVersion:
-      $ref: './lab.yaml#/LockVersion'
+      $ref: './common.yaml#/LockVersion'
 
 LabRetentionRuleSet:
   type: object
@@ -498,11 +498,11 @@ LabScopeLine:
   additionalProperties: false
   properties:
     scopeLine:
-      $ref: './lab-sites.yaml#/PublicScopeLine'
+      $ref: './public-lab-sites.yaml#/PublicScopeLine'
     pricedInEffectiveList:
       type: boolean
     lockVersion:
-      $ref: './lab.yaml#/LockVersion'
+      $ref: './common.yaml#/LockVersion'
 
 LabScopeLineList:
   type: object
@@ -543,7 +543,7 @@ LabPinProposalCreate:
       type: string
       const: MAP_PIN
     location:
-      $ref: './lab-sites.yaml#/PublicLocation'
+      $ref: './common.yaml#/GeoPoint'
     note:
       type: string
       minLength: 1
@@ -567,23 +567,23 @@ LabScopeLineProposed:
   additionalProperties: false
   properties:
     certificateNo:
-      $ref: './lab.yaml#/CertificateNo'
+      $ref: './common.yaml#/CertificateNo'
     disciplineCode:
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     groupCode:
       oneOf:
-        - $ref: './lab-sites.yaml#/NodeCode'
+        - $ref: './common.yaml#/NodeCode'
         - type: 'null'
     productCode:
       oneOf:
-        - $ref: './lab-sites.yaml#/NodeCode'
+        - $ref: './common.yaml#/NodeCode'
         - type: 'null'
     parameterCode:
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     methodCode:
       description: Code of a METHOD taxonomy node, if the method is normalised.
       oneOf:
-        - $ref: './lab-sites.yaml#/NodeCode'
+        - $ref: './common.yaml#/NodeCode'
         - type: 'null'
     methodText:
       type:
@@ -610,7 +610,8 @@ LabScopeProposalItem:
   additionalProperties: false
   properties:
     operation:
-      $ref: './enums.yaml#/LabScopeProposalOperation'
+      $ref: './enums.yaml#/ChangeOperation'
+      description: What the correction proposes for the scope line.
     scopeLineId:
       description: A scope line of this site.
       oneOf:

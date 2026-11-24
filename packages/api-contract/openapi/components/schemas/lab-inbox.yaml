@@ -48,7 +48,7 @@ LabInboxBookingSummary:
     statusChangedAt:
       $ref: './common.yaml#/Timestamp'
     labSite:
-      $ref: './lab.yaml#/LabSiteRef'
+      $ref: './common.yaml#/LabSiteRef'
     customerDisplayName:
       type: string
       description: >-

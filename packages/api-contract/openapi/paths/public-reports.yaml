@@ -23,7 +23,7 @@ verify:
         in: path
         required: true
         schema:
-          $ref: '../components/schemas/verification.yaml#/VerificationCode'
+          $ref: '../components/schemas/common.yaml#/VerificationCode'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -37,7 +37,7 @@ verify:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/verification.yaml#/ReportVerification'
+              $ref: '../components/schemas/public-reports.yaml#/ReportVerification'
       '422':
         $ref: '../components/responses.yaml#/UnprocessableEntity'
         description: '`VALIDATION_FAILED`: the code does not have the verification-code format.'
@@ -78,7 +78,7 @@ share:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/verification.yaml#/ShareLinkResolution'
+              $ref: '../components/schemas/files.yaml#/FileDownloadUrl'
       '404':
         $ref: '../components/responses.yaml#/NotFound'
         description: >-

@@ -412,7 +412,7 @@ attachment-upload-url:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/bookings.yaml#/BookingUploadUrlRequest'
+            $ref: '../components/schemas/files.yaml#/BookingAttachmentUploadUrlRequest'
     responses:
       '201':
         description: The upload URL.
@@ -422,7 +422,7 @@ attachment-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/bookings.yaml#/BookingUploadUrl'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrlWithHeaders'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':

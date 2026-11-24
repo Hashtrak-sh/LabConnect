@@ -1,139 +1,9 @@
-# Lab onboarding: claims, checklist, KYC documents, bank accounts, users and invitations, and
-# the file upload URLs of the lab module (API_CONTRACTS.md §6, FR-DAT-07, FR-ONB-04, FR-ONB-06).
+# Lab onboarding: claims, checklist, KYC documents, bank accounts, users and invitations
+# (API_CONTRACTS.md §6, FR-DAT-07, FR-ONB-04, FR-ONB-06). Upload URLs are in files.yaml.
 # Lab-owned data (TENANT_ISOLATION.md §1): the organisation is always the caller's active
 # membership, never an id from the request. Bank account numbers are write-only: responses carry
 # the last four digits only. OTPs, invitation tokens and claim contact addresses are never
 # returned. Examples use obviously fake values.
-
-LabSiteRef:
-  type: object
-  description: A lab site of the caller's organisation, by id, code and name.
-  required:
-    - id
-    - siteCode
-    - name
-  additionalProperties: false
-  properties:
-    id:
-      $ref: './common.yaml#/Uuid'
-    siteCode:
-      type: string
-      maxLength: 30
-      examples:
-        - LS-UP-000123
-    name:
-      type: string
-
-CertificateNo:
-  type: string
-  minLength: 1
-  maxLength: 50
-  description: An accreditation certificate number as published by the accreditation body.
-  examples:
-    - TC-1234
-
-LockVersion:
-  type: integer
-  minimum: 0
-  description: >-
-    The row's optimistic-locking version. Collection items carry it in the body; single resources
-    also return it as `ETag: "<lockVersion>"`.
-
-# --- File upload URLs (FILES_AND_REPORTS.md §1) ---
-
-LabKycUploadUrlRequest:
-  type: object
-  description: >-
-    Asks for an upload URL for a KYC document (`KYC_DOCUMENT`: PDF, JPEG or PNG, at most 10 MB).
-  required:
-    - fileName
-    - contentType
-    - sizeBytes
-  additionalProperties: false
-  properties:
-    fileName:
-      type: string
-      minLength: 1
-      maxLength: 255
-      description: The original file name. It is sanitised before it is stored.
-      examples:
-        - gst-certificate.pdf
-    contentType:
-      type: string
-      enum:
-        - application/pdf
-        - image/jpeg
-        - image/png
-    sizeBytes:
-      type: integer
-      minimum: 1
-      maximum: 10485760
-
-LabImportUploadUrlRequest:
-  type: object
-  description: >-
-    Asks for an upload URL for a price-list import file (`IMPORT_SOURCE`: CSV or XLSX, at most
-    50 MB).
-  required:
-    - fileName
-    - contentType
-    - sizeBytes
-  additionalProperties: false
-  properties:
-    fileName:
-      type: string
-      minLength: 1
-      maxLength: 255
-      examples:
-        - price-list.xlsx
-    contentType:
-      type: string
-      enum:
-        - text/csv
-        - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-    sizeBytes:
-      type: integer
-      minimum: 1
-      maximum: 52428800
-
-LabUploadUrl:
-  type: object
-  description: >-
-    A pre-signed S3 PUT to the quarantine prefix, valid for 15 minutes (FILES_AND_REPORTS §1). The
-    client uploads the file directly with exactly the returned headers. The file is then scanned
-    and validated; a domain command that references `fileId` before the file is `CLEAN` fails
-    with `FILE_NOT_CLEAN`.
-  required:
-    - fileId
-    - uploadUrl
-    - method
-    - headers
-    - expiresAt
-  additionalProperties: false
-  properties:
-    fileId:
-      $ref: './common.yaml#/Uuid'
-    uploadUrl:
-      type: string
-      format: uri
-    method:
-      type: string
-      const: PUT
-    headers:
-      type: object
-      description: Headers the upload must send unchanged (content type and length conditions).
-      additionalProperties:
-        type: string
-    expiresAt:
-      $ref: './common.yaml#/Timestamp'
-  examples:
-    - fileId: 01930000-0000-7000-8000-0000000000f1
-      uploadUrl: https://uploads.example.com/quarantine/KYC_DOCUMENT/01930000-0000-7000-8000-0000000000f1?X-Fake-Signature=FAKE
-      method: PUT
-      headers:
-        Content-Type: application/pdf
-        Content-Length: '182044'
-      expiresAt: '2026-11-24T10:45:00Z'
 
 # --- Claims (FR-DAT-07, AUTHENTICATION_AND_AUTHORISATION.md §5) ---
 
@@ -147,7 +17,7 @@ LabClaimCreate:
   additionalProperties: false
   properties:
     certificateNo:
-      $ref: '#/CertificateNo'
+      $ref: './common.yaml#/CertificateNo'
 
 LabClaimOtpVerify:
   type: object
@@ -156,7 +26,7 @@ LabClaimOtpVerify:
   additionalProperties: false
   properties:
     code:
-      $ref: './auth.yaml#/OtpCode'
+      $ref: './common.yaml#/OtpCode'
       description: The 6-digit code sent to the lab's NABL-registered email address.
 
 LabClaimManual:
@@ -196,7 +66,7 @@ LabClaim:
       $ref: './enums.yaml#/ClaimMethod'
     labSite:
       description: The listed site whose certificate was used (public data).
-      $ref: '#/LabSiteRef'
+      $ref: './common.yaml#/LabSiteRef'
     otpSentTo:
       description: >-
         The NABL-registered address the OTP was sent to, masked so that only the first character
@@ -230,7 +100,7 @@ LabKycDocumentCreate:
   properties:
     documentTypeCode:
       description: Code of a node of the `KYC_DOCUMENT_TYPE` taxonomy.
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     fileId:
       description: The uploaded file (`/lab/kyc-documents/upload-url`). It must be `CLEAN`.
       $ref: './common.yaml#/Uuid'
@@ -251,7 +121,7 @@ LabKycDocument:
     id:
       $ref: './common.yaml#/Uuid'
     documentType:
-      $ref: './lab-sites.yaml#/PublicCodeName'
+      $ref: './common.yaml#/CodeName'
     fileName:
       type:
         - string
@@ -420,7 +290,7 @@ LabOnboardingSite:
   additionalProperties: false
   properties:
     site:
-      $ref: '#/LabSiteRef'
+      $ref: './common.yaml#/LabSiteRef'
     listingStatus:
       $ref: './enums.yaml#/ListingStatus'
     isBookable:
@@ -504,7 +374,7 @@ LabUser:
     fullName:
       type: string
     email:
-      $ref: './auth.yaml#/Email'
+      $ref: './common.yaml#/Email'
     designation:
       type:
         - string
@@ -516,12 +386,12 @@ LabUser:
     sites:
       type: array
       items:
-        $ref: '#/LabSiteRef'
+        $ref: './common.yaml#/LabSiteRef'
     mfaEnrolled:
       type: boolean
     lockVersion:
       description: The membership's lock version.
-      $ref: '#/LockVersion'
+      $ref: './common.yaml#/LockVersion'
 
 LabUserList:
   type: object
@@ -590,13 +460,13 @@ LabInvitation:
     id:
       $ref: './common.yaml#/Uuid'
     email:
-      $ref: './auth.yaml#/Email'
+      $ref: './common.yaml#/Email'
     role:
       $ref: './enums.yaml#/LabRoleCode'
     sites:
       type: array
       items:
-        $ref: '#/LabSiteRef'
+        $ref: './common.yaml#/LabSiteRef'
     status:
       $ref: '#/LabInvitationStatus'
     expiresAt:
@@ -635,7 +505,7 @@ LabInvitationCreate:
   additionalProperties: false
   properties:
     email:
-      $ref: './auth.yaml#/Email'
+      $ref: './common.yaml#/Email'
     role:
       $ref: './enums.yaml#/LabRoleCode'
     siteIds:

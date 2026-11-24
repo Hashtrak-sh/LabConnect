@@ -19,7 +19,7 @@ AdminTaxonomy:
     id:
       $ref: './common.yaml#/Uuid'
     code:
-      $ref: './lab-sites.yaml#/TaxonomyCode'
+      $ref: './common.yaml#/TaxonomyCode'
     name:
       type: string
     description:
@@ -226,8 +226,7 @@ AdminChangeSet:
     updatedAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminChangeSetList:
   type: object

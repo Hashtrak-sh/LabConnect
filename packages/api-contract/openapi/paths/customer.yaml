@@ -167,7 +167,7 @@ sites:
         required: false
         description: Only sites with this status.
         schema:
-          $ref: '../components/schemas/enums.yaml#/CustomerSiteStatus'
+          $ref: '../components/schemas/enums.yaml#/MdStatus'
       - $ref: '../components/parameters.yaml#/Cursor'
       - $ref: '../components/parameters.yaml#/Limit'
       - $ref: '../components/parameters.yaml#/ActiveMembership'

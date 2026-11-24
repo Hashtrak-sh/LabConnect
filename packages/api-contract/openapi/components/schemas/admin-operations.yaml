@@ -365,8 +365,7 @@ AdminBooking:
     createdAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminBookingCancelRequest:
   type: object
@@ -462,8 +461,7 @@ AdminBreakGlassGrant:
     createdAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminBreakGlassGrantList:
   type: object
@@ -507,7 +505,7 @@ AdminLead:
     query:
       description: The search that led to the lead, as stored.
       oneOf:
-        - $ref: './search.yaml#/LeadSearchCriteria'
+        - $ref: './public-search.yaml#/LeadSearchCriteria'
         - type: 'null'
     requesterUserId:
       oneOf:
@@ -515,7 +513,7 @@ AdminLead:
         - type: 'null'
     contactEmail:
       oneOf:
-        - $ref: './auth.yaml#/Email'
+        - $ref: './common.yaml#/Email'
         - type: 'null'
     status:
       $ref: './enums.yaml#/LeadStatus'
@@ -643,8 +641,7 @@ AdminDispute:
     createdAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminDisputeList:
   type: object
