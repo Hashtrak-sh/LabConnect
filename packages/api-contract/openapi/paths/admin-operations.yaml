@@ -606,7 +606,7 @@ break-glass-download-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/admin-common.yaml#/AdminDownloadUrl'
+              $ref: '../components/schemas/files.yaml#/AdminDownloadUrl'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: >-

@@ -2,52 +2,8 @@
 # FILES_AND_REPORTS.md §1 to §5, SCHEMA_SPECIFICATION §9). No schema here carries a file or an
 # object key: files are uploaded and downloaded through short-lived pre-signed URLs only. A
 # released version is immutable; a correction is a new version (amendment).
-# The public views (verification, share-link resolution) are in verification.yaml.
-
-ReportUploadUrlRequest:
-  type: object
-  description: >-
-    A report PDF to upload (FILES_AND_REPORTS §1, purpose `REPORT_ORIGINAL`, BR-060): a PDF of at
-    most 20 MB. Encrypted, corrupt or JavaScript-bearing PDFs are rejected after upload (EC-42).
-  required:
-    - contentType
-    - sizeBytes
-  additionalProperties: false
-  properties:
-    contentType:
-      type: string
-      const: application/pdf
-    sizeBytes:
-      type: integer
-      format: int64
-      minimum: 1
-      maximum: 20971520
-    filename:
-      type: string
-      minLength: 1
-      maxLength: 255
-      description: The original file name. Stored sanitised.
-
-ReportUploadUrl:
-  type: object
-  description: >-
-    A pre-signed S3 PUT into quarantine (FILES_AND_REPORTS §1). The PUT must send the declared
-    `Content-Type` and `Content-Length`. The file can be used in a report version once its malware
-    scan and PDF validation have marked it `CLEAN`.
-  required:
-    - fileId
-    - uploadUrl
-    - expiresAt
-  additionalProperties: false
-  properties:
-    fileId:
-      $ref: './common.yaml#/Uuid'
-    uploadUrl:
-      type: string
-      format: uri
-      description: Valid for 15 minutes.
-    expiresAt:
-      $ref: './common.yaml#/Timestamp'
+# The public views (verification, share-link resolution) are in public-reports.yaml, and the
+# upload and download URLs in files.yaml.
 
 ReportParameterResult:
   type: object
@@ -98,7 +54,7 @@ ReportVersionCreate:
     issueDate:
       $ref: './common.yaml#/Date'
     bindPackagePayload:
-      $ref: './custody.yaml#/CustodyQrPayload'
+      $ref: './common.yaml#/QrPayload'
     parameterResults:
       type: array
       maxItems: 200
@@ -168,16 +124,16 @@ ReportVersion:
     originalSha256:
       description: SHA-256 of the uploaded original. The original is never modified.
       oneOf:
-        - $ref: './verification.yaml#/Sha256Hex'
+        - $ref: './common.yaml#/Sha256Hex'
         - type: 'null'
     stampedSha256:
       description: SHA-256 of the stamped copy, the file the customer receives.
       oneOf:
-        - $ref: './verification.yaml#/Sha256Hex'
+        - $ref: './common.yaml#/Sha256Hex'
         - type: 'null'
     verificationCode:
       oneOf:
-        - $ref: './verification.yaml#/VerificationCode'
+        - $ref: './common.yaml#/VerificationCode'
         - type: 'null'
     boundPackage:
       description: The package the report is bound to (BR-063).
@@ -216,8 +172,7 @@ ReportVersion:
         - $ref: './common.yaml#/Uuid'
         - type: 'null'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
       description: >-
         Send it as `If-Match: "<lockVersion>"` with submit, return and publish. Fixed once the
         version is released.
@@ -315,9 +270,9 @@ CustomerReportVersion:
         - $ref: './common.yaml#/Uuid'
         - type: 'null'
     stampedSha256:
-      $ref: './verification.yaml#/Sha256Hex'
+      $ref: './common.yaml#/Sha256Hex'
     verificationCode:
-      $ref: './verification.yaml#/VerificationCode'
+      $ref: './common.yaml#/VerificationCode'
     parameterResults:
       type: array
       items:
@@ -420,31 +375,6 @@ ReportView:
   oneOf:
     - $ref: '#/LabReportView'
     - $ref: '#/CustomerReportView'
-
-ReportDownloadUrl:
-  type: object
-  description: >-
-    A short-lived download URL (FILES_AND_REPORTS §2), never the file itself. `copy` says which
-    file it opens: the `STAMPED` copy (what the customer receives), or for the lab the `ORIGINAL`
-    of a version that has no stamped copy yet.
-  required:
-    - downloadUrl
-    - expiresAt
-    - copy
-  additionalProperties: false
-  properties:
-    downloadUrl:
-      type: string
-      format: uri
-      description: >-
-        A pre-signed GET with `Content-Disposition: attachment`, valid for 15 minutes (BR-066).
-    expiresAt:
-      $ref: './common.yaml#/Timestamp'
-    copy:
-      type: string
-      enum:
-        - STAMPED
-        - ORIGINAL
 
 ReportShareLinkCreate:
   type: object

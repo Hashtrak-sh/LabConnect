@@ -4,26 +4,6 @@
 # file or an object key.
 # Schemas that stand in for another module's resource carry the prefix `Custody`.
 
-CustodyQrPayload:
-  type: string
-  minLength: 1
-  maxLength: 200
-  description: >-
-    The text of a booking or package QR as decoded by the scanner: `LC1.B.<bookingNo>.<keyId>.<mac>`
-    or `LC1.P.<bookingNo>.<seq>-<total>.<labelVer>.<keyId>.<mac>` (QR_AND_VERIFICATION §1). The MAC
-    is checked server side with KMS `VerifyMac`; a client never verifies it.
-  examples:
-    - LC1.P.LC-0000-0000000.1-2.1.k0.NOT-A-REAL-MAC
-
-CustodyShortCode:
-  type: string
-  pattern: ^[0-9A-HJKMNP-TV-Z]{6}$
-  description: >-
-    The 6-character short code printed on a package label (Crockford base32, upper case), for the
-    manual fallback when the QR is missing or unreadable (EC-26).
-  examples:
-    - 0A1B2C
-
 CustodyDeviceId:
   type: string
   minLength: 1
@@ -56,9 +36,9 @@ CustodyScanRequest:
   additionalProperties: false
   properties:
     payload:
-      $ref: '#/CustodyQrPayload'
+      $ref: './common.yaml#/QrPayload'
     shortCode:
-      $ref: '#/CustodyShortCode'
+      $ref: './common.yaml#/PackageShortCode'
     siteId:
       $ref: './common.yaml#/Uuid'
     deviceId:
@@ -110,8 +90,7 @@ CustodyBookingSummary:
         - $ref: './common.yaml#/Timestamp'
         - type: 'null'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
       description: >-
         The booking's version. Send it as `If-Match: "<lockVersion>"` when submitting the receipt.
 
@@ -168,16 +147,16 @@ CustodyTrfLine:
       type: integer
       minimum: 1
     parameter:
-      $ref: './lab-sites.yaml#/PublicCodeName'
+      $ref: './common.yaml#/CodeName'
     method:
       oneOf:
-        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - $ref: './common.yaml#/CodeName'
         - type: 'null'
     sampleQty:
       type: number
       minimum: 0
     sampleUnit:
-      $ref: './lab-sites.yaml#/PublicCodeName'
+      $ref: './common.yaml#/CodeName'
     status:
       $ref: './enums.yaml#/BookingLineStatus'
 
@@ -292,9 +271,9 @@ CustodyScanBatchItem:
   additionalProperties: false
   properties:
     payload:
-      $ref: '#/CustodyQrPayload'
+      $ref: './common.yaml#/QrPayload'
     shortCode:
-      $ref: '#/CustodyShortCode'
+      $ref: './common.yaml#/PackageShortCode'
     clientRecordedAt:
       $ref: './common.yaml#/Timestamp'
     clientSeq:
@@ -404,54 +383,6 @@ CustodyIntendedSite:
     city:
       type: string
 
-ReceiptPhotoUploadUrlRequest:
-  type: object
-  description: >-
-    A receipt photo to upload (FILES_AND_REPORTS §1, purpose `RECEIPT_PHOTO`): JPEG, PNG or HEIC
-    (converted to JPEG), at most 10 MB.
-  required:
-    - contentType
-    - sizeBytes
-  additionalProperties: false
-  properties:
-    contentType:
-      type: string
-      enum:
-        - image/jpeg
-        - image/png
-        - image/heic
-    sizeBytes:
-      type: integer
-      format: int64
-      minimum: 1
-      maximum: 10485760
-    filename:
-      type: string
-      minLength: 1
-      maxLength: 255
-      description: The original file name. Stored sanitised.
-
-ReceiptPhotoUploadUrl:
-  type: object
-  description: >-
-    A pre-signed S3 PUT into quarantine (FILES_AND_REPORTS §1). The PUT must send the declared
-    `Content-Type` and `Content-Length`. The file can be referenced once its malware scan and
-    validation have marked it `CLEAN`.
-  required:
-    - fileId
-    - uploadUrl
-    - expiresAt
-  additionalProperties: false
-  properties:
-    fileId:
-      $ref: './common.yaml#/Uuid'
-    uploadUrl:
-      type: string
-      format: uri
-      description: Valid for 15 minutes.
-    expiresAt:
-      $ref: './common.yaml#/Timestamp'
-
 ReceiptPackageInput:
   type: object
   description: >-
@@ -468,7 +399,7 @@ ReceiptPackageInput:
       $ref: './common.yaml#/Uuid'
     condition:
       description: The package's own condition, when it differs (SAMPLE_CONDITION taxonomy).
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     notes:
       type: string
       maxLength: 2000
@@ -501,7 +432,7 @@ ReceiptSubmit:
       description: How many packages were handed over, labelled or not.
     condition:
       description: Overall sample condition (SAMPLE_CONDITION taxonomy).
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     itemMatches:
       type: boolean
     batchMatches:
@@ -576,7 +507,7 @@ ReceiptPackage:
       $ref: './common.yaml#/Timestamp'
     condition:
       oneOf:
-        - $ref: './lab-sites.yaml#/NodeCode'
+        - $ref: './common.yaml#/NodeCode'
         - type: 'null'
     notes:
       type:
@@ -599,7 +530,7 @@ ReceiptHoldCase:
       $ref: './common.yaml#/Uuid'
     reason:
       description: HOLD_REASON taxonomy.
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     details:
       type:
         - string
@@ -657,7 +588,7 @@ ReceiptRecord:
       type: integer
       minimum: 0
     condition:
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     itemMatches:
       type: boolean
     batchMatches:
@@ -716,8 +647,7 @@ ReceiptRecord:
         - $ref: '#/ReceiptHoldCase'
         - type: 'null'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
       description: Send it as `If-Match` with the Checker's decision.
 
 LabSampleId:
@@ -753,7 +683,7 @@ ReceiptConfirmDiscrepancy:
   additionalProperties: false
   properties:
     reason:
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     details:
       type: string
       maxLength: 4000
@@ -842,6 +772,5 @@ LabelReprintRequest:
         - $ref: '#/CustodyPackageSummary'
         - type: 'null'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
       description: Send it as `If-Match` with the approval.

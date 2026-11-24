@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  isRef,
   listOperations,
   loadBundledDocument,
-  type OpenApiDocument,
+  reachableProperties,
   resolve,
   type Response,
 } from './helpers.js';
@@ -73,30 +72,6 @@ const denyList: Record<string, string> = {
   ipHash: 'verification_event.ip_hash',
   ipAddress: 'report_access_log.ip_address',
 };
-
-/** Property names reachable from a schema, following `$ref`s, each with its path. */
-function reachableProperties(
-  doc: OpenApiDocument,
-  node: unknown,
-  at: string,
-  seen = new Set<string>(),
-): { name: string; at: string }[] {
-  if (typeof node !== 'object' || node === null) return [];
-  if (isRef(node)) {
-    if (seen.has(node.$ref)) return [];
-    seen.add(node.$ref);
-    return reachableProperties(doc, resolve(doc, node), node.$ref, seen);
-  }
-  const found: { name: string; at: string }[] = [];
-  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
-    if (key === 'examples' || key === 'example') continue;
-    if (key === 'properties' && typeof value === 'object' && value !== null) {
-      for (const name of Object.keys(value)) found.push({ name, at });
-    }
-    found.push(...reachableProperties(doc, value, `${at}/${key}`, seen));
-  }
-  return found;
-}
 
 const doc = loadBundledDocument();
 const publicOperations = listOperations(doc).filter((o) => o.path.startsWith('/public/'));

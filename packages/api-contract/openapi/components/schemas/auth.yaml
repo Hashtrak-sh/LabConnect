@@ -1,29 +1,6 @@
 # Sign-in, MFA and session schemas (AUTHENTICATION_AND_AUTHORISATION.md §1 and §2).
 # Examples use obviously fake values. Never put a real token, OTP or secret here.
 
-Email:
-  type: string
-  format: email
-  maxLength: 254
-  examples:
-    - user@example.com
-
-OtpCode:
-  type: string
-  pattern: ^[0-9]{6}$
-  description: A 6-digit one-time code.
-  examples:
-    - '000000'
-
-OtpRequestPurpose:
-  type: string
-  description: >-
-    The purposes this endpoint accepts. A subset of the database enum `OtpPurpose`: the lab-claim
-    OTP goes only to the NABL-registered address through the claim endpoints, and phone OTP waits
-    for an SMS provider (FR-IAM-02).
-  enum:
-    - LOGIN
-
 OtpRequest:
   type: object
   required:
@@ -32,9 +9,9 @@ OtpRequest:
   additionalProperties: false
   properties:
     email:
-      $ref: '#/Email'
+      $ref: './common.yaml#/Email'
     purpose:
-      $ref: '#/OtpRequestPurpose'
+      $ref: './enums.yaml#/OtpRequestPurpose'
 
 OtpVerifyRequest:
   type: object
@@ -44,9 +21,9 @@ OtpVerifyRequest:
   additionalProperties: false
   properties:
     email:
-      $ref: '#/Email'
+      $ref: './common.yaml#/Email'
     code:
-      $ref: '#/OtpCode'
+      $ref: './common.yaml#/OtpCode'
 
 MfaCodeRequest:
   type: object
@@ -55,7 +32,7 @@ MfaCodeRequest:
   additionalProperties: false
   properties:
     code:
-      $ref: '#/OtpCode'
+      $ref: './common.yaml#/OtpCode'
       description: The current 6-digit TOTP code from the authenticator app.
 
 Session:

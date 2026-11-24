@@ -130,7 +130,7 @@ import-upload-url:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab.yaml#/LabImportUploadUrlRequest'
+            $ref: '../components/schemas/files.yaml#/ImportSourceUploadUrlRequest'
     responses:
       '201':
         description: Upload URL created.
@@ -140,7 +140,7 @@ import-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabUploadUrl'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrlWithHeaders'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':

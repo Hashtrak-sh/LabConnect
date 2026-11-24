@@ -239,7 +239,7 @@ dispute-evidence-upload-url:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/disputes.yaml#/DisputeUploadUrlRequest'
+            $ref: '../components/schemas/files.yaml#/DisputeEvidenceUploadUrlRequest'
     responses:
       '201':
         description: The file id and its upload URL.
@@ -249,7 +249,7 @@ dispute-evidence-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/disputes.yaml#/DisputeUploadUrl'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrl'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':

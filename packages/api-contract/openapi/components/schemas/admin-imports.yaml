@@ -52,8 +52,7 @@ AdminMappingTemplate:
     updatedAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminMappingTemplateList:
   type: object
@@ -203,8 +202,7 @@ AdminImportJob:
     updatedAt:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
-      type: integer
-      minimum: 0
+      $ref: './common.yaml#/LockVersion'
 
 AdminImportRow:
   type: object

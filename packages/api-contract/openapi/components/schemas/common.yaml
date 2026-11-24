@@ -1,4 +1,8 @@
-# Shared value types (API_CONVENTIONS.md §3). Every module reuses these.
+# Shared value types and references (API_CONVENTIONS.md §3). A schema belongs here when more
+# than one module uses it, or when it is a plain value type (an identifier, a code, a format)
+# that any module may need. Module files reference these; they do not keep their own copies.
+
+# --- Identifiers, dates, money, pagination ---
 
 Uuid:
   type: string
@@ -21,6 +25,13 @@ Timestamp:
   description: An ISO-8601 timestamp in UTC, ending in `Z`.
   examples:
     - '2026-11-24T10:30:00Z'
+
+LocalTime:
+  type: string
+  pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+  description: A wall-clock time `HH:MM` in IST.
+  examples:
+    - '09:30'
 
 Money:
   type: object
@@ -61,3 +72,175 @@ Page:
       minimum: 1
       maximum: 100
       description: The page size that was applied.
+
+LockVersion:
+  type: integer
+  minimum: 0
+  description: >-
+    The row's optimistic-locking version. Collection items carry it in the body; single resources
+    also return it as `ETag: "<lockVersion>"`, and commands send it back in `If-Match`.
+
+SearchText:
+  type: string
+  minLength: 1
+  maxLength: 200
+  description: >-
+    Free text: product, parameter, standard or lab name (FR-DIS-01). Typo-tolerant, with the
+    admin-managed synonyms (for example `TS` finds "tensile strength", AC-DIS-02).
+  examples:
+    - tensile strength
+
+# --- People, organisations and places ---
+
+Email:
+  type: string
+  format: email
+  maxLength: 254
+  examples:
+    - user@example.com
+
+OtpCode:
+  type: string
+  pattern: ^[0-9]{6}$
+  description: A 6-digit one-time code.
+  examples:
+    - '000000'
+
+Gstin:
+  type: string
+  pattern: ^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$
+  description: A GST identification number (15 characters, upper case).
+  examples:
+    - 09AAAAA0000A1Z5
+
+Pincode:
+  type: string
+  pattern: ^[0-9]{6}$
+  description: An Indian postal index number (6 digits).
+  examples:
+    - '201310'
+
+GeoPoint:
+  type: object
+  description: >-
+    A point on the map, in degrees of latitude and longitude. For a lab site this is the
+    Ops-approved pin (`lab_site.geo_point`): only approved pins are published or used for
+    distance (BR-004).
+  required:
+    - lat
+    - lng
+  additionalProperties: false
+  properties:
+    lat:
+      type: number
+      minimum: -90
+      maximum: 90
+    lng:
+      type: number
+      minimum: -180
+      maximum: 180
+
+# --- Master data and accreditation ---
+
+TaxonomyCode:
+  type: string
+  pattern: ^[A-Z][A-Z0-9_]*$
+  maxLength: 50
+  description: Code of a master-data taxonomy (`md_taxonomy.code`), for example `SCOPE` or `METHOD`.
+  examples:
+    - SCOPE
+
+NodeCode:
+  type: string
+  minLength: 1
+  maxLength: 100
+  description: >-
+    Stable business code of a master-data node (`md_node.code`). Unique within its taxonomy.
+  examples:
+    - MECHANICAL
+
+CodeName:
+  type: object
+  description: The code and display name of a master-data value or reference record.
+  required:
+    - code
+    - name
+  additionalProperties: false
+  properties:
+    code:
+      type: string
+      maxLength: 100
+    name:
+      type: string
+
+CertificateNo:
+  type: string
+  minLength: 1
+  maxLength: 50
+  description: An accreditation certificate number as published by the accreditation body.
+  examples:
+    - TC-1234
+
+LabSiteRef:
+  type: object
+  description: A lab site of the caller's organisation, by id, code and name.
+  required:
+    - id
+    - siteCode
+    - name
+  additionalProperties: false
+  properties:
+    id:
+      $ref: '#/Uuid'
+    siteCode:
+      type: string
+      maxLength: 30
+      examples:
+        - LS-UP-000123
+    name:
+      type: string
+
+# --- Bookings, packages and reports ---
+
+BookingNo:
+  type: string
+  pattern: ^LC-[0-9]{4}-[0-9]{7}$
+  description: Human-readable booking reference, `LC-YYMM-NNNNNNN`.
+  examples:
+    - LC-0000-0000001
+
+QrPayload:
+  type: string
+  minLength: 1
+  maxLength: 200
+  description: >-
+    The text of a booking or package QR as decoded by the scanner: `LC1.B.<bookingNo>.<keyId>.<mac>`
+    or `LC1.P.<bookingNo>.<seq>-<total>.<labelVer>.<keyId>.<mac>` (QR_AND_VERIFICATION §1). The MAC
+    is checked server side with KMS `VerifyMac`; a client never verifies it.
+  examples:
+    - LC1.P.LC-0000-0000000.1-2.1.k0.NOT-A-REAL-MAC
+
+PackageShortCode:
+  type: string
+  pattern: ^[0-9A-HJKMNP-TV-Z]{6}$
+  description: >-
+    The 6-character short code printed on a package label (Crockford base32, upper case), for the
+    manual fallback when the QR is missing or unreadable (EC-26).
+  examples:
+    - 0A1B2C
+
+VerificationCode:
+  type: string
+  pattern: ^[0-9A-HJKMNP-TV-Z]{16}$
+  description: >-
+    The code from the report QR (`https://<public-host>/v/<code>`): 16 characters of Crockford
+    base32, at least 80 random bits (FILES_AND_REPORTS §3).
+  examples:
+    - 7GQ2X9KD4M1TRV8B
+
+Sha256Hex:
+  type: string
+  pattern: ^[0-9a-f]{64}$
+  description: A SHA-256 digest as 64 lower-case hex characters.
+  examples:
+    - 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08

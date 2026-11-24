@@ -38,7 +38,7 @@ report-upload-url:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/reports.yaml#/ReportUploadUrlRequest'
+            $ref: '../components/schemas/files.yaml#/ReportOriginalUploadUrlRequest'
     responses:
       '201':
         description: The upload URL.
@@ -48,7 +48,7 @@ report-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/reports.yaml#/ReportUploadUrl'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrl'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -455,7 +455,7 @@ report-version-download-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/reports.yaml#/ReportDownloadUrl'
+              $ref: '../components/schemas/files.yaml#/ReportDownloadUrl'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'

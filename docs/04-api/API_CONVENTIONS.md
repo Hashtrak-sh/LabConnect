@@ -4,9 +4,10 @@
 
 ## 1. Contract-first
 - The source of truth is the OpenAPI 3.1 contract in `packages/api-contract/openapi/`, split per module so that tasks add files rather than edit one big one:
-  - `openapi.yaml`: the root (info, `/v1` server, tags, security schemes, the path list, and the shared components by name).
+  - `openapi.yaml`: the root (info, `/v1` server, tags, security schemes, the path list, and every component by name). Tags and paths follow the sections of `API_CONTRACTS.md`; schemas are registered file by file, each under the name it has in its file (the order is described at the top of the file and checked by `test/components.test.ts`).
   - `paths/<module>.yaml`: the path items of one module (`auth.yaml`, `me.yaml`, `health.yaml`, …). A new path is added here and listed in the root.
-  - `components/`: shared schemas (`schemas/common.yaml`, `errors.yaml`, `enums.yaml`, plus one file per module), `parameters.yaml`, `headers.yaml` and `responses.yaml`.
+  - `components/schemas/`: `common.yaml` (value types and references that more than one module uses: ids, timestamps, money, `LockVersion`, codes, `GeoPoint`, …), `errors.yaml`, `enums.yaml` (the enums that mirror a database enum, one definition each), `files.yaml` (upload and download URLs for every module, `FILES_AND_REPORTS.md`), and one file per module with the same name as its `paths/` file. A module file defines only its own schemas and references the shared files for the rest; `test/components.test.ts` fails when two schemas have the same structure without a recorded reason.
+  - `components/`: `parameters.yaml`, `headers.yaml` and `responses.yaml`, shared by every module.
 - Commands (from the repo root):
   - `pnpm contract:generate`: bundles the files into one document (`src/generated/openapi.json`) and generates TypeScript types (`src/generated/types.ts`, `openapi-typescript`). Both are git-ignored; `build`, `typecheck`, `test` and the root `lint` run it first.
   - `pnpm --filter @labconnect/api-contract lint:openapi`: Redocly lint (`redocly.yaml`, the `recommended` rules with documented changes).

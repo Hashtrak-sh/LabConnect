@@ -14,7 +14,7 @@ UserProfile:
     id:
       $ref: './common.yaml#/Uuid'
     email:
-      $ref: './auth.yaml#/Email'
+      $ref: './common.yaml#/Email'
     fullName:
       type: string
     designation:

@@ -1,16 +1,6 @@
 # Public search, typeahead and leads (API_CONTRACTS.md §2, SEARCH.md, FR-DIS-01..07).
 # Only public reference data (SEARCH.md §1, TENANT_ISOLATION.md §1).
 
-SearchText:
-  type: string
-  minLength: 1
-  maxLength: 200
-  description: >-
-    Free text: product, parameter, standard or lab name (FR-DIS-01). Typo-tolerant, with the
-    admin-managed synonyms (for example `TS` finds "tensile strength", AC-DIS-02).
-  examples:
-    - tensile strength
-
 SearchRadiusKm:
   type: integer
   enum:
@@ -38,7 +28,7 @@ LabSearchMatchedLine:
   additionalProperties: false
   properties:
     scopeLine:
-      $ref: './lab-sites.yaml#/PublicScopeLine'
+      $ref: './public-lab-sites.yaml#/PublicScopeLine'
     price:
       description: >-
         Price in the effective published price list. `null` when the site is not bookable or the
@@ -68,7 +58,7 @@ LabSearchResult:
   additionalProperties: false
   properties:
     labSite:
-      $ref: './lab-sites.yaml#/PublicLabSiteSummary'
+      $ref: './public-lab-sites.yaml#/PublicLabSiteSummary'
     distanceKm:
       description: >-
         Distance from the search location to the site's approved pin. `null` when the request has
@@ -150,7 +140,7 @@ SearchSuggestion:
     code:
       description: The node code for `PARAMETER`, `PRODUCT` and `METHOD`; `null` for `LAB_SITE`.
       oneOf:
-        - $ref: './lab-sites.yaml#/NodeCode'
+        - $ref: './common.yaml#/NodeCode'
         - type: 'null'
     labSiteId:
       description: The site for `LAB_SITE`; `null` otherwise.
@@ -179,17 +169,17 @@ LeadSearchCriteria:
   additionalProperties: false
   properties:
     q:
-      $ref: '#/SearchText'
+      $ref: './common.yaml#/SearchText'
     pincode:
-      $ref: './lab-sites.yaml#/Pincode'
+      $ref: './common.yaml#/Pincode'
     radiusKm:
       $ref: '#/SearchRadiusKm'
     discipline:
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     parameter:
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     method:
-      $ref: './lab-sites.yaml#/NodeCode'
+      $ref: './common.yaml#/NodeCode'
     tatMax:
       $ref: '#/TatDays'
     priceMax:
@@ -219,7 +209,7 @@ LeadCreate:
       description: >-
         Where the requester can be reached about the lead, for example when the lab becomes
         bookable (NOTIFICATIONS_MATRIX `lab.became_bookable`).
-      $ref: './auth.yaml#/Email'
+      $ref: './common.yaml#/Email'
   # The rule in the description, as JSON Schema conditionals. The `properties` entries only name
   # the fields the branch requires; their schemas are the ones above.
   allOf:

@@ -33,7 +33,7 @@ site:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabSite'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabSite'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'
@@ -71,7 +71,7 @@ site:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab-settings.yaml#/LabSiteUpdate'
+            $ref: '../components/schemas/lab-site-settings.yaml#/LabSiteUpdate'
     responses:
       '200':
         description: Saved.
@@ -83,7 +83,7 @@ site:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabSite'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabSite'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -130,7 +130,7 @@ receiving-hours:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab-settings.yaml#/LabReceivingHoursSet'
+            $ref: '../components/schemas/lab-site-settings.yaml#/LabReceivingHoursSet'
     responses:
       '200':
         description: Saved.
@@ -140,7 +140,7 @@ receiving-hours:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabReceivingHoursSet'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabReceivingHoursSet'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -193,7 +193,7 @@ closures:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabSiteClosureList'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabSiteClosureList'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'
@@ -234,7 +234,7 @@ closures:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab-settings.yaml#/LabSiteClosureCreate'
+            $ref: '../components/schemas/lab-site-settings.yaml#/LabSiteClosureCreate'
     responses:
       '201':
         description: Closed.
@@ -244,7 +244,7 @@ closures:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabSiteClosureResult'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabSiteClosureResult'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -340,7 +340,7 @@ slot-templates:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabSlotTemplateSet'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabSlotTemplateSet'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'
@@ -379,7 +379,7 @@ slot-templates:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab-settings.yaml#/LabSlotTemplateSetUpdate'
+            $ref: '../components/schemas/lab-site-settings.yaml#/LabSlotTemplateSetUpdate'
     responses:
       '200':
         description: Saved.
@@ -389,7 +389,7 @@ slot-templates:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabSlotTemplateSet'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabSlotTemplateSet'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -447,7 +447,7 @@ slots:
         required: false
         description: Code of a DISCIPLINE node of the SCOPE taxonomy.
         schema:
-          $ref: '../components/schemas/lab-sites.yaml#/NodeCode'
+          $ref: '../components/schemas/common.yaml#/NodeCode'
       - name: status
         in: query
         required: false
@@ -466,7 +466,7 @@ slots:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabSlotList'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabSlotList'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'
@@ -516,7 +516,7 @@ slot:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab-settings.yaml#/LabSlotUpdate'
+            $ref: '../components/schemas/lab-site-settings.yaml#/LabSlotUpdate'
     responses:
       '200':
         description: Saved.
@@ -528,7 +528,7 @@ slot:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabSlot'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabSlot'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -578,7 +578,7 @@ retention-rules:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabRetentionRuleSet'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabRetentionRuleSet'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'
@@ -616,7 +616,7 @@ retention-rules:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab-settings.yaml#/LabRetentionRuleSetUpdate'
+            $ref: '../components/schemas/lab-site-settings.yaml#/LabRetentionRuleSetUpdate'
     responses:
       '200':
         description: Saved.
@@ -626,7 +626,7 @@ retention-rules:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabRetentionRuleSet'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabRetentionRuleSet'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -670,7 +670,7 @@ scope-lines:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/search.yaml#/SearchText'
+          $ref: '../components/schemas/common.yaml#/SearchText'
       - $ref: '../components/parameters.yaml#/Cursor'
       - $ref: '../components/parameters.yaml#/Limit'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -684,7 +684,7 @@ scope-lines:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabScopeLineList'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabScopeLineList'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'
@@ -733,7 +733,7 @@ scope-line-availability:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab-settings.yaml#/LabScopeLineAvailabilityUpdate'
+            $ref: '../components/schemas/lab-site-settings.yaml#/LabScopeLineAvailabilityUpdate'
     responses:
       '200':
         description: Saved.
@@ -745,7 +745,7 @@ scope-line-availability:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabScopeLine'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabScopeLine'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -793,7 +793,7 @@ proposals:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab-settings.yaml#/LabProposalCreate'
+            $ref: '../components/schemas/lab-site-settings.yaml#/LabProposalCreate'
     responses:
       '201':
         description: Proposed.
@@ -803,7 +803,7 @@ proposals:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab-settings.yaml#/LabProposal'
+              $ref: '../components/schemas/lab-site-settings.yaml#/LabProposal'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':

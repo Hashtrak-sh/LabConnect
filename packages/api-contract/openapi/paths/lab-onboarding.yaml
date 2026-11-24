@@ -27,7 +27,7 @@ claims:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab.yaml#/LabClaimCreate'
+            $ref: '../components/schemas/lab-onboarding.yaml#/LabClaimCreate'
     responses:
       '200':
         description: An OTP was sent again for the caller's open claim.
@@ -39,7 +39,7 @@ claims:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabClaim'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabClaim'
       '201':
         description: Claim started.
         headers:
@@ -50,7 +50,7 @@ claims:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabClaim'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabClaim'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -99,7 +99,7 @@ claim-verify-otp:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab.yaml#/LabClaimOtpVerify'
+            $ref: '../components/schemas/lab-onboarding.yaml#/LabClaimOtpVerify'
     responses:
       '200':
         description: Verified; the claim waits for review.
@@ -111,7 +111,7 @@ claim-verify-otp:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabClaim'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabClaim'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -159,7 +159,7 @@ claim-manual-upload-url:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab.yaml#/LabKycUploadUrlRequest'
+            $ref: '../components/schemas/files.yaml#/KycDocumentUploadUrlRequest'
     responses:
       '201':
         description: Upload URL created.
@@ -169,7 +169,7 @@ claim-manual-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabUploadUrl'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrlWithHeaders'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -216,7 +216,7 @@ claim-manual:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab.yaml#/LabClaimManual'
+            $ref: '../components/schemas/lab-onboarding.yaml#/LabClaimManual'
     responses:
       '200':
         description: Submitted for review.
@@ -228,7 +228,7 @@ claim-manual:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabClaim'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabClaim'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -277,7 +277,7 @@ onboarding:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabOnboarding'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabOnboarding'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'
@@ -311,7 +311,7 @@ kyc-upload-url:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab.yaml#/LabKycUploadUrlRequest'
+            $ref: '../components/schemas/files.yaml#/KycDocumentUploadUrlRequest'
     responses:
       '201':
         description: Upload URL created.
@@ -321,7 +321,7 @@ kyc-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabUploadUrl'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrlWithHeaders'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -365,7 +365,7 @@ kyc-documents:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab.yaml#/LabKycDocumentCreate'
+            $ref: '../components/schemas/lab-onboarding.yaml#/LabKycDocumentCreate'
     responses:
       '201':
         description: Submitted.
@@ -375,7 +375,7 @@ kyc-documents:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabKycDocument'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabKycDocument'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -424,7 +424,7 @@ bank-accounts:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab.yaml#/LabBankAccountCreate'
+            $ref: '../components/schemas/lab-onboarding.yaml#/LabBankAccountCreate'
     responses:
       '201':
         description: Added, masked.
@@ -436,7 +436,7 @@ bank-accounts:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabBankAccount'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabBankAccount'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -493,7 +493,7 @@ users:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabUserList'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabUserList'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'
@@ -539,7 +539,7 @@ user:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab.yaml#/LabUserUpdate'
+            $ref: '../components/schemas/lab-onboarding.yaml#/LabUserUpdate'
     responses:
       '200':
         description: Changed.
@@ -551,7 +551,7 @@ user:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabUser'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabUser'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -589,7 +589,7 @@ invitations:
         in: query
         required: false
         schema:
-          $ref: '../components/schemas/lab.yaml#/LabInvitationStatus'
+          $ref: '../components/schemas/lab-onboarding.yaml#/LabInvitationStatus'
       - $ref: '../components/parameters.yaml#/Cursor'
       - $ref: '../components/parameters.yaml#/Limit'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -603,7 +603,7 @@ invitations:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabInvitationList'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabInvitationList'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'
@@ -639,7 +639,7 @@ invitations:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab.yaml#/LabInvitationCreate'
+            $ref: '../components/schemas/lab-onboarding.yaml#/LabInvitationCreate'
     responses:
       '201':
         description: Invitation sent.
@@ -649,7 +649,7 @@ invitations:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabInvitation'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabInvitation'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -697,7 +697,7 @@ invitation:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/lab.yaml#/LabInvitationUpdate'
+            $ref: '../components/schemas/lab-onboarding.yaml#/LabInvitationUpdate'
     responses:
       '200':
         description: Revoked.
@@ -707,7 +707,7 @@ invitation:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/lab.yaml#/LabInvitation'
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabInvitation'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':

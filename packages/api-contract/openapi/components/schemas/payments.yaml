@@ -184,20 +184,3 @@ FinancialDocumentList:
         $ref: '#/FinancialDocument'
     page:
       $ref: './common.yaml#/Page'
-
-FinancialDocumentDownload:
-  type: object
-  description: A short-lived download URL for the document's PDF, never the file itself.
-  required:
-    - downloadUrl
-    - expiresAt
-  additionalProperties: false
-  properties:
-    downloadUrl:
-      type: string
-      format: uri
-      description: >-
-        A pre-signed GET with `Content-Disposition: attachment`, valid for 15 minutes
-        (FILES_AND_REPORTS §2).
-    expiresAt:
-      $ref: './common.yaml#/Timestamp'
