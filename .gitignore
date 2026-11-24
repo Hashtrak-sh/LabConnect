@@ -1,0 +1,12 @@
+node_modules/
+.turbo/
+.next/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+# Brand reference material may be confidential. See docs/09-design-handoff/reference/README.md
+docs/09-design-handoff/reference/*.pdf

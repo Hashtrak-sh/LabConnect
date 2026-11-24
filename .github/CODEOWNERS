@@ -1,0 +1,28 @@
+# LabConnect CODEOWNERS. See docs/06-engineering/REPOSITORY_STRUCTURE.md
+# Default: both developers
+*                                   @Hashtrak-sh @akshit-anand
+
+# Customer module: @akshit-anand
+/apps/web/src/app/customer/         @akshit-anand
+/apps/web/src/features/customer-*   @akshit-anand
+/apps/api/src/modules/customers/    @akshit-anand
+/apps/api/src/modules/search/       @akshit-anand
+
+# Laboratory module: @Hashtrak-sh
+/apps/web/src/app/lab/              @Hashtrak-sh
+/apps/web/src/features/lab-*        @Hashtrak-sh
+/apps/api/src/modules/labs/         @Hashtrak-sh
+/apps/api/src/modules/custody/      @Hashtrak-sh
+/apps/api/src/modules/reports/      @Hashtrak-sh
+
+# Shared areas: changes need review from the other developer (shared change)
+/packages/database/                 @Hashtrak-sh @akshit-anand
+/packages/api-contract/             @Hashtrak-sh @akshit-anand
+/packages/shared/                   @Hashtrak-sh @akshit-anand
+/apps/api/src/modules/booking/      @Hashtrak-sh @akshit-anand
+/apps/api/src/modules/payments/     @Hashtrak-sh @akshit-anand
+/apps/api/src/modules/identity/     @Hashtrak-sh @akshit-anand
+/infrastructure/                    @Hashtrak-sh
+/.github/                           @Hashtrak-sh
+/docs/                              @Hashtrak-sh @akshit-anand
+/CLAUDE.md                          @Hashtrak-sh @akshit-anand
