@@ -1,6 +1,6 @@
 # Business rules
 
-**Status:** DRAFT for gate G1. Configurable values come from `config_parameter` (see `03-database/SCHEMA_SPECIFICATION.md` §12). The defaults shown are proposals.
+**Status:** Approved at gate G1 (2026-11-24). Configurable values come from `config_parameter` (see `03-database/SCHEMA_SPECIFICATION.md` §12). The defaults shown are proposals.
 
 ## Discovery and lab eligibility
 | ID | Rule |

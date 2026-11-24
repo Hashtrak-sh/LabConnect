@@ -14,7 +14,7 @@
 | P0-07 | GitHub Project board + issue templates in use | S (A) | P0-02 | ☐ |
 | P0-08 | Obtain the QCI Brand & Communication Guidelines PDF content into `09-design-handoff/BRAND_GUIDELINES.md` (OQ-19) | H | — | ☑ |
 
-P0-02 remaining items: required status checks on `main` and `production` (set once `ci.yml` from P0-06 is on `main`, since a check that has never run would block every PR) and GitHub OIDC → AWS roles (P3-11). Everything else in GIT_WORKFLOW §5 is applied; `dependabot.yml` comes with the skeleton PR.
+P0-02: everything in GIT_WORKFLOW §5 is applied except GitHub OIDC → AWS roles (P3-11). Required status checks on `main` and `production` were switched on on 2026-11-24 (lint, typecheck, unit, build, db, audit, codeql). During the single-developer period the owner set required approvals on `main` to 0; this goes back to 1 approval with code-owner review when A starts.
 
 P0-03 to P0-06 are implemented on `feature/P0-03-monorepo-skeleton` and marked done when that PR merges. P0-04 and P0-05 were done by H together with P0-03 at the owner's request.
 
@@ -34,11 +34,11 @@ P0-08 note: the PDF (v1.0, May 2024) has no colour codes, clear-space values or 
 | P1-09 | DB test suite (TESTING_STRATEGY §4) | S (A) | P1-07 | ☑ |
 | P1-10 | `seed:reference`, `seed:platform-admin`, `seed:demo` | S (A) | P1-07 | ☑ |
 | P1-11 | Test factories (`bookingInState`, etc.) | S (A) | P1-10 | ☑ |
-| P1-12 | **G1 review and sign-off** | S | P1-08..11 | ☐ |
+| P1-12 | **G1 review and sign-off** | S | P1-08..11 | ☑ |
 
 P1-03 to P1-07 are implemented together on `feature/P1-03-database-schema` (the Prisma schema for all 101 tables and seven migrations) and marked done when that PR merges. P1-09: the suite exists with 91 tests and covers every registered constraint; A reviews it and extends it. P1-08: the spike passed and is on `feature/P1-08-rls-spike`; done when that PR merges. P1-10 and P1-11 are implemented on `feature/P1-10-seeds-and-factories` and marked done when that PR merges; H did them at the owner's request, and A reviews them. `seed:load` is not part of P1-10 and is not built.
 
-Single-developer period (from 2026-11-24): A is not working on the project for now. H reviews and decides alone until A starts; tasks led by A are done by H. OQ-24 to OQ-32 were settled on that basis with their defaults (`RISKS_AND_OPEN_QUESTIONS.md`). All Phase 0 and Phase 1 implementation PRs were merged to `main` on 2026-11-24. P1-12 (G1) is waiting for the owner's sign-off.
+Single-developer period (from 2026-11-24): A is not working on the project for now. H reviews and decides alone until A starts; tasks led by A are done by H. OQ-24 to OQ-32 were settled on that basis with their defaults (`RISKS_AND_OPEN_QUESTIONS.md`). All Phase 0 and Phase 1 implementation PRs were merged to `main` on 2026-11-24. G1 was signed off by H on 2026-11-24 (`ROADMAP.md`).
 
 ## Phase 2: API contracts (gate G2)
 | ID | Task | Owner | Depends | Status |
