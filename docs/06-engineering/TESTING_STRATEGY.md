@@ -8,7 +8,7 @@
 | Unit | Pure domain logic: state machine, money, fees, refunds, eligibility, calendar, QR payload, validation | Vitest (all apps and packages, ADR-019) | Every PR |
 | Integration | Service + real Postgres/PostGIS (Testcontainers) + Redis + LocalStack | Vitest + Testcontainers | Every PR |
 | Database | Migrations from empty, constraints, triggers, RLS, append-only | Vitest + Testcontainers + raw SQL | Every PR |
-| API contract | Responses validate against `openapi.yaml`. Every documented endpoint exists. | Vitest + an OpenAPI response validator | Every PR |
+| API contract | Requests and responses validate against the OpenAPI contract. Every documented endpoint exists (staged). See §8. | Vitest + supertest + Ajv (JSON Schema 2020-12) | Every PR |
 | Permission matrix | Every endpoint × role → expected allow/deny (generated from `permissions.ts`) | Vitest (supertest) | Every PR |
 | Tenant isolation | Cross-org access for every tenant endpoint returns 404 or empty | Vitest (supertest) | Every PR |
 | Workflow | Full booking lifecycle at the API level with a fake clock and fake gateway | Vitest | Every PR |
@@ -54,3 +54,45 @@
 
 ## 7. Critical E2E journeys (Playwright)
 J1 happy path (AC-E2E-01) · J2 reject and alternatives · J3 counter-offer · J4 payment failure and retry · J5 no-show · J6 receipt discrepancy → hold → proceed · J7 report returned → resubmit → publish · J8 amendment and superseded verification · J9 dispute → partial refund · J10 master-data import → publish → search · J11 lab claim → onboarding → bookable · J12 mobile scanner with offline queue.
+
+## 8. API contract tests (P2-08)
+The implementation is held to the OpenAPI contract (`packages/api-contract/openapi/`) from the first endpoint on, and the check gets stricter by itself as endpoints arrive.
+
+**Where it lives.** In `apps/api`, so it shares the API's lockfile entry, lint rules and in-process app boot: the harness in `apps/api/test/support/contract/`, its own tests in `apps/api/test/contract/`. Not in a root `tests/contract/` folder: that folder is outside the pnpm workspace (`apps/*`, `packages/*`) and the harness needs the API's dependencies.
+
+**The helper.** Every HTTP-level API test calls the app through `contractRequest(app)`:
+
+```ts
+const app = await createTestApp(); // test/support/test-app.ts: AppModule + configureApp, in-process
+const response = await contractRequest(app).post(`/v1/bookings/${id}/accept`, {
+  headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': key, 'If-Match': '"3"' },
+});
+expect(response.status).toBe(200); // then assert the domain outcome as usual
+```
+
+It matches the concrete path to a contract operation (templates under the `/v1` server prefix; a literal segment beats a parameter), then:
+- **Request**, before sending: path, query and header parameters (required ones present, values valid against their schemas, no undeclared query parameters) and the JSON body (present when required, absent when the operation takes none, valid against the schema). A test that sends invalid input on purpose passes `{ invalidRequest: '<why>' }`; the response is still checked.
+- **Response**: the status is declared (exact, `4XX` range or `default`), the content type is declared for it, a JSON body validates against the schema (JSON Schema 2020-12 with the OpenAPI 3.1 dialect, formats such as `uuid`, `date`, `date-time`, `email`, `uri` checked), required response headers are present and declared ones valid. Every error response must be the shared problem shape: `application/problem+json`, valid against the problem schema, a `code` from the catalogue (ERROR_HANDLING.md §2) and a `status` equal to the HTTP status.
+- A violation fails the test with the operation, the JSON pointer and the reason, for example `Contract violation in the response of getHealth (GET /v1/health) → 200: response body: must NOT have additional properties ("uptimeSeconds")`.
+- `undocumentedRequest(app)` calls a route that is not in the contract on purpose (an unknown path); `expectProblemResponse(response)` checks the problem shape of such a response.
+
+**Every documented endpoint exists (staged).** `test/contract/endpoints.spec.ts` reads the routes the app really registers (from the Express router) and the operations in the contract, and fails if:
+- the app serves a route the contract does not document (contract first);
+- an operation is neither implemented nor listed in `apps/api/test/contract/not-implemented.txt`;
+- a listed operation is implemented (the message names the line to remove), so the list only shrinks;
+- the list names an operationId that is not in the contract, or is unsorted or has duplicates.
+
+When a contract PR adds operations, add them to the list (sorted) or regenerate it with `pnpm --filter @labconnect/api contract:update-not-implemented` (it refuses to run in CI).
+
+**Every implemented endpoint is exercised.** The helper records each operation it validated. The `contract-final` Vitest project runs after every other API test (`sequence.groupOrder`) and fails if an implemented operation was not called through `contractRequest()` in that run.
+
+**Known gaps** are `it.fails` tests in `test/contract/generic-responses.spec.ts`, each with the reason and the task that closes it: Nest's default 404 is not the problem shape, and responses carry no `X-Request-Id` yet (Phase 3 platform work). When a gap closes, the `it.fails` test starts failing; turn it into `it`.
+
+**For consumers.** `createApiClient({ baseUrl, fetch?, headers? })` from `@labconnect/api-contract` is a typed `openapi-fetch` client over the generated `paths` (`baseUrl` includes `/v1`). `contractExample(operationId, status)` from `@labconnect/api-contract/examples` returns the first example the contract documents for a response, as mock data for the side that is not built yet (COLLABORATION_GUIDE §2); it throws if there is none. A unit test of that package reports how many operations have no example for their success response.
+
+**Commands.**
+- `pnpm test:contract` (root): builds `@labconnect/api-contract` (bundle and types), then runs the `http` and `contract-final` projects of `apps/api`. CI job `contract`.
+- `pnpm test` runs the same API tests too (all `apps/api` projects).
+- `pnpm --filter @labconnect/api contract:update-not-implemented`: regenerates the not-implemented list.
+
+**When you implement an endpoint:** write its API tests with `contractRequest()` (success and error cases), remove its line from `not-implemented.txt`, and run `pnpm test:contract`.

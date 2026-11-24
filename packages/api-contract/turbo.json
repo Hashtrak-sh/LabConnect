@@ -2,7 +2,14 @@
   "$schema": "https://turborepo.com/schema.json",
   "extends": ["//"],
   "tasks": {
+    "build": {
+      "outputs": ["dist/**", "src/generated/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build", "build"]
+    },
     "test": {
+      "dependsOn": ["^build", "build"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/docs/04-api/API_CONTRACTS.md",

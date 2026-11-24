@@ -12,6 +12,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:contract": "turbo run test:contract",
     "lint": "pnpm db:generate && pnpm contract:generate && eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

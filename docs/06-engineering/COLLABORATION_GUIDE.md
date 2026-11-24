@@ -16,7 +16,7 @@ Both developers review each other's PRs. Each developer runs Claude Code on **th
 For any feature that spans both modules (e.g. booking → lab decision):
 1. **Shared PR first:** whichever developer owns the task writes the API contract (`openapi.yaml`), any schema migration, enum or state-machine change. The other developer reviews it. Merge it to `main`.
 2. Both developers merge `main` into their dev branches.
-3. Each implements their side against the agreed contract, with mocks (generated from OpenAPI) for the other side.
+3. Each implements their side against the agreed contract, with mocks (generated from OpenAPI) for the other side: `contractExample(operationId, status)` from `@labconnect/api-contract/examples` returns the contract's example for a response, and `createApiClient()` from `@labconnect/api-contract` is the typed client. The API side tests every call with `contractRequest()` and removes the operation from `apps/api/test/contract/not-implemented.txt` (TESTING_STRATEGY §8).
 4. Integration test or E2E in the later of the two PRs.
 
 **Never** change a shared file inside a feature PR without flagging it as "Shared change" in the PR template.
@@ -46,7 +46,7 @@ For any feature that spans both modules (e.g. booking → lab decision):
 - [ ] Meets the referenced FR, BR, AC and EC items
 - [ ] Tests at the required levels pass (TESTING_STRATEGY §3)
 - [ ] Permission and tenant-isolation tests updated for new endpoints
-- [ ] OpenAPI matches the implementation (contract test green)
+- [ ] OpenAPI matches the implementation (contract test green: `pnpm test:contract`)
 - [ ] RTM updated
 - [ ] Docs updated
 - [ ] Reviewed and approved by the other developer
