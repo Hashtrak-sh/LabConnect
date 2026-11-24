@@ -23,8 +23,8 @@ P0-08 note: the PDF (v1.0, May 2024) has no colour codes, clear-space values or 
 ## Phase 1: Domain and database (gate G1)
 | ID | Task | Owner | Depends | Status |
 |---|---|---|---|---|
-| P1-01 | Claude Code consistency review of `03-database/*` (MASTER_PROMPT Step 2) | S (H) | P0-03 | ☐ |
-| P1-02 | Developers' review meeting. Resolve DOMAIN_MODEL §4 questions. | S | P1-01 | ☐ |
+| P1-01 | Claude Code consistency review of `03-database/*` (MASTER_PROMPT Step 2) | S (H) | P0-03 | ☑ |
+| P1-02 | Developers' review meeting. Resolve DOMAIN_MODEL §4 questions. | S | P1-01 | ◐ |
 | P1-03 | Prisma schema: platform, identity, files | S (H) | P1-02 | ☐ |
 | P1-04 | Prisma schema: master data, labs | S (H) | P1-02 | ☐ |
 | P1-05 | Prisma schema: customers, booking, custody, reports | S (A) | P1-02 | ☐ |
