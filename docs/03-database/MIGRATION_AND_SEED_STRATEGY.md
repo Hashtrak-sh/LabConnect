@@ -1,6 +1,6 @@
 # Migration and seed-data strategy
 
-**Status:** DRAFT for gate G1.
+**Status:** Approved at gate G1 (2026-11-24).
 
 ## 1. Tooling
 - **Prisma Migrate** creates migrations from `schema.prisma`. **Raw SQL** migrations (in the same migrations folder, run in order) cover: extensions, PostGIS columns (`Unsupported("geography(Point,4326)")`), CHECK constraints, partial unique indexes, triggers, RLS policies, grants, and partitions.

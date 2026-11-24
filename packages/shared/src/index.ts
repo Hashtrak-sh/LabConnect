@@ -1,3 +1,5 @@
-// Enums, booking state machine table, permissions, error codes, money and time helpers (P2-07).
-// Nothing is implemented yet (Phase 0 skeleton).
-export {};
+// Pure data and helpers shared by the API, the worker and the web app (MODULE_BOUNDARIES.md).
+export * from './booking-state-machine.js';
+export * from './error-codes.js';
+export * from './money.js';
+export * from './permissions.js';
