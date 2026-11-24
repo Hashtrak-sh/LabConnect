@@ -30,13 +30,13 @@ P0-08 note: the PDF (v1.0, May 2024) has no colour codes, clear-space values or 
 | P1-05 | Prisma schema: customers, booking, custody, reports | S (A) | P1-02 | ◐ |
 | P1-06 | Prisma schema: payments, ledger, disputes, notifications | S (H) | P1-02 | ◐ |
 | P1-07 | Raw SQL migrations: extensions, PostGIS, CHECKs, partial uniques, triggers C-01..C-30, AO protections, partitions | S (H) | P1-03..06 | ◐ |
-| P1-08 | RLS spike (Prisma + SET LOCAL + pooling). Update ADR-005. | S (H) | P1-07 | ☐ |
+| P1-08 | RLS spike (Prisma + SET LOCAL + pooling). Update ADR-005. | S (H) | P1-07 | ◐ |
 | P1-09 | DB test suite (TESTING_STRATEGY §4) | S (A) | P1-07 | ◐ |
 | P1-10 | `seed:reference`, `seed:platform-admin`, `seed:demo` | S (A) | P1-07 | ☐ |
 | P1-11 | Test factories (`bookingInState`, etc.) | S (A) | P1-10 | ☐ |
 | P1-12 | **G1 review and sign-off** | S | P1-08..11 | ☐ |
 
-P1-03 to P1-07 are implemented together on `feature/P1-03-database-schema` (the Prisma schema for all 101 tables and seven migrations) and marked done when that PR merges. P1-09: the suite exists with 91 tests and covers every registered constraint; A reviews it and extends it. P1-08 (RLS with Prisma and pooling), P1-10 and P1-11 are not started.
+P1-03 to P1-07 are implemented together on `feature/P1-03-database-schema` (the Prisma schema for all 101 tables and seven migrations) and marked done when that PR merges. P1-09: the suite exists with 91 tests and covers every registered constraint; A reviews it and extends it. P1-08: the spike passed and is on `feature/P1-08-rls-spike`; done when that PR merges. P1-10 and P1-11 are not started. P1-10 also creates the two local login users (API and worker), so local development does not run as the superuser.
 
 ## Phase 2: API contracts (gate G2)
 | ID | Task | Owner | Depends | Status |
