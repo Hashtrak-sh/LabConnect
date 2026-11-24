@@ -43,17 +43,19 @@ Single-developer period (from 2026-11-24): A is not working on the project for n
 ## Phase 2: API contracts (gate G2)
 | ID | Task | Owner | Depends | Status |
 |---|---|---|---|---|
-| P2-01 | OpenAPI skeleton, conventions, error schema, auth endpoints | S (H) | G1 | ◐ |
-| P2-02 | Public search, lab pages, slots, leads | A | P2-01 | ☐ |
+| P2-01 | OpenAPI skeleton, conventions, error schema, auth endpoints | S (H) | G1 | ☑ |
+| P2-02 | Public search, lab pages, slots, leads | A | P2-01 | ☑ |
 | P2-03 | Booking, counter, cancel, handover, hold decision | S (A) | P2-01 | ☐ |
 | P2-04 | Lab onboarding, catalogue, capacity, inbox, decisions | H | P2-01 | ☐ |
 | P2-05 | Custody, receipts, reports, verification, share | H | P2-01 | ☐ |
 | P2-06 | Payments (adapter-level), disputes, admin | S (H) | P2-01 | ☐ |
-| P2-07 | `packages/shared`: state machine table + doc-equality test, permissions map, error codes | S (H) | P2-01 | ◐ |
+| P2-07 | `packages/shared`: state machine table + doc-equality test, permissions map, error codes | S (H) | P2-01 | ☑ |
 | P2-08 | Contract test harness | S (A) | P2-01 | ☐ |
 | P2-09 | **G2 review and sign-off** | S | P2-02..08 | ☐ |
 
 P2-01 is implemented on `feature/P2-01-openapi-skeleton`: the split contract in `packages/api-contract/openapi/` (shared components, API_CONTRACTS §1 and `/health`), generation, Redocly lint and the contract convention tests; done when that PR merges.
+
+P2-02 is implemented on `feature/P2-02-public-search-contract`: the ten `/public` operations of API_CONTRACTS §2, the public-field deny-list test, and a doc-equality test where covering another section is one line; done when that PR merges.
 
 P2-07 is implemented on `feature/P2-07-shared-domain`: `packages/shared/src/` holds the booking state machine (T-01..T-28 and the unambiguous §4 sub-state machines), the role → permission map, the error-code catalogue and the money helpers, with doc-equality tests against the documents, the Prisma enums, the `booking_transition` migration rows and the OpenAPI enums; done when that PR merges.
 

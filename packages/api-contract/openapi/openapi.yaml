@@ -21,6 +21,11 @@ tags:
     description: Email OTP sign-in, MFA, session refresh and sign-out.
   - name: Me
     description: The current user, organisation switching and notifications.
+  - name: Discovery
+    description: >-
+      Public lab search, typeahead, filter values, lab site pages, slots and leads. No sign-in.
+  - name: Verification
+    description: Public report verification and share links. No sign-in.
   - name: Health
     description: Platform liveness.
 
@@ -57,6 +62,27 @@ paths:
     $ref: './paths/me.yaml#/notifications'
   /me/notifications/{id}/read:
     $ref: './paths/me.yaml#/notification-read'
+  # Public (API_CONTRACTS.md §2)
+  /public/search/labs:
+    $ref: './paths/public-search.yaml#/search-labs'
+  /public/search/suggest:
+    $ref: './paths/public-search.yaml#/search-suggest'
+  /public/lab-sites/{siteId}:
+    $ref: './paths/public-lab-sites.yaml#/lab-site'
+  /public/lab-sites/{siteId}/scope:
+    $ref: './paths/public-lab-sites.yaml#/lab-site-scope'
+  /public/lab-sites/{siteId}/prices:
+    $ref: './paths/public-lab-sites.yaml#/lab-site-prices'
+  /public/lab-sites/{siteId}/slots:
+    $ref: './paths/public-lab-sites.yaml#/lab-site-slots'
+  /public/leads:
+    $ref: './paths/public-search.yaml#/leads'
+  /public/taxonomies/{code}/nodes:
+    $ref: './paths/public-search.yaml#/taxonomy-nodes'
+  /public/verify/{verificationCode}:
+    $ref: './paths/public-reports.yaml#/verify'
+  /public/share/{token}:
+    $ref: './paths/public-reports.yaml#/share'
   # Platform
   /health:
     $ref: './paths/health.yaml#/health'
@@ -103,6 +129,18 @@ components:
       $ref: './components/schemas/enums.yaml#/OrgType'
     NotifChannel:
       $ref: './components/schemas/enums.yaml#/NotifChannel'
+    AccreditationStatus:
+      $ref: './components/schemas/enums.yaml#/AccreditationStatus'
+    PublicLabCategory:
+      $ref: './components/schemas/enums.yaml#/PublicLabCategory'
+    PublicListingStatus:
+      $ref: './components/schemas/enums.yaml#/PublicListingStatus'
+    ScopeSiteType:
+      $ref: './components/schemas/enums.yaml#/ScopeSiteType'
+    LeadKind:
+      $ref: './components/schemas/enums.yaml#/LeadKind'
+    VerificationResult:
+      $ref: './components/schemas/enums.yaml#/VerificationResult'
     Email:
       $ref: './components/schemas/auth.yaml#/Email'
     OtpCode:
@@ -145,6 +183,78 @@ components:
       $ref: './components/schemas/me.yaml#/Notification'
     NotificationList:
       $ref: './components/schemas/me.yaml#/NotificationList'
+    Pincode:
+      $ref: './components/schemas/lab-sites.yaml#/Pincode'
+    TaxonomyCode:
+      $ref: './components/schemas/lab-sites.yaml#/TaxonomyCode'
+    NodeCode:
+      $ref: './components/schemas/lab-sites.yaml#/NodeCode'
+    LocalTime:
+      $ref: './components/schemas/lab-sites.yaml#/LocalTime'
+    PublicCodeName:
+      $ref: './components/schemas/lab-sites.yaml#/PublicCodeName'
+    PublicLocation:
+      $ref: './components/schemas/lab-sites.yaml#/PublicLocation'
+    PublicAddress:
+      $ref: './components/schemas/lab-sites.yaml#/PublicAddress'
+    PublicRating:
+      $ref: './components/schemas/lab-sites.yaml#/PublicRating'
+    PublicAccreditation:
+      $ref: './components/schemas/lab-sites.yaml#/PublicAccreditation'
+    PublicReceivingHours:
+      $ref: './components/schemas/lab-sites.yaml#/PublicReceivingHours'
+    PublicLabSiteSummary:
+      $ref: './components/schemas/lab-sites.yaml#/PublicLabSiteSummary'
+    PublicLabSite:
+      $ref: './components/schemas/lab-sites.yaml#/PublicLabSite'
+    PublicScopeLine:
+      $ref: './components/schemas/lab-sites.yaml#/PublicScopeLine'
+    PublicScopeLineList:
+      $ref: './components/schemas/lab-sites.yaml#/PublicScopeLineList'
+    PublicPriceItem:
+      $ref: './components/schemas/lab-sites.yaml#/PublicPriceItem'
+    PublicPriceList:
+      $ref: './components/schemas/lab-sites.yaml#/PublicPriceList'
+    PublicSlot:
+      $ref: './components/schemas/lab-sites.yaml#/PublicSlot'
+    PublicSlotList:
+      $ref: './components/schemas/lab-sites.yaml#/PublicSlotList'
+    PublicTaxonomyNode:
+      $ref: './components/schemas/lab-sites.yaml#/PublicTaxonomyNode'
+    PublicTaxonomyNodeList:
+      $ref: './components/schemas/lab-sites.yaml#/PublicTaxonomyNodeList'
+    SearchText:
+      $ref: './components/schemas/search.yaml#/SearchText'
+    SearchRadiusKm:
+      $ref: './components/schemas/search.yaml#/SearchRadiusKm'
+    TatDays:
+      $ref: './components/schemas/search.yaml#/TatDays'
+    LabSearchMatchedLine:
+      $ref: './components/schemas/search.yaml#/LabSearchMatchedLine'
+    LabSearchResult:
+      $ref: './components/schemas/search.yaml#/LabSearchResult'
+    LabSearchResultList:
+      $ref: './components/schemas/search.yaml#/LabSearchResultList'
+    SearchSuggestionKind:
+      $ref: './components/schemas/search.yaml#/SearchSuggestionKind'
+    SearchSuggestion:
+      $ref: './components/schemas/search.yaml#/SearchSuggestion'
+    SearchSuggestionList:
+      $ref: './components/schemas/search.yaml#/SearchSuggestionList'
+    LeadSearchCriteria:
+      $ref: './components/schemas/search.yaml#/LeadSearchCriteria'
+    LeadCreate:
+      $ref: './components/schemas/search.yaml#/LeadCreate'
+    VerificationCode:
+      $ref: './components/schemas/verification.yaml#/VerificationCode'
+    Sha256Hex:
+      $ref: './components/schemas/verification.yaml#/Sha256Hex'
+    VerifiedReport:
+      $ref: './components/schemas/verification.yaml#/VerifiedReport'
+    ReportVerification:
+      $ref: './components/schemas/verification.yaml#/ReportVerification'
+    ShareLinkResolution:
+      $ref: './components/schemas/verification.yaml#/ShareLinkResolution'
     HealthStatus:
       $ref: './components/schemas/health.yaml#/HealthStatus'
   parameters:

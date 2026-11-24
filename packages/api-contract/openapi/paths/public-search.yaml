@@ -1,0 +1,253 @@
+# Public search, typeahead, filter values and leads (API_CONTRACTS.md §2, SEARCH.md,
+# MAPS_AND_GEOCODING.md). No authentication (`/v1/public`, API_CONVENTIONS §2).
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+search-labs:
+  get:
+    operationId: searchLabs
+    tags:
+      - Discovery
+    summary: Search lab sites
+    description: >-
+      Finds lab sites, each with the scope lines that matched (FR-DIS-01..05). Only public
+      reference data is searched (SEARCH.md §1).
+
+
+      Which sites: `LISTED` and `BOOKABLE` sites, calibration labs included (they are not
+      bookable, CD-03). Only active scope lines under a `VALID` accreditation count; a site with a
+      `SUSPENDED`, `WITHDRAWN` or `EXPIRED` accreditation is removed (BR-002). Medical labs never
+      appear (BR-005).
+
+
+      Location: either `lat` and `lng` together, or `pincode` (its centroid), not both. Distance
+      uses only the site's Ops-approved pin (BR-004); with `radiusKm`, sites without an approved
+      pin are left out. `radiusKm` needs a location. With a location the results are sorted by
+      distance (FR-DIS-02), otherwise by relevance. The device location is used for this query
+      only and is never stored (MAPS_AND_GEOCODING §3).
+
+
+      Filters combine with AND. `tatMax` and `priceMax` match only lines priced in an effective
+      published price list, so they leave out sites that are not bookable. Rate limit: 60 per
+      minute per IP (API_CONVENTIONS §7).
+    security: []
+    parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/search.yaml#/SearchText'
+      - name: lat
+        in: query
+        required: false
+        description: Latitude of the search location (WGS 84). Requires `lng`.
+        schema:
+          type: number
+          minimum: -90
+          maximum: 90
+      - name: lng
+        in: query
+        required: false
+        description: Longitude of the search location (WGS 84). Requires `lat`.
+        schema:
+          type: number
+          minimum: -180
+          maximum: 180
+      - name: pincode
+        in: query
+        required: false
+        description: Search around the centroid of this pincode. Not together with `lat` and `lng`.
+        schema:
+          $ref: '../components/schemas/lab-sites.yaml#/Pincode'
+      - name: radiusKm
+        in: query
+        required: false
+        description: Only sites within this distance. Needs `lat` and `lng`, or `pincode`.
+        schema:
+          $ref: '../components/schemas/search.yaml#/SearchRadiusKm'
+      - name: discipline
+        in: query
+        required: false
+        description: Code of a DISCIPLINE node of the SCOPE taxonomy.
+        schema:
+          $ref: '../components/schemas/lab-sites.yaml#/NodeCode'
+      - name: parameter
+        in: query
+        required: false
+        description: Code of a PARAMETER node of the SCOPE taxonomy.
+        schema:
+          $ref: '../components/schemas/lab-sites.yaml#/NodeCode'
+      - name: method
+        in: query
+        required: false
+        description: Code of a node of the METHOD taxonomy (method or standard).
+        schema:
+          $ref: '../components/schemas/lab-sites.yaml#/NodeCode'
+      - name: tatMax
+        in: query
+        required: false
+        description: Only lines with a turnaround of at most this many days.
+        schema:
+          $ref: '../components/schemas/search.yaml#/TatDays'
+      - name: priceMax
+        in: query
+        required: false
+        description: >-
+          Only lines whose price (`price_item.price_paise`, before sample preparation and GST) is
+          at most this many paise.
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+      - name: category
+        in: query
+        required: false
+        description: Only lines under an accreditation of this lab category.
+        schema:
+          $ref: '../components/schemas/enums.yaml#/PublicLabCategory'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of matching sites. An empty page is the no-result state (FR-DIS-07).
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/search.yaml#/LabSearchResultList'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED`: a parameter is out of range, `lat` comes without `lng` (or the
+          reverse), a location is given twice, `radiusKm` comes without a location, the pincode is
+          unknown, or the cursor is unreadable.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED` (60 per minute per IP).'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+search-suggest:
+  get:
+    operationId: suggestSearch
+    tags:
+      - Discovery
+    summary: Typeahead suggestions
+    description: >-
+      Suggestions while typing: parameters, products, methods and standards, and lab sites
+      (FR-DIS-01). Uses the same synonyms and typo tolerance as the search, and only public
+      reference data. Rate limit: 60 per minute per IP, shared with the search (API_CONVENTIONS
+      §7).
+    security: []
+    parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          $ref: '../components/schemas/search.yaml#/SearchText'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Up to 10 suggestions, best first.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/search.yaml#/SearchSuggestionList'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED` (60 per minute per IP).'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+taxonomy-nodes:
+  get:
+    operationId: listTaxonomyNodes
+    tags:
+      - Discovery
+    summary: List filter values
+    description: >-
+      Active values of a taxonomy, for search filters (FR-DIS-03): the top level, or the children
+      of `parent`. Taxonomies are public reference data (TENANT_ISOLATION §1). Only active
+      taxonomies and nodes are returned, ordered by name.
+    security: []
+    parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/lab-sites.yaml#/TaxonomyCode'
+      - name: parent
+        in: query
+        required: false
+        description: Code of the parent node. Without it, the top-level nodes.
+        schema:
+          $ref: '../components/schemas/lab-sites.yaml#/NodeCode'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of nodes.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-sites.yaml#/PublicTaxonomyNodeList'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no active taxonomy with this code, or no active `parent` node in it.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+leads:
+  post:
+    operationId: createLead
+    tags:
+      - Discovery
+    summary: Request a lab
+    description: >-
+      Records a lead for Ops (`lead_request`, status `NEW`): "Request this lab" on a listed site
+      that cannot be booked yet (AC-DIS-04), or "Request a lab" after a search with no result
+      (FR-DIS-07, EC-05). Ops works on leads through `/admin/leads` (FR-ADM-06). Nothing about
+      the lead is returned.
+    security: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/search.yaml#/LeadCreate'
+    responses:
+      '204':
+        description: Recorded.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (including a `labSiteId` that is not a listed site),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

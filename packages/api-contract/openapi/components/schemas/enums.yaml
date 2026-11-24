@@ -32,3 +32,63 @@ NotifChannel:
     - IN_APP
     - SMS
     - WHATSAPP
+
+AccreditationStatus:
+  type: string
+  description: >-
+    Status of an accreditation (SCHEMA_SPECIFICATION §5.3). Sites with a `SUSPENDED`, `WITHDRAWN`
+    or `EXPIRED` accreditation are removed from search results (BR-002).
+  enum:
+    - VALID
+    - SUSPENDED
+    - WITHDRAWN
+    - EXPIRED
+
+PublicLabCategory:
+  type: string
+  description: >-
+    Lab category of an accreditation, as shown publicly. A subset of the database enum
+    `LabCategory`: `MEDICAL` (ISO 15189) is rejected at import and never shown (CD-03, BR-005).
+    Only `TESTING` is bookable; `CALIBRATION` is listed and searchable but not bookable.
+  enum:
+    - TESTING
+    - CALIBRATION
+    - OTHER
+
+PublicListingStatus:
+  type: string
+  description: >-
+    Listing status of a lab site, as shown publicly. A subset of the database enum
+    `ListingStatus`: `HIDDEN` sites are never returned. `LISTED` sites can be found but not booked
+    (for example unclaimed labs, CD-04); `BOOKABLE` sites meet BR-001.
+  enum:
+    - LISTED
+    - BOOKABLE
+
+ScopeSiteType:
+  type: string
+  description: Where the lab performs the test, as published in the scope (SCHEMA_SPECIFICATION §5.5).
+  enum:
+    - PERMANENT
+    - SITE
+    - MOBILE
+
+LeadKind:
+  type: string
+  description: >-
+    `REQUEST_LAB`: "Request this lab" on a listed site that cannot be booked yet (FR-DAT-06,
+    AC-DIS-04). `NO_RESULT`: "Request a lab" when a search has no result (FR-DIS-07, EC-05).
+  enum:
+    - REQUEST_LAB
+    - NO_RESULT
+
+VerificationResult:
+  type: string
+  description: >-
+    Result of a public report verification (QR_AND_VERIFICATION §5): genuine and current, genuine
+    but superseded by a newer version, not found, or revoked.
+  enum:
+    - GENUINE_CURRENT
+    - GENUINE_SUPERSEDED
+    - NOT_FOUND
+    - REVOKED

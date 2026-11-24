@@ -1,0 +1,244 @@
+# Public search, typeahead and leads (API_CONTRACTS.md §2, SEARCH.md, FR-DIS-01..07).
+# Only public reference data (SEARCH.md §1, TENANT_ISOLATION.md §1).
+
+SearchText:
+  type: string
+  minLength: 1
+  maxLength: 200
+  description: >-
+    Free text: product, parameter, standard or lab name (FR-DIS-01). Typo-tolerant, with the
+    admin-managed synonyms (for example `TS` finds "tensile strength", AC-DIS-02).
+  examples:
+    - tensile strength
+
+SearchRadiusKm:
+  type: integer
+  enum:
+    - 5
+    - 10
+    - 25
+    - 50
+    - 100
+  description: Search radius in kilometres around the location (FR-DIS-02).
+
+TatDays:
+  type: integer
+  minimum: 1
+  description: A turnaround time in days.
+
+LabSearchMatchedLine:
+  type: object
+  description: >-
+    A scope line of the site that matched the query and filters ("why this lab matched",
+    FR-DIS-05), with its price and turnaround when the site is bookable.
+  required:
+    - scopeLine
+    - price
+    - tatDays
+  additionalProperties: false
+  properties:
+    scopeLine:
+      $ref: './lab-sites.yaml#/PublicScopeLine'
+    price:
+      description: >-
+        Price in the effective published price list. `null` when the site is not bookable or the
+        line is not priced.
+      oneOf:
+        - $ref: './common.yaml#/Money'
+        - type: 'null'
+    tatDays:
+      description: Turnaround in days from the same price item. `null` when `price` is `null`.
+      oneOf:
+        - $ref: '#/TatDays'
+        - type: 'null'
+
+LabSearchResult:
+  type: object
+  description: >-
+    One site in the search results, with its matched scope lines, price from, turnaround,
+    distance, rating and next free slot (FR-DIS-05).
+  required:
+    - labSite
+    - distanceKm
+    - priceFrom
+    - minTatDays
+    - nextSlotAt
+    - matchedLines
+    - matchedLineCount
+  additionalProperties: false
+  properties:
+    labSite:
+      $ref: './lab-sites.yaml#/PublicLabSiteSummary'
+    distanceKm:
+      description: >-
+        Distance from the search location to the site's approved pin. `null` when the request has
+        no location or the site has no approved pin.
+      type:
+        - number
+        - 'null'
+      minimum: 0
+    priceFrom:
+      description: >-
+        Lowest `price` among the matched lines; with no matched line, the lowest price in the
+        site's effective price list. `null` when the site is not bookable.
+      oneOf:
+        - $ref: './common.yaml#/Money'
+        - type: 'null'
+    minTatDays:
+      description: Shortest turnaround among the same lines as `priceFrom`. `null` when `priceFrom` is.
+      oneOf:
+        - $ref: '#/TatDays'
+        - type: 'null'
+    nextSlotAt:
+      description: Start of the earliest open slot with capacity. `null` when the site is not bookable or has none.
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    matchedLines:
+      type: array
+      maxItems: 10
+      description: >-
+        The best-matching scope lines, at most 10. Empty when the request has no line criteria
+        (`q`, `discipline`, `parameter`, `method`, `tatMax`, `priceMax`) or the site matched by
+        name only.
+      items:
+        $ref: '#/LabSearchMatchedLine'
+    matchedLineCount:
+      type: integer
+      minimum: 0
+      description: How many scope lines of the site matched in total.
+
+LabSearchResultList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/LabSearchResult'
+    page:
+      $ref: './common.yaml#/Page'
+
+SearchSuggestionKind:
+  type: string
+  description: >-
+    What a suggestion is (API_CONTRACTS §2): a parameter, a product, a method or standard (METHOD
+    taxonomy), or a lab site.
+  enum:
+    - PARAMETER
+    - PRODUCT
+    - METHOD
+    - LAB_SITE
+
+SearchSuggestion:
+  type: object
+  required:
+    - kind
+    - label
+    - code
+    - labSiteId
+  additionalProperties: false
+  properties:
+    kind:
+      $ref: '#/SearchSuggestionKind'
+    label:
+      type: string
+      description: Text to show and, when chosen, to search for.
+    code:
+      description: The node code for `PARAMETER`, `PRODUCT` and `METHOD`; `null` for `LAB_SITE`.
+      oneOf:
+        - $ref: './lab-sites.yaml#/NodeCode'
+        - type: 'null'
+    labSiteId:
+      description: The site for `LAB_SITE`; `null` otherwise.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+
+SearchSuggestionList:
+  type: object
+  description: Typeahead suggestions, best first. Not a paged collection.
+  required:
+    - suggestions
+  additionalProperties: false
+  properties:
+    suggestions:
+      type: array
+      maxItems: 10
+      items:
+        $ref: '#/SearchSuggestion'
+
+LeadSearchCriteria:
+  type: object
+  description: >-
+    The search that led to the lead, as the lab search parameters. It has no `lat` or `lng`: the
+    customer's device location is never stored (MAPS_AND_GEOCODING §3).
+  additionalProperties: false
+  properties:
+    q:
+      $ref: '#/SearchText'
+    pincode:
+      $ref: './lab-sites.yaml#/Pincode'
+    radiusKm:
+      $ref: '#/SearchRadiusKm'
+    discipline:
+      $ref: './lab-sites.yaml#/NodeCode'
+    parameter:
+      $ref: './lab-sites.yaml#/NodeCode'
+    method:
+      $ref: './lab-sites.yaml#/NodeCode'
+    tatMax:
+      $ref: '#/TatDays'
+    priceMax:
+      type: integer
+      format: int64
+      minimum: 0
+      description: Maximum price in paise.
+    category:
+      $ref: './enums.yaml#/PublicLabCategory'
+
+LeadCreate:
+  type: object
+  description: >-
+    A "Request this lab" or no-result lead (`lead_request`, FR-DIS-07). `REQUEST_LAB` needs
+    `labSiteId`. `NO_RESULT` needs `query` and has no `labSiteId`.
+  required:
+    - kind
+  additionalProperties: false
+  properties:
+    kind:
+      $ref: './enums.yaml#/LeadKind'
+    labSiteId:
+      $ref: './common.yaml#/Uuid'
+    query:
+      $ref: '#/LeadSearchCriteria'
+    contactEmail:
+      description: >-
+        Where the requester can be reached about the lead, for example when the lab becomes
+        bookable (NOTIFICATIONS_MATRIX `lab.became_bookable`).
+      $ref: './auth.yaml#/Email'
+  # The rule in the description, as JSON Schema conditionals. The `properties` entries only name
+  # the fields the branch requires; their schemas are the ones above.
+  allOf:
+    - if:
+        properties:
+          kind:
+            const: REQUEST_LAB
+      then:
+        required:
+          - labSiteId
+        properties:
+          labSiteId: true
+    - if:
+        properties:
+          kind:
+            const: NO_RESULT
+      then:
+        required:
+          - query
+        properties:
+          query: true
+          labSiteId: false

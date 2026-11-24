@@ -1,0 +1,520 @@
+# Public views of lab sites, scope, price lists, slots and taxonomies (API_CONTRACTS.md §2).
+# Public reference data only (TENANT_ISOLATION.md §1). These schemas never carry the contact
+# details of `lab_site_private`, the columns of `organisation_private`, bookability reasons,
+# draft price lists, slot capacity counts, or any customer or booking data. The deny-list test
+# (test/public-boundary.test.ts) checks this.
+
+Pincode:
+  type: string
+  pattern: ^[0-9]{6}$
+  description: An Indian postal index number (6 digits).
+  examples:
+    - '201310'
+
+TaxonomyCode:
+  type: string
+  pattern: ^[A-Z][A-Z0-9_]*$
+  maxLength: 50
+  description: Code of a master-data taxonomy (`md_taxonomy.code`), for example `SCOPE` or `METHOD`.
+  examples:
+    - SCOPE
+
+NodeCode:
+  type: string
+  minLength: 1
+  maxLength: 100
+  description: >-
+    Stable business code of a master-data node (`md_node.code`). Unique within its taxonomy.
+  examples:
+    - MECHANICAL
+
+PublicCodeName:
+  type: object
+  description: The code and display name of a master-data value or reference record.
+  required:
+    - code
+    - name
+  additionalProperties: false
+  properties:
+    code:
+      type: string
+      maxLength: 100
+    name:
+      type: string
+
+PublicLocation:
+  type: object
+  description: >-
+    The Ops-approved map pin of a site (`lab_site.geo_point`). Only approved pins are published
+    or used for distance (BR-004).
+  required:
+    - lat
+    - lng
+  additionalProperties: false
+  properties:
+    lat:
+      type: number
+      minimum: -90
+      maximum: 90
+    lng:
+      type: number
+      minimum: -180
+      maximum: 180
+
+PublicAddress:
+  type: object
+  description: The site's postal address (`lab_site.address`).
+  required:
+    - line1
+    - line2
+    - city
+    - district
+    - stateCode
+    - pincode
+  additionalProperties: false
+  properties:
+    line1:
+      type: string
+    line2:
+      type:
+        - string
+        - 'null'
+    city:
+      type: string
+    district:
+      type:
+        - string
+        - 'null'
+    stateCode:
+      type: string
+      maxLength: 4
+      examples:
+        - UP
+    pincode:
+      $ref: '#/Pincode'
+
+PublicRating:
+  type: object
+  description: >-
+    Aggregate rating of a site from customers (`lab_site.rating_avg`, `rating_count`). Individual
+    ratings are not public.
+  required:
+    - average
+    - count
+  additionalProperties: false
+  properties:
+    average:
+      description: Average overall score, 1 to 5. `null` when the site has no rating yet.
+      type:
+        - number
+        - 'null'
+      minimum: 1
+      maximum: 5
+    count:
+      type: integer
+      minimum: 0
+
+PublicAccreditation:
+  type: object
+  description: >-
+    A published accreditation of the site (SCHEMA_SPECIFICATION §5.3), with the link to the
+    accreditation body's own verification (FR-DIS-06). Validity is always shown (FR-DAT-05).
+  required:
+    - certificateNo
+    - accreditationBody
+    - standard
+    - labCategory
+    - validFrom
+    - validTo
+    - status
+    - statusAsOf
+    - verificationUrl
+  additionalProperties: false
+  properties:
+    certificateNo:
+      type: string
+      maxLength: 50
+      examples:
+        - TC-1234
+    accreditationBody:
+      $ref: '#/PublicCodeName'
+    standard:
+      $ref: '#/PublicCodeName'
+    labCategory:
+      $ref: './enums.yaml#/PublicLabCategory'
+    validFrom:
+      $ref: './common.yaml#/Date'
+    validTo:
+      $ref: './common.yaml#/Date'
+    status:
+      $ref: './enums.yaml#/AccreditationStatus'
+    statusAsOf:
+      $ref: './common.yaml#/Date'
+    verificationUrl:
+      description: >-
+        The certificate on the accreditation body's verification site, built from
+        `accreditation_body.verification_url_template`. `null` when the body has no template.
+      type:
+        - string
+        - 'null'
+      format: uri
+
+PublicReceivingHours:
+  type: object
+  description: >-
+    One receiving window of a weekday (`receiving_hours`), in site local time (IST). A day may
+    have several windows (split shifts); a day without a window is closed.
+  required:
+    - weekday
+    - opensAt
+    - closesAt
+    - cutoffAt
+  additionalProperties: false
+  properties:
+    weekday:
+      type: integer
+      minimum: 1
+      maximum: 7
+      description: 1 = Monday … 7 = Sunday.
+    opensAt:
+      $ref: '#/LocalTime'
+    closesAt:
+      $ref: '#/LocalTime'
+    cutoffAt:
+      description: The window's cut-off time (`receiving_hours.cutoff_at`), if the site sets one.
+      oneOf:
+        - $ref: '#/LocalTime'
+        - type: 'null'
+
+LocalTime:
+  type: string
+  pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+  description: A wall-clock time `HH:MM` in IST.
+  examples:
+    - '09:30'
+
+PublicLabSiteSummary:
+  type: object
+  description: A lab site as shown in a search result (FR-DIS-05).
+  required:
+    - id
+    - siteCode
+    - name
+    - city
+    - stateCode
+    - pincode
+    - location
+    - listingStatus
+    - rating
+    - accreditations
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    siteCode:
+      type: string
+      maxLength: 30
+      examples:
+        - LS-UP-000123
+    name:
+      type: string
+    city:
+      type: string
+    stateCode:
+      type: string
+      maxLength: 4
+    pincode:
+      $ref: '#/Pincode'
+    location:
+      description: '`null` while the site has no approved pin; it then has no place on the map.'
+      oneOf:
+        - $ref: '#/PublicLocation'
+        - type: 'null'
+    listingStatus:
+      $ref: './enums.yaml#/PublicListingStatus'
+    rating:
+      $ref: '#/PublicRating'
+    accreditations:
+      type: array
+      description: The site's accreditations that have a matching scope line.
+      items:
+        $ref: '#/PublicAccreditation'
+
+PublicLabSite:
+  type: object
+  description: >-
+    Public profile of a lab site: accreditation, listing status, receiving hours, address and
+    rating (API_CONTRACTS §2, FR-DIS-06). The scope, price list and slots have their own
+    endpoints.
+  required:
+    - id
+    - siteCode
+    - name
+    - address
+    - location
+    - listingStatus
+    - rating
+    - accreditations
+    - receivingHours
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    siteCode:
+      type: string
+      maxLength: 30
+      examples:
+        - LS-UP-000123
+    name:
+      type: string
+    address:
+      $ref: '#/PublicAddress'
+    location:
+      description: '`null` while the site has no approved pin.'
+      oneOf:
+        - $ref: '#/PublicLocation'
+        - type: 'null'
+    listingStatus:
+      $ref: './enums.yaml#/PublicListingStatus'
+    rating:
+      $ref: '#/PublicRating'
+    accreditations:
+      type: array
+      items:
+        $ref: '#/PublicAccreditation'
+    receivingHours:
+      type: array
+      description: Weekly receiving windows, ordered by weekday and opening time.
+      items:
+        $ref: '#/PublicReceivingHours'
+
+PublicScopeLine:
+  type: object
+  description: >-
+    One line of the site's scope of accreditation (SCHEMA_SPECIFICATION §5.5): discipline → group
+    → product → parameter → method → range → site type (FR-DAT-02). Its `id` is what a booking
+    line references.
+  required:
+    - id
+    - certificateNo
+    - discipline
+    - group
+    - product
+    - parameter
+    - method
+    - methodText
+    - rangeText
+    - siteType
+    - temporarilyUnavailable
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    certificateNo:
+      type: string
+      maxLength: 50
+      description: The accreditation certificate this line is published under.
+    discipline:
+      $ref: '#/PublicCodeName'
+    group:
+      oneOf:
+        - $ref: '#/PublicCodeName'
+        - type: 'null'
+    product:
+      oneOf:
+        - $ref: '#/PublicCodeName'
+        - type: 'null'
+    parameter:
+      $ref: '#/PublicCodeName'
+    method:
+      description: The normalised method or standard (METHOD taxonomy), if the line has one.
+      oneOf:
+        - $ref: '#/PublicCodeName'
+        - type: 'null'
+    methodText:
+      description: The method as published, when it is not normalised.
+      type:
+        - string
+        - 'null'
+    rangeText:
+      description: The range as published.
+      type:
+        - string
+        - 'null'
+    siteType:
+      $ref: './enums.yaml#/ScopeSiteType'
+    temporarilyUnavailable:
+      type: boolean
+      description: Set by the lab's Checker (FR-LAB-07). Such a line cannot be booked for now.
+
+PublicScopeLineList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/PublicScopeLine'
+    page:
+      $ref: './common.yaml#/Page'
+
+PublicPriceItem:
+  type: object
+  description: >-
+    The price of one scope line in the effective published price list (SCHEMA_SPECIFICATION
+    §5.14), with its sample requirements (FR-DIS-06).
+  required:
+    - scopeLine
+    - price
+    - samplePrep
+    - gstRateBp
+    - sampleQty
+    - sampleUnit
+    - packagingInstructions
+    - tatDays
+    - isAvailable
+  additionalProperties: false
+  properties:
+    scopeLine:
+      $ref: '#/PublicScopeLine'
+    price:
+      $ref: './common.yaml#/Money'
+    samplePrep:
+      description: Sample preparation charge. Zero when there is none.
+      $ref: './common.yaml#/Money'
+    gstRateBp:
+      type: integer
+      minimum: 0
+      maximum: 2800
+      description: GST rate in basis points (1800 = 18.00%).
+    sampleQty:
+      type: number
+      minimum: 0
+      description: Sample quantity the lab needs, in `sampleUnit`.
+    sampleUnit:
+      $ref: '#/PublicCodeName'
+    packagingInstructions:
+      type:
+        - string
+        - 'null'
+    tatDays:
+      type: integer
+      minimum: 1
+      description: Turnaround time in days.
+    isAvailable:
+      type: boolean
+      description: '`false` when the lab has marked the item unavailable in this price list.'
+
+PublicPriceList:
+  type: object
+  description: >-
+    The items of the site's effective published price list (CD-06). Published price lists are
+    immutable; a new version supersedes the previous one.
+  required:
+    - priceList
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    priceList:
+      type: object
+      required:
+        - versionNo
+        - effectiveFrom
+      additionalProperties: false
+      properties:
+        versionNo:
+          type: integer
+          minimum: 1
+        effectiveFrom:
+          $ref: './common.yaml#/Timestamp'
+    data:
+      type: array
+      items:
+        $ref: '#/PublicPriceItem'
+    page:
+      $ref: './common.yaml#/Page'
+
+PublicSlot:
+  type: object
+  description: >-
+    A drop-off slot that can still be chosen (FR-BKG-04). Capacity figures are not published;
+    a slot is listed only while it is open and has capacity left.
+  required:
+    - id
+    - date
+    - startsAt
+    - endsAt
+    - discipline
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    date:
+      $ref: './common.yaml#/Date'
+    startsAt:
+      $ref: './common.yaml#/Timestamp'
+    endsAt:
+      $ref: './common.yaml#/Timestamp'
+    discipline:
+      description: The discipline the slot is reserved for. `null` for a slot open to every discipline.
+      oneOf:
+        - $ref: '#/PublicCodeName'
+        - type: 'null'
+
+PublicSlotList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/PublicSlot'
+    page:
+      $ref: './common.yaml#/Page'
+
+PublicTaxonomyNode:
+  type: object
+  description: An active master-data value, used for filters (FR-DIS-03).
+  required:
+    - code
+    - name
+    - nodeType
+    - parentCode
+  additionalProperties: false
+  properties:
+    code:
+      $ref: '#/NodeCode'
+    name:
+      type: string
+    nodeType:
+      type: string
+      maxLength: 50
+      description: Code of the node's level, for example `DISCIPLINE` or `PARAMETER` (`md_node_type.code`).
+      examples:
+        - DISCIPLINE
+    parentCode:
+      description: Code of the parent node. `null` at the top level.
+      oneOf:
+        - $ref: '#/NodeCode'
+        - type: 'null'
+
+PublicTaxonomyNodeList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/PublicTaxonomyNode'
+    page:
+      $ref: './common.yaml#/Page'
