@@ -26,6 +26,13 @@ tags:
       Public lab search, typeahead, filter values, lab site pages, slots and leads. No sign-in.
   - name: Verification
     description: Public report verification and share links. No sign-in.
+  - name: Customer
+    description: >-
+      The active customer organisation: profile, sites, settings, users and invitations.
+  - name: Bookings
+    description: >-
+      Booking requests, lab decisions, counter-offers, cancellation, handover, hold decisions,
+      testing status, timeline and ratings. Seen by both parties, each per role.
   - name: Health
     description: Platform liveness.
 
@@ -83,6 +90,66 @@ paths:
     $ref: './paths/public-reports.yaml#/verify'
   /public/share/{token}:
     $ref: './paths/public-reports.yaml#/share'
+  # Customer org (API_CONTRACTS.md §3)
+  /customer/organisations:
+    $ref: './paths/customer.yaml#/organisations'
+  /customer/organisation:
+    $ref: './paths/customer.yaml#/organisation'
+  /customer/sites:
+    $ref: './paths/customer.yaml#/sites'
+  /customer/sites/{id}:
+    $ref: './paths/customer.yaml#/site'
+  /customer/settings:
+    $ref: './paths/customer.yaml#/settings'
+  /customer/users:
+    $ref: './paths/customer.yaml#/users'
+  /customer/users/{id}:
+    $ref: './paths/customer.yaml#/user'
+  /customer/invitations:
+    $ref: './paths/customer.yaml#/invitations'
+  /customer/invitations/{id}:
+    $ref: './paths/customer.yaml#/invitation'
+  # Bookings (API_CONTRACTS.md §4)
+  /bookings/estimate:
+    $ref: './paths/bookings.yaml#/estimate'
+  /bookings/duplicate-check:
+    $ref: './paths/bookings.yaml#/duplicate-check'
+  /bookings:
+    $ref: './paths/bookings.yaml#/bookings'
+  /bookings/{id}:
+    $ref: './paths/bookings.yaml#/booking'
+  /bookings/{id}/attachments/upload-url:
+    $ref: './paths/bookings.yaml#/attachment-upload-url'
+  /bookings/{id}/accept:
+    $ref: './paths/bookings.yaml#/accept'
+  /bookings/{id}/reject:
+    $ref: './paths/bookings.yaml#/reject'
+  /bookings/{id}/counter:
+    $ref: './paths/bookings.yaml#/counter'
+  /bookings/{id}/counter/accept:
+    $ref: './paths/bookings.yaml#/counter-accept'
+  /bookings/{id}/counter/decline:
+    $ref: './paths/bookings.yaml#/counter-decline'
+  /bookings/{id}/cancel:
+    $ref: './paths/bookings.yaml#/cancel'
+  /bookings/{id}/handover:
+    $ref: './paths/bookings.yaml#/handover'
+  /bookings/{id}/labels.pdf:
+    $ref: './paths/bookings.yaml#/labels'
+  /bookings/{id}/hold/decision:
+    $ref: './paths/bookings.yaml#/hold-decision'
+  /bookings/{id}/start-testing:
+    $ref: './paths/bookings.yaml#/start-testing'
+  /bookings/{id}/expected-report-date:
+    $ref: './paths/bookings.yaml#/expected-report-date'
+  /bookings/{id}/lines/{lineId}/status:
+    $ref: './paths/bookings.yaml#/line-status'
+  /bookings/{id}/timeline:
+    $ref: './paths/bookings.yaml#/timeline'
+  /bookings/{id}/custody-trail.pdf:
+    $ref: './paths/bookings.yaml#/custody-trail'
+  /bookings/{id}/rating:
+    $ref: './paths/bookings.yaml#/rating'
   # Platform
   /health:
     $ref: './paths/health.yaml#/health'
@@ -141,6 +208,36 @@ components:
       $ref: './components/schemas/enums.yaml#/LeadKind'
     VerificationResult:
       $ref: './components/schemas/enums.yaml#/VerificationResult'
+    CustomerSegment:
+      $ref: './components/schemas/enums.yaml#/CustomerSegment'
+    OrgStatus:
+      $ref: './components/schemas/enums.yaml#/OrgStatus'
+    MembershipStatus:
+      $ref: './components/schemas/enums.yaml#/MembershipStatus'
+    CustomerRoleCode:
+      $ref: './components/schemas/enums.yaml#/CustomerRoleCode'
+    CustomerSiteStatus:
+      $ref: './components/schemas/enums.yaml#/CustomerSiteStatus'
+    BookingStatus:
+      $ref: './components/schemas/enums.yaml#/BookingStatus'
+    BookingLineStatus:
+      $ref: './components/schemas/enums.yaml#/BookingLineStatus'
+    PartyType:
+      $ref: './components/schemas/enums.yaml#/PartyType'
+    CounterStatus:
+      $ref: './components/schemas/enums.yaml#/CounterStatus'
+    HoldDecision:
+      $ref: './components/schemas/enums.yaml#/HoldDecision'
+    HoldStatus:
+      $ref: './components/schemas/enums.yaml#/HoldStatus'
+    PackageStatus:
+      $ref: './components/schemas/enums.yaml#/PackageStatus'
+    CustodyEventType:
+      $ref: './components/schemas/enums.yaml#/CustodyEventType'
+    ScanStatus:
+      $ref: './components/schemas/enums.yaml#/ScanStatus'
+    RatingDirection:
+      $ref: './components/schemas/enums.yaml#/RatingDirection'
     Email:
       $ref: './components/schemas/auth.yaml#/Email'
     OtpCode:
@@ -255,6 +352,150 @@ components:
       $ref: './components/schemas/verification.yaml#/ReportVerification'
     ShareLinkResolution:
       $ref: './components/schemas/verification.yaml#/ShareLinkResolution'
+    Gstin:
+      $ref: './components/schemas/customer.yaml#/Gstin'
+    CustomerAddress:
+      $ref: './components/schemas/customer.yaml#/CustomerAddress'
+    CustomerOrganisation:
+      $ref: './components/schemas/customer.yaml#/CustomerOrganisation'
+    CustomerOrganisationCreate:
+      $ref: './components/schemas/customer.yaml#/CustomerOrganisationCreate'
+    CustomerOrganisationUpdate:
+      $ref: './components/schemas/customer.yaml#/CustomerOrganisationUpdate'
+    CustomerSiteLocation:
+      $ref: './components/schemas/customer.yaml#/CustomerSiteLocation'
+    CustomerSiteContact:
+      $ref: './components/schemas/customer.yaml#/CustomerSiteContact'
+    CustomerSite:
+      $ref: './components/schemas/customer.yaml#/CustomerSite'
+    CustomerSiteList:
+      $ref: './components/schemas/customer.yaml#/CustomerSiteList'
+    CustomerSiteCreate:
+      $ref: './components/schemas/customer.yaml#/CustomerSiteCreate'
+    CustomerSiteUpdate:
+      $ref: './components/schemas/customer.yaml#/CustomerSiteUpdate'
+    CustomerSettings:
+      $ref: './components/schemas/customer.yaml#/CustomerSettings'
+    CustomerSettingsUpdate:
+      $ref: './components/schemas/customer.yaml#/CustomerSettingsUpdate'
+    CustomerUser:
+      $ref: './components/schemas/customer.yaml#/CustomerUser'
+    CustomerUserList:
+      $ref: './components/schemas/customer.yaml#/CustomerUserList'
+    CustomerInvitation:
+      $ref: './components/schemas/customer.yaml#/CustomerInvitation'
+    CustomerInvitationList:
+      $ref: './components/schemas/customer.yaml#/CustomerInvitationList'
+    CustomerInvitationCreate:
+      $ref: './components/schemas/customer.yaml#/CustomerInvitationCreate'
+    BookingTransitionId:
+      $ref: './components/schemas/bookings.yaml#/BookingTransitionId'
+    BookingNo:
+      $ref: './components/schemas/bookings.yaml#/BookingNo'
+    BookingLineRef:
+      $ref: './components/schemas/bookings.yaml#/BookingLineRef'
+    BookingLineRefs:
+      $ref: './components/schemas/bookings.yaml#/BookingLineRefs'
+    BookingTrfInput:
+      $ref: './components/schemas/bookings.yaml#/BookingTrfInput'
+    BookingTrf:
+      $ref: './components/schemas/bookings.yaml#/BookingTrf'
+    BookingCreate:
+      $ref: './components/schemas/bookings.yaml#/BookingCreate'
+    BookingOnBehalfOf:
+      $ref: './components/schemas/bookings.yaml#/BookingOnBehalfOf'
+    BookingUpdate:
+      $ref: './components/schemas/bookings.yaml#/BookingUpdate'
+    BookingLineSnapshot:
+      $ref: './components/schemas/bookings.yaml#/BookingLineSnapshot'
+    BookingEstimateLine:
+      $ref: './components/schemas/bookings.yaml#/BookingEstimateLine'
+    BookingLine:
+      $ref: './components/schemas/bookings.yaml#/BookingLine'
+    BookingEstimateRequest:
+      $ref: './components/schemas/bookings.yaml#/BookingEstimateRequest'
+    BookingEstimate:
+      $ref: './components/schemas/bookings.yaml#/BookingEstimate'
+    BookingDuplicateCheckRequest:
+      $ref: './components/schemas/bookings.yaml#/BookingDuplicateCheckRequest'
+    BookingDuplicateMatch:
+      $ref: './components/schemas/bookings.yaml#/BookingDuplicateMatch'
+    BookingDuplicateCheck:
+      $ref: './components/schemas/bookings.yaml#/BookingDuplicateCheck'
+    BookingLabSite:
+      $ref: './components/schemas/bookings.yaml#/BookingLabSite'
+    BookingLabSnapshot:
+      $ref: './components/schemas/bookings.yaml#/BookingLabSnapshot'
+    BookingLabContact:
+      $ref: './components/schemas/bookings.yaml#/BookingLabContact'
+    BookingAttachment:
+      $ref: './components/schemas/bookings.yaml#/BookingAttachment'
+    BookingAttachmentContentType:
+      $ref: './components/schemas/bookings.yaml#/BookingAttachmentContentType'
+    BookingUploadUrlRequest:
+      $ref: './components/schemas/bookings.yaml#/BookingUploadUrlRequest'
+    BookingUploadUrl:
+      $ref: './components/schemas/bookings.yaml#/BookingUploadUrl'
+    BookingCounterLineQuantity:
+      $ref: './components/schemas/bookings.yaml#/BookingCounterLineQuantity'
+    BookingCounterCreate:
+      $ref: './components/schemas/bookings.yaml#/BookingCounterCreate'
+    BookingCounterOffer:
+      $ref: './components/schemas/bookings.yaml#/BookingCounterOffer'
+    BookingHoldCase:
+      $ref: './components/schemas/bookings.yaml#/BookingHoldCase'
+    BookingCancellation:
+      $ref: './components/schemas/bookings.yaml#/BookingCancellation'
+    BookingRejection:
+      $ref: './components/schemas/bookings.yaml#/BookingRejection'
+    BookingFreeze:
+      $ref: './components/schemas/bookings.yaml#/BookingFreeze'
+    BookingStatusChange:
+      $ref: './components/schemas/bookings.yaml#/BookingStatusChange'
+    BookingRating:
+      $ref: './components/schemas/bookings.yaml#/BookingRating'
+    BookingRatingCreate:
+      $ref: './components/schemas/bookings.yaml#/BookingRatingCreate'
+    BookingCommon:
+      $ref: './components/schemas/bookings.yaml#/BookingCommon'
+    BookingRequester:
+      $ref: './components/schemas/bookings.yaml#/BookingRequester'
+    BookingCustomerSite:
+      $ref: './components/schemas/bookings.yaml#/BookingCustomerSite'
+    BookingForCustomer:
+      $ref: './components/schemas/bookings.yaml#/BookingForCustomer'
+    BookingForLab:
+      $ref: './components/schemas/bookings.yaml#/BookingForLab'
+    BookingView:
+      $ref: './components/schemas/bookings.yaml#/BookingView'
+    BookingSummary:
+      $ref: './components/schemas/bookings.yaml#/BookingSummary'
+    BookingList:
+      $ref: './components/schemas/bookings.yaml#/BookingList'
+    BookingRejectRequest:
+      $ref: './components/schemas/bookings.yaml#/BookingRejectRequest'
+    BookingCancelRequest:
+      $ref: './components/schemas/bookings.yaml#/BookingCancelRequest'
+    BookingHoldDecisionRequest:
+      $ref: './components/schemas/bookings.yaml#/BookingHoldDecisionRequest'
+    BookingStartTestingRequest:
+      $ref: './components/schemas/bookings.yaml#/BookingStartTestingRequest'
+    BookingExpectedReportDateUpdate:
+      $ref: './components/schemas/bookings.yaml#/BookingExpectedReportDateUpdate'
+    BookingLineTargetStatus:
+      $ref: './components/schemas/bookings.yaml#/BookingLineTargetStatus'
+    BookingLineStatusChange:
+      $ref: './components/schemas/bookings.yaml#/BookingLineStatusChange'
+    BookingHandoverPackage:
+      $ref: './components/schemas/bookings.yaml#/BookingHandoverPackage'
+    BookingHandover:
+      $ref: './components/schemas/bookings.yaml#/BookingHandover'
+    BookingTimelineEntryKind:
+      $ref: './components/schemas/bookings.yaml#/BookingTimelineEntryKind'
+    BookingTimelineEntry:
+      $ref: './components/schemas/bookings.yaml#/BookingTimelineEntry'
+    BookingTimeline:
+      $ref: './components/schemas/bookings.yaml#/BookingTimeline'
     HealthStatus:
       $ref: './components/schemas/health.yaml#/HealthStatus'
   parameters:

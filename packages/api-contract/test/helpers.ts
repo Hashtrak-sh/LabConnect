@@ -35,6 +35,9 @@ export interface Response {
 export interface Operation {
   operationId?: string;
   tags?: string[];
+  description?: string;
+  /** Booking transitions (T-xx) the operation performs (BOOKING_STATE_MACHINE.md §3). */
+  'x-transitions'?: string[];
   security?: Record<string, string[]>[];
   parameters?: (Parameter | Ref)[];
   requestBody?: unknown;

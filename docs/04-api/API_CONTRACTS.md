@@ -37,7 +37,7 @@
 | GET/PATCH | `/customer/organisation` | C-Admin | Profile, GSTIN | ONB-01 |
 | GET/POST/PATCH | `/customer/sites[/{id}]` | C-Admin | Customer sites | ONB-03 |
 | GET/PATCH | `/customer/settings` | C-Admin | `requesterCanPay`, etc. | ONB-02 |
-| GET/POST/DELETE | `/customer/users`, `/customer/invitations` | C-Admin | Users and roles | ONB-02 |
+| GET/POST/DELETE | GET `/customer/users` · DELETE `/customer/users/{id}` · GET/POST `/customer/invitations` · DELETE `/customer/invitations/{id}` | C-Admin | Users and roles: list and deactivate members, invite and revoke | ONB-02 |
 
 ## 4. Bookings
 | Method | Path | Who | Transition | FR |
