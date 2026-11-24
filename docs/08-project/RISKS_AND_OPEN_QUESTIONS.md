@@ -24,7 +24,7 @@
 | OQ-16 | Are future-dated master-data changes needed in the MVP? | Data steward | Publish on the day only | I1 | Open |
 | OQ-17 | Map tile and geocoder provider choice and licences. Pincode dataset licence. | H | Self-hosted PMTiles + Nominatim (India) | I1 | Open |
 | OQ-18 | AWS account structure (separate UAT and prod accounts?) | H | Separate accounts recommended | P3-11 | Open |
-| OQ-19 | QCI Brand & Communication Guidelines content (colours, type, logo rules, co-branding with NABL) | H | Brand slots left empty. Neutral placeholder tokens. | Design phase | Open |
+| OQ-19 | QCI brand values the Guidelines PDF (v1.0, May 2024) doesn't give: colour codes, vector logo files, clear space and sizes, web typeface, product naming, NABL co-branding, logo permission for a public repo (full list in BRAND_GUIDELINES §9). Logo rules and document typefaces are now recorded. | H | Colour and web-font slots left empty. Neutral placeholder tokens. | Design phase | Open (narrowed) |
 | OQ-20 | Can one-person labs be onboarded? (A Maker and Checker must be different people.) | Product owner | No. A site needs 2 people. | I2 | Open |
 | OQ-21 | When is the lab tax invoice issued: on payment or on report release? | Finance | On report release | I6 | Open |
 | OQ-22 | Booking number format standard of the operating authority | Product owner | `LC-YYMM-NNNNNNN` | G1 | Open |

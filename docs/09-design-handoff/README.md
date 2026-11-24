@@ -8,7 +8,7 @@ Workflow (CD-58): **Claude Design** creates the initial visual design → **Clau
 |---|---|
 | [DESIGN_MASTER_PROMPT.md](DESIGN_MASTER_PROMPT.md) | The prompt to give Claude Design |
 | [DESIGN_BRIEF.md](DESIGN_BRIEF.md) | Goals, audiences, deliverables, constraints |
-| [BRAND_GUIDELINES.md](BRAND_GUIDELINES.md) | QCI brand application. **Brand values are still to be extracted from the QCI PDF (OQ-19).** |
+| [BRAND_GUIDELINES.md](BRAND_GUIDELINES.md) | QCI brand application. **Partly filled from the QCI PDF. Colour codes and web typeface are not in the PDF and are still open (OQ-19).** |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | Tokens (semantic), typography scale, spacing, states |
 | [UX_PRINCIPLES.md](UX_PRINCIPLES.md) | How the product should feel and behave |
 | [COMPONENT_SPECIFICATION.md](COMPONENT_SPECIFICATION.md) | Components needed and their states |
