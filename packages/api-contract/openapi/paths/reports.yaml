@@ -1,0 +1,588 @@
+# Reports: versions, review and release, the report view, downloads and share links
+# (API_CONTRACTS.md §8, FILES_AND_REPORTS.md, BOOKING_STATE_MACHINE.md T-19 to T-21).
+# Public verification and share-link resolution are in public-reports.yaml.
+# Any booking or report version outside the caller's scope is answered with 404. A customer
+# never sees a version that is DRAFT, IN_REVIEW or RETURNED: such a version is answered with 404.
+# Booking status changes only through the BookingEngine; the T-xx of each command is named.
+# Maker/Checker separation is enforced here and in the database: a Checker never returns or
+# publishes a version they made (CD-23). Files are uploaded and downloaded only through
+# short-lived pre-signed URLs; no response carries a file, and no report content is logged.
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+report-upload-url:
+  post:
+    operationId: createReportUploadUrl
+    tags:
+      - Reports
+    summary: Get an upload URL for a report PDF
+    description: >-
+      Creates a pending file (purpose `REPORT_ORIGINAL`) and returns a 15-minute pre-signed PUT
+      into quarantine (FILES_AND_REPORTS §1, FR-RPT-05, BR-060). The file never passes through the
+      API. After upload it is scanned for malware and validated as a PDF (not encrypted, not
+      corrupt, no JavaScript, EC-42), and can be used in a report version once `CLEAN`. No booking
+      transition. Allowed while a version can be created: the booking is UNDER_TEST, or the
+      report already has a released version (amendment). Who: `LAB_MAKER` of the booking's site
+      (`report.submit`).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The booking.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/reports.yaml#/ReportUploadUrlRequest'
+    responses:
+      '201':
+        description: The upload URL.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/reports.yaml#/ReportUploadUrl'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not a lab Maker.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: no report version can be created in the booking's state
+          (`meta.currentState`). `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED`: not a PDF, or larger than 20 MB (BR-060). `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+report-versions:
+  post:
+    operationId: createReportVersion
+    tags:
+      - Reports
+    summary: Create a draft report version
+    description: >-
+      Creates the next version of the booking's report as a DRAFT and binds it to a scanned
+      package (FR-RPT-05, FR-RPT-06, FR-RPT-09). No booking transition; the booking moves only on
+      submission. Allowed when the booking is UNDER_TEST (the first version, or a new version
+      after a return, EC-52), or when the report already has a released version: the new version
+      is then an amendment and needs `amendmentReason`. Only one version per report can be DRAFT
+      or IN_REVIEW at a time. Checks: the file is `CLEAN`, a report original and uploaded for this
+      booking; the bound package's QR is genuine, belongs to this booking and is RECEIVED
+      (BR-063), which writes a `REPORT_BOUND` custody event; every parameter result names an
+      active line of the booking (BR-061); the ULR is unique (BR-062). A released version is never
+      changed: corrections are always a new version. Who: `LAB_MAKER` of the booking's site
+      (`report.submit`); the caller becomes the version's Maker.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The booking.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/reports.yaml#/ReportVersionCreate'
+    responses:
+      '201':
+        description: The DRAFT version.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/reports.yaml#/ReportVersion'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not a lab Maker.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the booking's state allows no new version, or another
+          version is DRAFT or IN_REVIEW (`meta.currentState`). `ULR_NOT_UNIQUE` (BR-062).
+          `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `FILE_NOT_CLEAN`: the file is still being scanned, infected or not a valid PDF.
+          `REPORT_PARAMETER_NOT_BOOKED` (BR-061). `QR_INVALID_SIGNATURE`: the bind QR is not
+          genuine. `PACKAGE_VOIDED`: the bind QR is an old label. `VALIDATION_FAILED`, for example
+          a package that is not a received package of this booking (BR-063), a report number
+          already used at the site, a missing `reportNo`, `amendmentReason` missing on an
+          amendment or given on a version that is not one, or numbers given on an amendment.
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+report-version-submit:
+  post:
+    operationId: submitReportVersion
+    tags:
+      - Reports
+    summary: Submit a report version for review
+    description: >-
+      Sends a DRAFT version to the Checker (FR-RPT-06). Transition T-19 `SubmitReport`
+      (UNDER_TEST → REPORT_IN_REVIEW) for a version that is not an amendment; an amendment goes to
+      review without a booking transition (the booking state does not change). Guards: the file
+      is `CLEAN`; the bound package belongs to the booking (BR-063); the parameters are a subset of
+      the active lines (BR-061); the ULR is unique (BR-062); the report has a report number.
+      Effects: the version is IN_REVIEW with its verification code and signing key; the stamp job
+      stamps the QR on a copy (ADR-014), and the Checker reviews that stamped copy; timer
+      `REPORT_APPROVAL_REMINDER`. The code verifies as "Not found" until release. Who: the
+      version's Maker (`LAB_MAKER`, `report.submit`); any other user gets 403.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The report version.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Submitted. The version is IN_REVIEW.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/reports.yaml#/ReportVersion'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: "`FORBIDDEN`: the caller is not the version's Maker."
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such report version at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the version is not DRAFT, or the booking is not UNDER_TEST
+          (`meta.currentState`). `ULR_NOT_UNIQUE` (BR-062). `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `FILE_NOT_CLEAN`. `REPORT_PARAMETER_NOT_BOOKED`: a line was cancelled since the draft
+          was made (BR-061). `VALIDATION_FAILED`: the bound package is no longer valid (BR-063).
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+report-version-return:
+  post:
+    operationId: returnReportVersion
+    tags:
+      - Reports
+    summary: Return a report version to the Maker
+    description: >-
+      Sends a version in review back with comments (FR-RPT-07, EC-52). Transition T-20
+      `ReturnReport` (REPORT_IN_REVIEW → UNDER_TEST) for a version that is not an amendment; an
+      amendment is returned without a booking transition. Maker ≠ Checker: the caller must not be
+      the version's Maker (CD-23, also a database CHECK). Comments are required. Effects: the
+      version is RETURNED and stays so; its history is kept, and the Maker continues with a new
+      DRAFT version. No step-up is needed (AUTHENTICATION §2 lists publication only). Who:
+      `LAB_CHECKER` of the booking's site (`report.publish`).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The report version.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/reports.yaml#/ReportReturn'
+    responses:
+      '200':
+        description: Returned. The version is RETURNED.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/reports.yaml#/ReportVersion'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `SELF_APPROVAL_FORBIDDEN`: the caller is the version's Maker. `FORBIDDEN`: the caller is
+          not a lab Checker.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such report version at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the version is not IN_REVIEW (`meta.currentState`).
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+report-version-publish:
+  post:
+    operationId: publishReportVersion
+    tags:
+      - Reports
+    summary: Approve and publish a report version
+    description: >-
+      Releases a version in review to the customer (FR-RPT-07, FR-RPT-08, BR-064). Transition T-21
+      `PublishReport` (REPORT_IN_REVIEW → REPORT_RELEASED) for a version that is not an
+      amendment; an amendment is released without a booking transition, the booking state does
+      not change, and the dispute window is not reopened (OQ-14 default). Guards: Maker ≠ Checker
+      (the caller must not be the version's Maker, CD-23, also a database CHECK); step-up MFA
+      within the last 5 minutes (`POST /auth/mfa/verify`); the stamp job has finished
+      (`stampedSha256` is set). Effects, in one synchronous transaction: the version is RELEASED
+      with the Checker and the step-up time; a previously released version becomes SUPERSEDED and
+      verifies as "Superseded by vN" (BR-065); for T-21 the booking is REPORT_RELEASED and the
+      72-hour dispute window starts (timer `DISPUTE_WINDOW_END`); the customer is notified. From
+      then on the version is immutable and its verification code resolves publicly. Who:
+      `LAB_CHECKER` of the booking's site (`report.publish`).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The report version.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Published. The version is RELEASED.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/reports.yaml#/ReportVersion'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: >-
+          `STEP_UP_REQUIRED`: no MFA in the last 5 minutes (`meta.maxAgeSeconds`).
+          `UNAUTHENTICATED`.
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `SELF_APPROVAL_FORBIDDEN`: the caller is the version's Maker. `FORBIDDEN`: the caller is
+          not a lab Checker.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such report version at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the version is not IN_REVIEW, or its stamped copy is not
+          ready yet (`meta.currentState`). `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+booking-report:
+  get:
+    operationId: getBookingReport
+    tags:
+      - Reports
+    summary: Get a booking's report and its versions
+    description: >-
+      The report's numbers, status and versions as the caller's party may see them (FR-RPT-10).
+      The lab's Maker and Checker of the site get every version (`party` `LAB`). The customer
+      (`CUSTOMER_ADMIN` and `CUSTOMER_FINANCE`; `CUSTOMER_REQUESTER` for their own bookings) gets
+      released and superseded versions only (`party` `CUSTOMER`), with their share links, and
+      never a DRAFT, IN_REVIEW or RETURNED version, the review comments or the original's hash.
+      Platform roles see report metadata only, through the admin booking views (API_CONTRACTS
+      §10), and get 403 here. No file is returned; files are downloaded through the download URL.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The booking.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The report as the caller's party sees it.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/reports.yaml#/ReportView'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: a platform user.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such booking visible to the caller.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+report-version-download-url:
+  post:
+    operationId: createReportDownloadUrl
+    tags:
+      - Reports
+    summary: Get a download URL for a report version
+    description: >-
+      Returns a 15-minute pre-signed GET (FILES_AND_REPORTS §2, BR-066), never the file. Every call
+      is logged in `report_access_log` (`DOWNLOAD`) with the caller; the report's content is never
+      logged. No booking transition. The customer (`CUSTOMER_ADMIN`, `CUSTOMER_FINANCE`;
+      `CUSTOMER_REQUESTER` for their own bookings) gets the stamped copy of a RELEASED or
+      SUPERSEDED version only. The lab's Maker and Checker of the site get any version: the
+      stamped copy once it exists, otherwise the original. Platform roles get 403: they see
+      metadata only, and file access for them is break-glass only (API_CONTRACTS §10, CD-26). Who:
+      `report.download`.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The report version.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The download URL.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/reports.yaml#/ReportDownloadUrl'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: a platform user, or a role without `report.download`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: >-
+          `NOT_FOUND`: no such version visible to the caller (for a customer, also any version
+          that is not released or superseded).
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+report-version-share-links:
+  post:
+    operationId: createReportShareLink
+    tags:
+      - Reports
+    summary: Create a share link for a report version
+    description: >-
+      Creates an expiring, revocable link to the stamped copy of the current released version
+      (FR-RPT-10, BR-066, FILES_AND_REPORTS §4): 7 days by default, 30 at most. The token is 256
+      random bits, returned only in this response; only its hash is stored. The recipient opens it
+      through `GET /public/share/{token}`, which gives a 15-minute download URL and is logged. No
+      booking transition. Audited. Share links belong to the customer: the lab and platform
+      cannot create them. Who: `CUSTOMER_ADMIN`, `CUSTOMER_FINANCE`, and `CUSTOMER_REQUESTER` for
+      their own bookings (`share_link.manage`).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The report version.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/reports.yaml#/ReportShareLinkCreate'
+    responses:
+      '201':
+        description: The link and its token.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/reports.yaml#/ReportShareLinkCreated'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not a customer member allowed to share.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: >-
+          `NOT_FOUND`: no such version visible to the caller, including any version that is not
+          released or superseded.
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the version is SUPERSEDED; only the current released version
+          can be shared (`meta.currentState`). `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+report-version-share-link:
+  delete:
+    operationId: revokeReportShareLink
+    tags:
+      - Reports
+    summary: Revoke a share link
+    description: >-
+      Revokes the link at once: resolving it afterwards returns 404 (AC-RPT-10). The link row is
+      kept with `revokedAt` and the revoking user. Revoking a link that is already revoked or
+      expired changes nothing. Audited. Who: `CUSTOMER_ADMIN`, `CUSTOMER_FINANCE`, and
+      `CUSTOMER_REQUESTER` for their own bookings (`share_link.manage`).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The report version.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: linkId
+        in: path
+        required: true
+        description: The share link.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '204':
+        description: Revoked.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not a customer member allowed to share.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such link of this version visible to the caller.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

@@ -11,6 +11,7 @@ import {
   type Response,
   type Schema,
   tableRows,
+  transitionIds,
 } from './helpers.js';
 
 // Conventions from API_CONVENTIONS.md and ERROR_HANDLING.md, checked on every operation.
@@ -280,6 +281,165 @@ describe('errors (ERROR_HANDLING.md)', () => {
   });
 });
 
+/** The transition ids of packages/shared, read as text (no package dependency). */
+function sharedTransitionIds(): string[] {
+  const source = readRepoFile('packages/shared/src/booking-state-machine.ts');
+  const block = /TRANSITION_IDS = \[([^\]]*)\]/.exec(source)?.[1] ?? '';
+  return [...block.matchAll(/'(T-\d{2})'/g)].map((m) => m[1] ?? '');
+}
+
+/**
+ * Every schema node reachable from a schema, following `$ref`s, with the property name it sits
+ * under (if any). Examples are skipped.
+ */
+function reachableNodes(
+  node: unknown,
+  at: string,
+  seen = new Set<string>(),
+): { property?: string; schema: Schema; at: string }[] {
+  if (typeof node !== 'object' || node === null) return [];
+  if (isRef(node)) {
+    if (seen.has(node.$ref)) return [];
+    seen.add(node.$ref);
+    return reachableNodes(resolve(doc, node), node.$ref, seen);
+  }
+  const found: { property?: string; schema: Schema; at: string }[] = [
+    { schema: node as Schema, at },
+  ];
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    if (key === 'examples' || key === 'example') continue;
+    if (key === 'properties' && typeof value === 'object' && value !== null) {
+      for (const [name, child] of Object.entries(value as Record<string, unknown>)) {
+        found.push({ property: name, schema: {}, at });
+        found.push(...reachableNodes(child, `${at}/properties/${name}`, seen));
+      }
+      continue;
+    }
+    found.push(...reachableNodes(value, `${at}/${key}`, seen));
+  }
+  return found;
+}
+
+describe('custody and reports (API_CONTRACTS.md §7 and §8)', () => {
+  const moduleTags = new Set(['Custody', 'Reports']);
+  const moduleOperations = operations.filter((o) =>
+    (o.operation.tags ?? []).some((t) => moduleTags.has(t)),
+  );
+
+  /** Operations that need a fresh step-up MFA (AUTHENTICATION_AND_AUTHORISATION.md §2). */
+  const stepUpOperations = ['POST /report-versions/{id}/publish'];
+
+  /** Checker decisions on a Maker's record (CD-23, ROLES_AND_PERMISSIONS note 6). */
+  const makerCheckerDecisions = [
+    'POST /receipts/{id}/approve',
+    'POST /receipts/{id}/confirm-discrepancy',
+    'POST /receipts/{id}/reject-unfit',
+    'POST /reprint-requests/{id}/approve',
+    'POST /report-versions/{id}/return',
+    'POST /report-versions/{id}/publish',
+  ];
+
+  /** Lab-internal fields the customer's report view must not carry (FILES_AND_REPORTS §3). */
+  const labOnlyReportFields = [
+    'reviewComments',
+    'makerUserId',
+    'checkerUserId',
+    'originalSha256',
+    'amendmentReason',
+    'boundPackage',
+  ];
+
+  const responseNodes = (operation: (typeof operations)[number]['operation']) =>
+    Object.entries(operation.responses)
+      .filter(([status]) => status.startsWith('2'))
+      .flatMap(([status, value]) =>
+        Object.entries(resolve<Response>(doc, value).content ?? {}).map(([type, media]) => ({
+          status,
+          type,
+          schema: media.schema,
+        })),
+      );
+
+  it('covers the module operations', () => {
+    // 9 operations of §7 and 9 of §8 (share links: create and revoke).
+    expect(moduleOperations.length).toBe(18);
+  });
+
+  it('name only transition ids that packages/shared defines', () => {
+    const known = new Set(sharedTransitionIds());
+    expect(known.size).toBe(28);
+    const unknown = operations.flatMap(({ key, operation }) =>
+      transitionIds(operation.description ?? '')
+        .filter((id) => !known.has(id))
+        .map((id) => `${key}: ${id}`),
+    );
+    expect(unknown).toEqual([]);
+  });
+
+  it('require If-Match on every command that performs a booking transition', () => {
+    const missing = moduleOperations
+      .filter((o) => o.method === 'post' && transitionIds(o.operation.description ?? '').length > 0)
+      .filter(({ operation }) => {
+        const p = parametersOf(doc, operation).find((x) => x.name === 'If-Match');
+        return p?.in !== 'header' || p.required !== true;
+      })
+      .map((o) => o.key);
+    expect(missing).toEqual([]);
+  });
+
+  it('return JSON only, with no file bytes and no object key', () => {
+    const forbiddenNames = new Set(['objectkey', 'bucket', 'objectversionid', 'content', 'bytes']);
+    const problems: string[] = [];
+    for (const { key, operation } of moduleOperations) {
+      for (const { status, type, schema } of responseNodes(operation)) {
+        if (type !== 'application/json') problems.push(`${key} ${status}: ${type}`);
+        for (const node of reachableNodes(schema, key)) {
+          if (node.property !== undefined && forbiddenNames.has(node.property.toLowerCase())) {
+            problems.push(`${key} ${status}: property ${node.property} (${node.at})`);
+          }
+          const s = node.schema;
+          if (s.format === 'binary' || s.format === 'byte' || 'contentEncoding' in s) {
+            problems.push(`${key} ${status}: binary schema (${node.at})`);
+          }
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('declare STEP_UP_REQUIRED where a step-up is needed', () => {
+    for (const key of stepUpOperations) {
+      const op = operations.find((o) => o.key === key);
+      expect(op, key).toBeDefined();
+      const unauthorised = op?.operation.responses['401'];
+      expect(unauthorised, key).toBeDefined();
+      if (unauthorised) {
+        expect(backticked(describeResponse(unauthorised)), key).toContain('STEP_UP_REQUIRED');
+      }
+    }
+  });
+
+  it('declare SELF_APPROVAL_FORBIDDEN on every Checker decision', () => {
+    for (const key of makerCheckerDecisions) {
+      const op = operations.find((o) => o.key === key);
+      expect(op, key).toBeDefined();
+      const forbidden = op?.operation.responses['403'];
+      expect(forbidden, key).toBeDefined();
+      if (forbidden) {
+        expect(backticked(describeResponse(forbidden)), key).toContain('SELF_APPROVAL_FORBIDDEN');
+      }
+    }
+  });
+
+  it('keep lab-internal report fields out of the customer view', () => {
+    const view = { $ref: '#/components/schemas/CustomerReportView' };
+    const leaked = reachableNodes(view, 'CustomerReportView')
+      .filter((n) => n.property !== undefined && labOnlyReportFields.includes(n.property))
+      .map((n) => `${n.property ?? ''} (${n.at})`);
+    expect(leaked).toEqual([]);
+  });
+});
+
 describe('enums shared with the database', () => {
   const enums = prismaEnums();
   // Contract schema → Prisma enum, and whether the contract may accept a subset.
@@ -294,6 +454,14 @@ describe('enums shared with the database', () => {
     ['ScopeSiteType', 'ScopeSiteType', false],
     ['LeadKind', 'LeadKind', false],
     ['VerificationResult', 'VerificationResult', false],
+    ['BookingStatus', 'BookingStatus', false],
+    ['BookingLineStatus', 'BookingLineStatus', false],
+    ['PackageStatus', 'PackageStatus', false],
+    ['CustodyScanEventType', 'CustodyEventType', true],
+    ['ReceiptDecision', 'ReceiptDecision', false],
+    ['ReportStatus', 'ReportStatus', false],
+    ['ReportVersionStatus', 'ReportVersionStatus', false],
+    ['ConformityResult', 'ConformityResult', false],
   ];
 
   it.each(mirrored)('%s matches Prisma enum %s', (schema, prismaEnum, subset) => {

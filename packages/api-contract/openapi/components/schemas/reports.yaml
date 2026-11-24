@@ -1,0 +1,481 @@
+# Report versions, review, release, downloads and share links (API_CONTRACTS.md §8,
+# FILES_AND_REPORTS.md §1 to §5, SCHEMA_SPECIFICATION §9). No schema here carries a file or an
+# object key: files are uploaded and downloaded through short-lived pre-signed URLs only. A
+# released version is immutable; a correction is a new version (amendment).
+# The public views (verification, share-link resolution) are in verification.yaml.
+
+ReportUploadUrlRequest:
+  type: object
+  description: >-
+    A report PDF to upload (FILES_AND_REPORTS §1, purpose `REPORT_ORIGINAL`, BR-060): a PDF of at
+    most 20 MB. Encrypted, corrupt or JavaScript-bearing PDFs are rejected after upload (EC-42).
+  required:
+    - contentType
+    - sizeBytes
+  additionalProperties: false
+  properties:
+    contentType:
+      type: string
+      const: application/pdf
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 20971520
+    filename:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: The original file name. Stored sanitised.
+
+ReportUploadUrl:
+  type: object
+  description: >-
+    A pre-signed S3 PUT into quarantine (FILES_AND_REPORTS §1). The PUT must send the declared
+    `Content-Type` and `Content-Length`. The file can be used in a report version once its malware
+    scan and PDF validation have marked it `CLEAN`.
+  required:
+    - fileId
+    - uploadUrl
+    - expiresAt
+  additionalProperties: false
+  properties:
+    fileId:
+      $ref: './common.yaml#/Uuid'
+    uploadUrl:
+      type: string
+      format: uri
+      description: Valid for 15 minutes.
+    expiresAt:
+      $ref: './common.yaml#/Timestamp'
+
+ReportParameterResult:
+  type: object
+  description: >-
+    The statement of conformity for one booked parameter (FR-RPT-05). The line must be an active
+    (not cancelled) line of the booking (BR-061).
+  required:
+    - bookingLineId
+    - conformity
+  additionalProperties: false
+  properties:
+    bookingLineId:
+      $ref: './common.yaml#/Uuid'
+    conformity:
+      $ref: './enums.yaml#/ConformityResult'
+
+ReportVersionCreate:
+  type: object
+  description: >-
+    A new DRAFT report version (FR-RPT-05, FR-RPT-06, FR-RPT-09). `bindPackagePayload` is the QR of
+    a `RECEIVED` package of this booking, scanned when the report is bound (BR-063); binding writes
+    a `REPORT_BOUND` custody event. `reportNo` is required for the first version; `reportNo` and
+    `ulrNo` are kept by the report across versions, so an amendment leaves both out (they cannot
+    change after a release). `amendmentReason` is required when the report already has a released
+    version (the new version is then an amendment) and is not accepted otherwise. Parameter
+    results are optional; each names a different booking line.
+  required:
+    - fileId
+    - issueDate
+    - bindPackagePayload
+  additionalProperties: false
+  properties:
+    fileId:
+      description: A `CLEAN` file uploaded through the report upload URL of this booking.
+      $ref: './common.yaml#/Uuid'
+    reportNo:
+      type: string
+      minLength: 1
+      maxLength: 60
+      description: The lab's report number. Unique per lab site.
+    ulrNo:
+      type:
+        - string
+        - 'null'
+      minLength: 1
+      maxLength: 30
+      description: The NABL ULR number, when the report carries one. Unique on the platform (BR-062).
+    issueDate:
+      $ref: './common.yaml#/Date'
+    bindPackagePayload:
+      $ref: './custody.yaml#/CustodyQrPayload'
+    parameterResults:
+      type: array
+      maxItems: 200
+      items:
+        $ref: '#/ReportParameterResult'
+    amendmentReason:
+      type: string
+      minLength: 1
+      maxLength: 4000
+
+ReportVersion:
+  type: object
+  description: >-
+    A report version as the lab's Maker and Checker see it, in any status. `stampedSha256` and
+    `verificationCode` are set at submission: until the stamp job has finished, `stampedSha256` is
+    `null` and the version shows as "Preparing for review" (FILES_AND_REPORTS §3). The verification
+    code resolves publicly only once the version is released. `checkerUserId` is never
+    `makerUserId` (CD-23). From `RELEASED` on nothing changes except `RELEASED → SUPERSEDED`.
+  required:
+    - id
+    - reportId
+    - bookingId
+    - versionNo
+    - status
+    - isAmendment
+    - amendmentReason
+    - issueDate
+    - originalSha256
+    - stampedSha256
+    - verificationCode
+    - boundPackage
+    - parameterResults
+    - makerUserId
+    - submittedAt
+    - checkerUserId
+    - decidedAt
+    - reviewComments
+    - releasedAt
+    - supersededByVersionId
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    reportId:
+      $ref: './common.yaml#/Uuid'
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    versionNo:
+      type: integer
+      minimum: 1
+    status:
+      $ref: './enums.yaml#/ReportVersionStatus'
+    isAmendment:
+      type: boolean
+      description: >-
+        `true` when the version was created while an earlier version was released. A new version
+        after a return is not an amendment.
+    amendmentReason:
+      type:
+        - string
+        - 'null'
+    issueDate:
+      oneOf:
+        - $ref: './common.yaml#/Date'
+        - type: 'null'
+    originalSha256:
+      description: SHA-256 of the uploaded original. The original is never modified.
+      oneOf:
+        - $ref: './verification.yaml#/Sha256Hex'
+        - type: 'null'
+    stampedSha256:
+      description: SHA-256 of the stamped copy, the file the customer receives.
+      oneOf:
+        - $ref: './verification.yaml#/Sha256Hex'
+        - type: 'null'
+    verificationCode:
+      oneOf:
+        - $ref: './verification.yaml#/VerificationCode'
+        - type: 'null'
+    boundPackage:
+      description: The package the report is bound to (BR-063).
+      oneOf:
+        - $ref: './custody.yaml#/CustodyPackageSummary'
+        - type: 'null'
+    parameterResults:
+      type: array
+      items:
+        $ref: '#/ReportParameterResult'
+    makerUserId:
+      $ref: './common.yaml#/Uuid'
+    submittedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    checkerUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    decidedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    reviewComments:
+      description: The Checker's comments. Set when the version was returned.
+      type:
+        - string
+        - 'null'
+    releasedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    supersededByVersionId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    lockVersion:
+      type: integer
+      minimum: 0
+      description: >-
+        Send it as `If-Match: "<lockVersion>"` with submit, return and publish. Fixed once the
+        version is released.
+
+ReportReturn:
+  type: object
+  description: A Checker's return of a version to the Maker (T-20). Comments are required.
+  required:
+    - comments
+  additionalProperties: false
+  properties:
+    comments:
+      type: string
+      minLength: 1
+      maxLength: 4000
+
+ReportShareLink:
+  type: object
+  description: >-
+    A share link of a released report version (`report_share_link`, FILES_AND_REPORTS §4). Only
+    the hash of its token is stored, so the token itself is never shown again after creation.
+  required:
+    - id
+    - reportVersionId
+    - createdAt
+    - expiresAt
+    - revokedAt
+    - accessCount
+    - lastAccessedAt
+    - recipientNote
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    reportVersionId:
+      $ref: './common.yaml#/Uuid'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    expiresAt:
+      $ref: './common.yaml#/Timestamp'
+    revokedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    accessCount:
+      type: integer
+      minimum: 0
+    lastAccessedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    recipientNote:
+      type:
+        - string
+        - 'null'
+
+CustomerReportVersion:
+  type: object
+  description: >-
+    A released report version as the customer sees it. Customers see `RELEASED` and `SUPERSEDED`
+    versions only, never a draft, a version in review or a returned one, and never the lab's
+    review comments, the original file's hash or who made and approved the version internally.
+  required:
+    - id
+    - versionNo
+    - status
+    - isAmendment
+    - issueDate
+    - releasedAt
+    - supersededByVersionId
+    - stampedSha256
+    - verificationCode
+    - parameterResults
+    - shareLinks
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    versionNo:
+      type: integer
+      minimum: 1
+    status:
+      type: string
+      enum:
+        - RELEASED
+        - SUPERSEDED
+    isAmendment:
+      type: boolean
+    issueDate:
+      $ref: './common.yaml#/Date'
+    releasedAt:
+      $ref: './common.yaml#/Timestamp'
+    supersededByVersionId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    stampedSha256:
+      $ref: './verification.yaml#/Sha256Hex'
+    verificationCode:
+      $ref: './verification.yaml#/VerificationCode'
+    parameterResults:
+      type: array
+      items:
+        $ref: '#/ReportParameterResult'
+    shareLinks:
+      type: array
+      description: The share links of this version, newest first, including revoked and expired ones.
+      items:
+        $ref: '#/ReportShareLink'
+
+LabReportView:
+  type: object
+  description: >-
+    The booking's report for the lab's Maker and Checker of the site: every version, newest first.
+    `reportId`, `status` and the numbers are `null` until the first version exists or is
+    submitted.
+  required:
+    - party
+    - bookingId
+    - reportId
+    - reportNo
+    - ulrNo
+    - status
+    - currentReleasedVersionId
+    - versions
+  additionalProperties: false
+  properties:
+    party:
+      type: string
+      const: LAB
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    reportId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    reportNo:
+      type:
+        - string
+        - 'null'
+    ulrNo:
+      type:
+        - string
+        - 'null'
+    status:
+      oneOf:
+        - $ref: './enums.yaml#/ReportStatus'
+        - type: 'null'
+    currentReleasedVersionId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    versions:
+      type: array
+      items:
+        $ref: '#/ReportVersion'
+
+CustomerReportView:
+  type: object
+  description: >-
+    The booking's report for the customer: released and superseded versions only, newest first.
+    Empty, with `null` numbers, until the first version is released. Whether a draft, a review or
+    an amendment is under way is not shown here; the booking status tells the customer where the
+    booking is (FR-RPT-04).
+  required:
+    - party
+    - bookingId
+    - reportNo
+    - ulrNo
+    - currentReleasedVersionId
+    - versions
+  additionalProperties: false
+  properties:
+    party:
+      type: string
+      const: CUSTOMER
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    reportNo:
+      type:
+        - string
+        - 'null'
+    ulrNo:
+      type:
+        - string
+        - 'null'
+    currentReleasedVersionId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    versions:
+      type: array
+      items:
+        $ref: '#/CustomerReportVersion'
+
+ReportView:
+  description: >-
+    The booking's report as the caller's party may see it: `party` is `LAB` for the lab's Maker
+    and Checker of the site, `CUSTOMER` for the customer organisation's members.
+  oneOf:
+    - $ref: '#/LabReportView'
+    - $ref: '#/CustomerReportView'
+
+ReportDownloadUrl:
+  type: object
+  description: >-
+    A short-lived download URL (FILES_AND_REPORTS §2), never the file itself. `copy` says which
+    file it opens: the `STAMPED` copy (what the customer receives), or for the lab the `ORIGINAL`
+    of a version that has no stamped copy yet.
+  required:
+    - downloadUrl
+    - expiresAt
+    - copy
+  additionalProperties: false
+  properties:
+    downloadUrl:
+      type: string
+      format: uri
+      description: >-
+        A pre-signed GET with `Content-Disposition: attachment`, valid for 15 minutes (BR-066).
+    expiresAt:
+      $ref: './common.yaml#/Timestamp'
+    copy:
+      type: string
+      enum:
+        - STAMPED
+        - ORIGINAL
+
+ReportShareLinkCreate:
+  type: object
+  description: A new share link (FILES_AND_REPORTS §4, BR-066).
+  additionalProperties: false
+  properties:
+    expiresInDays:
+      type: integer
+      minimum: 1
+      maximum: 30
+      default: 7
+    recipientNote:
+      type: string
+      minLength: 1
+      maxLength: 500
+      description: A note for the customer's own records, for example who the link was sent to.
+
+ReportShareLinkCreated:
+  type: object
+  description: >-
+    The new link and its token. The token is returned only here (only its hash is stored); the
+    recipient opens it through `GET /public/share/{token}`.
+  required:
+    - shareLink
+    - token
+  additionalProperties: false
+  properties:
+    shareLink:
+      $ref: '#/ReportShareLink'
+    token:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: 256 random bits, encoded for use in a URL.
