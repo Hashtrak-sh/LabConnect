@@ -28,6 +28,7 @@
 | OQ-20 | Can one-person labs be onboarded? (A Maker and Checker must be different people.) | Product owner | No. A site needs 2 people. | I2 | Open |
 | OQ-21 | When is the lab tax invoice issued: on payment or on report release? | Finance | On report release | I6 | Open |
 | OQ-22 | Booking number format standard of the operating authority | Product owner | `LC-YYMM-NNNNNNN` | G1 | Open |
+| OQ-23 | LocalStack images from the 2026.x line need a `LOCALSTACK_AUTH_TOKEN` (LocalStack account). Stay on the last token-free release, give each developer and CI a token, or replace it with separate S3 and SQS emulators? | H + A | `docker-compose.yml` pins `localstack/localstack:4.14.0` (Feb 2026, no further updates). Dependabot ignores this image. | Phase 3 integration tests (files, outbox relay) | Open |
 
 ## 2. Risk register
 

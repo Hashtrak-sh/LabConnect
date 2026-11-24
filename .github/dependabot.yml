@@ -19,3 +19,6 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Newer LocalStack images need an account token (OQ-23). Update by hand once decided.
+      - dependency-name: localstack/localstack
