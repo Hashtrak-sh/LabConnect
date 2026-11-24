@@ -443,3 +443,110 @@ ConformityResult:
     - DOES_NOT_CONFORM
     - NOT_STATED
     - NOT_APPLICABLE
+
+# --- P2-03: customer organisation and bookings (API_CONTRACTS.md §3 and §4) ---
+
+CustomerSegment:
+  type: string
+  description: >-
+    Kind of customer organisation (FR-ONB-01, CD-02). `INDIVIDUAL` is a person booking for
+    themselves; the others are organisations.
+  enum:
+    - INDIVIDUAL
+    - BUSINESS
+    - INDUSTRY
+    - GOVERNMENT
+
+OrgStatus:
+  type: string
+  enum:
+    - ACTIVE
+    - SUSPENDED
+    - CLOSED
+
+CustomerRoleCode:
+  type: string
+  description: >-
+    The roles of a customer organisation (CD-21). A subset of the database enum `RoleCode`. One
+    user may hold several of them (RR-1).
+  enum:
+    - CUSTOMER_ADMIN
+    - CUSTOMER_REQUESTER
+    - CUSTOMER_FINANCE
+
+CustomerSiteStatus:
+  type: string
+  description: >-
+    Status of a customer site (`customer_site.status`, database enum `MdStatus`). An `INACTIVE`
+    site cannot be chosen for a new booking; bookings that already use it keep it.
+  enum:
+    - ACTIVE
+    - INACTIVE
+
+CounterStatus:
+  type: string
+  enum:
+    - PENDING
+    - ACCEPTED
+    - DECLINED
+    - EXPIRED
+    - WITHDRAWN
+
+HoldDecision:
+  type: string
+  description: >-
+    The customer's decision on a booking `ON_HOLD` (FR-RPT-03, EC-25, EC-29, EC-33, EC-34):
+    proceed as received (T-16), bring a replacement or top-up sample, or cancel (T-27).
+  enum:
+    - PROCEED
+    - REPLACE
+    - CANCEL
+
+HoldStatus:
+  type: string
+  description: >-
+    `OPEN` while the customer decides, `ESCALATED` to Ops when the window lapses without a decision
+    (BR-047; never cancelled automatically), `DECIDED`, then `CLOSED`.
+  enum:
+    - OPEN
+    - DECIDED
+    - ESCALATED
+    - CLOSED
+
+CustodyEventType:
+  type: string
+  description: An event in the chain of custody of a booking's packages (`custody_event`).
+  enum:
+    - QR_ISSUED
+    - LABELS_PRINTED
+    - LABEL_REPRINTED
+    - LABEL_VOIDED
+    - SCAN_ACCEPTED
+    - SCAN_REJECTED
+    - MANUAL_LOOKUP
+    - RECEIPT_SUBMITTED
+    - RECEIPT_APPROVED
+    - RECEIPT_ON_HOLD
+    - SAMPLE_REJECTED
+    - REPORT_BOUND
+
+ScanStatus:
+  type: string
+  description: >-
+    Malware scan and validation status of an uploaded file (FILES_AND_REPORTS.md §1). Only `CLEAN`
+    files can be used; the others are kept in quarantine.
+  enum:
+    - PENDING
+    - CLEAN
+    - INFECTED
+    - ERROR
+    - REJECTED
+
+RatingDirection:
+  type: string
+  description: >-
+    `CUSTOMER_TO_LAB`, or `LAB_TO_CUSTOMER`, which is private to the lab and the platform
+    (FR-SUP-01, TENANT_ISOLATION.md §1).
+  enum:
+    - CUSTOMER_TO_LAB
+    - LAB_TO_CUSTOMER

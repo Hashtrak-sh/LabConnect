@@ -30,6 +30,8 @@ const coveredSections: [heading: string, rows: number, operations: number][] = [
   ['## 6. Lab', 19, 41],
   ['## 7. Custody and receipt', 8, 9],
   ['## 8. Reports', 8, 11],
+  ['## 3. Customer org', 5, 16],
+  ['## 4. Bookings', 21, 22],
 ];
 
 const markdown = readRepoFile('docs/04-api/API_CONTRACTS.md');

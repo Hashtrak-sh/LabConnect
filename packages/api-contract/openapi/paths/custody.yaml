@@ -208,6 +208,9 @@ receipt-photo-upload-url:
 receipts:
   post:
     operationId: submitReceipt
+    x-transitions:
+      - T-13
+      - T-17
     tags:
       - Custody
     summary: Submit a receipt record
@@ -289,6 +292,8 @@ receipts:
 receipt-approve:
   post:
     operationId: approveReceipt
+    x-transitions:
+      - T-14
     tags:
       - Custody
     summary: Approve a receipt
@@ -361,6 +366,8 @@ receipt-approve:
 receipt-confirm-discrepancy:
   post:
     operationId: confirmReceiptDiscrepancy
+    x-transitions:
+      - T-15
     tags:
       - Custody
     summary: Confirm a receipt discrepancy
@@ -436,6 +443,8 @@ receipt-confirm-discrepancy:
 receipt-reject-unfit:
   post:
     operationId: rejectUnfitSample
+    x-transitions:
+      - T-28
     tags:
       - Custody
     summary: Reject the sample as unfit

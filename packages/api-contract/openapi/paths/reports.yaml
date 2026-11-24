@@ -157,6 +157,8 @@ report-versions:
 report-version-submit:
   post:
     operationId: submitReportVersion
+    x-transitions:
+      - T-19
     tags:
       - Reports
     summary: Submit a report version for review
@@ -225,6 +227,8 @@ report-version-submit:
 report-version-return:
   post:
     operationId: returnReportVersion
+    x-transitions:
+      - T-20
     tags:
       - Reports
     summary: Return a report version to the Maker
@@ -298,6 +302,8 @@ report-version-return:
 report-version-publish:
   post:
     operationId: publishReportVersion
+    x-transitions:
+      - T-21
     tags:
       - Reports
     summary: Approve and publish a report version

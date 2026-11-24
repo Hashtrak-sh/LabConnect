@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { allowedKeys, firstTable, parseRow } from './catalogue.js';
 import {
   backticked,
   isRef,
@@ -110,7 +111,6 @@ function propertyNames(node: unknown, path = '#'): { name: string; at: string }[
   }
   return found;
 }
-
 describe('operations', () => {
   it('each have a unique operationId', () => {
     const ids = operations.map((o) => o.operation.operationId);
@@ -339,7 +339,6 @@ function reachableNodes(
   }
   return found;
 }
-
 describe('custody and reports (API_CONTRACTS.md §7 and §8)', () => {
   const moduleTags = new Set(['Custody', 'Reports']);
   const moduleOperations = operations.filter((o) =>
@@ -507,6 +506,17 @@ describe('enums shared with the database', () => {
     ['ReportStatus', 'ReportStatus', false],
     ['ReportVersionStatus', 'ReportVersionStatus', false],
     ['ConformityResult', 'ConformityResult', false],
+    ['CustomerSegment', 'CustomerSegment', false],
+    ['OrgStatus', 'OrgStatus', false],
+    ['CustomerRoleCode', 'RoleCode', true],
+    ['CustomerSiteStatus', 'MdStatus', false],
+    ['BookingLineTargetStatus', 'BookingLineStatus', true],
+    ['CounterStatus', 'CounterStatus', false],
+    ['HoldDecision', 'HoldDecision', false],
+    ['HoldStatus', 'HoldStatus', false],
+    ['CustodyEventType', 'CustodyEventType', false],
+    ['ScanStatus', 'ScanStatus', false],
+    ['RatingDirection', 'RatingDirection', false],
   ];
 
   it.each(mirrored)('%s matches Prisma enum %s', (schema, prismaEnum, subset) => {
@@ -606,7 +616,6 @@ function reachableNames(schemas: unknown[], at: string): { name: string; at: str
     ),
   );
 }
-
 describe('payments and disputes (P2-06a)', () => {
   it('covers the module', () => {
     expect(paymentOperations.length).toBeGreaterThan(0);
@@ -798,5 +807,217 @@ describe('lab operations (API_CONTRACTS §6)', () => {
       if (path.startsWith('/lab/claims')) expect(names, key).not.toContain('X-Active-Membership');
       else expect(names, key).toContain('X-Active-Membership');
     }
+  });
+});
+
+/** Does the schema (through `$ref`, `allOf`, `oneOf`, `anyOf`) expose a `lockVersion` property? */
+function exposesLockVersion(node: unknown, seen = new Set<string>()): boolean {
+  if (typeof node !== 'object' || node === null) return false;
+  if (isRef(node)) {
+    if (seen.has(node.$ref)) return false;
+    seen.add(node.$ref);
+    return exposesLockVersion(resolve(doc, node), seen);
+  }
+  const schema = node as Schema & { allOf?: unknown[]; oneOf?: unknown[]; anyOf?: unknown[] };
+  if (schema.properties && 'lockVersion' in schema.properties) return true;
+  return [...(schema.allOf ?? []), ...(schema.oneOf ?? []), ...(schema.anyOf ?? [])].some((s) =>
+    exposesLockVersion(s, seen),
+  );
+}
+
+/** Every property name reachable from a schema, following `$ref`s, lower-cased. */
+function reachablePropertyNames(node: unknown, seen = new Set<string>()): Set<string> {
+  const names = new Set<string>();
+  const walk = (value: unknown): void => {
+    if (typeof value !== 'object' || value === null) return;
+    if (isRef(value)) {
+      if (seen.has(value.$ref)) return;
+      seen.add(value.$ref);
+      walk(resolve(doc, value));
+      return;
+    }
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      if (key === 'examples' || key === 'example') continue;
+      if (key === 'properties' && typeof child === 'object' && child !== null) {
+        for (const name of Object.keys(child)) names.add(name.toLowerCase());
+      }
+      walk(child);
+    }
+  };
+  walk(node);
+  return names;
+}
+
+// A booking is shared, but each party's view leaves out what the other party must not read
+// (TENANT_ISOLATION.md §1, SCHEMA_SPECIFICATION §2.12 and §5.17, OQ-29).
+describe('booking views per party', () => {
+  const privateTo: Record<string, string[]> = {
+    // Customer-owned: the requester, customer sites, users and contacts, platform-only flags.
+    BookingForLab: [
+      'requester',
+      'requesterUserId',
+      'customerSite',
+      'customerSiteId',
+      'placedByPlatform',
+      'onBehalfOf',
+      'fullName',
+      'userId',
+      'email',
+      'phone',
+      'trustFlags',
+      'panLast4',
+    ],
+    // Lab-owned: onboarding state, capacity, internal scores, bank and KYC data.
+    BookingForCustomer: [
+      'bookabilityReasons',
+      'maxOpenJobs',
+      'responsivenessScore',
+      'capacity',
+      'heldCount',
+      'bookedCount',
+      'bankAccount',
+      'accountNumberLast4',
+      'kycStatus',
+      'trustFlags',
+      'clockSkewFlag',
+    ],
+  };
+
+  it.each(Object.entries(privateTo))(
+    '%s reaches none of the other party’s fields',
+    (name, deny) => {
+      const schema = doc.components.schemas[name];
+      expect(schema).toBeDefined();
+      const names = reachablePropertyNames(schema);
+      expect(deny.filter((field) => names.has(field.toLowerCase()))).toEqual([]);
+    },
+  );
+
+  it('are the only shapes a booking is returned in', () => {
+    const view = doc.components.schemas.BookingView as Schema & { oneOf?: unknown[] };
+    expect((view.oneOf ?? []).map((s) => (isRef(s) ? s.$ref : s))).toEqual([
+      '#/components/schemas/BookingForCustomer',
+      '#/components/schemas/BookingForLab',
+    ]);
+  });
+});
+
+describe('aggregates (API_CONVENTIONS §4)', () => {
+  it('return an ETag with every success response that carries a lockVersion', () => {
+    const missing: string[] = [];
+    for (const { key, operation } of operations) {
+      for (const [status, value] of Object.entries(operation.responses)) {
+        if (!status.startsWith('2')) continue;
+        const response = resolve<Response>(doc, value);
+        const schema = response.content?.['application/json']?.schema;
+        if (exposesLockVersion(schema) && !Object.keys(response.headers ?? {}).includes('ETag')) {
+          missing.push(`${key} ${status}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+});
+
+// Booking transitions (BOOKING_STATE_MACHINE.md §3). An operation that performs transitions lists
+// them in `x-transitions`. packages/shared is read as text: api-contract does not depend on it.
+describe('booking transitions', () => {
+  const shared = readRepoFile('packages/shared/src/booking-state-machine.ts');
+  const transitionIds = [
+    ...(/export const TRANSITION_IDS = \[([\s\S]*?)\] as const/.exec(shared)?.[1] ?? '').matchAll(
+      /'(T-\d{2})'/g,
+    ),
+  ].map((m) => m[1] ?? '');
+  /** Transitions that create the aggregate (`from: []`), so there is no version to match. */
+  const creating = new Set(
+    [...shared.matchAll(/id: '(T-\d{2})',\s*from: \[\]/g)].map((m) => m[1] ?? ''),
+  );
+  const performing = operations.filter((o) => (o.operation['x-transitions'] ?? []).length > 0);
+
+  /** T-ids named in a cell: `T-03`, `T-07 / T-08`, `T-25/26/27`, `T-16 or REPLACE/CANCEL`. */
+  function transitionsInCell(cell: string): string[] {
+    return [...cell.matchAll(/T-\d{2}(?:\s*\/\s*(?:T-)?\d{2})*/g)].flatMap((m) =>
+      [...m[0].matchAll(/\d{2}/g)].map((d) => `T-${d[0]}`),
+    );
+  }
+
+  it('reads the transition ids of packages/shared', () => {
+    expect(transitionIds.length).toBeGreaterThan(0);
+    expect(creating).toEqual(new Set(['T-01']));
+  });
+
+  it('has the same ids in BookingTransitionId as packages/shared', () => {
+    expect(doc.components.schemas.BookingTransitionId?.enum).toEqual(transitionIds);
+  });
+
+  it('are declared only with ids of packages/shared', () => {
+    const unknown = performing.flatMap(({ key, operation }) =>
+      (operation['x-transitions'] ?? [])
+        .filter((id) => !transitionIds.includes(id))
+        .map((id) => `${key}: ${id}`),
+    );
+    expect(performing.length).toBeGreaterThan(0);
+    expect(unknown).toEqual([]);
+  });
+
+  it('are each named in the operation description', () => {
+    const unnamed = performing.flatMap(({ key, operation }) =>
+      (operation['x-transitions'] ?? [])
+        .filter((id) => !(operation.description ?? '').includes(id))
+        .map((id) => `${key}: ${id}`),
+    );
+    expect(unnamed).toEqual([]);
+  });
+
+  it('require If-Match unless they create the aggregate (API_CONVENTIONS §4)', () => {
+    const missing = performing
+      .filter(({ operation }) => (operation['x-transitions'] ?? []).some((id) => !creating.has(id)))
+      .filter(({ operation }) => {
+        const p = parametersOf(doc, operation).find((x) => x.name === 'If-Match');
+        return p?.in !== 'header' || p.required !== true;
+      })
+      .map((o) => o.key);
+    expect(missing).toEqual([]);
+  });
+
+  it('match the Transition column of API_CONTRACTS.md for every documented operation', () => {
+    // Every T-id a row names is performed by one of the row's operations, and a row that names
+    // none has no operation that performs one. Rows whose operations are not in the contract yet
+    // are skipped here; doc-equality.test.ts reports them for covered sections.
+    const markdown = readRepoFile('docs/04-api/API_CONTRACTS.md');
+    const byKey = new Map(operations.map((o) => [o.key, o.operation]));
+    const problems: string[] = [];
+    let checked = 0;
+    for (const heading of markdown.split(/\r?\n/).filter((line) => line.startsWith('## '))) {
+      const { header, rows } = (() => {
+        try {
+          return firstTable(markdownSection(markdown, heading));
+        } catch {
+          return { header: [], rows: [] };
+        }
+      })();
+      const column = header.indexOf('Transition');
+      if (column === -1) continue;
+      const [methodColumn, pathColumn] = [header.indexOf('Method'), header.indexOf('Path')];
+      for (const row of rows) {
+        const keys = parseRow(row[methodColumn] ?? '', row[pathColumn] ?? '')
+          .flatMap(allowedKeys)
+          .filter((key) => byKey.has(key));
+        if (keys.length === 0) continue;
+        checked += 1;
+        const named = transitionsInCell(row[column] ?? '');
+        const performed = new Set(keys.flatMap((key) => byKey.get(key)?.['x-transitions'] ?? []));
+        if (named.length === 0 && performed.size > 0) {
+          problems.push(
+            `${keys.join(', ')}: performs ${[...performed].join(', ')}, row names none`,
+          );
+        }
+        for (const id of named.filter((t) => !performed.has(t))) {
+          problems.push(`${keys.join(', ')}: row names ${id}, no operation declares it`);
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+    expect(problems).toEqual([]);
   });
 });

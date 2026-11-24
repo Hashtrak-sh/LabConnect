@@ -574,6 +574,8 @@ price-list-publish:
         headers:
           X-Request-Id:
             $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
         content:
           application/json:
             schema:
@@ -628,6 +630,8 @@ price-list-discard:
         headers:
           X-Request-Id:
             $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
         content:
           application/json:
             schema:

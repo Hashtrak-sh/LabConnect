@@ -12,6 +12,8 @@
 booking-disputes:
   post:
     operationId: raiseDispute
+    x-transitions:
+      - T-22
     tags:
       - Disputes
     summary: Raise a dispute
@@ -350,6 +352,8 @@ dispute-evidence:
 dispute-withdraw:
   post:
     operationId: withdrawDispute
+    x-transitions:
+      - T-24
     tags:
       - Disputes
     summary: Withdraw a dispute

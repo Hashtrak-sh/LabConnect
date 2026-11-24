@@ -1,0 +1,1617 @@
+# Bookings (API_CONTRACTS.md §4, BOOKING_STATE_MACHINE.md). A booking is shared transactional
+# data: both parties read it, each per role (TENANT_ISOLATION.md §1). A booking outside the
+# caller's scope is answered with 404. The detail view is split by party (`viewerParty`) so that
+# what one party must not see is absent from the other party's schema, not merely empty:
+#   - the lab never sees the customer's users, customer sites, contacts or finance data;
+#   - the customer sees the lab's contact only once the booking has been paid
+#     (`lab_site_private.public_contact`), and never the lab's rating of the customer;
+#   - neither side sees the other's user names (OQ-29), trust flags, bank or KYC data.
+# Request schemas never take an organisation id from a customer or lab caller.
+# Examples use obviously fake values.
+
+BookingTransitionId:
+  type: string
+  description: >-
+    A transition of the booking state machine (BOOKING_STATE_MACHINE.md §3). Equal to
+    `TRANSITION_IDS` in `packages/shared`; the test suite checks this.
+  enum:
+    - T-01
+    - T-02
+    - T-03
+    - T-04
+    - T-05
+    - T-06
+    - T-07
+    - T-08
+    - T-09
+    - T-10
+    - T-11
+    - T-12
+    - T-13
+    - T-14
+    - T-15
+    - T-16
+    - T-17
+    - T-18
+    - T-19
+    - T-20
+    - T-21
+    - T-22
+    - T-23
+    - T-24
+    - T-25
+    - T-26
+    - T-27
+    - T-28
+
+BookingNo:
+  type: string
+  pattern: ^LC-[0-9]{4}-[0-9]{7}$
+  description: Human-readable booking reference, `LC-YYMM-NNNNNNN`.
+  examples:
+    - LC-0000-0000001
+
+BookingLineRef:
+  type: object
+  description: A scope line of the booked site, chosen for testing.
+  required:
+    - scopeLineId
+  additionalProperties: false
+  properties:
+    scopeLineId:
+      $ref: './common.yaml#/Uuid'
+
+BookingLineRefs:
+  type: array
+  description: >-
+    One or more scope lines of the booked site (FR-BKG-01). Each must be active, under a valid
+    accreditation and priced in the effective published price list (BR-003); a line may appear
+    once.
+  minItems: 1
+  maxItems: 100
+  uniqueItems: true
+  items:
+    $ref: '#/BookingLineRef'
+
+BookingTrfInput:
+  type: object
+  description: >-
+    The test request form (FR-BKG-02). `form` is validated against the Zod schema of
+    `schemaVersion` in `packages/validation` (for example item, grade, batch, manufacturing date,
+    sample condition, special instructions, report name and address, GSTIN); the contract does
+    not repeat it. `form.itemName` and `form.batchNo` are copied to the booking for search and the
+    duplicate check.
+  required:
+    - schemaVersion
+    - form
+    - conformityRequired
+  additionalProperties: false
+  properties:
+    schemaVersion:
+      type: string
+      pattern: ^trf\.v[0-9]+$
+      examples:
+        - trf.v1
+    form:
+      type: object
+      additionalProperties: true
+    conformityRequired:
+      type: boolean
+      description: Whether a statement of conformity is required.
+    decisionRule:
+      type:
+        - string
+        - 'null'
+      maxLength: 2000
+      description: The decision rule, when a statement of conformity is required.
+
+BookingTrf:
+  type: object
+  description: The current version of the test request form. Each edit (T-02) adds a version.
+  required:
+    - versionNo
+    - schemaVersion
+    - form
+    - conformityRequired
+    - decisionRule
+    - submittedAt
+  additionalProperties: false
+  properties:
+    versionNo:
+      type: integer
+      minimum: 1
+    schemaVersion:
+      type: string
+    form:
+      type: object
+      additionalProperties: true
+    conformityRequired:
+      type: boolean
+    decisionRule:
+      type:
+        - string
+        - 'null'
+    submittedAt:
+      $ref: './common.yaml#/Timestamp'
+
+BookingCreate:
+  type: object
+  description: >-
+    Submits a booking (T-01). The customer organisation is the caller's active membership's. A
+    slot is required (OQ-26).
+  required:
+    - labSiteId
+    - slotId
+    - preferredDropDate
+    - declaredPackageCount
+    - lines
+    - trf
+  additionalProperties: false
+  properties:
+    labSiteId:
+      $ref: './common.yaml#/Uuid'
+    customerSiteId:
+      description: An active site of the customer organisation, for billing and location.
+      $ref: './common.yaml#/Uuid'
+    slotId:
+      description: An open slot of the lab site with capacity left (FR-BKG-04).
+      $ref: './common.yaml#/Uuid'
+    preferredDropDate:
+      $ref: './common.yaml#/Date'
+    declaredPackageCount:
+      type: integer
+      minimum: 1
+      maximum: 50
+      description: Number of packages the customer will drop. One package QR is issued for each.
+    lines:
+      $ref: '#/BookingLineRefs'
+    trf:
+      $ref: '#/BookingTrfInput'
+    onBehalfOf:
+      $ref: '#/BookingOnBehalfOf'
+  examples:
+    - labSiteId: 01930000-0000-7000-8000-000000000001
+      customerSiteId: 01930000-0000-7000-8000-000000000002
+      slotId: 01930000-0000-7000-8000-000000000003
+      preferredDropDate: '2026-12-03'
+      declaredPackageCount: 2
+      lines:
+        - scopeLineId: 01930000-0000-7000-8000-000000000004
+        - scopeLineId: 01930000-0000-7000-8000-000000000005
+      trf:
+        schemaVersion: trf.v1
+        form:
+          itemName: Example TMT bar
+          batchNo: B-0000
+        conformityRequired: true
+        decisionRule: Simple acceptance
+
+BookingOnBehalfOf:
+  type: object
+  description: >-
+    Only for `PLATFORM_OPS` booking on behalf of a customer (T-01 "Ops on behalf",
+    ROLES_AND_PERMISSIONS §2 note 1, FR-ADM-07). Names the customer organisation and the member
+    who becomes the booking's requester; the booking records the Ops user in
+    `on_behalf_by_user_id`. The customer still pays. Sent by any other membership, it is refused
+    with 403.
+  required:
+    - customerOrgId
+    - requesterUserId
+  additionalProperties: false
+  properties:
+    customerOrgId:
+      $ref: './common.yaml#/Uuid'
+    requesterUserId:
+      description: An active member of that organisation with `CUSTOMER_ADMIN` or `CUSTOMER_REQUESTER`.
+      $ref: './common.yaml#/Uuid'
+
+BookingUpdate:
+  type: object
+  description: >-
+    Edits a `REQUESTED` booking (T-02, EC-11). Listed fields replace the current ones; `lines`
+    replaces the whole set. The lab site cannot change: cancel and rebook instead. Every edit
+    writes a new TRF version (the current form when `trf` is absent), re-snapshots every line
+    against the price list in effect now (BR-020) and restarts the lab decision SLA.
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    customerSiteId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    slotId:
+      $ref: './common.yaml#/Uuid'
+    preferredDropDate:
+      $ref: './common.yaml#/Date'
+    declaredPackageCount:
+      type: integer
+      minimum: 1
+      maximum: 50
+    lines:
+      $ref: '#/BookingLineRefs'
+    trf:
+      $ref: '#/BookingTrfInput'
+
+BookingLineSnapshot:
+  type: object
+  description: >-
+    What was booked, frozen at submission or at the last edit (CD-39, VERSIONING_AND_SNAPSHOTS
+    §3): the scope line version and the price item's sample requirements. Later master-data or
+    price-list changes do not change it.
+  required:
+    - discipline
+    - group
+    - product
+    - parameter
+    - method
+    - methodText
+    - rangeText
+    - siteType
+    - sampleQty
+    - sampleUnit
+    - packagingInstructions
+    - tatDays
+  additionalProperties: false
+  properties:
+    discipline:
+      $ref: './lab-sites.yaml#/PublicCodeName'
+    group:
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - type: 'null'
+    product:
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - type: 'null'
+    parameter:
+      $ref: './lab-sites.yaml#/PublicCodeName'
+    method:
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - type: 'null'
+    methodText:
+      type:
+        - string
+        - 'null'
+    rangeText:
+      type:
+        - string
+        - 'null'
+    siteType:
+      $ref: './enums.yaml#/ScopeSiteType'
+    sampleQty:
+      type: number
+      minimum: 0
+      description: Sample quantity the lab needs, in `sampleUnit` (FR-BKG-03).
+    sampleUnit:
+      $ref: './lab-sites.yaml#/PublicCodeName'
+    packagingInstructions:
+      type:
+        - string
+        - 'null'
+    tatDays:
+      type: integer
+      minimum: 1
+
+BookingEstimateLine:
+  type: object
+  description: One priced line of an estimate. Amounts are integer paise; GST is rounded half-up per line.
+  required:
+    - scopeLineId
+    - snapshot
+    - unitPrice
+    - samplePrep
+    - gstRateBp
+    - gst
+    - lineTotal
+  additionalProperties: false
+  properties:
+    scopeLineId:
+      $ref: './common.yaml#/Uuid'
+    snapshot:
+      $ref: '#/BookingLineSnapshot'
+    unitPrice:
+      $ref: './common.yaml#/Money'
+    samplePrep:
+      $ref: './common.yaml#/Money'
+    gstRateBp:
+      type: integer
+      minimum: 0
+      maximum: 2800
+      description: GST rate in basis points (1800 = 18.00%).
+    gst:
+      $ref: './common.yaml#/Money'
+    lineTotal:
+      description: '`unitPrice + samplePrep + gst`.'
+      $ref: './common.yaml#/Money'
+
+BookingLine:
+  type: object
+  description: >-
+    A booked line. Prices are frozen once the booking leaves `REQUESTED`; a line cancelled later
+    keeps its price and the money moves through a refund (VERSIONING_AND_SNAPSHOTS §3).
+  required:
+    - id
+    - lineNo
+    - scopeLineId
+    - snapshot
+    - unitPrice
+    - samplePrep
+    - gstRateBp
+    - gst
+    - lineTotal
+    - requiredSampleQty
+    - status
+    - cancelledReason
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    lineNo:
+      type: integer
+      minimum: 1
+    scopeLineId:
+      $ref: './common.yaml#/Uuid'
+    snapshot:
+      $ref: '#/BookingLineSnapshot'
+    unitPrice:
+      $ref: './common.yaml#/Money'
+    samplePrep:
+      $ref: './common.yaml#/Money'
+    gstRateBp:
+      type: integer
+      minimum: 0
+      maximum: 2800
+    gst:
+      $ref: './common.yaml#/Money'
+    lineTotal:
+      $ref: './common.yaml#/Money'
+    requiredSampleQty:
+      description: >-
+        The sample quantity agreed in an accepted counter-offer (T-07), in the snapshot's unit.
+        `null` when the snapshot quantity applies.
+      type:
+        - number
+        - 'null'
+      minimum: 0
+    status:
+      $ref: './enums.yaml#/BookingLineStatus'
+    cancelledReason:
+      type:
+        - string
+        - 'null'
+
+BookingEstimateRequest:
+  type: object
+  description: The lines to price at a lab site, and optionally the slot to check.
+  required:
+    - labSiteId
+    - lines
+  additionalProperties: false
+  properties:
+    labSiteId:
+      $ref: './common.yaml#/Uuid'
+    lines:
+      $ref: '#/BookingLineRefs'
+    slotId:
+      description: When given, the slot is checked to be open with capacity left. Nothing is held.
+      $ref: './common.yaml#/Uuid'
+
+BookingEstimate:
+  type: object
+  description: >-
+    Price estimate from the effective published price list (BR-019, FR-BKG-05): line prices plus
+    sample preparation plus GST. No transport charge; the platform fee is zero (CD-05). The price
+    is fixed only when the booking is submitted (T-01).
+  required:
+    - labSiteId
+    - priceList
+    - lines
+    - subtotal
+    - gst
+    - platformFee
+    - total
+  additionalProperties: false
+  properties:
+    labSiteId:
+      $ref: './common.yaml#/Uuid'
+    priceList:
+      type: object
+      required:
+        - versionNo
+        - effectiveFrom
+      additionalProperties: false
+      properties:
+        versionNo:
+          type: integer
+          minimum: 1
+        effectiveFrom:
+          $ref: './common.yaml#/Timestamp'
+    lines:
+      type: array
+      items:
+        $ref: '#/BookingEstimateLine'
+    subtotal:
+      description: Sum of line prices and sample preparation.
+      $ref: './common.yaml#/Money'
+    gst:
+      $ref: './common.yaml#/Money'
+    platformFee:
+      description: Always zero in the MVP (CD-05).
+      $ref: './common.yaml#/Money'
+    total:
+      $ref: './common.yaml#/Money'
+
+BookingDuplicateCheckRequest:
+  type: object
+  description: >-
+    The item, batch and lines of a booking about to be submitted. Without a batch number there is
+    nothing to compare, so the client does not call the check.
+  required:
+    - itemName
+    - batchNo
+    - lines
+  additionalProperties: false
+  properties:
+    itemName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    batchNo:
+      type: string
+      minLength: 1
+      maxLength: 100
+    lines:
+      $ref: '#/BookingLineRefs'
+
+BookingDuplicateMatch:
+  type: object
+  required:
+    - id
+    - bookingNo
+    - status
+    - createdAt
+    - labSiteName
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingNo:
+      $ref: '#/BookingNo'
+    status:
+      $ref: './enums.yaml#/BookingStatus'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    labSiteName:
+      type: string
+
+BookingDuplicateCheck:
+  type: object
+  description: >-
+    A warning only; it never blocks submission (BR-016). `duplicateFound` covers every booking of
+    the organisation; `matches` lists only those the caller may see (a `CUSTOMER_REQUESTER` sees
+    their own).
+  required:
+    - duplicateFound
+    - windowDays
+    - matches
+  additionalProperties: false
+  properties:
+    duplicateFound:
+      type: boolean
+    windowDays:
+      type: integer
+      minimum: 1
+      description: The look-back window that was applied (configurable, default 7).
+    matches:
+      type: array
+      maxItems: 20
+      items:
+        $ref: '#/BookingDuplicateMatch'
+
+BookingLabSite:
+  type: object
+  description: The booked lab site as it is now (public reference data).
+  required:
+    - id
+    - siteCode
+    - name
+    - address
+    - location
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    siteCode:
+      type: string
+      maxLength: 30
+    name:
+      type: string
+    address:
+      $ref: './lab-sites.yaml#/PublicAddress'
+    location:
+      description: '`null` while the site has no approved pin.'
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicLocation'
+        - type: 'null'
+
+BookingLabSnapshot:
+  type: object
+  description: >-
+    The lab site and accreditation as they were when the booking was submitted or last edited
+    (`booking.lab_snapshot`, CD-39). It does not change when the accreditation changes later.
+  required:
+    - siteName
+    - address
+    - accreditation
+  additionalProperties: false
+  properties:
+    siteName:
+      type: string
+    address:
+      $ref: './lab-sites.yaml#/PublicAddress'
+    accreditation:
+      $ref: './lab-sites.yaml#/PublicAccreditation'
+
+BookingLabContact:
+  type: object
+  description: >-
+    The contact the lab has set for its customers (`lab_site_private.public_contact`). Shown to
+    the customer only once the booking has been paid.
+  required:
+    - name
+    - phone
+    - email
+  additionalProperties: false
+  properties:
+    name:
+      type:
+        - string
+        - 'null'
+    phone:
+      type:
+        - string
+        - 'null'
+    email:
+      oneOf:
+        - $ref: './auth.yaml#/Email'
+        - type: 'null'
+
+BookingAttachment:
+  type: object
+  description: >-
+    A file attached to the booking (BR-021). Only `CLEAN` files are kept with the booking; the
+    others are kept in quarantine and shown here with their status.
+  required:
+    - fileId
+    - fileName
+    - contentType
+    - sizeBytes
+    - scanStatus
+    - uploadedAt
+  additionalProperties: false
+  properties:
+    fileId:
+      $ref: './common.yaml#/Uuid'
+    fileName:
+      type: string
+    contentType:
+      $ref: '#/BookingAttachmentContentType'
+    sizeBytes:
+      type: integer
+      minimum: 1
+    scanStatus:
+      $ref: './enums.yaml#/ScanStatus'
+    uploadedAt:
+      $ref: './common.yaml#/Timestamp'
+
+BookingAttachmentContentType:
+  type: string
+  description: Allowed attachment types (BR-021, FILES_AND_REPORTS.md §1).
+  enum:
+    - application/pdf
+    - image/jpeg
+    - image/png
+    - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+BookingUploadUrlRequest:
+  type: object
+  description: >-
+    Requests a pre-signed upload for one booking attachment (FILES_AND_REPORTS.md §1). The total
+    of the booking's attachments, this one included, may not exceed 25 MB (BR-021).
+  required:
+    - fileName
+    - contentType
+    - sizeBytes
+  additionalProperties: false
+  properties:
+    fileName:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: The original file name. It is sanitised before it is stored.
+    contentType:
+      $ref: '#/BookingAttachmentContentType'
+    sizeBytes:
+      type: integer
+      minimum: 1
+      maximum: 26214400
+  examples:
+    - fileName: example-drawing.pdf
+      contentType: application/pdf
+      sizeBytes: 120000
+
+BookingUploadUrl:
+  type: object
+  description: >-
+    A pre-signed `PUT` to the quarantine prefix, valid for 15 minutes. Send the file with exactly
+    the `headers` given. The file is scanned and validated after upload; it is attached to the
+    booking once it is `CLEAN`.
+  required:
+    - fileId
+    - uploadUrl
+    - method
+    - headers
+    - expiresAt
+  additionalProperties: false
+  properties:
+    fileId:
+      $ref: './common.yaml#/Uuid'
+    uploadUrl:
+      type: string
+      format: uri
+    method:
+      type: string
+      const: PUT
+    headers:
+      type: object
+      description: Headers the upload must carry, for example `Content-Type` and `Content-Length`.
+      additionalProperties:
+        type: string
+    expiresAt:
+      $ref: './common.yaml#/Timestamp'
+
+BookingCounterLineQuantity:
+  type: object
+  description: The sample quantity the lab needs for one line (BR-017, EC-12).
+  required:
+    - lineId
+    - sampleQty
+    - unitCode
+  additionalProperties: false
+  properties:
+    lineId:
+      $ref: './common.yaml#/Uuid'
+    sampleQty:
+      type: number
+      exclusiveMinimum: 0
+    unitCode:
+      description: A UNIT node code; the line's snapshot unit.
+      $ref: './lab-sites.yaml#/NodeCode'
+
+BookingCounterCreate:
+  type: object
+  description: >-
+    A counter-offer (T-04): a different slot and/or more sample quantity, never a price or a
+    method (BR-017, CD-08). At least one of `proposedSlotId` and `perLineQuantity` is required
+    (422 `VALIDATION_FAILED` otherwise).
+  required:
+    - message
+  additionalProperties: false
+  properties:
+    proposedSlotId:
+      description: An open slot of the same site with capacity left.
+      $ref: './common.yaml#/Uuid'
+    perLineQuantity:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: '#/BookingCounterLineQuantity'
+    message:
+      type: string
+      minLength: 1
+      maxLength: 2000
+      description: Explanation for the customer.
+  examples:
+    - proposedSlotId: 01930000-0000-7000-8000-000000000003
+      perLineQuantity:
+        - lineId: 01930000-0000-7000-8000-000000000006
+          sampleQty: 3
+          unitCode: PIECE
+      message: Need 3 bars for the bend test
+
+BookingCounterOffer:
+  type: object
+  description: The latest counter-offer on the booking (`counter_offer`). It has no price, by design (CD-08).
+  required:
+    - id
+    - status
+    - proposedSlot
+    - perLineQuantity
+    - message
+    - expiresAt
+    - createdAt
+    - respondedAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    status:
+      $ref: './enums.yaml#/CounterStatus'
+    proposedSlot:
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicSlot'
+        - type: 'null'
+    perLineQuantity:
+      type: array
+      items:
+        $ref: '#/BookingCounterLineQuantity'
+    message:
+      type: string
+    expiresAt:
+      description: The customer's response deadline (BR-018, 24 h).
+      $ref: './common.yaml#/Timestamp'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    respondedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+
+BookingHoldCase:
+  type: object
+  description: >-
+    The discrepancy the Checker confirmed (T-15) and the customer's decision (`hold_case`). The
+    customer decides within the window (BR-046); without a decision it is escalated to Ops and
+    never cancelled automatically (BR-047).
+  required:
+    - id
+    - status
+    - reason
+    - details
+    - dueAt
+    - decision
+    - decidedAt
+    - escalatedAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    status:
+      $ref: './enums.yaml#/HoldStatus'
+    reason:
+      description: A node of the HOLD_REASON taxonomy.
+      $ref: './lab-sites.yaml#/PublicCodeName'
+    details:
+      type:
+        - string
+        - 'null'
+    dueAt:
+      $ref: './common.yaml#/Timestamp'
+    decision:
+      oneOf:
+        - $ref: './enums.yaml#/HoldDecision'
+        - type: 'null'
+    decidedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    escalatedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+
+BookingCancellation:
+  type: object
+  required:
+    - reason
+    - byParty
+    - notes
+  additionalProperties: false
+  properties:
+    reason:
+      description: A node of the CANCELLATION_REASON taxonomy.
+      $ref: './lab-sites.yaml#/PublicCodeName'
+    byParty:
+      $ref: './enums.yaml#/PartyType'
+    notes:
+      type:
+        - string
+        - 'null'
+
+BookingRejection:
+  type: object
+  required:
+    - reason
+    - notes
+  additionalProperties: false
+  properties:
+    reason:
+      description: A node of the REJECTION_REASON taxonomy.
+      $ref: './lab-sites.yaml#/PublicCodeName'
+    notes:
+      type:
+        - string
+        - 'null'
+
+BookingFreeze:
+  type: object
+  description: >-
+    Set when the lab's accreditation lapsed with the booking open (EC-01). While frozen, only
+    cancellation and Ops actions are accepted.
+  required:
+    - frozenAt
+    - reason
+  additionalProperties: false
+  properties:
+    frozenAt:
+      $ref: './common.yaml#/Timestamp'
+    reason:
+      type: string
+
+BookingStatusChange:
+  type: object
+  description: One row of the booking's status history (`booking_status_history`).
+  required:
+    - transitionId
+    - fromStatus
+    - toStatus
+    - occurredAt
+    - actorParty
+    - reason
+  additionalProperties: false
+  properties:
+    transitionId:
+      $ref: '#/BookingTransitionId'
+    fromStatus:
+      description: '`null` for T-01, which creates the booking.'
+      oneOf:
+        - $ref: './enums.yaml#/BookingStatus'
+        - type: 'null'
+    toStatus:
+      $ref: './enums.yaml#/BookingStatus'
+    occurredAt:
+      $ref: './common.yaml#/Timestamp'
+    actorParty:
+      $ref: './enums.yaml#/PartyType'
+    reason:
+      type:
+        - string
+        - 'null'
+
+BookingRating:
+  type: object
+  description: A rating given on the booking (`rating`, FR-SUP-01).
+  required:
+    - direction
+    - scoreOverall
+    - scoreTat
+    - scoreCommunication
+    - comment
+    - isPublic
+    - createdAt
+  additionalProperties: false
+  properties:
+    direction:
+      $ref: './enums.yaml#/RatingDirection'
+    scoreOverall:
+      type: integer
+      minimum: 1
+      maximum: 5
+    scoreTat:
+      type:
+        - integer
+        - 'null'
+      minimum: 1
+      maximum: 5
+    scoreCommunication:
+      type:
+        - integer
+        - 'null'
+      minimum: 1
+      maximum: 5
+    comment:
+      type:
+        - string
+        - 'null'
+    isPublic:
+      type: boolean
+      description: Always `false` for `LAB_TO_CUSTOMER`. Set by the platform, not by the rater.
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+BookingRatingCreate:
+  type: object
+  description: >-
+    The direction comes from the caller's side of the booking, never from the request: the
+    customer rates the lab, the lab's Checker rates the customer (privately).
+  required:
+    - scoreOverall
+  additionalProperties: false
+  properties:
+    scoreOverall:
+      type: integer
+      minimum: 1
+      maximum: 5
+    scoreTat:
+      type: integer
+      minimum: 1
+      maximum: 5
+    scoreCommunication:
+      type: integer
+      minimum: 1
+      maximum: 5
+    comment:
+      type: string
+      maxLength: 2000
+
+BookingCommon:
+  type: object
+  description: >-
+    The part of a booking that both parties see. Not used on its own: see `BookingForCustomer`
+    and `BookingForLab`.
+  required:
+    - id
+    - bookingNo
+    - status
+    - statusChangedAt
+    - customerDisplayName
+    - labSite
+    - labSnapshot
+    - itemName
+    - batchNo
+    - slot
+    - preferredDropDate
+    - declaredPackageCount
+    - lines
+    - trf
+    - attachments
+    - subtotal
+    - gst
+    - platformFee
+    - total
+    - labDecisionDueAt
+    - paymentDueAt
+    - dropDeadlineAt
+    - expectedReportDate
+    - reportReleasedAt
+    - disputeWindowEndsAt
+    - retainUntil
+    - completedAt
+    - deviationNoted
+    - deviationNotes
+    - counterOffer
+    - holdCase
+    - cancellation
+    - rejection
+    - frozen
+    - statusHistory
+    - createdAt
+    - lockVersion
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingNo:
+      $ref: '#/BookingNo'
+    status:
+      $ref: './enums.yaml#/BookingStatus'
+    statusChangedAt:
+      $ref: './common.yaml#/Timestamp'
+    customerDisplayName:
+      type: string
+      description: The customer organisation's display name.
+    labSite:
+      $ref: '#/BookingLabSite'
+    labSnapshot:
+      $ref: '#/BookingLabSnapshot'
+    itemName:
+      type: string
+    batchNo:
+      type:
+        - string
+        - 'null'
+    slot:
+      description: The chosen drop-off slot.
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicSlot'
+        - type: 'null'
+    preferredDropDate:
+      $ref: './common.yaml#/Date'
+    declaredPackageCount:
+      type: integer
+      minimum: 1
+      maximum: 50
+    lines:
+      type: array
+      items:
+        $ref: '#/BookingLine'
+    trf:
+      $ref: '#/BookingTrf'
+    attachments:
+      type: array
+      items:
+        $ref: '#/BookingAttachment'
+    subtotal:
+      $ref: './common.yaml#/Money'
+    gst:
+      $ref: './common.yaml#/Money'
+    platformFee:
+      description: Always zero in the MVP (CD-05).
+      $ref: './common.yaml#/Money'
+    total:
+      description: >-
+        What was sold. Frozen once the booking leaves `REQUESTED`, even when a line is cancelled
+        later; refunds carry the difference.
+      $ref: './common.yaml#/Money'
+    labDecisionDueAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    paymentDueAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    dropDeadlineAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    expectedReportDate:
+      description: Set by the lab when testing starts (T-18) and when it updates the ETA (FR-RPT-04).
+      oneOf:
+        - $ref: './common.yaml#/Date'
+        - type: 'null'
+    reportReleasedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    disputeWindowEndsAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    retainUntil:
+      description: Until when the lab retains the sample (BR-049, EC-39).
+      oneOf:
+        - $ref: './common.yaml#/Date'
+        - type: 'null'
+    completedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    deviationNoted:
+      type: boolean
+      description: Set when the customer chose to proceed with a sample on hold (T-16, EC-33).
+    deviationNotes:
+      type:
+        - string
+        - 'null'
+    counterOffer:
+      description: The latest counter-offer, if the lab has made one.
+      oneOf:
+        - $ref: '#/BookingCounterOffer'
+        - type: 'null'
+    holdCase:
+      description: The latest hold case, if the booking has been on hold.
+      oneOf:
+        - $ref: '#/BookingHoldCase'
+        - type: 'null'
+    cancellation:
+      oneOf:
+        - $ref: '#/BookingCancellation'
+        - type: 'null'
+    rejection:
+      oneOf:
+        - $ref: '#/BookingRejection'
+        - type: 'null'
+    frozen:
+      oneOf:
+        - $ref: '#/BookingFreeze'
+        - type: 'null'
+    statusHistory:
+      type: array
+      description: >-
+        Every status change, oldest first. Custody events are in `GET
+        /bookings/{id}/timeline`.
+      items:
+        $ref: '#/BookingStatusChange'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+      description: Also returned as the `ETag`; send it back in `If-Match`.
+
+BookingRequester:
+  type: object
+  description: The member of the customer organisation who owns the booking.
+  required:
+    - userId
+    - fullName
+  additionalProperties: false
+  properties:
+    userId:
+      $ref: './common.yaml#/Uuid'
+    fullName:
+      type: string
+
+BookingCustomerSite:
+  type: object
+  required:
+    - id
+    - name
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    name:
+      type: string
+
+BookingForCustomer:
+  type: object
+  description: >-
+    A booking as a member of its customer organisation sees it. The lab's contact appears once the
+    booking has been paid; the lab's rating of the customer never appears.
+  allOf:
+    - $ref: '#/BookingCommon'
+    - type: object
+      required:
+        - viewerParty
+        - requester
+        - customerSite
+        - placedByPlatform
+        - labContact
+        - ownRating
+      properties:
+        viewerParty:
+          type: string
+          const: CUSTOMER
+        requester:
+          $ref: '#/BookingRequester'
+        customerSite:
+          oneOf:
+            - $ref: '#/BookingCustomerSite'
+            - type: 'null'
+        placedByPlatform:
+          type: boolean
+          description: Whether Ops placed the booking on the organisation's behalf (FR-ADM-07).
+        labContact:
+          description: >-
+            `null` until the booking has been paid (`lab_site_private.public_contact`), and when
+            the lab has set no contact.
+          oneOf:
+            - $ref: '#/BookingLabContact'
+            - type: 'null'
+        ownRating:
+          description: The customer's rating of the lab, once given.
+          oneOf:
+            - $ref: '#/BookingRating'
+            - type: 'null'
+  unevaluatedProperties: false
+
+BookingForLab:
+  type: object
+  description: >-
+    A booking as a member of the lab organisation sees it (assigned sites only, RR-3). It carries
+    nothing about the customer beyond the organisation's display name and the TRF: no requester,
+    customer site, contact or finance data.
+  allOf:
+    - $ref: '#/BookingCommon'
+    - type: object
+      required:
+        - viewerParty
+        - ownRating
+      properties:
+        viewerParty:
+          type: string
+          const: LAB
+        ownRating:
+          description: The lab's private rating of the customer, once given.
+          oneOf:
+            - $ref: '#/BookingRating'
+            - type: 'null'
+  unevaluatedProperties: false
+
+BookingView:
+  description: >-
+    A booking as the caller's party sees it: `viewerParty` is `CUSTOMER` for a member of the
+    customer organisation and `LAB` for a member of the lab organisation.
+  oneOf:
+    - $ref: '#/BookingForCustomer'
+    - $ref: '#/BookingForLab'
+
+BookingSummary:
+  type: object
+  description: A booking in a list. Both parties see the same fields.
+  required:
+    - id
+    - bookingNo
+    - status
+    - statusChangedAt
+    - itemName
+    - batchNo
+    - customerDisplayName
+    - labSite
+    - slot
+    - preferredDropDate
+    - total
+    - labDecisionDueAt
+    - paymentDueAt
+    - dropDeadlineAt
+    - expectedReportDate
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingNo:
+      $ref: '#/BookingNo'
+    status:
+      $ref: './enums.yaml#/BookingStatus'
+    statusChangedAt:
+      $ref: './common.yaml#/Timestamp'
+    itemName:
+      type: string
+    batchNo:
+      type:
+        - string
+        - 'null'
+    customerDisplayName:
+      type: string
+    labSite:
+      type: object
+      required:
+        - id
+        - siteCode
+        - name
+        - city
+      additionalProperties: false
+      properties:
+        id:
+          $ref: './common.yaml#/Uuid'
+        siteCode:
+          type: string
+          maxLength: 30
+        name:
+          type: string
+        city:
+          type: string
+    slot:
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicSlot'
+        - type: 'null'
+    preferredDropDate:
+      $ref: './common.yaml#/Date'
+    total:
+      $ref: './common.yaml#/Money'
+    labDecisionDueAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    paymentDueAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    dropDeadlineAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    expectedReportDate:
+      oneOf:
+        - $ref: './common.yaml#/Date'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+BookingList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/BookingSummary'
+    page:
+      $ref: './common.yaml#/Page'
+
+BookingRejectRequest:
+  type: object
+  description: A reason code and an explanation, both required (FR-LAB-02, EC-09).
+  required:
+    - reasonCode
+    - notes
+  additionalProperties: false
+  properties:
+    reasonCode:
+      description: A node code of the REJECTION_REASON taxonomy.
+      $ref: './lab-sites.yaml#/NodeCode'
+    notes:
+      type: string
+      minLength: 1
+      maxLength: 2000
+
+BookingCancelRequest:
+  type: object
+  required:
+    - reasonCode
+  additionalProperties: false
+  properties:
+    reasonCode:
+      description: A node code of the CANCELLATION_REASON taxonomy.
+      $ref: './lab-sites.yaml#/NodeCode'
+    notes:
+      type: string
+      maxLength: 2000
+
+BookingHoldDecisionRequest:
+  type: object
+  description: >-
+    `PROCEED` (T-16), `REPLACE` (no state change; the lab then records the replacement or top-up,
+    T-17) or `CANCEL` (T-27, which needs `reasonCode`).
+  required:
+    - decision
+  additionalProperties: false
+  properties:
+    decision:
+      $ref: './enums.yaml#/HoldDecision'
+    reasonCode:
+      description: >-
+        Required for `CANCEL` and refused with any other decision (422 `VALIDATION_FAILED`). A
+        node code of the CANCELLATION_REASON taxonomy.
+      $ref: './lab-sites.yaml#/NodeCode'
+    notes:
+      type: string
+      maxLength: 2000
+
+BookingStartTestingRequest:
+  type: object
+  required:
+    - expectedReportDate
+  additionalProperties: false
+  properties:
+    expectedReportDate:
+      description: Required when testing starts (T-18). Not in the past.
+      $ref: './common.yaml#/Date'
+
+BookingExpectedReportDateUpdate:
+  type: object
+  description: A new expected report date and the reason for the change (FR-RPT-04, EC-36, EC-37).
+  required:
+    - expectedReportDate
+    - reason
+  additionalProperties: false
+  properties:
+    expectedReportDate:
+      $ref: './common.yaml#/Date'
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 2000
+
+BookingLineTargetStatus:
+  type: string
+  description: >-
+    The statuses a line can be moved to (BOOKING_STATE_MACHINE.md §4). A subset of the database
+    enum `BookingLineStatus`.
+  enum:
+    - IN_PROGRESS
+    - DONE
+    - CANCELLED
+
+BookingLineStatusChange:
+  type: object
+  description: '`reason` is required for `CANCELLED` (422 `VALIDATION_FAILED` otherwise).'
+  required:
+    - status
+  additionalProperties: false
+  properties:
+    status:
+      $ref: '#/BookingLineTargetStatus'
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 2000
+
+BookingHandoverPackage:
+  type: object
+  description: >-
+    A package label of the booking (current label versions only; voided labels are left out). The
+    QR payload carries ids and a signature only (QR_AND_VERIFICATION.md §1).
+  required:
+    - id
+    - seqNo
+    - totalPackages
+    - isTopUp
+    - shortCode
+    - labelVersion
+    - status
+    - qrPayload
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    seqNo:
+      type: integer
+      minimum: 1
+    totalPackages:
+      type: integer
+      minimum: 1
+    isTopUp:
+      type: boolean
+      description: A top-up package for a booking on hold (EC-34).
+    shortCode:
+      type: string
+      pattern: ^[0-9A-HJKMNP-TV-Z]{6}$
+      description: The 6-character Crockford base32 code printed on the label.
+      examples:
+        - 0ABC12
+    labelVersion:
+      type: integer
+      minimum: 1
+    status:
+      $ref: './enums.yaml#/PackageStatus'
+    qrPayload:
+      type: string
+      examples:
+        - LC1.P.LC-0000-0000001.1-2.1.k0.FAKEMAC
+
+BookingHandover:
+  type: object
+  description: >-
+    Self-drop instructions and the QR list (FR-LOG-02, FR-LOG-03, FR-LOG-04). Both parties see the
+    same handover. Self-drop only: there is no pickup or transport (CD-10).
+  required:
+    - bookingId
+    - bookingNo
+    - status
+    - labSite
+    - receivingHours
+    - submissionInstructions
+    - labContact
+    - slot
+    - preferredDropDate
+    - dropDeadlineAt
+    - bookingQrPayload
+    - packages
+  additionalProperties: false
+  properties:
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    bookingNo:
+      $ref: '#/BookingNo'
+    status:
+      $ref: './enums.yaml#/BookingStatus'
+    labSite:
+      $ref: '#/BookingLabSite'
+    receivingHours:
+      type: array
+      items:
+        $ref: './lab-sites.yaml#/PublicReceivingHours'
+    submissionInstructions:
+      type:
+        - string
+        - 'null'
+    labContact:
+      description: The contact the lab has set for its customers, if any.
+      oneOf:
+        - $ref: '#/BookingLabContact'
+        - type: 'null'
+    slot:
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicSlot'
+        - type: 'null'
+    preferredDropDate:
+      $ref: './common.yaml#/Date'
+    dropDeadlineAt:
+      description: End of the slot's day plus the lab's allowance (BR-040). No-show follows after the grace period (BR-041).
+      $ref: './common.yaml#/Timestamp'
+    bookingQrPayload:
+      type: string
+      examples:
+        - LC1.B.LC-0000-0000001.k0.FAKEMAC
+    packages:
+      type: array
+      items:
+        $ref: '#/BookingHandoverPackage'
+
+BookingTimelineEntryKind:
+  type: string
+  enum:
+    - STATUS_CHANGE
+    - CUSTODY_EVENT
+
+BookingTimelineEntry:
+  type: object
+  description: >-
+    One status change or custody event. Redacted per party: `actorName` is given only for actors
+    of the caller's own organisation (OQ-29); `clockSkewFlag` only to the lab; scan rejections and
+    manual look-ups (`SCAN_REJECTED`, `MANUAL_LOOKUP`) only to the lab. Device ids, scan details
+    and photos are never part of the timeline.
+  required:
+    - id
+    - kind
+    - occurredAt
+    - transitionId
+    - fromStatus
+    - toStatus
+    - custodyEventType
+    - packageSeqNo
+    - actorParty
+    - actorRole
+    - actorName
+    - reason
+    - clockSkewFlag
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    kind:
+      $ref: '#/BookingTimelineEntryKind'
+    occurredAt:
+      $ref: './common.yaml#/Timestamp'
+    transitionId:
+      description: For `STATUS_CHANGE`.
+      oneOf:
+        - $ref: '#/BookingTransitionId'
+        - type: 'null'
+    fromStatus:
+      description: For `STATUS_CHANGE`; `null` for T-01.
+      oneOf:
+        - $ref: './enums.yaml#/BookingStatus'
+        - type: 'null'
+    toStatus:
+      description: For `STATUS_CHANGE`.
+      oneOf:
+        - $ref: './enums.yaml#/BookingStatus'
+        - type: 'null'
+    custodyEventType:
+      description: For `CUSTODY_EVENT`.
+      oneOf:
+        - $ref: './enums.yaml#/CustodyEventType'
+        - type: 'null'
+    packageSeqNo:
+      description: For a custody event about one package.
+      type:
+        - integer
+        - 'null'
+      minimum: 1
+    actorParty:
+      $ref: './enums.yaml#/PartyType'
+    actorRole:
+      oneOf:
+        - $ref: './enums.yaml#/RoleCode'
+        - type: 'null'
+    actorName:
+      description: Only for an actor of the caller's own organisation; otherwise `null`.
+      type:
+        - string
+        - 'null'
+    reason:
+      type:
+        - string
+        - 'null'
+    clockSkewFlag:
+      description: >-
+        For a custody event recorded offline whose device time differs by more than 15 minutes
+        (EC-50). Always `null` for the customer.
+      type:
+        - boolean
+        - 'null'
+
+BookingTimeline:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      description: Oldest first.
+      items:
+        $ref: '#/BookingTimelineEntry'
+    page:
+      $ref: './common.yaml#/Page'

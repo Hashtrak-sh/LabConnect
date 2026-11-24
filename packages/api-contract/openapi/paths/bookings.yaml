@@ -1,0 +1,1437 @@
+# Bookings (API_CONTRACTS.md §4). Transitions T-xx are those of BOOKING_STATE_MACHINE.md §3; an
+# operation that performs transitions lists them in `x-transitions`, and every state change goes
+# through the booking engine. A state change not allowed from the current state returns
+# 409 `INVALID_STATE_TRANSITION` with `meta.currentState`.
+#
+# Scope (TENANT_ISOLATION.md §2): the caller acts as the active membership. A customer member
+# sees the bookings of their organisation (a `CUSTOMER_REQUESTER` acts on their own only); a lab
+# member sees the bookings of the sites they are assigned to (RR-3). Any other booking is
+# answered with 404. Platform roles use `/admin/bookings` (§10). "Owner" is the booking's
+# requester. Ops cannot accept, reject or counter for a lab (OQ-24).
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+estimate:
+  post:
+    operationId: estimateBooking
+    tags:
+      - Bookings
+    summary: Estimate a booking
+    description: >-
+      Prices the chosen lines from the site's effective published price list and checks that they
+      can be booked (FR-BKG-05, BR-019, BR-003), without creating anything. Any customer role. The
+      price is fixed only at submission (T-01).
+
+
+      `SITE_NOT_BOOKABLE` does not carry the lab's onboarding reasons (`meta.reasons`) to a
+      customer: they are the lab's private data (TENANT_ISOLATION.md §1).
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingEstimateRequest'
+    responses:
+      '200':
+        description: The estimate.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingEstimate'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a customer membership.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: `X-Active-Membership` is not an active membership of this user.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`SLOT_UNAVAILABLE` (the given slot is closed or full), `REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `SITE_NOT_BOOKABLE` (BR-001), `SCOPE_LINE_NOT_BOOKABLE` (BR-003, per line in
+          `errors[]`), `VALIDATION_FAILED` (including a `labSiteId` that is not a listed site),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+duplicate-check:
+  post:
+    operationId: checkBookingDuplicates
+    tags:
+      - Bookings
+    summary: Check for a duplicate booking
+    description: >-
+      Looks for bookings of the caller's customer organisation with the same item, batch and
+      parameter set within the configured window (default 7 days), at any lab (BR-016,
+      FR-BKG-09). Parameters are compared by parameter, not by scope line, so the same test at
+      another lab matches. A warning only; it creates nothing. Any customer role.
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingDuplicateCheckRequest'
+    responses:
+      '200':
+        description: The result.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingDuplicateCheck'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a customer membership.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: `X-Active-Membership` is not an active membership of this user.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (including an unknown scope line), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+bookings:
+  post:
+    operationId: createBooking
+    tags:
+      - Bookings
+    summary: Submit a booking
+    description: >-
+      T-01 `SubmitBooking` (FR-BKG-01..06). Creates a `REQUESTED` booking with a booking number:
+      snapshots the lines, prices and accreditation (CD-39, BR-020), stores TRF version 1,
+      soft-holds the slot (BR-010; the first to commit wins the last place, BR-011) and starts
+      the lab decision SLA (`labDecisionDueAt`, BR-012). Guards: the site is bookable (BR-001),
+      every line is bookable (BR-003), the slot has capacity, and the organisation has fewer than
+      the maximum open `REQUESTED` bookings (BR-015). A slot is required (OQ-26).
+
+
+      Who: `CUSTOMER_ADMIN` or `CUSTOMER_REQUESTER` of the active customer organisation, who
+      becomes the owner; or `PLATFORM_OPS` on behalf of a customer with `onBehalfOf` (FR-ADM-07),
+      who receives the customer's view. `onBehalfOf` from any other membership is refused with
+      403. `SITE_NOT_BOOKABLE` carries no `meta.reasons` for a customer.
+    x-transitions:
+      - T-01
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingCreate'
+    responses:
+      '201':
+        description: Submitted.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the role may not book (for example `CUSTOMER_FINANCE` or a lab member), or
+          `onBehalfOf` was sent by a membership other than `PLATFORM_OPS`.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: `X-Active-Membership` is not an active membership of this user.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `SLOT_UNAVAILABLE` (EC-07: the slot was taken or closed; choose another),
+          `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `SITE_NOT_BOOKABLE` (BR-001), `SCOPE_LINE_NOT_BOOKABLE` (BR-003, per line in
+          `errors[]`), `VALIDATION_FAILED` (including an unknown site, a customer site of another
+          organisation, an invalid TRF form and, for Ops, a requester who is not a member of
+          `onBehalfOf.customerOrgId`), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: >-
+          `OPEN_BOOKING_LIMIT` (BR-015: too many open `REQUESTED` bookings), `RATE_LIMITED`.
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  get:
+    operationId: listBookings
+    tags:
+      - Bookings
+    summary: List bookings
+    description: >-
+      Bookings visible to the active membership, newest first: for a customer membership, the
+      organisation's bookings (a `CUSTOMER_REQUESTER` sees their own); for a lab membership, the
+      bookings of the sites the member is assigned to (RR-3). Platform roles use
+      `/admin/bookings`.
+    parameters:
+      - name: scope
+        in: query
+        required: false
+        description: >-
+          The side the caller acts as. It follows from the active membership; when given it must
+          match it (`customer` for a customer membership, `lab` for a lab membership), otherwise
+          422 `VALIDATION_FAILED`. It never widens what the caller sees.
+        schema:
+          type: string
+          enum:
+            - customer
+            - lab
+      - name: status
+        in: query
+        required: false
+        description: Only bookings in one of these states, comma-separated.
+        style: form
+        explode: false
+        schema:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '../components/schemas/enums.yaml#/BookingStatus'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of bookings.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is a platform membership.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: `X-Active-Membership` is not an active membership of this user.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example a `scope` that does not match the active membership,
+          an unknown status or an unreadable cursor).
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+booking:
+  get:
+    operationId: getBooking
+    tags:
+      - Bookings
+    summary: Get a booking
+    description: >-
+      The booking with its lines, current TRF, attachments, status, deadlines, latest
+      counter-offer and hold case, and its status history (FR-RPT-04). Custody events are in
+      `GET /bookings/{id}/timeline`. The view depends on the caller's side (`viewerParty`): a lab
+      member never sees the customer's requester, sites or contacts; a customer member sees the
+      lab's contact only once the booking has been paid.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The booking.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: a `CUSTOMER_REQUESTER` who is not the owner, or a platform membership.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  patch:
+    operationId: updateBooking
+    tags:
+      - Bookings
+    summary: Edit a requested booking
+    description: >-
+      T-02 `EditBooking` (FR-BKG-10, EC-11). Only while `REQUESTED`; after acceptance the
+      customer cancels and rebooks. Writes a new TRF version, re-snapshots every line against the
+      price list in effect now (BR-020), moves the slot hold when the slot changes, and restarts
+      the lab decision SLA. Who: the owner or a `CUSTOMER_ADMIN` of the organisation.
+    x-transitions:
+      - T-02
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingUpdate'
+    responses:
+      '200':
+        description: Edited.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: neither the owner nor a `CUSTOMER_ADMIN` of the organisation.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (the booking is no longer `REQUESTED`), `SLOT_UNAVAILABLE`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `SITE_NOT_BOOKABLE`, `SCOPE_LINE_NOT_BOOKABLE` (per line in `errors[]`),
+          `VALIDATION_FAILED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+attachment-upload-url:
+  post:
+    operationId: createBookingAttachmentUploadUrl
+    tags:
+      - Bookings
+    summary: Get an upload URL for a booking attachment
+    description: >-
+      Registers a `BOOKING_ATTACHMENT` file for the booking and returns a 15-minute pre-signed
+      upload (FR-BKG-08, FILES_AND_REPORTS.md §1). The file is scanned and validated after upload
+      and listed in the booking's `attachments` with its scan status. Allowed types: PDF, JPEG,
+      PNG, XLSX, DOCX; at most 25 MB in total per booking (BR-021). Only while the booking is
+      `REQUESTED`, and only by the owner.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingUploadUrlRequest'
+    responses:
+      '201':
+        description: The upload URL.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingUploadUrl'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: not the owner of the booking.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (the booking is no longer `REQUESTED`), `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (including a type that is not allowed and a total above 25 MB),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+accept:
+  post:
+    operationId: acceptBooking
+    tags:
+      - Bookings
+    summary: Accept a booking
+    description: >-
+      T-03 `AcceptBooking` (FR-LAB-02, FR-LAB-05). The lab accepts at the snapshot price (EC-56):
+      the price becomes final, the slot hold is confirmed and the payment window opens
+      (`paymentDueAt`, BR-030). Guard: the site is still bookable. Who: a `LAB_CHECKER` assigned
+      to the booking's site. Ops cannot accept for a lab (OQ-24).
+    x-transitions:
+      - T-03
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Accepted.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: "`FORBIDDEN`: not a `LAB_CHECKER` of the booking's site."
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION` (not `REQUESTED`), `REQUEST_IN_PROGRESS`.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `SITE_NOT_BOOKABLE` (the site stopped being bookable; `meta.reasons[]` names why),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+reject:
+  post:
+    operationId: rejectBooking
+    tags:
+      - Bookings
+    summary: Reject a booking
+    description: >-
+      T-05 `RejectBooking` (FR-LAB-02, EC-09). A reason code and an explanation are required; the
+      customer sees both and is offered alternatives. The slot hold is released. Who: a
+      `LAB_CHECKER` assigned to the booking's site. Ops cannot reject for a lab (OQ-24).
+    x-transitions:
+      - T-05
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingRejectRequest'
+    responses:
+      '200':
+        description: Rejected.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: "`FORBIDDEN`: not a `LAB_CHECKER` of the booking's site."
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION` (not `REQUESTED`), `REQUEST_IN_PROGRESS`.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (including an unknown or inactive reason code),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+counter:
+  post:
+    operationId: counterBooking
+    tags:
+      - Bookings
+    summary: Counter a booking
+    description: >-
+      T-04 `CounterBooking` (FR-LAB-02, EC-10, EC-12). The lab proposes a different slot of the
+      same site and/or more sample quantity per line; never a price or a method (BR-017, CD-08).
+      The customer has 24 hours to answer (BR-018). The proposed slot is not held; its capacity is
+      checked again when the customer accepts (T-07). Who: a `LAB_CHECKER` assigned to the
+      booking's site. Ops cannot counter for a lab (OQ-24).
+
+
+      Any property other than those of the schema is refused with 422: a property whose name
+      starts with `price` or `method` with `COUNTER_FIELD_NOT_ALLOWED`, any other with
+      `VALIDATION_FAILED`.
+    x-transitions:
+      - T-04
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingCounterCreate'
+    responses:
+      '200':
+        description: Countered.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: "`FORBIDDEN`: not a `LAB_CHECKER` of the booking's site."
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (not `REQUESTED`), `SLOT_UNAVAILABLE` (the proposed slot is
+          closed or full), `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `COUNTER_FIELD_NOT_ALLOWED` (a price or method field, CD-08), `VALIDATION_FAILED`
+          (including a line of another booking, a unit other than the line's, or a slot of
+          another site), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+counter-accept:
+  post:
+    operationId: acceptBookingCounter
+    tags:
+      - Bookings
+    summary: Accept the lab's counter-offer
+    description: >-
+      T-07 `AcceptCounter` (FR-LAB-03). Guards: the counter-offer is `PENDING` and the proposed
+      slot still has capacity. The slot hold moves to the new slot, any agreed quantity is written
+      to the lines (`requiredSampleQty`), and the payment window opens (`paymentDueAt`). Who: the
+      owner or a `CUSTOMER_ADMIN` of the organisation.
+    x-transitions:
+      - T-07
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Accepted.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: neither the owner nor a `CUSTOMER_ADMIN` of the organisation.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (not `COUNTERED`, or the counter-offer has expired),
+          `SLOT_UNAVAILABLE` (the proposed slot is now full or closed), `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+counter-decline:
+  post:
+    operationId: declineBookingCounter
+    tags:
+      - Bookings
+    summary: Decline the lab's counter-offer
+    description: >-
+      T-08 `DeclineCounter` (FR-LAB-03, EC-10). The booking becomes `EXPIRED` and the slot hold is
+      released. Who: the owner only; the transition table names no other actor (OQ-37).
+    x-transitions:
+      - T-08
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Declined.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: not the owner of the booking.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION` (not `COUNTERED`), `REQUEST_IN_PROGRESS`.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+cancel:
+  post:
+    operationId: cancelBooking
+    tags:
+      - Bookings
+    summary: Cancel a booking
+    description: >-
+      `CancelBooking`, by state (BOOKING_STATE_MACHINE.md §3):
+
+
+      - T-25 from `REQUESTED`, `COUNTERED` or `ACCEPTED`: free (BR-070, FR-BKG-07). Who: the
+      owner or a `CUSTOMER_ADMIN`.
+
+      - T-26 from `HANDOVER_SET`: refund of the total minus the cancellation fee when the
+      customer cancels (BR-071, EC-18), in full when the lab cancels (BR-074, EC-20; a lab
+      penalty is recorded). Who: the owner, a `CUSTOMER_ADMIN`, or a `LAB_CHECKER` of the site.
+
+      - T-27 from `SAMPLE_RECORDED`, `ON_HOLD`, `RECEIVED` or `UNDER_TEST`: lines `NOT_STARTED`
+      are refunded, lines in progress or done are not (BR-073, EC-19), using the line statuses
+      the lab has recorded; in full when the lab cancels (BR-074). Who: as T-26.
+
+
+      The slot hold is released. Refunds are made by the payments module. Allowed on a frozen
+      booking (EC-01). Not allowed from `REPORT_IN_REVIEW` or later (OQ-24). Ops cancels through
+      `/admin/bookings/{id}/cancel`.
+    x-transitions:
+      - T-25
+      - T-26
+      - T-27
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingCancelRequest'
+    responses:
+      '200':
+        description: Cancelled.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the caller may not cancel in this state (for example a `LAB_CHECKER`
+          before handover, or a `CUSTOMER_REQUESTER` who is not the owner).
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION` (the state cannot be cancelled), `REQUEST_IN_PROGRESS`.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (including an unknown or inactive reason code),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+handover:
+  get:
+    operationId: getBookingHandover
+    tags:
+      - Bookings
+    summary: Get the handover instructions and QR codes
+    description: >-
+      Self-drop instructions for a paid booking (FR-LOG-02, FR-LOG-04): the lab address and pin,
+      receiving hours, the lab's contact, submission instructions, the drop deadline (BR-040), the
+      booking QR and one QR per package (FR-LOG-03). Available once the QR codes have been issued
+      (T-11, `HANDOVER_SET`) and afterwards. Who: the owner, a `CUSTOMER_ADMIN`, or a
+      `LAB_MAKER` or `LAB_CHECKER` of the site (ROLES_AND_PERMISSIONS §2).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The handover.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingHandover'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the role may not see the handover (for example `CUSTOMER_FINANCE`, or a
+          `CUSTOMER_REQUESTER` who is not the owner).
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION`: the QR codes have not been issued yet.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+labels:
+  get:
+    operationId: getBookingLabels
+    tags:
+      - Bookings
+    summary: Print the package labels
+    description: >-
+      A PDF of the booking's current package labels (QR_AND_VERIFICATION.md §2): QR, booking
+      number, package n/N, short code and lab site name; nothing about the customer or the item.
+      Every print is logged (`label_print`, custody event `LABELS_PRINTED`). This prints the
+      current label versions only; a lab reprint, which voids a label, goes through
+      `/packages/{id}/reprint-requests` (EC-26). Available while packages can still be dropped
+      (`HANDOVER_SET`, `SAMPLE_RECORDED`, `ON_HOLD`). Who: the owner, or a `LAB_MAKER` or
+      `LAB_CHECKER` of the site (CD-12, FR-LOG-04, FR-LOG-09).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: format
+        in: query
+        required: false
+        description: '`A4` sticker sheet or `THERMAL_50x25` (50 × 25 mm thermal labels).'
+        schema:
+          type: string
+          enum:
+            - A4
+            - THERMAL_50x25
+          default: A4
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The label sheet.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          Content-Disposition:
+            description: '`attachment`, with a file name made from the booking number.'
+            schema:
+              type: string
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: neither the owner nor a `LAB_MAKER` or `LAB_CHECKER` of the site.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION`: there are no labels to print in this state.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+hold-decision:
+  post:
+    operationId: decideBookingHold
+    tags:
+      - Bookings
+    summary: Decide on a booking on hold
+    description: >-
+      The customer's decision after the lab confirmed a discrepancy (FR-RPT-03, BR-046):
+
+
+      - `PROCEED`: T-16 `CustomerProceed`. The booking becomes `RECEIVED` with a deviation flag
+      (EC-33); the retention period counts from this decision (BR-049).
+
+      - `REPLACE`: no state change. The customer brings a replacement or top-up sample (EC-25,
+      EC-34) and the lab records it (T-17).
+
+      - `CANCEL`: T-27 `CancelBooking` from `ON_HOLD`, with `reasonCode`; refunded per BR-073.
+
+
+      Guard: the hold case is open (also after it has been escalated to Ops, BR-047). Who: the
+      owner or a `CUSTOMER_ADMIN` of the organisation.
+    x-transitions:
+      - T-16
+      - T-27
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingHoldDecisionRequest'
+    responses:
+      '200':
+        description: Decided.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: neither the owner nor a `CUSTOMER_ADMIN` of the organisation.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (not `ON_HOLD`, or the hold case has already been decided),
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (including `CANCEL` without a reason code), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+start-testing:
+  post:
+    operationId: startBookingTesting
+    tags:
+      - Bookings
+    summary: Start testing
+    description: >-
+      T-18 `StartTesting` (FR-RPT-04). Requires the expected report date, which the customer sees,
+      and starts the report-due timer. Who: a `LAB_MAKER` assigned to the booking's site.
+    x-transitions:
+      - T-18
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingStartTestingRequest'
+    responses:
+      '200':
+        description: Testing started.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: "`FORBIDDEN`: not a `LAB_MAKER` of the booking's site."
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION` (not `RECEIVED`), `REQUEST_IN_PROGRESS`.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (including a date in the past), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+expected-report-date:
+  patch:
+    operationId: updateBookingExpectedReportDate
+    tags:
+      - Bookings
+    summary: Update the expected report date
+    description: >-
+      Sets a new expected report date with the reason for the change (FR-RPT-04, EC-36, EC-37).
+      Not a state transition. The customer is notified. Only while `UNDER_TEST` or
+      `REPORT_IN_REVIEW`. Who: a `LAB_MAKER` assigned to the booking's site.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingExpectedReportDateUpdate'
+    responses:
+      '200':
+        description: Updated.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: "`FORBIDDEN`: not a `LAB_MAKER` of the booking's site."
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION`: not `UNDER_TEST` or `REPORT_IN_REVIEW`.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (including a date in the past).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+line-status:
+  post:
+    operationId: setBookingLineStatus
+    tags:
+      - Bookings
+    summary: Set the status of a booking line
+    description: >-
+      Moves one line along its sub-state machine (BOOKING_STATE_MACHINE.md §4): `NOT_STARTED →
+      IN_PROGRESS → DONE`, or `CANCELLED` from `NOT_STARTED` or `IN_PROGRESS` by agreement, with
+      a reason (partial cancellation, EC-19, EC-34, EC-36). Not a booking transition: the booking
+      total is not restated; a cancelled line is refunded by the payments module (BR-073). These
+      statuses also decide the refund when the booking is cancelled under T-27. Only while the
+      booking is `ON_HOLD`, `RECEIVED` or `UNDER_TEST`. `If-Match` carries the booking's `ETag`.
+      Who: a `LAB_MAKER` assigned to the booking's site.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: lineId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingLineStatusChange'
+    responses:
+      '200':
+        description: Changed. The whole booking is returned.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: "`FORBIDDEN`: not a `LAB_MAKER` of the booking's site."
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope, or no such line in it."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (the line cannot move to that status, or the booking is not
+          in a state where lines change), `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (including `CANCELLED` without a reason), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+timeline:
+  get:
+    operationId: getBookingTimeline
+    tags:
+      - Bookings
+    summary: Get the booking timeline
+    description: >-
+      Status changes and custody events of the booking, oldest first (FR-LOG-08). Redacted per
+      party: the other party's user names are never shown (OQ-29), and scan rejections, manual
+      look-ups and clock-skew flags are shown to the lab only. Who: any member who can see the
+      booking (a `CUSTOMER_REQUESTER` for their own bookings).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of timeline entries.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingTimeline'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: a `CUSTOMER_REQUESTER` who is not the owner, or a platform membership.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+custody-trail:
+  get:
+    operationId: getBookingCustodyTrail
+    tags:
+      - Bookings
+    summary: Download the custody trail
+    description: >-
+      A PDF of the booking's chain of custody, to keep with the report (FR-RPT-11): issue, prints,
+      scans, receipt and decisions, as in the customer's timeline. Available once the report has
+      been released (`REPORT_RELEASED`, `DISPUTED`, `COMPLETED`). The download is logged. Who: the
+      owner or a `CUSTOMER_ADMIN` of the organisation.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The custody trail.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          Content-Disposition:
+            description: '`attachment`, with a file name made from the booking number.'
+            schema:
+              type: string
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: neither the owner nor a `CUSTOMER_ADMIN` of the organisation.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION`: the report has not been released yet.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+rating:
+  post:
+    operationId: rateBooking
+    tags:
+      - Bookings
+    summary: Rate the other party
+    description: >-
+      FR-SUP-01. The owner rates the lab (`CUSTOMER_TO_LAB`); a `LAB_CHECKER` of the site rates
+      the customer (`LAB_TO_CUSTOMER`), privately: the customer never sees it (TENANT_ISOLATION.md
+      §1). The direction comes from the caller's side. One rating per direction, which cannot be
+      changed. Only once the report has been released (`REPORT_RELEASED`, `DISPUTED`,
+      `COMPLETED`).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/bookings.yaml#/BookingRatingCreate'
+    responses:
+      '201':
+        description: Rated.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/bookings.yaml#/BookingRating'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: "`FORBIDDEN`: neither the owner nor a `LAB_CHECKER` of the booking's site."
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (the report has not been released), `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (including a second rating in the same direction),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
