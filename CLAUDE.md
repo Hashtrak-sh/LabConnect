@@ -8,9 +8,9 @@ LabConnect is a government-operated marketplace for discovering and booking accr
 
 ## 2. Current phase
 
-**Phase 1: domain model and database design review.** (Phase 0 is complete when this documentation pack is committed and the monorepo skeleton exists.)
+**Phase 2: API contracts and state machine.** Gate G1 (domain and database) passed on 2026-11-24.
 
-While Phase 1 and Phase 2 are open:
+While Phase 2 is open:
 - **Do not** build UI screens, visual design or styling.
 - **Do not** start the design phase (`docs/09-design-handoff/`) until gate **G2** is recorded as passed in `docs/08-project/ROADMAP.md`.
 - **Do** work on the domain model, Prisma schema, migrations, seed data, API contracts (OpenAPI), the state machine, and backend foundations, in the order given in the roadmap.

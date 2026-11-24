@@ -1,6 +1,6 @@
 # Master data management
 
-**Status:** DRAFT for gate G1. Covers FR-MDM-01..10 and FR-DAT-01..09.
+**Status:** Approved at gate G1 (2026-11-24). Covers FR-MDM-01..10 and FR-DAT-01..09.
 
 ## 1. Goals
 - Accreditation frameworks, categories, scope hierarchies and attributes can change **without code changes** to transactional tables.

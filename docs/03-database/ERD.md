@@ -1,6 +1,6 @@
 # Entity relationship diagrams
 
-**Status:** DRAFT for gate G1. The diagrams are split by area so they stay readable. Only key columns are shown. The full definitions are in `SCHEMA_SPECIFICATION.md`. GitHub renders Mermaid natively.
+**Status:** Approved at gate G1 (2026-11-24). The diagrams are split by area so they stay readable. Only key columns are shown. The full definitions are in `SCHEMA_SPECIFICATION.md`. GitHub renders Mermaid natively.
 
 ## 1. Overview
 

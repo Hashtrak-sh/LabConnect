@@ -1,6 +1,6 @@
 # Module boundaries
 
-**Status:** DRAFT for gate G1.
+**Status:** Approved at gate G1 (2026-11-24).
 
 Backend modules live in `apps/api/src/modules/<module>` (with worker handlers in `apps/worker/src/modules/<module>`). Each module owns its tables. Other modules **must not** read or write those tables directly. They call the owning module's exported service interface or react to its events. `dependency-cruiser` enforces this in CI.
 

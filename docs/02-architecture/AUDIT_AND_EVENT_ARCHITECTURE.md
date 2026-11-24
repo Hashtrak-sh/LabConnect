@@ -1,6 +1,6 @@
 # Audit and event architecture
 
-**Status:** DRAFT for gate G1.
+**Status:** Approved at gate G1 (2026-11-24).
 
 ## 1. Three records, three purposes
 

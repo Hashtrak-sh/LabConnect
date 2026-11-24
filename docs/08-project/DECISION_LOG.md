@@ -16,7 +16,7 @@ Template:
 ---
 
 ## ADR-001: Modular monolith with API + worker
-- Status: **Proposed** (G1) · Deciders: both developers
+- Status: **Accepted** (G1, 2026-11-24) · Deciders: both developers
 - Context: Two developers, an MVP at B2B scale (2k bookings/day peak), strong transactional consistency needs around bookings and money.
 - Decision: One NestJS codebase deployed as `api` and `worker` services, one PostgreSQL database, strict module boundaries enforced by lint, and integration through an outbox to SQS.
 - Alternatives: Microservices (operational overhead too high), a single process (timers and consumers would compete with HTTP).
@@ -33,12 +33,12 @@ Template:
 - Consequences: Contract PRs come before feature PRs (COLLABORATION_GUIDE §2).
 
 ## ADR-004: Prisma ORM with raw SQL migrations for advanced constraints
-- Status: **Proposed** (G1)
+- Status: **Accepted** (G1, 2026-11-24)
 - Decision: Prisma for models and queries. Raw SQL in migrations for CHECK constraints, partial indexes, triggers, PostGIS, RLS and partitions.
 - Consequences: Two migration sources in one folder. Drift checks in CI.
 
 ## ADR-005: PostgreSQL RLS as defence in depth for tenant isolation
-- Status: **Proposed** (G1). Spike P1-08 passed on 2026-11-24.
+- Status: **Accepted** (G1, 2026-11-24). Spike P1-08 passed on 2026-11-24.
 - Decision: Application-level scoping is primary. RLS uses `SET LOCAL app.*` inside per-request transactions, set by `withDbContext` in `packages/database`.
 - Spike result: with Prisma 7.10, the `pg` driver adapter and transaction-local settings, tenants stayed isolated across reused connections, under 600 concurrent units of work on a pool of 4, and through PgBouncer in transaction mode. The fallback (application scoping plus a nightly audit query) is not needed. Details and limits are in `TENANT_ISOLATION.md` §3.
 - Alternatives: App-level only (simpler, but a single bug leaks data), schema-per-tenant (doesn't fit shared booking rows).
@@ -55,7 +55,7 @@ Template:
 - Status: **Proposed** (G2). Postgres fallback implementation retained. Revisit if benchmarks show Postgres meets NFR-03.
 
 ## ADR-008: Database-backed timers processed by the worker
-- Status: **Proposed** (G1)
+- Status: **Accepted** (G1, 2026-11-24)
 - Decision: A `timer` table, `FOR UPDATE SKIP LOCKED` polling every 15 s, idempotent handlers that re-check state.
 - Alternatives: Temporal (powerful, but adds infrastructure), EventBridge Scheduler per timer (high cardinality, harder to test), SQS delay (maximum 15 min).
 - Consequences: Simple to test with a fake clock. Throughput is ample for the MVP.
@@ -72,7 +72,7 @@ Template:
 - Consequences: Precise permissions, simpler validation, clearer audit.
 
 ## ADR-012: Four platform roles
-- Status: **Proposed** (G1). `PLATFORM_OPS`, `PLATFORM_DATA_STEWARD`, `PLATFORM_FINANCE`, `PLATFORM_ADMIN`, to support four-eyes on master data and segregation of finance duties.
+- Status: **Accepted** (G1, 2026-11-24). `PLATFORM_OPS`, `PLATFORM_DATA_STEWARD`, `PLATFORM_FINANCE`, `PLATFORM_ADMIN`, to support four-eyes on master data and segregation of finance duties.
 
 ## ADR-013: OpenStreetMap-based maps via self-hosted tiles and geocoder
 - Status: **Proposed**, pending OQ-17. Provider interfaces allow switching (CD-34).
@@ -86,7 +86,7 @@ Template:
 - Status: **Proposed**. Alternative: Terraform. CDK chosen for a single-language codebase.
 
 ## ADR-016: Identifiers and money representation
-- Status: **Proposed** (G1). UUIDv7 primary keys generated in the application, separate human-readable references, integer paise for money, basis points for rates.
+- Status: **Accepted** (G1, 2026-11-24). UUIDv7 primary keys generated in the application, separate human-readable references, integer paise for money, basis points for rates.
 
 ## ADR-017: Branching model
 - Status: **Accepted** (product owner, Nov 2026). `production` (prod), `main` (UAT), `dev-lab`, `dev-customer`, optional feature branches. See GIT_WORKFLOW.

@@ -1,6 +1,6 @@
 # Roles and permissions
 
-**Status:** DRAFT for gate G1. Permission codes here are implemented in `packages/shared/src/permissions.ts` and enforced by API guards.
+**Status:** Approved at gate G1 (2026-11-24). Permission codes here are implemented in `packages/shared/src/permissions.ts` and enforced by API guards.
 
 ## 1. Roles
 
