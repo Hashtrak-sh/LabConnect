@@ -1,0 +1,641 @@
+# Custody and receipt at the lab counter (API_CONTRACTS.md §7, QR_AND_VERIFICATION.md §3 and §4,
+# BOOKING_STATE_MACHINE.md T-13 to T-17 and T-28, FILES_AND_REPORTS.md §1).
+# Lab operations only. The caller must be assigned to the booking's lab site (RR-3); any booking,
+# receipt, package or request outside the caller's organisation or sites is answered with 404.
+# Booking status changes only through the BookingEngine; the T-xx of each command is named.
+# Maker/Checker separation is enforced here and in the database: a Checker never decides a
+# record they created (CD-23).
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+scan:
+  post:
+    operationId: scanCustodyCode
+    tags:
+      - Custody
+    summary: Scan a QR or short code at the counter
+    description: >-
+      Validates a package or booking QR, or a label short code, and returns the booking, the TRF
+      summary and the expected package count (FR-LOG-06, FR-RPT-01). No booking transition.
+      Validation order (QR_AND_VERIFICATION §3): parse, the key id is known and its status allows
+      verification, KMS `VerifyMac`, the booking exists, the booking's site is `siteId`, the
+      booking is `HANDOVER_SET` (or `ON_HOLD` waiting for a replacement), and the package is
+      neither voided nor already received. Every outcome writes an append-only custody event:
+      `SCAN_ACCEPTED`, `MANUAL_LOOKUP` for a short code (a photo is then required with the
+      receipt), or `SCAN_REJECTED` with the reason. Duplicates: besides `Idempotency-Key`, a scan
+      is identified by `deviceId` and `clientSeq`, unique in `custody_event`. A repeat of a
+      recorded pair returns the outcome already recorded and writes no second event; a repeat of
+      the pair with a different code or time is refused. Who: `LAB_MAKER` assigned to `siteId`
+      (`receipt.record`).
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/custody.yaml#/CustodyScanRequest'
+    responses:
+      '200':
+        description: The scan was accepted.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/custody.yaml#/CustodyScanResult'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not a lab Maker.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: >-
+          `NOT_FOUND`: `siteId` is not one of the caller's sites, no active package has the short
+          code, or no booking has the number in a correctly signed QR.
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the booking is not waiting for a drop or a replacement
+          (`meta.currentState`). `PACKAGE_ALREADY_RECEIVED` (BR-044). `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `QR_INVALID_SIGNATURE`: tampered payload, unknown or retired key. `QR_WRONG_SITE`: the
+          booking belongs to another site (BR-043, EC-27); `meta.intendedSite` has that site's
+          public name and address only (`CustodyIntendedSite`). `PACKAGE_VOIDED`: an old label
+          version. `VALIDATION_FAILED`: the payload cannot be parsed, or the body is invalid.
+          `IDEMPOTENCY_KEY_REUSED`: the key, or the `deviceId` and `clientSeq` pair, was used with
+          a different body.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+scan-batch:
+  post:
+    operationId: syncCustodyScanBatch
+    tags:
+      - Custody
+    summary: Sync a device's offline scans
+    description: >-
+      Uploads the offline scan queue of one device (QR_AND_VERIFICATION §4, EC-50). No booking
+      transition. The server processes the scans in ascending `clientSeq` order, each exactly as
+      the single scan endpoint would, and answers each one: an accepted result or the error that
+      scan gets. Every scan writes its custody event with `clientRecordedAt`, and a gap of more
+      than 15 minutes between device time and server time sets `clockSkewFlag`. Duplicates: the
+      `Idempotency-Key` covers the whole request; each scan is also identified by `deviceId` and
+      `clientSeq`, unique in `custody_event`, so a scan already recorded (for example by an
+      interrupted earlier sync) gets its recorded outcome and writes no second event. Offline
+      scans are provisional until this response. Who: `LAB_MAKER` assigned to `siteId`
+      (`receipt.record`).
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/custody.yaml#/CustodyScanBatchRequest'
+    responses:
+      '200':
+        description: One outcome per queued scan. Some scans may have been refused.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/custody.yaml#/CustodyScanBatchResult'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not a lab Maker.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: `siteId` is not one of the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED`, for example two scans with the same `clientSeq`.
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+receipt-photo-upload-url:
+  post:
+    operationId: createReceiptPhotoUploadUrl
+    tags:
+      - Custody
+    summary: Get an upload URL for a receipt photo
+    description: >-
+      Creates a pending file (purpose `RECEIPT_PHOTO`) and returns a 15-minute pre-signed PUT into
+      quarantine (FILES_AND_REPORTS §1, FR-RPT-02). The file never passes through the API. It can
+      be attached to a receipt once the malware scan and validation mark it `CLEAN`. No booking
+      transition. Who: `LAB_MAKER` of the booking's site (`receipt.record`), while a receipt can
+      be recorded (`HANDOVER_SET`, or `ON_HOLD` waiting for a replacement).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The booking.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/custody.yaml#/ReceiptPhotoUploadUrlRequest'
+    responses:
+      '201':
+        description: The upload URL.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/custody.yaml#/ReceiptPhotoUploadUrl'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not a lab Maker.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: no receipt can be recorded in the booking's state
+          (`meta.currentState`). `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED`: type not allowed or larger than 10 MB. `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+receipts:
+  post:
+    operationId: submitReceipt
+    tags:
+      - Custody
+    summary: Submit a receipt record
+    description: >-
+      Records what was handed over: time, count, condition, checks, photos and discrepancy
+      (FR-LOG-07, FR-RPT-02). Transition T-13 `SubmitReceipt` (HANDOVER_SET → SAMPLE_RECORDED), or
+      T-17 `SubmitReplacementReceipt` (ON_HOLD → SAMPLE_RECORDED) after the customer chose to
+      replace the sample; a replacement is a new receipt record with the next version number.
+      Guards: every listed package was identified at this booking's site by the listed
+      `SCAN_ACCEPTED` or `MANUAL_LOOKUP` event and is not in another receipt record (T-13 needs at
+      least one); for a replacement, the packages are new or top-up packages. The booking's
+      declared package count is copied into the record. Effects: custody event
+      `RECEIPT_SUBMITTED`, timer `RECEIPT_APPROVAL_REMINDER`. The record then waits for a Checker
+      other than its Maker; it is never decided automatically (EC-54). `If-Match` carries the
+      booking's ETag (the scan result's `booking.lockVersion`); the response's `ETag` is the
+      receipt record's. Who: `LAB_MAKER` of the booking's site (`receipt.record`).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The booking.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/custody.yaml#/ReceiptSubmit'
+    responses:
+      '201':
+        description: Recorded. The booking is SAMPLE_RECORDED.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/custody.yaml#/ReceiptRecord'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not a lab Maker.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the booking is not HANDOVER_SET or ON_HOLD waiting for a
+          replacement, is frozen (EC-01), or already has a receipt record waiting for a decision
+          (`meta.currentState`). `PACKAGE_ALREADY_RECEIVED`. `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`: the booking changed since it was read.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED`, for example a package without a matching scan event at this site, a
+          condition code that is not in the SAMPLE_CONDITION taxonomy, or no photo where one is
+          required. `FILE_NOT_CLEAN`: a photo is not (yet) `CLEAN`. `PACKAGE_VOIDED`: a listed
+          label was voided after the scan. `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+receipt-approve:
+  post:
+    operationId: approveReceipt
+    tags:
+      - Custody
+    summary: Approve a receipt
+    description: >-
+      Accepts the sample and assigns the lab sample id (FR-RPT-03). Transition T-14
+      `ApproveReceipt` (SAMPLE_RECORDED → RECEIVED). Maker ≠ Checker: the caller must not be the
+      record's Maker (CD-23, also a database CHECK). Effects: the record's decision is `APPROVED`
+      and it becomes immutable; the packages are RECEIVED with the lab sample id; `retain_until`
+      is set (BR-049); custody event `RECEIPT_APPROVED`. Platform staff can never approve on the
+      lab's behalf (RR-7). Who: `LAB_CHECKER` of the booking's site (`receipt.approve`).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The receipt record.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/custody.yaml#/ReceiptApprove'
+    responses:
+      '200':
+        description: Approved. The booking is RECEIVED.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/custody.yaml#/ReceiptRecord'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `SELF_APPROVAL_FORBIDDEN`: the caller is the record's Maker. `FORBIDDEN`: the caller is
+          not a lab Checker.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such receipt record at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the record is already decided or the booking is not
+          SAMPLE_RECORDED (`meta.currentState`). `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+receipt-confirm-discrepancy:
+  post:
+    operationId: confirmReceiptDiscrepancy
+    tags:
+      - Custody
+    summary: Confirm a receipt discrepancy
+    description: >-
+      Puts the booking on hold for the customer's decision (FR-RPT-03, EC-25, EC-29, EC-33,
+      EC-34). Transition T-15 `ConfirmDiscrepancy` (SAMPLE_RECORDED → ON_HOLD). Maker ≠ Checker:
+      the caller must not be the record's Maker (CD-23). A reason is required. Effects: the
+      record's decision is `HOLD_CONFIRMED`, with the lab sample id; a hold case opens with the
+      customer's decision due in 24 h (BR-046, timer `HOLD_DECISION_DUE`); custody event
+      `RECEIPT_ON_HOLD`. The customer then decides through the booking's hold decision
+      (API_CONTRACTS §4). Who: `LAB_CHECKER` of the booking's site (`receipt.approve`).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The receipt record.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/custody.yaml#/ReceiptConfirmDiscrepancy'
+    responses:
+      '200':
+        description: On hold. The booking is ON_HOLD and `holdCase` is set.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/custody.yaml#/ReceiptRecord'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `SELF_APPROVAL_FORBIDDEN`: the caller is the record's Maker. `FORBIDDEN`: the caller is
+          not a lab Checker.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such receipt record at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the record is already decided or the booking is not
+          SAMPLE_RECORDED (`meta.currentState`). `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED`, for example a reason that is not in the HOLD_REASON taxonomy.
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+receipt-reject-unfit:
+  post:
+    operationId: rejectUnfitSample
+    tags:
+      - Custody
+    summary: Reject the sample as unfit
+    description: >-
+      Rejects a sample that cannot be tested (EC-35). Transition T-28 `RejectSample`
+      (SAMPLE_RECORDED → CANCELLED). Maker ≠ Checker: the caller must not be the record's Maker
+      (CD-23). A reason is required. Effects: the record's decision is `REJECTED_UNFIT`; the
+      booking is cancelled by the lab for an unfit sample; custody event `SAMPLE_REJECTED`; refund
+      of the total minus the handling fee (BR-076); the slot hold is released. The permission
+      matrix has no row for this command, so `receipt.approve` guards it (OQ-37). Who:
+      `LAB_CHECKER` of the booking's site.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The receipt record.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/custody.yaml#/ReceiptRejectUnfit'
+    responses:
+      '200':
+        description: Rejected. The booking is CANCELLED.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/custody.yaml#/ReceiptRecord'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `SELF_APPROVAL_FORBIDDEN`: the caller is the record's Maker. `FORBIDDEN`: the caller is
+          not a lab Checker.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such receipt record at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the record is already decided or the booking is not
+          SAMPLE_RECORDED (`meta.currentState`). `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+package-reprint-requests:
+  post:
+    operationId: requestLabelReprint
+    tags:
+      - Custody
+    summary: Request a label reprint
+    description: >-
+      Asks a Checker to void a package label and issue a new label version, for a QR that is
+      missing, damaged or unreadable (EC-26, FR-LOG-09). No booking transition. The package must
+      be `ISSUED` with no other pending request, and the booking `HANDOVER_SET` or `ON_HOLD`. The
+      site's Checkers are notified (`label.reprint_requested`). Nothing is voided until a Checker
+      approves. Who: `LAB_MAKER` of the booking's site (`label.print`).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The package.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/custody.yaml#/LabelReprintRequestCreate'
+    responses:
+      '201':
+        description: Requested. The request is `PENDING`.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/custody.yaml#/LabelReprintRequest'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not a lab Maker.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such package at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the booking's state does not allow it, or a request for the
+          package is already pending (`meta.currentState`). `PACKAGE_ALREADY_RECEIVED`.
+          `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `PACKAGE_VOIDED`: the label is already void. `VALIDATION_FAILED`,
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+reprint-request-approve:
+  post:
+    operationId: approveLabelReprint
+    tags:
+      - Custody
+    summary: Approve a label reprint
+    description: >-
+      Voids the package's current label and issues the next label version (EC-26, BR-044). No
+      booking transition. Maker ≠ Checker: the caller must not be the user who requested the
+      reprint (CD-23, also a database CHECK on `label_print`). In one transaction: the old label
+      becomes `VOIDED`, so a later scan of it returns `PACKAGE_VOIDED`; a new `ISSUED` label
+      version gets a new short code and a QR signed with the active package key; custody events
+      `LABEL_VOIDED` and `LABEL_REPRINTED`; audit record. The new label is then printed through
+      the booking's labels (API_CONTRACTS §4), and the print is logged. Who: `LAB_CHECKER` of the
+      booking's site (`label_reprint.approve`).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The reprint request.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Approved. `newPackage` is the new label version.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/custody.yaml#/LabelReprintRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `SELF_APPROVAL_FORBIDDEN`: the caller requested the reprint. `FORBIDDEN`: the caller is
+          not a lab Checker.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such reprint request at the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the request is not pending (`meta.currentState`).
+          `PACKAGE_ALREADY_RECEIVED`: the package was received meanwhile. `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

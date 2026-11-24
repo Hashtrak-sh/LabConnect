@@ -43,6 +43,13 @@ tags:
     description: Price-list drafts, bulk import with preview, and publication.
   - name: Lab inbox
     description: Bookings and approvals waiting for the lab's Makers and Checkers.
+  - name: Custody
+    description: >-
+      QR and short-code scans at the lab counter, receipt records and their Checker decisions,
+      label reprints.
+  - name: Reports
+    description: >-
+      Report versions, review and publication, the report view, downloads and share links.
   - name: Health
     description: Platform liveness.
 
@@ -193,6 +200,44 @@ paths:
     $ref: './paths/lab-price-lists.yaml#/price-list-discard'
   /lab/inbox:
     $ref: './paths/lab-inbox.yaml#/inbox'
+  # Custody and receipt (API_CONTRACTS.md §7)
+  /custody/scan:
+    $ref: './paths/custody.yaml#/scan'
+  /custody/scan-batch:
+    $ref: './paths/custody.yaml#/scan-batch'
+  /bookings/{id}/receipts/photos/upload-url:
+    $ref: './paths/custody.yaml#/receipt-photo-upload-url'
+  /bookings/{id}/receipts:
+    $ref: './paths/custody.yaml#/receipts'
+  /receipts/{id}/approve:
+    $ref: './paths/custody.yaml#/receipt-approve'
+  /receipts/{id}/confirm-discrepancy:
+    $ref: './paths/custody.yaml#/receipt-confirm-discrepancy'
+  /receipts/{id}/reject-unfit:
+    $ref: './paths/custody.yaml#/receipt-reject-unfit'
+  /packages/{id}/reprint-requests:
+    $ref: './paths/custody.yaml#/package-reprint-requests'
+  /reprint-requests/{id}/approve:
+    $ref: './paths/custody.yaml#/reprint-request-approve'
+  # Reports (API_CONTRACTS.md §8)
+  /bookings/{id}/report-versions/upload-url:
+    $ref: './paths/reports.yaml#/report-upload-url'
+  /bookings/{id}/report-versions:
+    $ref: './paths/reports.yaml#/report-versions'
+  /report-versions/{id}/submit:
+    $ref: './paths/reports.yaml#/report-version-submit'
+  /report-versions/{id}/return:
+    $ref: './paths/reports.yaml#/report-version-return'
+  /report-versions/{id}/publish:
+    $ref: './paths/reports.yaml#/report-version-publish'
+  /bookings/{id}/report:
+    $ref: './paths/reports.yaml#/booking-report'
+  /report-versions/{id}/download-url:
+    $ref: './paths/reports.yaml#/report-version-download-url'
+  /report-versions/{id}/share-links:
+    $ref: './paths/reports.yaml#/report-version-share-links'
+  /report-versions/{id}/share-links/{linkId}:
+    $ref: './paths/reports.yaml#/report-version-share-link'
   # Platform
   /health:
     $ref: './paths/health.yaml#/health'
@@ -413,11 +458,115 @@ components:
       $ref: './components/schemas/disputes.yaml#/DisputeUploadUrl'
     Dispute:
       $ref: './components/schemas/disputes.yaml#/Dispute'
+    BookingStatus:
+      $ref: './components/schemas/enums.yaml#/BookingStatus'
+    BookingLineStatus:
+      $ref: './components/schemas/enums.yaml#/BookingLineStatus'
+    PackageStatus:
+      $ref: './components/schemas/enums.yaml#/PackageStatus'
+    CustodyScanEventType:
+      $ref: './components/schemas/enums.yaml#/CustodyScanEventType'
+    ReceiptDecision:
+      $ref: './components/schemas/enums.yaml#/ReceiptDecision'
+    ReportStatus:
+      $ref: './components/schemas/enums.yaml#/ReportStatus'
+    ReportVersionStatus:
+      $ref: './components/schemas/enums.yaml#/ReportVersionStatus'
+    ConformityResult:
+      $ref: './components/schemas/enums.yaml#/ConformityResult'
+    CustodyQrPayload:
+      $ref: './components/schemas/custody.yaml#/CustodyQrPayload'
+    CustodyShortCode:
+      $ref: './components/schemas/custody.yaml#/CustodyShortCode'
+    CustodyDeviceId:
+      $ref: './components/schemas/custody.yaml#/CustodyDeviceId'
+    CustodyClientSeq:
+      $ref: './components/schemas/custody.yaml#/CustodyClientSeq'
+    CustodyScanRequest:
+      $ref: './components/schemas/custody.yaml#/CustodyScanRequest'
+    CustodyBookingSummary:
+      $ref: './components/schemas/custody.yaml#/CustodyBookingSummary'
+    CustodyPackageSummary:
+      $ref: './components/schemas/custody.yaml#/CustodyPackageSummary'
+    CustodyTrfLine:
+      $ref: './components/schemas/custody.yaml#/CustodyTrfLine'
+    CustodyTrfSummary:
+      $ref: './components/schemas/custody.yaml#/CustodyTrfSummary'
+    CustodyScanEvent:
+      $ref: './components/schemas/custody.yaml#/CustodyScanEvent'
+    CustodyScanResult:
+      $ref: './components/schemas/custody.yaml#/CustodyScanResult'
+    CustodyScanBatchItem:
+      $ref: './components/schemas/custody.yaml#/CustodyScanBatchItem'
+    CustodyScanBatchRequest:
+      $ref: './components/schemas/custody.yaml#/CustodyScanBatchRequest'
+    CustodyScanBatchError:
+      $ref: './components/schemas/custody.yaml#/CustodyScanBatchError'
+    CustodyScanBatchItemResult:
+      $ref: './components/schemas/custody.yaml#/CustodyScanBatchItemResult'
+    CustodyScanBatchResult:
+      $ref: './components/schemas/custody.yaml#/CustodyScanBatchResult'
+    CustodyIntendedSite:
+      $ref: './components/schemas/custody.yaml#/CustodyIntendedSite'
+    ReceiptPhotoUploadUrlRequest:
+      $ref: './components/schemas/custody.yaml#/ReceiptPhotoUploadUrlRequest'
+    ReceiptPhotoUploadUrl:
+      $ref: './components/schemas/custody.yaml#/ReceiptPhotoUploadUrl'
+    ReceiptPackageInput:
+      $ref: './components/schemas/custody.yaml#/ReceiptPackageInput'
+    ReceiptSubmit:
+      $ref: './components/schemas/custody.yaml#/ReceiptSubmit'
+    ReceiptPackage:
+      $ref: './components/schemas/custody.yaml#/ReceiptPackage'
+    ReceiptHoldCase:
+      $ref: './components/schemas/custody.yaml#/ReceiptHoldCase'
+    ReceiptRecord:
+      $ref: './components/schemas/custody.yaml#/ReceiptRecord'
+    LabSampleId:
+      $ref: './components/schemas/custody.yaml#/LabSampleId'
+    ReceiptApprove:
+      $ref: './components/schemas/custody.yaml#/ReceiptApprove'
+    ReceiptConfirmDiscrepancy:
+      $ref: './components/schemas/custody.yaml#/ReceiptConfirmDiscrepancy'
+    ReceiptRejectUnfit:
+      $ref: './components/schemas/custody.yaml#/ReceiptRejectUnfit'
+    LabelReprintRequestStatus:
+      $ref: './components/schemas/custody.yaml#/LabelReprintRequestStatus'
+    LabelReprintRequestCreate:
+      $ref: './components/schemas/custody.yaml#/LabelReprintRequestCreate'
+    LabelReprintRequest:
+      $ref: './components/schemas/custody.yaml#/LabelReprintRequest'
+    ReportUploadUrlRequest:
+      $ref: './components/schemas/reports.yaml#/ReportUploadUrlRequest'
+    ReportUploadUrl:
+      $ref: './components/schemas/reports.yaml#/ReportUploadUrl'
+    ReportParameterResult:
+      $ref: './components/schemas/reports.yaml#/ReportParameterResult'
+    ReportVersionCreate:
+      $ref: './components/schemas/reports.yaml#/ReportVersionCreate'
+    ReportVersion:
+      $ref: './components/schemas/reports.yaml#/ReportVersion'
+    ReportReturn:
+      $ref: './components/schemas/reports.yaml#/ReportReturn'
+    ReportShareLink:
+      $ref: './components/schemas/reports.yaml#/ReportShareLink'
+    CustomerReportVersion:
+      $ref: './components/schemas/reports.yaml#/CustomerReportVersion'
+    LabReportView:
+      $ref: './components/schemas/reports.yaml#/LabReportView'
+    CustomerReportView:
+      $ref: './components/schemas/reports.yaml#/CustomerReportView'
+    ReportView:
+      $ref: './components/schemas/reports.yaml#/ReportView'
+    ReportDownloadUrl:
+      $ref: './components/schemas/reports.yaml#/ReportDownloadUrl'
+    ReportShareLinkCreate:
+      $ref: './components/schemas/reports.yaml#/ReportShareLinkCreate'
+    ReportShareLinkCreated:
+      $ref: './components/schemas/reports.yaml#/ReportShareLinkCreated'
     HealthStatus:
       $ref: './components/schemas/health.yaml#/HealthStatus'
     # Lab (P2-04)
-    BookingStatus:
-      $ref: './components/schemas/enums.yaml#/BookingStatus'
     ClaimStatus:
       $ref: './components/schemas/enums.yaml#/ClaimStatus'
     VerificationStatus:

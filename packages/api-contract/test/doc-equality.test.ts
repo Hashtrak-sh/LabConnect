@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { allowedKeys, compareWithContract, parseSection } from './catalogue.js';
-import { listOperations, loadBundledDocument, parametersOf, readRepoFile } from './helpers.js';
+import {
+  allowedKeys,
+  compareWithContract,
+  firstTable,
+  parseRow,
+  parseSection,
+} from './catalogue.js';
+import {
+  listOperations,
+  loadBundledDocument,
+  markdownSection,
+  parametersOf,
+  readRepoFile,
+  transitionIds,
+} from './helpers.js';
 
 // API_CONTRACTS.md is the endpoint catalogue. Each section listed here must match the contract
 // in both directions: every row exists in the contract, and the contract has no operation under
@@ -15,6 +28,8 @@ const coveredSections: [heading: string, rows: number, operations: number][] = [
   ['## 5. Payments', 6, 6],
   ['## 9. Disputes', 4, 6],
   ['## 6. Lab', 19, 41],
+  ['## 7. Custody and receipt', 8, 9],
+  ['## 8. Reports', 8, 11],
 ];
 
 const markdown = readRepoFile('docs/04-api/API_CONTRACTS.md');
@@ -49,6 +64,29 @@ describe('API_CONTRACTS.md and the contract', () => {
         for (const name of group.queryNames) expect(names, key).toContain(name);
       }
     }
+  });
+
+  it('names in its operations every transition a row of a covered section lists', () => {
+    // Per row: each T-xx of the Transition column appears in the description of at least one
+    // operation the row allows (`T-07 / T-08` may be split across two operations).
+    const missing: string[] = [];
+    for (const [heading] of coveredSections) {
+      const { header, rows } = firstTable(markdownSection(markdown, heading));
+      const [m, p, t] = ['Method', 'Path', 'Transition'].map((name) => header.indexOf(name));
+      if (m === undefined || p === undefined || t === undefined || t === -1) continue;
+      for (const row of rows) {
+        const listed = transitionIds(row[t] ?? '');
+        if (listed.length === 0) continue;
+        const keys = new Set(parseRow(row[m] ?? '', row[p] ?? '').flatMap(allowedKeys));
+        const named = new Set(
+          operations
+            .filter((o) => keys.has(o.key))
+            .flatMap((o) => transitionIds(o.operation.description ?? '')),
+        );
+        for (const id of listed) if (!named.has(id)) missing.push(`${row[p] ?? ''}: ${id}`);
+      }
+    }
+    expect(missing).toEqual([]);
   });
 
   it('keeps the health endpoint that apps/api serves', () => {

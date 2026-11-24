@@ -34,6 +34,7 @@ export interface Response {
 }
 export interface Operation {
   operationId?: string;
+  description?: string;
   tags?: string[];
   security?: Record<string, string[]>[];
   parameters?: (Parameter | Ref)[];
@@ -127,6 +128,20 @@ export function tableRows(lines: string[]): string[][] {
     );
   // Drop the header row and the separator row.
   return rows.slice(2);
+}
+
+/**
+ * Booking transition ids (BOOKING_STATE_MACHINE.md §3) named in a text, in order of appearance:
+ * `T-13 / T-17` → T-13, T-17; `T-25/26/27` → T-25, T-26, T-27.
+ */
+export function transitionIds(text: string): string[] {
+  return [...text.matchAll(/\bT-(\d{2})((?:\/\d{2})*)/g)].flatMap((m) => [
+    `T-${m[1] ?? ''}`,
+    ...(m[2] ?? '')
+      .split('/')
+      .filter((n) => n !== '')
+      .map((n) => `T-${n}`),
+  ]);
 }
 
 /** Backticked tokens in a markdown cell or description. */

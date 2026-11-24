@@ -364,3 +364,82 @@ LabScopeProposalOperation:
     - UPDATE
     - DEACTIVATE
     - REACTIVATE
+
+# --- P2-05: custody, receipt and reports (API_CONTRACTS.md §7 and §8) ---
+
+BookingLineStatus:
+  type: string
+  description: >-
+    Status of a booking line (BOOKING_STATE_MACHINE §4). A `CANCELLED` line cannot carry a report
+    result (BR-061).
+  enum:
+    - NOT_STARTED
+    - IN_PROGRESS
+    - DONE
+    - CANCELLED
+
+PackageStatus:
+  type: string
+  description: >-
+    Status of one package label (BOOKING_STATE_MACHINE §4): `ISSUED → RECEIVED | MISSING |
+    VOIDED`. A reprint voids the label and issues a new `ISSUED` label version (BR-044).
+  enum:
+    - ISSUED
+    - RECEIVED
+    - MISSING
+    - VOIDED
+
+CustodyScanEventType:
+  type: string
+  description: >-
+    The custody event a successful counter scan writes (QR_AND_VERIFICATION §3). A subset of the
+    database enum `CustodyEventType`: `SCAN_ACCEPTED` for a QR scan, `MANUAL_LOOKUP` for the
+    short-code fallback (a photo is then required with the receipt). A refused scan writes
+    `SCAN_REJECTED` and is answered with an error.
+  enum:
+    - SCAN_ACCEPTED
+    - MANUAL_LOOKUP
+
+ReceiptDecision:
+  type: string
+  description: >-
+    The Checker's decision on a receipt record (BOOKING_STATE_MACHINE §4): approved (T-14),
+    discrepancy confirmed (T-15) or sample rejected as unfit (T-28). `null` while the record waits
+    for a Checker.
+  enum:
+    - APPROVED
+    - HOLD_CONFIRMED
+    - REJECTED_UNFIT
+
+ReportStatus:
+  type: string
+  description: >-
+    Status of a booking's report across its versions (SCHEMA_SPECIFICATION §9.1).
+  enum:
+    - IN_PROGRESS
+    - RELEASED
+    - AMENDMENT_IN_PROGRESS
+
+ReportVersionStatus:
+  type: string
+  description: >-
+    Status of one report version (BOOKING_STATE_MACHINE §4, FILES_AND_REPORTS §3): `DRAFT →
+    IN_REVIEW → RETURNED | RELEASED`, `RELEASED → SUPERSEDED`. A released version is immutable; a
+    correction is a new version.
+  enum:
+    - DRAFT
+    - IN_REVIEW
+    - RETURNED
+    - RELEASED
+    - SUPERSEDED
+
+ConformityResult:
+  type: string
+  description: >-
+    Statement of conformity for one booked parameter in a report version (FR-RPT-05,
+    SCHEMA_SPECIFICATION §9.3).
+  enum:
+    - CONFORMS
+    - DOES_NOT_CONFORM
+    - NOT_STATED
+    - NOT_APPLICABLE
