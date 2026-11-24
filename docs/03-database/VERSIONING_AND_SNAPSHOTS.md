@@ -1,6 +1,6 @@
 # Versioning and historical snapshots
 
-**Status:** DRAFT for gate G1.
+**Status:** Approved at gate G1 (2026-11-24).
 
 ## 1. Three versioning patterns
 
