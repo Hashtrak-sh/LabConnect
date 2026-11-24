@@ -38,6 +38,8 @@ P0-08 note: the PDF (v1.0, May 2024) has no colour codes, clear-space values or 
 
 P1-03 to P1-07 are implemented together on `feature/P1-03-database-schema` (the Prisma schema for all 101 tables and seven migrations) and marked done when that PR merges. P1-09: the suite exists with 91 tests and covers every registered constraint; A reviews it and extends it. P1-08: the spike passed and is on `feature/P1-08-rls-spike`; done when that PR merges. P1-10 and P1-11 are implemented on `feature/P1-10-seeds-and-factories` and marked done when that PR merges; H did them at the owner's request, and A reviews them. `seed:load` is not part of P1-10 and is not built.
 
+Single-developer period (from 2026-11-24): A is not working on the project for now. H reviews and decides alone until A starts; tasks led by A are done by H. OQ-24 to OQ-32 were settled on that basis with their defaults (`RISKS_AND_OPEN_QUESTIONS.md`). P1-12 (G1) stays open until the schema PRs are on `main`.
+
 ## Phase 2: API contracts (gate G2)
 | ID | Task | Owner | Depends | Status |
 |---|---|---|---|---|
