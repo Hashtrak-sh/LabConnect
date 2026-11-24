@@ -1,0 +1,91 @@
+# Public report verification and share links (API_CONTRACTS.md §2, QR_AND_VERIFICATION.md §5,
+# FILES_AND_REPORTS.md §4). No authentication (`/v1/public`, API_CONVENTIONS §2).
+# The verification code and the share token are in the path because the catalogue puts them
+# there. Both are random server-side keys, not personal data.
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+verify:
+  get:
+    operationId: verifyReport
+    tags:
+      - Verification
+    summary: Verify a report
+    description: >-
+      Backs the public verification page `/v/<code>` (FR-RPT-08, CD-17): the result and limited
+      metadata of the report version, never the PDF or any download, and nothing about the
+      customer, item, batch, results or contacts. The "compare a copy" check runs in the browser
+      against `stampedSha256`; no file is uploaded. Every lookup is recorded as a
+      `verification_event` with a hashed IP (QR_AND_VERIFICATION §5). Rate limit: 30 per minute
+      per IP (API_CONVENTIONS §7).
+    security: []
+    parameters:
+      - name: verificationCode
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/verification.yaml#/VerificationCode'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: >-
+          The verification result. An unknown code, or the code of a version that is not
+          released, is answered here with the result "not found" rather than with a 404, because
+          "Not found" is one of the results the page shows.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/verification.yaml#/ReportVerification'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`: the code does not have the verification-code format.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED` (30 per minute per IP).'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+share:
+  get:
+    operationId: resolveShareLink
+    tags:
+      - Verification
+    summary: Resolve a share link
+    description: >-
+      Exchanges a share-link token for a 15-minute download URL of the stamped copy (FR-RPT-10,
+      BR-066, FILES_AND_REPORTS §4). The token is 256 random bits; only its hash is stored. Each
+      resolution increments the link's access counter and is logged in `report_access_log`
+      (`SHARE_LINK_DOWNLOAD`).
+    security: []
+    parameters:
+      - name: token
+        in: path
+        required: true
+        description: The share-link token as issued when the link was created.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A download URL.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/verification.yaml#/ShareLinkResolution'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: >-
+          `NOT_FOUND`: unknown, expired or revoked link (AC-RPT-10). The three cases are not told
+          apart.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

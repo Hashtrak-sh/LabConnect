@@ -1,78 +1,50 @@
 import { describe, expect, it } from 'vitest';
-import {
-  listOperations,
-  loadBundledDocument,
-  markdownSection,
-  parametersOf,
-  readRepoFile,
-  tableRows,
-} from './helpers.js';
+import { allowedKeys, compareWithContract, parseSection } from './catalogue.js';
+import { listOperations, loadBundledDocument, parametersOf, readRepoFile } from './helpers.js';
 
-// API_CONTRACTS.md §1 is the catalogue for auth and identity. Every row must exist in the
-// contract, and the contract must not add /auth or /me operations the catalogue lacks.
+// API_CONTRACTS.md is the endpoint catalogue. Each section listed here must match the contract
+// in both directions: every row exists in the contract, and the contract has no operation under
+// a first path segment of a covered section (`/auth`, `/me`, `/public`, …) that no covered row
+// allows. How cells are read is in catalogue.ts and pinned by catalogue.test.ts.
+//
+// To cover another section, add one line: its heading prefix, its number of table rows, and the
+// number of `METHOD /path` combinations its rows allow. A wrong count fails with the real one.
+const coveredSections: [heading: string, rows: number, operations: number][] = [
+  ['## 1. Auth and identity', 10, 14],
+  ['## 2. Public', 10, 10],
+];
 
-interface DocEntry {
-  key: string;
-  queryNames: string[];
-}
-
-/**
- * Reads the §1 table. A method cell may list several methods (`GET/PATCH`). A path cell may
- * list several paths separated by `·`; a path may carry its own method (`POST /x`) and a query
- * string (`/x?unread=true`).
- */
-function documentedAuthOperations(): { rows: number; entries: DocEntry[] } {
-  const markdown = readRepoFile('docs/04-api/API_CONTRACTS.md');
-  const rows = tableRows(markdownSection(markdown, '## 1. Auth and identity'));
-  const entries: DocEntry[] = [];
-  for (const [methodCell = '', pathCell = ''] of rows) {
-    const rowMethods = methodCell.split('/').map((m) => m.trim());
-    for (const part of pathCell.split('·')) {
-      const match = /^(?:([A-Z/]+)\s+)?`([^`]+)`$/.exec(part.trim());
-      if (!match?.[2]) throw new Error(`Cannot parse path cell part: "${part}"`);
-      const methods = match[1] ? match[1].split('/') : rowMethods;
-      const [path = '', query] = match[2].split('?');
-      const queryNames = query ? query.split('&').map((pair) => pair.split('=')[0] ?? '') : [];
-      for (const method of methods) entries.push({ key: `${method} ${path}`, queryNames });
-    }
-  }
-  return { rows: rows.length, entries };
-}
-
+const markdown = readRepoFile('docs/04-api/API_CONTRACTS.md');
+const sections = coveredSections.map(([heading]) => parseSection(markdown, heading));
 const doc = loadBundledDocument();
 const operations = listOperations(doc);
-const documented = documentedAuthOperations();
 
-describe('API_CONTRACTS.md §1 and the contract', () => {
-  it('parses the catalogue table', () => {
-    // 10 rows expand to 14 operations. A change here means the table changed: review the contract.
-    expect(documented.rows).toBe(10);
-    expect(documented.entries).toHaveLength(14);
+describe('API_CONTRACTS.md and the contract', () => {
+  it.each(coveredSections)('parses the table of "%s"', (heading, rows, combinations) => {
+    // A change here means the table changed: review the contract against it.
+    const section = sections.find((s) => s.heading === heading);
+    expect(section?.rows).toBe(rows);
+    expect(new Set(section?.groups.flatMap(allowedKeys)).size).toBe(combinations);
   });
 
-  it('has every documented operation', () => {
-    const inContract = new Set(operations.map((o) => o.key));
-    const missing = documented.entries.map((e) => e.key).filter((k) => !inContract.has(k));
-    expect(missing).toEqual([]);
-  });
-
-  it('has no /auth or /me operation that the catalogue does not list', () => {
-    const inDoc = new Set(documented.entries.map((e) => e.key));
-    const extra = operations
-      .filter((o) => /^\/(auth|me)(\/|$)/.test(o.path))
-      .map((o) => o.key)
-      .filter((k) => !inDoc.has(k));
-    expect(extra).toEqual([]);
+  it('has every documented operation and no undocumented one', () => {
+    const { missing, extra } = compareWithContract(
+      sections,
+      operations.map((o) => o.key),
+    );
+    expect({ missing, extra }).toEqual({ missing: [], extra: [] });
   });
 
   it('declares the query parameters the catalogue shows', () => {
-    for (const entry of documented.entries) {
-      const op = operations.find((o) => o.key === entry.key);
-      if (!op) continue; // reported by the test above
-      const names = parametersOf(doc, op.operation)
-        .filter((p) => p.in === 'query')
-        .map((p) => p.name);
-      for (const name of entry.queryNames) expect(names, entry.key).toContain(name);
+    for (const group of sections.flatMap((s) => s.groups)) {
+      for (const key of allowedKeys(group)) {
+        const op = operations.find((o) => o.key === key);
+        if (!op) continue; // reported by the test above
+        const names = parametersOf(doc, op.operation)
+          .filter((p) => p.in === 'query')
+          .map((p) => p.name);
+        for (const name of group.queryNames) expect(names, key).toContain(name);
+      }
     }
   });
 

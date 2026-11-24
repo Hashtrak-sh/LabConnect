@@ -9,6 +9,7 @@ import {
   readRepoFile,
   resolve,
   type Response,
+  type Schema,
   tableRows,
 } from './helpers.js';
 
@@ -142,6 +143,51 @@ describe('operations', () => {
     expect(missing).toEqual([]);
   });
 
+  it('under /public need no authentication and take no membership (API_CONVENTIONS §2)', () => {
+    for (const { key, path, operation } of operations.filter((o) =>
+      o.path.startsWith('/public/'),
+    )) {
+      expect(operation.security, key).toEqual([]);
+      expect(
+        parametersOf(doc, operation).map((p) => p.name),
+        `${path}: X-Active-Membership`,
+      ).not.toContain('X-Active-Membership');
+    }
+  });
+
+  it('declare no 401 or 403 when they need no authentication', () => {
+    const wrong = operations
+      .filter(({ operation }) => operation.security?.length === 0)
+      .filter(({ operation }) => '401' in operation.responses || '403' in operation.responses)
+      .map((o) => o.key);
+    expect(wrong).toEqual([]);
+  });
+
+  it('page every collection with cursor, limit and `{ data, page }` (API_CONVENTIONS §3)', () => {
+    for (const { key, operation } of operations) {
+      const params = parametersOf(doc, operation).filter((p) => p.in === 'query');
+      const takesCursor = params.some((p) => p.name === 'cursor');
+      const ok = operation.responses['200'];
+      const schema = ok
+        ? resolve<Schema>(
+            doc,
+            resolve<Response>(doc, ok).content?.['application/json']?.schema ?? {},
+          )
+        : undefined;
+      const data = schema?.properties?.data;
+      const returnsData = data !== undefined && resolve<Schema>(doc, data).type === 'array';
+      expect(returnsData, `${key}: takes cursor ⇔ returns data[]`).toBe(takesCursor);
+      if (!takesCursor) continue;
+      expect(
+        params.map((p) => p.name),
+        key,
+      ).toContain('limit');
+      const page = schema?.properties?.page;
+      expect(isRef(page) ? page.$ref : page, key).toBe('#/components/schemas/Page');
+      expect(schema?.required ?? [], key).toEqual(expect.arrayContaining(['data', 'page']));
+    }
+  });
+
   it('accept X-Request-Id and return it on every response', () => {
     for (const { key, operation } of operations) {
       const names = parametersOf(doc, operation).map((p) => p.name);
@@ -242,6 +288,12 @@ describe('enums shared with the database', () => {
     ['OrgType', 'OrgType', false],
     ['NotifChannel', 'NotifChannel', false],
     ['OtpRequestPurpose', 'OtpPurpose', true],
+    ['AccreditationStatus', 'AccreditationStatus', false],
+    ['PublicLabCategory', 'LabCategory', true],
+    ['PublicListingStatus', 'ListingStatus', true],
+    ['ScopeSiteType', 'ScopeSiteType', false],
+    ['LeadKind', 'LeadKind', false],
+    ['VerificationResult', 'VerificationResult', false],
   ];
 
   it.each(mirrored)('%s matches Prisma enum %s', (schema, prismaEnum, subset) => {

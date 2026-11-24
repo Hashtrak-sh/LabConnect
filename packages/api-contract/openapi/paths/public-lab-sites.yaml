@@ -1,0 +1,184 @@
+# Public lab site pages: profile, scope, published prices and slots (API_CONTRACTS.md §2,
+# FR-DIS-06, FR-BKG-04). No authentication (`/v1/public`, API_CONVENTIONS §2).
+# A site that does not exist, is `HIDDEN` or is inactive is answered with 404 everywhere.
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+lab-site:
+  get:
+    operationId: getPublicLabSite
+    tags:
+      - Discovery
+    summary: Get a lab site's public profile
+    description: >-
+      Accreditations (with validity and the link to the accreditation body's verification),
+      listing status, receiving hours, address with the approved pin, and the aggregate rating
+      (FR-DIS-06). Contact details are not public (`lab_site_private`).
+    security: []
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The site's profile.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-sites.yaml#/PublicLabSite'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no listed site with this id.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+lab-site-scope:
+  get:
+    operationId: listPublicScopeLines
+    tags:
+      - Discovery
+    summary: List a lab site's scope
+    description: >-
+      The site's active scope lines, ordered along the scope tree (discipline, group, product,
+      parameter, method), so the client can build the tree (FR-DIS-06). `q` searches inside the
+      scope with the same text matching as the lab search.
+    security: []
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: q
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/search.yaml#/SearchText'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of scope lines.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-sites.yaml#/PublicScopeLineList'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no listed site with this id.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+lab-site-prices:
+  get:
+    operationId: getPublicPriceList
+    tags:
+      - Discovery
+    summary: Get a lab site's published price list
+    description: >-
+      The items of the effective `PUBLISHED` price list, with sample requirements (FR-DIS-06,
+      CD-06), ordered along the scope tree like the scope. Only for bookable sites (API_CONTRACTS
+      §2). Drafts are never public (TENANT_ISOLATION §1).
+    security: []
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of the price list's items.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-sites.yaml#/PublicPriceList'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no listed site with this id, or the site is not bookable.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+lab-site-slots:
+  get:
+    operationId: listPublicSlots
+    tags:
+      - Discovery
+    summary: List a lab site's available slots
+    description: >-
+      Open slots with capacity left between `from` and `to` (inclusive, by slot date in IST),
+      ordered by start (FR-BKG-04). Slots are generated only inside receiving hours and outside
+      holidays and closures (EC-13). Only for bookable sites. With `discipline`, the slots of that
+      discipline and the slots open to every discipline.
+    security: []
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: from
+        in: query
+        required: true
+        description: First slot date.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - name: to
+        in: query
+        required: true
+        description: Last slot date. Not before `from`.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - name: discipline
+        in: query
+        required: false
+        description: Code of a DISCIPLINE node of the SCOPE taxonomy.
+        schema:
+          $ref: '../components/schemas/lab-sites.yaml#/NodeCode'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of slots.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-sites.yaml#/PublicSlotList'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no listed site with this id, or the site is not bookable.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED`: `to` is before `from`, the discipline is unknown, or the cursor is
+          unreadable.
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
