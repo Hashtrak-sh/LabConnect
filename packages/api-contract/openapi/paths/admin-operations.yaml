@@ -1,0 +1,945 @@
+# Admin: Platform Operations (API_CONTRACTS.md §10): ops board, booking search and detail,
+# exceptional cancellation, break-glass report access, leads and disputes.
+# Each top-level key is one path item, referenced from openapi.yaml. Every `/admin` operation
+# names the platform roles allowed to call it in `x-roles` (values of `RoleCode`); the API guard
+# enforces them and the test suite checks they are platform roles.
+
+ops-board:
+  get:
+    operationId: getAdminOpsBoard
+    tags:
+      - Admin Operations
+    summary: Get the operations board
+    description: >-
+      Live counts for Platform Operations (FR-ADM-02): bookings by state, and overdue deadlines
+      (SLA breaches, overdue drops, pending approvals) by timer type. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The board.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminOpsBoard'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+bookings:
+  get:
+    operationId: listAdminBookings
+    tags:
+      - Admin Operations
+    summary: Search bookings
+    description: >-
+      Searches every booking on the platform, newest first (FR-ADM-02). Filters combine with AND.
+      Personal data is never a filter (CLAUDE.md §5); a booking is found by its number, its
+      parties' ids or its state. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: status
+        in: query
+        required: false
+        description: One or more statuses, comma-separated (`?status=REQUESTED,ACCEPTED`).
+        style: form
+        explode: false
+        schema:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '../components/schemas/enums.yaml#/BookingStatus'
+      - name: bookingNo
+        in: query
+        required: false
+        description: Exact booking number.
+        schema:
+          type: string
+          maxLength: 20
+      - name: customerOrgId
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: labOrgId
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: labSiteId
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: createdFrom
+        in: query
+        required: false
+        description: Only bookings created on or after this date (IST).
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - name: createdTo
+        in: query
+        required: false
+        description: Only bookings created on or before this date (IST).
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of bookings.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminBookingList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unknown status or an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+booking:
+  get:
+    operationId: getAdminBooking
+    tags:
+      - Admin Operations
+    summary: Get a booking
+    description: >-
+      One booking with its parties, status, deadlines, lines and report **metadata only**
+      (ROLES_AND_PERMISSIONS §2 note 7, CD-26). The report file is reached only through a
+      break-glass grant. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The booking.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminBooking'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such booking.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+booking-cancel:
+  post:
+    operationId: cancelAdminBooking
+    tags:
+      - Admin Operations
+    summary: Cancel a booking (exceptional)
+    description: >-
+      Platform Operations cancels a booking in exceptional cases, with a reason code and notes
+      (ROLES_AND_PERMISSIONS §2 note 2), through the booking engine: T-25 from `REQUESTED`,
+      `COUNTERED` or `ACCEPTED`; T-26 from `HANDOVER_SET`; T-27 from `SAMPLE_RECORDED`, `ON_HOLD`,
+      `RECEIVED` or `UNDER_TEST`. Ops cannot cancel from any later state (`REPORT_IN_REVIEW`,
+      `REPORT_RELEASED`, `DISPUTED`) and cannot override a lab's decision: OQ-24 was decided for
+      the MVP, and no such transition exists. A frozen booking (EC-01) can be cancelled. The
+      booking records `cancelledByParty` `PLATFORM`; refunds follow the refund rules of the stage
+      (BR-070 to BR-075). Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-operations.yaml#/AdminBookingCancelRequest'
+    responses:
+      '200':
+        description: Cancelled. The booking as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminBooking'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such booking.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the booking is not in a state T-25,
+          T-26 or T-27 leaves. `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example a reason code that is not an active
+          `CANCELLATION_REASON` node), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+break-glass-requests:
+  get:
+    operationId: listBreakGlassGrants
+    tags:
+      - Admin Operations
+    summary: List break-glass report access requests
+    description: >-
+      Break-glass grants, newest first: pending requests for an approver, or the caller's own
+      requests. `PLATFORM_ADMIN` sees every grant; `PLATFORM_OPS` sees the grants it requested.
+      Roles: `PLATFORM_OPS`, `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_OPS
+      - PLATFORM_ADMIN
+    parameters:
+      - name: pending
+        in: query
+        required: false
+        description: When `true`, only requests that are neither approved nor rejected.
+        schema:
+          type: boolean
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of grants.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminBreakGlassGrantList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS` or `PLATFORM_ADMIN`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  post:
+    operationId: requestBreakGlassAccess
+    tags:
+      - Admin Operations
+    summary: Request break-glass access to a report file
+    description: >-
+      Platform Operations asks to open one report version's file for a dispute investigation
+      (CD-26, FILES_AND_REPORTS §5). The request names the dispute and gives a reason. It grants
+      nothing until a `PLATFORM_ADMIN` other than the requester approves it. Audited. Roles:
+      `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-operations.yaml#/AdminBreakGlassRequestCreate'
+    responses:
+      '201':
+        description: Requested. The pending grant.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminBreakGlassGrant'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such report version or dispute.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example a dispute on another booking, or a version without a
+          file yet), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+break-glass-request:
+  get:
+    operationId: getBreakGlassGrant
+    tags:
+      - Admin Operations
+    summary: Get a break-glass grant
+    description: >-
+      One grant. `PLATFORM_OPS` can read only the grants it requested. Roles: `PLATFORM_OPS`,
+      `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_OPS
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The grant.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminBreakGlassGrant'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS` or `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such grant, or a `PLATFORM_OPS` caller did not request it.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+break-glass-approve:
+  post:
+    operationId: approveBreakGlassGrant
+    tags:
+      - Admin Operations
+    summary: Approve a break-glass request
+    description: >-
+      A `PLATFORM_ADMIN` other than the requester approves a pending request (TENANT_ISOLATION §2
+      rule 6). The grant is valid for 24 hours from approval (`expiresAt`, FILES_AND_REPORTS §5).
+      Needs a step-up MFA within the last 5 minutes (AUTHENTICATION §2: break-glass access).
+      Audited. Roles: `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Approved. The grant as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminBreakGlassGrant'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: >-
+          `UNAUTHENTICATED`, or `STEP_UP_REQUIRED` (`meta.maxAgeSeconds`): no MFA in the last 5
+          minutes.
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the caller is not `PLATFORM_ADMIN`. `FOUR_EYES_REQUIRED`: the caller
+          requested this grant.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such grant.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the request is not pending (already approved or rejected).
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+break-glass-reject:
+  post:
+    operationId: rejectBreakGlassGrant
+    tags:
+      - Admin Operations
+    summary: Reject a break-glass request
+    description: >-
+      A `PLATFORM_ADMIN` rejects a pending request. Audited. Roles: `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Rejected. The grant as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminBreakGlassGrant'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such grant.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the request is not pending. `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+break-glass-revoke:
+  post:
+    operationId: revokeBreakGlassGrant
+    tags:
+      - Admin Operations
+    summary: Revoke a break-glass grant
+    description: >-
+      A `PLATFORM_ADMIN` ends an approved grant before it expires (`revokedAt`). No new download
+      URL is issued afterwards. Audited. Roles: `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Revoked. The grant as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminBreakGlassGrant'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such grant.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the grant is not approved, or is already expired or
+          revoked. `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+break-glass-download-url:
+  post:
+    operationId: createBreakGlassDownloadUrl
+    tags:
+      - Admin Operations
+    summary: Get a download URL under a break-glass grant
+    description: >-
+      The requester of an approved, unexpired and unrevoked grant gets a 15-minute signed URL for
+      the report version's file (FILES_AND_REPORTS §2 and §5). Every call is logged in
+      `report_access_log` as `BREAK_GLASS` against the grant, and audited. Needs a step-up MFA
+      within the last 5 minutes (AUTHENTICATION §2: break-glass access). Roles: `PLATFORM_OPS`
+      (the requester only).
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A short-lived download URL.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-common.yaml#/AdminDownloadUrl'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: >-
+          `UNAUTHENTICATED`, or `STEP_UP_REQUIRED` (`meta.maxAgeSeconds`): no MFA in the last 5
+          minutes.
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such grant, or the caller did not request it.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the grant is not approved, or is expired or revoked.
+          `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+leads:
+  get:
+    operationId: listAdminLeads
+    tags:
+      - Admin Operations
+    summary: List leads
+    description: >-
+      "Request a lab" and no-result leads, newest first (FR-ADM-06). Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/LeadStatus'
+      - name: kind
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/LeadKind'
+      - name: assignedToUserId
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of leads.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminLeadList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+lead:
+  patch:
+    operationId: updateAdminLead
+    tags:
+      - Admin Operations
+    summary: Update a lead
+    description: >-
+      Ops sets a lead's status, assignee or notes. `lead_request` has no `lock_version`, so there
+      is no `If-Match`; each field is set to the value sent. Audited. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-operations.yaml#/AdminLeadUpdate'
+    responses:
+      '200':
+        description: Updated. The lead as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminLead'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such lead.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an assignee who is not `PLATFORM_OPS`).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+disputes:
+  get:
+    operationId: listAdminDisputes
+    tags:
+      - Admin Operations
+    summary: List disputes
+    description: >-
+      Every dispute on the platform, newest first (FR-SUP-02). The full dispute, with
+      messages and evidence, is `GET /disputes/{id}`. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: status
+        in: query
+        required: false
+        description: One or more statuses, comma-separated.
+        style: form
+        explode: false
+        schema:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '../components/schemas/enums.yaml#/DisputeStatus'
+      - name: assignedToUserId
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: bookingId
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of disputes.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminDisputeList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+dispute-assign:
+  post:
+    operationId: assignAdminDispute
+    tags:
+      - Admin Operations
+    summary: Assign a dispute
+    description: >-
+      Assigns an undecided dispute to a `PLATFORM_OPS` user. The dispute's status does not change.
+      Audited. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-operations.yaml#/AdminDisputeAssignRequest'
+    responses:
+      '200':
+        description: Assigned. The dispute as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminDispute'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such dispute.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the dispute is `DECIDED`, `CLOSED` or
+          `WITHDRAWN`. `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example an assignee who is not an active `PLATFORM_OPS` user),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+dispute-decide:
+  post:
+    operationId: decideAdminDispute
+    tags:
+      - Admin Operations
+    summary: Decide a dispute
+    description: >-
+      Platform Operations decides the commercial outcome of a dispute (CD-14, FR-SUP-03): outcome,
+      rationale and, for a refund outcome, the refund amount (BR-083). Technical result disputes
+      are referred to the lab's own complaint process (BR-082). The dispute becomes `DECIDED`, the
+      decider and time are recorded, and the decision never changes afterwards. The booking moves
+      from `DISPUTED` to `COMPLETED` (T-24) through the booking engine; a refund outcome creates a
+      refund, which follows the refund approval rules (PAYMENTS_AND_LEDGER §4). Audited. Roles:
+      `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-operations.yaml#/AdminDisputeDecisionRequest'
+    responses:
+      '200':
+        description: Decided. The dispute as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-operations.yaml#/AdminDispute'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such dispute.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the dispute is already `DECIDED`,
+          `CLOSED` or `WITHDRAWN`, or its booking is not `DISPUTED`. `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example a refund amount that is missing for a refund outcome,
+          given for another outcome, zero, or more than the amount still refundable),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

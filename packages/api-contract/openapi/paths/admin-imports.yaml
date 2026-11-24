@@ -1,0 +1,548 @@
+# Admin: master-data imports and mapping templates (API_CONTRACTS.md §10,
+# MASTER_DATA_MANAGEMENT.md §4 and §5, FR-MDM-04..06). Upload → import with a template →
+# preview (rows) → commit, which creates a change set for review, or discard.
+# Each top-level key is one path item, referenced from openapi.yaml. `x-roles`: see
+# admin-operations.yaml.
+
+mapping-templates:
+  get:
+    operationId: listAdminMappingTemplates
+    tags:
+      - Admin Master Data
+    summary: List mapping templates
+    description: >-
+      The platform's mapping templates (FR-MDM-04). Lab price-list templates belong to the lab and
+      are not listed. Roles: `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - name: targetKind
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/ImportKind'
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/MdStatus'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of templates.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-imports.yaml#/AdminMappingTemplateList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  post:
+    operationId: createAdminMappingTemplate
+    tags:
+      - Admin Master Data
+    summary: Create a mapping template
+    description: >-
+      A new platform template for a source format, version 1 (MASTER_DATA_MANAGEMENT §5: a new
+      source format needs a new template, not code). `LAB_PRICE_LIST` templates are the lab's.
+      Audited. Roles: `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-imports.yaml#/AdminMappingTemplateCreate'
+    responses:
+      '201':
+        description: Created.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-imports.yaml#/AdminMappingTemplate'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example a column map that names an unknown target field, or the
+          kind `LAB_PRICE_LIST`), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+mapping-template:
+  get:
+    operationId: getAdminMappingTemplate
+    tags:
+      - Admin Master Data
+    summary: Get a mapping template
+    description: >-
+      One platform template, at its current version. Roles: `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The template.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-imports.yaml#/AdminMappingTemplate'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such platform template.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  patch:
+    operationId: updateAdminMappingTemplate
+    tags:
+      - Admin Master Data
+    summary: Update a mapping template
+    description: >-
+      Changes a template's name, column map, defaults or status. A change to the column map or
+      defaults increments `version`; imports keep the version they used. A template is retired
+      with `status` `INACTIVE`; templates are never deleted. Audited. Roles:
+      `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-imports.yaml#/AdminMappingTemplateUpdate'
+    responses:
+      '200':
+        description: Updated. The template as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-imports.yaml#/AdminMappingTemplate'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such platform template.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+import-upload-url:
+  post:
+    operationId: createAdminImportUploadUrl
+    tags:
+      - Admin Master Data
+    summary: Get an upload URL for an import file
+    description: >-
+      Step 1 of an import (MASTER_DATA_MANAGEMENT §4): a pre-signed upload for a CSV or XLSX file
+      of at most 50 MB, stored as `IMPORT_SOURCE` and malware-scanned (FILES_AND_REPORTS §1).
+      Roles: `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-common.yaml#/AdminUploadUrlRequest'
+    responses:
+      '201':
+        description: The file is registered and can be uploaded.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-common.yaml#/AdminUploadUrl'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example a type that is not allowed or a file over 50 MB),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+imports:
+  post:
+    operationId: createAdminImport
+    tags:
+      - Admin Master Data
+    summary: Start an import
+    description: >-
+      Starts an import of an uploaded, clean file with an active platform mapping template of the
+      same kind (MASTER_DATA_MANAGEMENT §4 steps 2 to 7). Parsing, mapping, validation, matching
+      and geocoding run in the background; the job is `PREVIEW_READY` (or `FAILED`) when they are
+      done. Nothing is committed until `POST /admin/imports/{id}/commit`. `LAB_PRICE_LIST`
+      imports belong to the lab module. Roles: `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-imports.yaml#/AdminImportCreate'
+    responses:
+      '201':
+        description: Created. The job starts in `UPLOADED`.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-imports.yaml#/AdminImportJob'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such file or template.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `FILE_NOT_CLEAN`: the file's scan is pending or failed. `VALIDATION_FAILED` (for example
+          an inactive template, a template of another kind, or the kind `LAB_PRICE_LIST`),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+import:
+  get:
+    operationId: getAdminImport
+    tags:
+      - Admin Master Data
+    summary: Get an import
+    description: >-
+      One import job with its preview counts (FR-MDM-05). Roles: `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The import.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-imports.yaml#/AdminImportJob'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such platform import.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+import-rows:
+  get:
+    operationId: listAdminImportRows
+    tags:
+      - Admin Master Data
+    summary: List the preview rows of an import
+    description: >-
+      The row-level preview, by row number (FR-MDM-05, FR-MDM-06): per row the action the commit
+      would take (create, update, no change, skip or error), how it matched (new, matched,
+      duplicate in the file, conflict), and its messages. Roles: `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: action
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/ImportRowAction'
+      - name: matchResult
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/ImportMatchResult'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of rows.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-imports.yaml#/AdminImportRowList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such platform import.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+import-commit:
+  post:
+    operationId: commitAdminImport
+    tags:
+      - Admin Master Data
+    summary: Commit an import
+    description: >-
+      Commits a previewed import (MASTER_DATA_MANAGEMENT §4 step 8): creates a `DRAFT` change set
+      with source `IMPORT`, prepared by the caller, with one change item per row that creates or
+      updates a record. The import becomes `COMMITTED` and records the change set. Nothing is
+      published: the change set goes through review and four-eyes approval. Audited. Roles:
+      `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Committed. The import as it is now, with `changeSetId`.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-imports.yaml#/AdminImportJob'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such platform import.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the import is not `PREVIEW_READY`.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+import-discard:
+  post:
+    operationId: discardAdminImport
+    tags:
+      - Admin Master Data
+    summary: Discard an import
+    description: >-
+      Discards an import that has not been committed. Its rows are kept for the record. Audited.
+      Roles: `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Discarded. The import as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-imports.yaml#/AdminImportJob'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such platform import.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the import is `COMMITTED` or already
+          `DISCARDED`. `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

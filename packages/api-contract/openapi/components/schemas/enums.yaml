@@ -550,3 +550,222 @@ RatingDirection:
   enum:
     - CUSTOMER_TO_LAB
     - LAB_TO_CUSTOMER
+
+# --- P2-06b: admin (API_CONTRACTS.md §10) ---
+
+TimerType:
+  type: string
+  description: A booking deadline or reminder (AUDIT_AND_EVENT_ARCHITECTURE.md §4).
+  enum:
+    - LAB_DECISION_REMINDER_50
+    - LAB_DECISION_REMINDER_90
+    - LAB_DECISION_DUE
+    - COUNTER_RESPONSE_DUE
+    - PAYMENT_REMINDER
+    - PAYMENT_DUE
+    - DROP_REMINDER
+    - DROP_DEADLINE
+    - NO_SHOW_DUE
+    - RECEIPT_APPROVAL_REMINDER
+    - HOLD_DECISION_DUE
+    - REPORT_DUE
+    - REPORT_APPROVAL_REMINDER
+    - DISPUTE_WINDOW_END
+    - PAYMENT_RECONCILE
+
+AdminVerificationDecision:
+  type: string
+  description: >-
+    The decision of a KYC or bank verification. A subset of the database enum
+    `VerificationStatus`.
+  enum:
+    - VERIFIED
+    - REJECTED
+
+AdminGeocodeQueueStatus:
+  type: string
+  description: >-
+    The geocode states that put a site in the Ops pin queue. A subset of the database enum
+    `GeocodeStatus`.
+  enum:
+    - PENDING
+    - LOW_CONFIDENCE
+
+MdStatus:
+  type: string
+  description: >-
+    Active or inactive. Master data, templates and other configuration are never deleted; they
+    are deactivated.
+  enum:
+    - ACTIVE
+    - INACTIVE
+
+MdDataType:
+  type: string
+  description: Data type of a master-data attribute (SCHEMA_SPECIFICATION §4.3).
+  enum:
+    - STRING
+    - INTEGER
+    - DECIMAL
+    - BOOLEAN
+    - DATE
+    - ENUM
+    - NODE_REF
+    - STRING_ARRAY
+
+ChangeSource:
+  type: string
+  description: >-
+    Where a change set comes from. `NABL_SYNC` is deferred (FR-MDM-10); `LAB_PROPOSAL` sets come
+    from a lab Checker (EC-04).
+  enum:
+    - MANUAL
+    - IMPORT
+    - LAB_PROPOSAL
+    - NABL_SYNC
+
+MdTargetType:
+  type: string
+  description: >-
+    The kind of record a change item changes. Each kind keeps its published history in a version
+    table (VERSIONING_AND_SNAPSHOTS.md §1, pattern A).
+  enum:
+    - MD_NODE
+    - LAB_ORG
+    - LAB_SITE
+    - ACCREDITATION
+    - SCOPE_LINE
+    - SYNONYM
+
+ChangeOperation:
+  type: string
+  description: What a change item does. Records are never deleted, only deactivated.
+  enum:
+    - CREATE
+    - UPDATE
+    - DEACTIVATE
+    - REACTIVATE
+
+ValidationStatus:
+  type: string
+  enum:
+    - VALID
+    - WARNING
+    - ERROR
+
+ImportKind:
+  type: string
+  description: >-
+    What an import loads. `LAB_PRICE_LIST` imports belong to the lab and are not reviewed by the
+    platform (CD-06).
+  enum:
+    - NABL_LABS
+    - NABL_SCOPE
+    - TAXONOMY_NODES
+    - LAB_PRICE_LIST
+
+ImportSourceFormat:
+  type: string
+  enum:
+    - CSV
+    - XLSX
+
+LeadStatus:
+  type: string
+  enum:
+    - NEW
+    - IN_PROGRESS
+    - CLOSED_ONBOARDED
+    - CLOSED_NO_ACTION
+
+RefundStatus:
+  type: string
+  enum:
+    - REQUESTED
+    - APPROVED
+    - SUBMITTED
+    - SUCCEEDED
+    - FAILED
+
+PayoutStatus:
+  type: string
+  description: >-
+    Status of a payout batch. The life cycle is not fully stated yet (OQ-38).
+  enum:
+    - PENDING
+    - ON_HOLD
+    - ELIGIBLE
+    - RELEASED
+    - FAILED
+    - CANCELLED
+
+PayoutMechanism:
+  type: string
+  description: >-
+    How a payout reaches the lab. Undecided (ADR-009, OQ-01, OQ-02): `TBD` until then.
+  enum:
+    - GATEWAY_SETTLEMENT
+    - BANK_TRANSFER_MANUAL
+    - TBD
+
+PayoutHoldReason:
+  type: string
+  description: >-
+    Why a booking's payout is held. `DISPUTE` holds are placed automatically when a dispute is
+    raised (BR-078).
+  enum:
+    - DISPUTE
+    - OPS_MANUAL
+    - COMPLIANCE
+
+AdminPayoutHoldPlaceReason:
+  type: string
+  description: >-
+    The reasons platform staff can place a hold with. A subset of the database enum
+    `PayoutHoldReason`: `DISPUTE` holds are placed only by raising a dispute.
+  enum:
+    - OPS_MANUAL
+    - COMPLIANCE
+
+SettlementMatchStatus:
+  type: string
+  enum:
+    - MATCHED
+    - UNMATCHED
+    - MISMATCH
+
+ConfigScope:
+  type: string
+  description: The scope a configuration value applies to. `scopeId` is null for `GLOBAL`.
+  enum:
+    - GLOBAL
+    - LAB_ORG
+    - LAB_SITE
+    - CATEGORY
+
+UserStatus:
+  type: string
+  enum:
+    - INVITED
+    - ACTIVE
+    - DISABLED
+
+AdminUserStatusUpdate:
+  type: string
+  description: >-
+    The statuses an administrator can set on a platform user. A subset of the database enum
+    `UserStatus`. Users are deactivated (`DISABLED`), never deleted.
+  enum:
+    - ACTIVE
+    - DISABLED
+
+AdminPlatformRoleCode:
+  type: string
+  description: >-
+    A platform role (ROLES_AND_PERMISSIONS.md §1, ADR-012). A subset of the database enum
+    `RoleCode`. Platform roles never combine with customer or lab roles (RR-5).
+  enum:
+    - PLATFORM_OPS
+    - PLATFORM_DATA_STEWARD
+    - PLATFORM_FINANCE
+    - PLATFORM_ADMIN

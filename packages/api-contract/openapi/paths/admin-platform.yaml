@@ -1,0 +1,721 @@
+# Admin: platform administration (API_CONTRACTS.md §10): configuration parameters, platform users
+# and their roles, audit log search and notification templates.
+# Each top-level key is one path item, referenced from openapi.yaml. `x-roles`: see
+# admin-operations.yaml.
+
+config:
+  get:
+    operationId: getAdminConfigValue
+    tags:
+      - Admin Platform
+    summary: Get a configuration value
+    description: >-
+      The value of one key in effect now at one scope (FR-ADM-03): SLA durations, windows, grace
+      periods, fees and retention. The keys and the shape of their values are defined in
+      `packages/shared`, not here. Roles: `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: key
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/admin-platform.yaml#/AdminConfigKey'
+      - name: scopeType
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/ConfigScope'
+          default: GLOBAL
+      - name: scopeId
+        in: query
+        required: false
+        description: The lab organisation, lab site or category. Required unless `scopeType` is `GLOBAL`.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The value in effect.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminConfigValue'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: unknown key, or no value in effect at this scope.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example `scopeId` missing or given for `GLOBAL`).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  put:
+    operationId: setAdminConfigValue
+    tags:
+      - Admin Platform
+    summary: Set a configuration value
+    description: >-
+      Sets a new value of one key at one scope, with a reason (FR-ADM-03). The value is validated
+      against the key's schema. The value in effect is closed (`effectiveTo`) and the new one takes
+      effect now; earlier values are kept. `If-Match` is the `ETag` of the value in effect at that
+      scope; when the scope has no value yet, send `If-Match: "0"`. While the platform fee is off
+      (CD-05), `feature.platform_fee_enabled` cannot be set to true. Audited. Roles:
+      `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: key
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/admin-platform.yaml#/AdminConfigKey'
+      - name: scopeType
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/ConfigScope'
+          default: GLOBAL
+      - name: scopeId
+        in: query
+        required: false
+        description: The lab organisation, lab site or category. Required unless `scopeType` is `GLOBAL`.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-platform.yaml#/AdminConfigValueUpdate'
+    responses:
+      '200':
+        description: Set. The value now in effect.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminConfigValue'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: unknown key, or no such scope.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED`: the value does not match the key's schema, the scope is not valid
+          for the key, or the change would turn on the platform fee.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+users:
+  get:
+    operationId: listAdminPlatformUsers
+    tags:
+      - Admin Platform
+    summary: List platform users
+    description: >-
+      Platform staff users and their platform roles. Customer and lab users are not listed.
+      Roles: `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/UserStatus'
+      - name: role
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/AdminPlatformRoleCode'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of platform users.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminPlatformUserList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  post:
+    operationId: createAdminPlatformUser
+    tags:
+      - Admin Platform
+    summary: Add a platform user
+    description: >-
+      Adds a platform staff user with a membership of the platform organisation and at least one
+      platform role. A platform user can't hold customer or lab memberships (RR-5), so an email
+      that already belongs to a customer or lab user is refused. Granting platform roles needs a
+      step-up MFA within the last 5 minutes (AUTHENTICATION §2). Audited. Roles:
+      `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-platform.yaml#/AdminPlatformUserCreate'
+    responses:
+      '201':
+        description: Added.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminPlatformUser'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: >-
+          `UNAUTHENTICATED`, or `STEP_UP_REQUIRED` (`meta.maxAgeSeconds`): no MFA in the last 5
+          minutes.
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example an email that already belongs to a user),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+user:
+  get:
+    operationId: getAdminPlatformUser
+    tags:
+      - Admin Platform
+    summary: Get a platform user
+    description: >-
+      One platform staff user with their platform roles. Roles: `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The user.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminPlatformUser'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such platform user.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  patch:
+    operationId: updateAdminPlatformUser
+    tags:
+      - Admin Platform
+    summary: Update or deactivate a platform user
+    description: >-
+      Changes a platform user's name or designation, or deactivates (`DISABLED`) or reactivates
+      (`ACTIVE`) them. Users are never deleted. Deactivation also deactivates the membership and
+      revokes the user's sessions (AUTHENTICATION §4). A change of `status` grants or removes
+      platform access, so it needs a step-up MFA within the last 5 minutes, like a role change
+      (AUTHENTICATION §2). Audited. Roles: `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-platform.yaml#/AdminPlatformUserUpdate'
+    responses:
+      '200':
+        description: Updated. The user as they are now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminPlatformUser'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: >-
+          `UNAUTHENTICATED`, or `STEP_UP_REQUIRED` (`meta.maxAgeSeconds`): `status` changes and
+          the caller has no MFA in the last 5 minutes.
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such platform user.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+user-platform-roles:
+  put:
+    operationId: setAdminPlatformUserRoles
+    tags:
+      - Admin Platform
+    summary: Set a platform user's roles
+    description: >-
+      Replaces the platform roles of a platform user. Removed roles are revoked (`revokedAt`), not
+      deleted; added roles record who granted them. The user's sessions are revoked
+      (AUTHENTICATION §4). Needs a step-up MFA within the last 5 minutes (AUTHENTICATION §2:
+      platform role changes). Audited. Roles: `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-platform.yaml#/AdminPlatformRolesUpdate'
+    responses:
+      '200':
+        description: Set. The user as they are now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminPlatformUser'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: >-
+          `UNAUTHENTICATED`, or `STEP_UP_REQUIRED` (`meta.maxAgeSeconds`): no MFA in the last 5
+          minutes.
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such platform user.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION` (`meta.currentState`): the user is `DISABLED`.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+audit-log:
+  get:
+    operationId: searchAdminAuditLog
+    tags:
+      - Admin Platform
+    summary: Search the audit log
+    description: >-
+      Audit records, newest first (FR-ADM-05), filtered by entity, actor, action or time. Filters
+      are ids and codes only, never names or email addresses (CLAUDE.md §5). `before` and `after`
+      are returned as stored. Roles: `PLATFORM_OPS`, `PLATFORM_DATA_STEWARD`, `PLATFORM_FINANCE`,
+      `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_OPS
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_FINANCE
+      - PLATFORM_ADMIN
+    parameters:
+      - name: entityType
+        in: query
+        required: false
+        description: For example `booking`. Combine with `entityId` for one record's history.
+        schema:
+          type: string
+          maxLength: 60
+      - name: entityId
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: actor
+        in: query
+        required: false
+        description: The acting user's id.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: action
+        in: query
+        required: false
+        description: An action code, for example `booking.transition`.
+        schema:
+          type: string
+          maxLength: 100
+      - name: occurredFrom
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Timestamp'
+      - name: occurredTo
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Timestamp'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of audit records.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminAuditLogList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller holds no platform role.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example `occurredFrom` after `occurredTo`, or an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+notification-templates:
+  get:
+    operationId: listAdminNotificationTemplates
+    tags:
+      - Admin Platform
+    summary: List notification templates
+    description: >-
+      Template versions per event, channel and locale (FR-NOT-02), newest version first. Roles:
+      `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: eventCode
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 100
+      - name: channel
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/NotifChannel'
+      - name: locale
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 10
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/MdStatus'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of template versions.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminNotificationTemplateList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  post:
+    operationId: createAdminNotificationTemplate
+    tags:
+      - Admin Platform
+    summary: Create a notification template version
+    description: >-
+      A new version of the template of an event, channel and locale; templates are versioned and
+      a version's content never changes (NOTIFICATIONS §3). Only the event's whitelisted variables
+      may be used, and a template never carries report content, OTPs (except the OTP email), bank
+      details or another party's contact details. Audited. Roles: `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-platform.yaml#/AdminNotificationTemplateCreate'
+    responses:
+      '201':
+        description: Created.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminNotificationTemplate'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example an unknown event or a variable that is not whitelisted
+          for it), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+notification-template:
+  get:
+    operationId: getAdminNotificationTemplate
+    tags:
+      - Admin Platform
+    summary: Get a notification template version
+    description: >-
+      One template version. Roles: `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The template version.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminNotificationTemplate'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such template version.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  patch:
+    operationId: updateAdminNotificationTemplate
+    tags:
+      - Admin Platform
+    summary: Activate or retire a notification template version
+    description: >-
+      Sets a template version's status. The newest `ACTIVE` version of an event, channel and
+      locale is the one sent. Content is changed by creating a new version. Templates are never
+      deleted. Audited. Roles: `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-platform.yaml#/AdminNotificationTemplateUpdate'
+    responses:
+      '200':
+        description: Updated. The template version as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-platform.yaml#/AdminNotificationTemplate'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such template version.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

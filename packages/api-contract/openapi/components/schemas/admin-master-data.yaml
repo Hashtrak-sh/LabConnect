@@ -1,0 +1,503 @@
+# Admin views for master data (API_CONTRACTS.md §10, MASTER_DATA_MANAGEMENT.md,
+# VERSIONING_AND_SNAPSHOTS.md, FR-MDM-01..09): taxonomy configuration, change sets and their
+# items, impact analysis and record version history. Master records change only by publishing a
+# change set, and are never deleted.
+
+AdminTaxonomy:
+  type: object
+  description: A taxonomy (`md_taxonomy`). A system taxonomy can't be deactivated or deleted.
+  required:
+    - id
+    - code
+    - name
+    - description
+    - isHierarchical
+    - isSystem
+    - status
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    code:
+      $ref: './lab-sites.yaml#/TaxonomyCode'
+    name:
+      type: string
+    description:
+      type:
+        - string
+        - 'null'
+    isHierarchical:
+      type: boolean
+    isSystem:
+      type: boolean
+    status:
+      $ref: './enums.yaml#/MdStatus'
+
+AdminTaxonomyList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminTaxonomy'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminNodeType:
+  type: object
+  description: A level of a taxonomy (`md_node_type`), for example DISCIPLINE (1) in SCOPE.
+  required:
+    - id
+    - taxonomyId
+    - code
+    - name
+    - level
+    - parentNodeTypeId
+    - status
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    taxonomyId:
+      $ref: './common.yaml#/Uuid'
+    code:
+      type: string
+      maxLength: 50
+    name:
+      type: string
+    level:
+      type: integer
+      minimum: 1
+    parentNodeTypeId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    status:
+      $ref: './enums.yaml#/MdStatus'
+
+AdminNodeTypeList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminNodeType'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminAttributeDefinition:
+  type: object
+  description: A typed extension attribute of a level (`md_attribute_definition`).
+  required:
+    - id
+    - nodeTypeId
+    - key
+    - label
+    - dataType
+    - isRequired
+    - isSearchable
+    - validation
+    - sortOrder
+    - status
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    nodeTypeId:
+      $ref: './common.yaml#/Uuid'
+    key:
+      type: string
+      maxLength: 60
+      pattern: ^[a-z][a-z0-9_]*$
+      description: The attribute key in `md_node.attributes` (snake_case).
+    label:
+      type: string
+    dataType:
+      $ref: './enums.yaml#/MdDataType'
+    isRequired:
+      type: boolean
+    isSearchable:
+      type: boolean
+      description: Copied into the search index.
+    validation:
+      description: Validation rules as stored (`min`, `max`, `pattern`, enum values, referenced taxonomy).
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+    sortOrder:
+      type: integer
+    status:
+      $ref: './enums.yaml#/MdStatus'
+
+AdminAttributeDefinitionList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminAttributeDefinition'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminChangeSet:
+  type: object
+  description: >-
+    A change set (`md_change_set`). `approvedByUserId` is never the preparer (RR-6).
+    `impactSummary` is stored when the set is published.
+  required:
+    - id
+    - title
+    - source
+    - status
+    - importJobId
+    - proposedByOrgId
+    - preparedByUserId
+    - submittedAt
+    - approvedByUserId
+    - approvedAt
+    - publishedAt
+    - rejectionReason
+    - impactSummary
+    - createdAt
+    - updatedAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    title:
+      type: string
+    source:
+      $ref: './enums.yaml#/ChangeSource'
+    status:
+      $ref: './enums.yaml#/ChangeSetStatus'
+    importJobId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    proposedByOrgId:
+      description: The lab that proposed the change (`LAB_PROPOSAL`).
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    preparedByUserId:
+      $ref: './common.yaml#/Uuid'
+    submittedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    approvedByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    approvedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    publishedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    rejectionReason:
+      type:
+        - string
+        - 'null'
+    impactSummary:
+      description: The impact recorded at publication, as stored. `null` before.
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    updatedAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminChangeSetList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminChangeSet'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminChangeSetCreate:
+  type: object
+  description: A new, empty `MANUAL` change set in `DRAFT`, prepared by the caller (FR-MDM-09).
+  required:
+    - title
+  additionalProperties: false
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+
+AdminChangeSetRejection:
+  type: object
+  required:
+    - rejectionReason
+  additionalProperties: false
+  properties:
+    rejectionReason:
+      type: string
+      minLength: 1
+      maxLength: 2000
+
+AdminChangeItem:
+  type: object
+  description: >-
+    One proposed change to one record (`md_change_item`). `proposed` is the full proposed state;
+    `diff` is computed against the record's current version.
+  required:
+    - id
+    - changeSetId
+    - targetType
+    - targetId
+    - operation
+    - proposed
+    - diff
+    - baseVersionNo
+    - validationStatus
+    - validationMessages
+    - importRowId
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    changeSetId:
+      $ref: './common.yaml#/Uuid'
+    targetType:
+      $ref: './enums.yaml#/MdTargetType'
+    targetId:
+      description: '`null` for `CREATE`.'
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    operation:
+      $ref: './enums.yaml#/ChangeOperation'
+    proposed:
+      type: object
+      additionalProperties: true
+    diff:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+    baseVersionNo:
+      description: >-
+        The record version the change was prepared against. Publication fails as a whole when it
+        is no longer the current version.
+      type:
+        - integer
+        - 'null'
+      minimum: 1
+    validationStatus:
+      $ref: './enums.yaml#/ValidationStatus'
+    validationMessages:
+      description: Validation messages as stored. `null` when there are none.
+    importRowId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+AdminChangeItemList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminChangeItem'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminChangeItemCreate:
+  type: object
+  description: >-
+    Adds a change item to a `DRAFT` change set. `targetId` and `baseVersionNo` are required for
+    every operation except `CREATE`, and not allowed for `CREATE`. `proposed` is validated against
+    the target's rules and the attribute definitions; the result is the item's
+    `validationStatus`.
+  required:
+    - targetType
+    - operation
+    - proposed
+  additionalProperties: false
+  properties:
+    targetType:
+      $ref: './enums.yaml#/MdTargetType'
+    targetId:
+      $ref: './common.yaml#/Uuid'
+    operation:
+      $ref: './enums.yaml#/ChangeOperation'
+    proposed:
+      type: object
+      additionalProperties: true
+    baseVersionNo:
+      type: integer
+      minimum: 1
+  # The rule in the description, as JSON Schema conditionals (as in `LeadCreate`).
+  allOf:
+    - if:
+        properties:
+          operation:
+            const: CREATE
+      then:
+        properties:
+          targetId: false
+          baseVersionNo: false
+      else:
+        required:
+          - targetId
+          - baseVersionNo
+        properties:
+          targetId: true
+          baseVersionNo: true
+
+AdminImpactCount:
+  type: object
+  required:
+    - targetType
+    - operation
+    - count
+  additionalProperties: false
+  properties:
+    targetType:
+      $ref: './enums.yaml#/MdTargetType'
+    operation:
+      $ref: './enums.yaml#/ChangeOperation'
+    count:
+      type: integer
+      minimum: 0
+
+AdminAffectedBooking:
+  type: object
+  required:
+    - bookingId
+    - bookingNo
+    - status
+  additionalProperties: false
+  properties:
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    bookingNo:
+      type: string
+      maxLength: 20
+    status:
+      $ref: './enums.yaml#/BookingStatus'
+
+AdminChangeSetImpact:
+  type: object
+  description: >-
+    Impact analysis of a change set, computed when requested (MASTER_DATA_MANAGEMENT §3): counts
+    per target type and operation, and the open bookings affected by deactivated scope lines or
+    accreditation status changes (EC-58).
+  required:
+    - changeSetId
+    - computedAt
+    - counts
+    - affectedOpenBookings
+  additionalProperties: false
+  properties:
+    changeSetId:
+      $ref: './common.yaml#/Uuid'
+    computedAt:
+      $ref: './common.yaml#/Timestamp'
+    counts:
+      type: array
+      items:
+        $ref: '#/AdminImpactCount'
+    affectedOpenBookings:
+      type: array
+      items:
+        $ref: '#/AdminAffectedBooking'
+
+AdminRecordVersionChangeSet:
+  type: object
+  description: The change set that published a version (who prepared, who approved, and why).
+  required:
+    - id
+    - title
+    - source
+    - preparedByUserId
+    - approvedByUserId
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    title:
+      type: string
+    source:
+      $ref: './enums.yaml#/ChangeSource'
+    preparedByUserId:
+      $ref: './common.yaml#/Uuid'
+    approvedByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+
+AdminRecordVersion:
+  type: object
+  description: >-
+    One published version of a master record (`*_version`, append-only): the full snapshot as
+    published (FR-MDM-03).
+  required:
+    - versionNo
+    - snapshot
+    - publishedAt
+    - changeSet
+  additionalProperties: false
+  properties:
+    versionNo:
+      type: integer
+      minimum: 1
+    snapshot:
+      type: object
+      additionalProperties: true
+    publishedAt:
+      $ref: './common.yaml#/Timestamp'
+    changeSet:
+      $ref: '#/AdminRecordVersionChangeSet'
+
+AdminRecordVersionList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminRecordVersion'
+    page:
+      $ref: './common.yaml#/Page'

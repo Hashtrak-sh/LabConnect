@@ -41,6 +41,9 @@ const idempotencyExemptions: Record<string, string> = {
  * and on transition commands of mutable aggregates", with ETag = `"<lockVersion>"`.
  */
 const ifMatchExemptions: Record<string, string> = {
+  'PATCH /admin/leads/{id}':
+    'lead_request has no lock_version (SCHEMA_SPECIFICATION §6.3), so there is no ETag to match. ' +
+    'Each field is set to the value sent. Raised in the P2-06b report.',
   'PATCH /me/notification-preferences':
     'notification_preference has no lock_version, so there is no ETag to match. Each item sets ' +
     'an absolute value. Open question raised with P2-01.',
@@ -517,6 +520,28 @@ describe('enums shared with the database', () => {
     ['CustodyEventType', 'CustodyEventType', false],
     ['ScanStatus', 'ScanStatus', false],
     ['RatingDirection', 'RatingDirection', false],
+    ['TimerType', 'TimerType', false],
+    ['AdminVerificationDecision', 'VerificationStatus', true],
+    ['AdminGeocodeQueueStatus', 'GeocodeStatus', true],
+    ['MdStatus', 'MdStatus', false],
+    ['MdDataType', 'MdDataType', false],
+    ['ChangeSource', 'ChangeSource', false],
+    ['MdTargetType', 'MdTargetType', false],
+    ['ChangeOperation', 'ChangeOperation', false],
+    ['ValidationStatus', 'ValidationStatus', false],
+    ['ImportKind', 'ImportKind', false],
+    ['ImportSourceFormat', 'ImportSourceFormat', false],
+    ['LeadStatus', 'LeadStatus', false],
+    ['RefundStatus', 'RefundStatus', false],
+    ['PayoutStatus', 'PayoutStatus', false],
+    ['PayoutMechanism', 'PayoutMechanism', false],
+    ['PayoutHoldReason', 'PayoutHoldReason', false],
+    ['AdminPayoutHoldPlaceReason', 'PayoutHoldReason', true],
+    ['SettlementMatchStatus', 'SettlementMatchStatus', false],
+    ['ConfigScope', 'ConfigScope', false],
+    ['UserStatus', 'UserStatus', false],
+    ['AdminUserStatusUpdate', 'UserStatus', true],
+    ['AdminPlatformRoleCode', 'RoleCode', true],
   ];
 
   it.each(mirrored)('%s matches Prisma enum %s', (schema, prismaEnum, subset) => {
@@ -1019,5 +1044,138 @@ describe('booking transitions', () => {
     }
     expect(checked).toBeGreaterThan(0);
     expect(problems).toEqual([]);
+  });
+});
+
+// Rules the admin module introduces (P2-06b, API_CONTRACTS.md §10). Platform staff access is
+// role-based (TENANT_ISOLATION §2 rule 6): every `/admin` operation names its roles in the
+// extension `x-roles`, which only `/admin` operations use.
+describe('admin operations (/admin)', () => {
+  const adminOperations = operations.filter((o) => o.path.startsWith('/admin/'));
+  const xRoles = (operation: object): unknown => (operation as { 'x-roles'?: unknown })['x-roles'];
+  const descriptionOf = (operation: object): string =>
+    (operation as { description?: string }).description ?? '';
+
+  /** The /admin operations that need a fresh MFA (AUTHENTICATION §2 step-up list). */
+  const stepUp = [
+    'POST /admin/break-glass/report-access/{id}/approve', // break-glass access
+    'POST /admin/break-glass/report-access/{id}/download-url', // break-glass access
+    'POST /admin/payouts/{id}/release', // payout release
+    'POST /admin/refunds/{id}/approve', // refund approval above the threshold
+    'POST /admin/users', // platform role changes (grant)
+    'PATCH /admin/users/{id}', // platform role changes (status)
+    'PUT /admin/users/{id}/platform-roles', // platform role changes
+  ];
+
+  /**
+   * Properties no /admin response may contain, at any depth: secrets, full numbers that are
+   * stored encrypted, one-time codes, tokens, storage locations, and report files or contents
+   * (platform staff see report metadata only; files need break-glass). Matching ignores case.
+   */
+  const adminDenyList = [
+    'accountNumber',
+    'accountNumberCiphertext',
+    'pan',
+    'panCiphertext',
+    'otp',
+    'otpCode',
+    'codeHash',
+    'token',
+    'tokenHash',
+    'accessToken',
+    'refreshToken',
+    'secret',
+    'secretCiphertext',
+    'recoveryCodes',
+    'payloadCiphertext',
+    'bucket',
+    'objectKey',
+    'originalFileId',
+    'stampedFileId',
+    'results',
+  ].map((name) => name.toLowerCase());
+
+  /** Property names reachable from a schema, following `$ref`s. */
+  function reachable(node: unknown, seen = new Set<string>()): string[] {
+    if (typeof node !== 'object' || node === null) return [];
+    if (isRef(node)) {
+      if (seen.has(node.$ref)) return [];
+      seen.add(node.$ref);
+      return reachable(resolve(doc, node), seen);
+    }
+    const names: string[] = [];
+    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+      if (key === 'examples' || key === 'example') continue;
+      if (key === 'properties' && typeof value === 'object' && value !== null) {
+        names.push(...Object.keys(value));
+      }
+      names.push(...reachable(value, seen));
+    }
+    return names;
+  }
+
+  it('exist', () => {
+    expect(adminOperations.length).toBeGreaterThan(0);
+  });
+
+  it('require authentication and declare 401 and 403', () => {
+    for (const { key, operation } of adminOperations) {
+      expect((operation.security ?? doc.security ?? []).length, key).toBeGreaterThan(0);
+      expect(Object.keys(operation.responses), key).toEqual(expect.arrayContaining(['401', '403']));
+    }
+  });
+
+  it('name at least one platform role in x-roles, and only roles of RoleCode', () => {
+    const roleCodes = prismaEnums().get('RoleCode') ?? [];
+    expect(roleCodes).not.toEqual([]);
+    for (const { key, operation } of adminOperations) {
+      const roles = xRoles(operation);
+      expect(Array.isArray(roles), `${key}: x-roles`).toBe(true);
+      const list = roles as unknown[];
+      expect(list.length, key).toBeGreaterThan(0);
+      expect(new Set(list).size, key).toBe(list.length);
+      for (const role of list) {
+        expect(roleCodes, key).toContain(role);
+        expect(String(role), key).toMatch(/^PLATFORM_/);
+        expect(descriptionOf(operation), `${key}: description names ${String(role)}`).toContain(
+          `\`${String(role)}\``,
+        );
+      }
+    }
+  });
+
+  it('use x-roles nowhere else', () => {
+    const elsewhere = operations
+      .filter((o) => !o.path.startsWith('/admin/') && xRoles(o.operation) !== undefined)
+      .map((o) => o.key);
+    expect(elsewhere).toEqual([]);
+  });
+
+  it('declare STEP_UP_REQUIRED exactly on the step-up actions', () => {
+    const declaring = adminOperations
+      .filter(({ operation }) => {
+        const unauthorised = operation.responses['401'];
+        return (
+          unauthorised !== undefined &&
+          backticked(describeResponse(unauthorised)).includes('STEP_UP_REQUIRED')
+        );
+      })
+      .map((o) => o.key);
+    expect([...declaring].sort()).toEqual([...stepUp].sort());
+  });
+
+  it('return no secret, full account number, PAN, OTP, token, object key or report file', () => {
+    const leaks: string[] = [];
+    for (const { key, operation } of adminOperations) {
+      for (const [status, value] of Object.entries(operation.responses)) {
+        if (!status.startsWith('2')) continue;
+        for (const media of Object.values(resolve<Response>(doc, value).content ?? {})) {
+          for (const name of reachable(media.schema)) {
+            if (adminDenyList.includes(name.toLowerCase())) leaks.push(`${key}: ${name}`);
+          }
+        }
+      }
+    }
+    expect(leaks).toEqual([]);
   });
 });

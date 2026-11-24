@@ -1,0 +1,336 @@
+# Admin views for platform finance (API_CONTRACTS.md §10, PAYMENTS_AND_LEDGER.md,
+# ICICI_PAYMENT_INTEGRATION.md): payout holds, refunds, payouts, settlement reconciliation and
+# accounting exports. Nothing here describes ICICI's API: the payout mechanism (ADR-009) and the
+# settlement report format (OQ-01) are not known yet. Bank accounts appear by id and the last
+# four digits of the number only.
+
+AdminPayoutHoldCreate:
+  type: object
+  description: Places a payout hold on a booking (FR-SUP-05). Notes are required.
+  required:
+    - reasonType
+    - notes
+  additionalProperties: false
+  properties:
+    reasonType:
+      $ref: './enums.yaml#/AdminPayoutHoldPlaceReason'
+    notes:
+      type: string
+      minLength: 1
+      maxLength: 2000
+
+AdminPayoutHold:
+  type: object
+  description: A payout hold (`payout_hold`). Payout eligibility needs no open hold (BR-077).
+  required:
+    - id
+    - bookingId
+    - reasonType
+    - disputeId
+    - placedByUserId
+    - placedAt
+    - releasedByUserId
+    - releasedAt
+    - notes
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    reasonType:
+      $ref: './enums.yaml#/PayoutHoldReason'
+    disputeId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    placedByUserId:
+      description: '`null` when the system placed the hold (a raised dispute).'
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    placedAt:
+      $ref: './common.yaml#/Timestamp'
+    releasedByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    releasedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    notes:
+      type:
+        - string
+        - 'null'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminRefund:
+  type: object
+  description: A refund (`refund`). Refunds go to the original payment method.
+  required:
+    - id
+    - bookingId
+    - paymentOrderId
+    - amount
+    - reasonCodeNodeId
+    - policyRule
+    - initiatedByParty
+    - initiatedByUserId
+    - approvedByUserId
+    - status
+    - gatewayRefundRef
+    - creditNoteId
+    - disputeId
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    paymentOrderId:
+      $ref: './common.yaml#/Uuid'
+    amount:
+      $ref: './common.yaml#/Money'
+    reasonCodeNodeId:
+      description: A node of the `REFUND_REASON` taxonomy.
+      $ref: './common.yaml#/Uuid'
+    policyRule:
+      description: The business rule the refund follows, for example `BR-071`.
+      type:
+        - string
+        - 'null'
+      maxLength: 10
+    initiatedByParty:
+      $ref: './enums.yaml#/PartyType'
+    initiatedByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    approvedByUserId:
+      description: Set when the refund needed approval (above `refund.approval_threshold_paise`).
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    status:
+      $ref: './enums.yaml#/RefundStatus'
+    gatewayRefundRef:
+      type:
+        - string
+        - 'null'
+      maxLength: 100
+    creditNoteId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    disputeId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminRefundList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminRefund'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminPayout:
+  type: object
+  description: >-
+    A payout batch for one lab organisation and bank account (`payout`). `mechanism` stays `TBD`
+    until ADR-009 is decided.
+  required:
+    - id
+    - labOrgId
+    - bankAccountId
+    - bankAccountNumberLast4
+    - amount
+    - status
+    - mechanism
+    - eligibleAt
+    - releasedByUserId
+    - releasedAt
+    - externalRef
+    - failureReason
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    labOrgId:
+      $ref: './common.yaml#/Uuid'
+    bankAccountId:
+      $ref: './common.yaml#/Uuid'
+    bankAccountNumberLast4:
+      type: string
+      pattern: ^[0-9]{4}$
+    amount:
+      $ref: './common.yaml#/Money'
+    status:
+      $ref: './enums.yaml#/PayoutStatus'
+    mechanism:
+      $ref: './enums.yaml#/PayoutMechanism'
+    eligibleAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    releasedByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    releasedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    externalRef:
+      description: The reference of the transfer, for example the bank's UTR.
+      type:
+        - string
+        - 'null'
+      maxLength: 100
+    failureReason:
+      type:
+        - string
+        - 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminPayoutList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminPayout'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminPayoutRelease:
+  type: object
+  description: >-
+    Records the release of an eligible payout. While the mechanism is undecided (ADR-009) the
+    transfer is made outside the platform from the exported payout file, and `externalRef`
+    records its reference (PAYMENTS_AND_LEDGER §5).
+  additionalProperties: false
+  properties:
+    externalRef:
+      type: string
+      minLength: 1
+      maxLength: 100
+
+AdminSettlementImportRequest:
+  type: object
+  description: >-
+    A gateway settlement report to reconcile, as an uploaded file. The contract does not describe
+    the file's columns: the format is the gateway's and is not known yet (OQ-01). The gateway
+    adapter parses it.
+  required:
+    - gateway
+    - fileId
+  additionalProperties: false
+  properties:
+    gateway:
+      $ref: './enums.yaml#/GatewayCode'
+    fileId:
+      description: The file from `POST /admin/reconciliation/settlements/upload-url`.
+      $ref: './common.yaml#/Uuid'
+
+AdminSettlementLine:
+  type: object
+  description: >-
+    One imported settlement line (`settlement_report_line`) and how it matched a captured
+    transaction.
+  required:
+    - id
+    - gateway
+    - settlementDate
+    - gatewayTxnRef
+    - gross
+    - fee
+    - tax
+    - net
+    - utr
+    - matchStatus
+    - matchedTransactionId
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    gateway:
+      $ref: './enums.yaml#/GatewayCode'
+    settlementDate:
+      $ref: './common.yaml#/Date'
+    gatewayTxnRef:
+      type: string
+      maxLength: 100
+    gross:
+      $ref: './common.yaml#/Money'
+    fee:
+      $ref: './common.yaml#/Money'
+    tax:
+      $ref: './common.yaml#/Money'
+    net:
+      $ref: './common.yaml#/Money'
+    utr:
+      type:
+        - string
+        - 'null'
+      maxLength: 40
+    matchStatus:
+      $ref: './enums.yaml#/SettlementMatchStatus'
+    matchedTransactionId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+AdminSettlementLineList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminSettlementLine'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminExportKind:
+  type: string
+  description: >-
+    An accounting export (FR-FIN-04): `payouts` (payout batches and their items) or
+    `reconciliation` (settlement lines and their match status).
+  enum:
+    - payouts
+    - reconciliation

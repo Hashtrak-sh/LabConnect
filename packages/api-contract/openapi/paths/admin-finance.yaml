@@ -1,0 +1,628 @@
+# Admin: platform finance (API_CONTRACTS.md §10, PAYMENTS_AND_LEDGER.md): payout holds, refunds,
+# payouts, settlement reconciliation and accounting exports. Nothing here describes ICICI's API:
+# the payout mechanism (ADR-009) and the settlement report format (OQ-01) are not known yet.
+# Each top-level key is one path item, referenced from openapi.yaml. `x-roles`: see
+# admin-operations.yaml.
+
+payout-holds:
+  post:
+    operationId: placeAdminPayoutHold
+    tags:
+      - Admin Finance
+    summary: Place a payout hold on a booking
+    description: >-
+      Holds the booking's payout, with a reason and notes (FR-SUP-05, CD-14). A booking with an
+      open hold is not paid out (BR-077). Dispute holds are placed automatically when a dispute is
+      raised (BR-078), not here. Audited. Roles: `PLATFORM_OPS`, `PLATFORM_FINANCE`
+      (ROLES_AND_PERMISSIONS §2 note 8).
+    x-roles:
+      - PLATFORM_OPS
+      - PLATFORM_FINANCE
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The booking.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-finance.yaml#/AdminPayoutHoldCreate'
+    responses:
+      '201':
+        description: Placed.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-finance.yaml#/AdminPayoutHold'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS` or `PLATFORM_FINANCE`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such booking.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+payout-hold:
+  delete:
+    operationId: releaseAdminPayoutHold
+    tags:
+      - Admin Finance
+    summary: Release a payout hold
+    description: >-
+      Releases an open hold: the hold is kept with `releasedByUserId` and `releasedAt`; it is not
+      deleted. Platform Operations can place holds but not release them
+      (ROLES_AND_PERMISSIONS §2 note 8). Audited. Roles: `PLATFORM_FINANCE`.
+    x-roles:
+      - PLATFORM_FINANCE
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The booking.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: holdId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '204':
+        description: Released.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_FINANCE`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such hold on this booking.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION`: the hold is already released.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+refunds:
+  get:
+    operationId: listAdminRefunds
+    tags:
+      - Admin Finance
+    summary: List refunds
+    description: >-
+      Refunds, newest first (FR-PAY-06). `status=REQUESTED` lists the refunds waiting for
+      approval. Roles: `PLATFORM_FINANCE`, `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_FINANCE
+      - PLATFORM_OPS
+    parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/RefundStatus'
+      - name: bookingId
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of refunds.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-finance.yaml#/AdminRefundList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_FINANCE` or `PLATFORM_OPS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+refund-approve:
+  post:
+    operationId: approveAdminRefund
+    tags:
+      - Admin Finance
+    summary: Approve a refund
+    description: >-
+      `REQUESTED` → `APPROVED` (PAYMENTS_AND_LEDGER §4); the refund is then submitted to the
+      gateway through the `PaymentGateway` interface. Refunds above the configured threshold
+      (`refund.approval_threshold_paise`) need `PLATFORM_FINANCE` and a step-up MFA within the last
+      5 minutes (AUTHENTICATION §2); `PLATFORM_OPS` may approve only refunds up to the threshold
+      (ROLES_AND_PERMISSIONS §2 note 8). Audited. Roles: `PLATFORM_FINANCE`, `PLATFORM_OPS` (up to
+      the threshold).
+    x-roles:
+      - PLATFORM_FINANCE
+      - PLATFORM_OPS
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Approved. The refund as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-finance.yaml#/AdminRefund'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: >-
+          `UNAUTHENTICATED`, or `STEP_UP_REQUIRED` (`meta.maxAgeSeconds`): the refund is above the
+          threshold and the caller has no MFA in the last 5 minutes.
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the caller is not `PLATFORM_FINANCE` or `PLATFORM_OPS`, or is
+          `PLATFORM_OPS` and the refund is above the threshold.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such refund.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the refund is not `REQUESTED`.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+payouts:
+  get:
+    operationId: listAdminPayouts
+    tags:
+      - Admin Finance
+    summary: List payouts
+    description: >-
+      Payout batches, newest first (FR-PAY-09). `status=ELIGIBLE` lists the batches ready for
+      release. Bank accounts appear masked. Roles: `PLATFORM_FINANCE`.
+    x-roles:
+      - PLATFORM_FINANCE
+    parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/PayoutStatus'
+      - name: labOrgId
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of payouts.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-finance.yaml#/AdminPayoutList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_FINANCE`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+payout-release:
+  post:
+    operationId: releaseAdminPayout
+    tags:
+      - Admin Finance
+    summary: Release a payout
+    description: >-
+      `ELIGIBLE` → `RELEASED` (PAYMENTS_AND_LEDGER §5): records who released the payout and when,
+      and posts the ledger journal. Needs a step-up MFA within the last 5 minutes
+      (AUTHENTICATION §2). The mechanism is undecided (ADR-009); until then the transfer is made
+      outside the platform from the exported payout file and `externalRef` records its
+      reference. Audited. Roles: `PLATFORM_FINANCE`.
+    x-roles:
+      - PLATFORM_FINANCE
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-finance.yaml#/AdminPayoutRelease'
+    responses:
+      '200':
+        description: Released. The payout as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-finance.yaml#/AdminPayout'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: >-
+          `UNAUTHENTICATED`, or `STEP_UP_REQUIRED` (`meta.maxAgeSeconds`): no MFA in the last 5
+          minutes.
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_FINANCE`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such payout.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the payout is not `ELIGIBLE`.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+settlements:
+  get:
+    operationId: listAdminSettlementLines
+    tags:
+      - Admin Finance
+    summary: List settlement lines
+    description: >-
+      Imported gateway settlement lines and their match status, newest settlement date first
+      (FR-FIN-03). Roles: `PLATFORM_FINANCE`.
+    x-roles:
+      - PLATFORM_FINANCE
+    parameters:
+      - name: matchStatus
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/SettlementMatchStatus'
+      - name: settlementDateFrom
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - name: settlementDateTo
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of settlement lines.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-finance.yaml#/AdminSettlementLineList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_FINANCE`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  post:
+    operationId: importAdminSettlementReport
+    tags:
+      - Admin Finance
+    summary: Import a settlement report
+    description: >-
+      Accepts an uploaded gateway settlement report for reconciliation (FR-FIN-03). The gateway
+      adapter parses it in the background into settlement lines and matches them against captured
+      transactions; the result appears in the settlement lines and the exceptions. The contract
+      does not describe the file's columns: the format is the gateway's and is not known yet
+      (OQ-01). Audited. Roles: `PLATFORM_FINANCE`.
+    x-roles:
+      - PLATFORM_FINANCE
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-finance.yaml#/AdminSettlementImportRequest'
+    responses:
+      '202':
+        description: Accepted for parsing and matching.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_FINANCE`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such file.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `FILE_NOT_CLEAN`: the file's scan is pending or failed. `VALIDATION_FAILED` (for example
+          a gateway whose adapter cannot parse settlement reports), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+settlement-upload-url:
+  post:
+    operationId: createAdminSettlementUploadUrl
+    tags:
+      - Admin Finance
+    summary: Get an upload URL for a settlement report
+    description: >-
+      A pre-signed upload for a settlement report file, stored as `IMPORT_SOURCE` (CSV or XLSX, at
+      most 50 MB) and malware-scanned (FILES_AND_REPORTS §1). Roles: `PLATFORM_FINANCE`.
+    x-roles:
+      - PLATFORM_FINANCE
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-common.yaml#/AdminUploadUrlRequest'
+    responses:
+      '201':
+        description: The file is registered and can be uploaded.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-common.yaml#/AdminUploadUrl'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_FINANCE`.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example a type that is not allowed or a file over 50 MB),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+reconciliation-exceptions:
+  get:
+    operationId: listAdminReconciliationExceptions
+    tags:
+      - Admin Finance
+    summary: List reconciliation exceptions
+    description: >-
+      The exceptions report (FR-FIN-03): settlement lines that are `UNMATCHED` or `MISMATCH`,
+      newest settlement date first. Roles: `PLATFORM_FINANCE`.
+    x-roles:
+      - PLATFORM_FINANCE
+    parameters:
+      - name: settlementDateFrom
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - name: settlementDateTo
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of exceptions.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-finance.yaml#/AdminSettlementLineList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_FINANCE`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+export:
+  get:
+    operationId: exportAdminAccountingCsv
+    tags:
+      - Admin Finance
+    summary: Download an accounting export
+    description: >-
+      A CSV export for accounting (FR-FIN-04): `payouts` or `reconciliation`, for an optional date
+      range. The columns are not fixed by this contract (the chart of accounts is pending, OQ-08).
+      Bank accounts appear by the last four digits only. Audited. Roles: `PLATFORM_FINANCE`.
+    x-roles:
+      - PLATFORM_FINANCE
+    parameters:
+      - name: kind
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/admin-finance.yaml#/AdminExportKind'
+      - name: from
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - name: to
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The CSV file.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          Content-Disposition:
+            description: '`attachment` with a file name.'
+            schema:
+              type: string
+        content:
+          text/csv:
+            schema:
+              type: string
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_FINANCE`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unknown kind or `from` after `to`).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

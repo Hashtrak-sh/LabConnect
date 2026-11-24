@@ -1,0 +1,408 @@
+# Admin views for platform administration (API_CONTRACTS.md §10): configuration parameters,
+# platform users and roles, the audit log and notification templates.
+
+AdminConfigKey:
+  type: string
+  pattern: ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$
+  maxLength: 100
+  description: >-
+    A configuration key (`config_parameter.key`). The keys and the shape of each value are
+    defined by the key's validation schema in `packages/shared`, not by this contract.
+  examples:
+    - booking.lab_decision_sla_business_minutes
+
+AdminConfigValue:
+  type: object
+  description: >-
+    The value of a key at one scope (`config_parameter`), in effect now. `lockVersion` is also
+    returned as the `ETag`.
+  required:
+    - key
+    - scopeType
+    - scopeId
+    - value
+    - effectiveFrom
+    - effectiveTo
+    - changeReason
+    - createdByUserId
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    key:
+      $ref: '#/AdminConfigKey'
+    scopeType:
+      $ref: './enums.yaml#/ConfigScope'
+    scopeId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    value:
+      description: The value as stored. Its JSON type depends on the key.
+    effectiveFrom:
+      $ref: './common.yaml#/Timestamp'
+    effectiveTo:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    changeReason:
+      type: string
+    createdByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminConfigValueUpdate:
+  type: object
+  description: A new value for the key at one scope, with the reason for the change.
+  required:
+    - value
+    - changeReason
+  additionalProperties: false
+  properties:
+    value:
+      description: Any JSON value. It is validated against the key's schema.
+    changeReason:
+      type: string
+      minLength: 1
+      maxLength: 2000
+
+AdminPlatformUser:
+  type: object
+  description: >-
+    A platform staff user and the platform roles of their membership. Every platform role needs
+    MFA (ROLES_AND_PERMISSIONS §1). `lockVersion` (also the `ETag`) covers the profile, the status
+    and the roles.
+  required:
+    - id
+    - email
+    - fullName
+    - designation
+    - status
+    - roles
+    - mfaEnrolledAt
+    - lastLoginAt
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    email:
+      $ref: './auth.yaml#/Email'
+    fullName:
+      type: string
+    designation:
+      type:
+        - string
+        - 'null'
+    status:
+      $ref: './enums.yaml#/UserStatus'
+    roles:
+      type: array
+      uniqueItems: true
+      items:
+        $ref: './enums.yaml#/AdminPlatformRoleCode'
+    mfaEnrolledAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    lastLoginAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminPlatformUserList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminPlatformUser'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminPlatformUserCreate:
+  type: object
+  description: >-
+    Adds a platform staff user with at least one platform role. The user is `INVITED` until the
+    first sign-in, and must enrol MFA before a full session is issued.
+  required:
+    - email
+    - fullName
+    - roles
+  additionalProperties: false
+  properties:
+    email:
+      $ref: './auth.yaml#/Email'
+    fullName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    designation:
+      type: string
+      maxLength: 200
+    roles:
+      type: array
+      minItems: 1
+      uniqueItems: true
+      items:
+        $ref: './enums.yaml#/AdminPlatformRoleCode'
+
+AdminPlatformUserUpdate:
+  type: object
+  description: >-
+    Changes a platform user's profile or status. Setting `DISABLED` deactivates the user and
+    their membership and revokes their sessions; users are never deleted. Roles change through
+    `PUT /admin/users/{id}/platform-roles`. At least one field is required.
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    fullName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    designation:
+      type:
+        - string
+        - 'null'
+      maxLength: 200
+    status:
+      $ref: './enums.yaml#/AdminUserStatusUpdate'
+
+AdminPlatformRolesUpdate:
+  type: object
+  description: The complete set of platform roles the user holds after the change.
+  required:
+    - roles
+  additionalProperties: false
+  properties:
+    roles:
+      type: array
+      minItems: 1
+      uniqueItems: true
+      items:
+        $ref: './enums.yaml#/AdminPlatformRoleCode'
+
+AdminAuditLogEntry:
+  type: object
+  description: >-
+    One audit record (`audit_log`, append-only). `before` and `after` are returned as stored, with
+    the sensitive fields already redacted when they were written.
+  required:
+    - id
+    - occurredAt
+    - actorUserId
+    - actorMembershipId
+    - actorRole
+    - actorOrgId
+    - action
+    - entityType
+    - entityId
+    - before
+    - after
+    - reason
+    - requestId
+    - ipAddress
+    - userAgent
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    occurredAt:
+      $ref: './common.yaml#/Timestamp'
+    actorUserId:
+      description: '`null` for the system.'
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    actorMembershipId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    actorRole:
+      oneOf:
+        - $ref: './enums.yaml#/RoleCode'
+        - type: 'null'
+    actorOrgId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    action:
+      type: string
+      maxLength: 100
+      examples:
+        - booking.transition
+    entityType:
+      type: string
+      maxLength: 60
+    entityId:
+      $ref: './common.yaml#/Uuid'
+    before:
+      description: The state before the action, as stored (redacted). `null` when there was none.
+    after:
+      description: The state after the action, as stored (redacted). `null` when there is none.
+    reason:
+      type:
+        - string
+        - 'null'
+    requestId:
+      type:
+        - string
+        - 'null'
+      maxLength: 64
+    ipAddress:
+      type:
+        - string
+        - 'null'
+    userAgent:
+      type:
+        - string
+        - 'null'
+
+AdminAuditLogList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminAuditLogEntry'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminNotificationTemplate:
+  type: object
+  description: >-
+    One version of a notification template (`notification_template`). A version's content never
+    changes; a change is a new version. The newest `ACTIVE` version of an event, channel and
+    locale is the one used.
+  required:
+    - id
+    - eventCode
+    - channel
+    - locale
+    - version
+    - subject
+    - body
+    - externalTemplateId
+    - status
+    - createdByUserId
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    eventCode:
+      type: string
+      maxLength: 100
+      examples:
+        - booking.accepted
+    channel:
+      $ref: './enums.yaml#/NotifChannel'
+    locale:
+      type: string
+      maxLength: 10
+      examples:
+        - en-IN
+    version:
+      type: integer
+      minimum: 1
+    subject:
+      type:
+        - string
+        - 'null'
+    body:
+      type: string
+      description: The template text, with the event's whitelisted variables only.
+    externalTemplateId:
+      description: A registered template id for SMS (DLT) or WhatsApp, which are not sent in the MVP.
+      type:
+        - string
+        - 'null'
+      maxLength: 100
+    status:
+      $ref: './enums.yaml#/MdStatus'
+    createdByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminNotificationTemplateList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminNotificationTemplate'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminNotificationTemplateCreate:
+  type: object
+  description: >-
+    A new template version for an event, channel and locale: version 1, or the latest version
+    plus one. It is `ACTIVE` when created.
+  required:
+    - eventCode
+    - channel
+    - locale
+    - body
+  additionalProperties: false
+  properties:
+    eventCode:
+      type: string
+      minLength: 1
+      maxLength: 100
+    channel:
+      $ref: './enums.yaml#/NotifChannel'
+    locale:
+      type: string
+      minLength: 2
+      maxLength: 10
+    subject:
+      type: string
+      maxLength: 500
+    body:
+      type: string
+      minLength: 1
+    externalTemplateId:
+      type: string
+      maxLength: 100
+
+AdminNotificationTemplateUpdate:
+  type: object
+  description: Activates or retires a template version. Its content never changes.
+  required:
+    - status
+  additionalProperties: false
+  properties:
+    status:
+      $ref: './enums.yaml#/MdStatus'
