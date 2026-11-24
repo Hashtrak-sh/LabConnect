@@ -12,6 +12,7 @@ import { listOperations, loadBundledDocument, parametersOf, readRepoFile } from 
 const coveredSections: [heading: string, rows: number, operations: number][] = [
   ['## 1. Auth and identity', 10, 14],
   ['## 2. Public', 10, 10],
+  ['## 6. Lab', 19, 41],
 ];
 
 const markdown = readRepoFile('docs/04-api/API_CONTRACTS.md');

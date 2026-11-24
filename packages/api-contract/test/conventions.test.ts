@@ -5,8 +5,11 @@ import {
   listOperations,
   loadBundledDocument,
   markdownSection,
+  type MediaType,
+  type Operation,
   parametersOf,
   readRepoFile,
+  type Ref,
   resolve,
   type Response,
   type Schema,
@@ -34,6 +37,18 @@ const ifMatchExemptions: Record<string, string> = {
   'PATCH /me/notification-preferences':
     'notification_preference has no lock_version, so there is no ETag to match. Each item sets ' +
     'an absolute value. Open question raised with P2-01.',
+  'PUT /lab/sites/{siteId}/receiving-hours':
+    'receiving_hours has no lock_version (SCHEMA_SPECIFICATION §5.10), so there is no ETag to ' +
+    'match. The PUT replaces the whole weekly set. Reported with P2-04.',
+  'PUT /lab/sites/{siteId}/slot-templates':
+    'Creates or updates several slot_template rows, each with its own lock_version: every ' +
+    'updated item carries its lockVersion in the body and a mismatch returns 412.',
+  'PUT /lab/sites/{siteId}/retention-rules':
+    'Sets several retention_rule rows, each with its own lock_version: every existing rule ' +
+    'carries its lockVersion in the body and a mismatch returns 412.',
+  'PATCH /lab/invitations/{id}':
+    'invitation has no lock_version (SCHEMA_SPECIFICATION §2.6). The only change is a one-way ' +
+    'revocation.',
 };
 
 /** Effective response description: a `$ref` may override the shared one. */
@@ -294,6 +309,25 @@ describe('enums shared with the database', () => {
     ['ScopeSiteType', 'ScopeSiteType', false],
     ['LeadKind', 'LeadKind', false],
     ['VerificationResult', 'VerificationResult', false],
+    // P2-04 Lab
+    ['BookingStatus', 'BookingStatus', false],
+    ['ClaimStatus', 'ClaimStatus', false],
+    ['VerificationStatus', 'VerificationStatus', false],
+    ['MembershipStatus', 'MembershipStatus', false],
+    ['ClaimMethod', 'ClaimMethod', false],
+    ['ClaimRequestStatus', 'ClaimRequestStatus', false],
+    ['ListingStatus', 'ListingStatus', false],
+    ['GeocodeStatus', 'GeocodeStatus', false],
+    ['PriceListStatus', 'PriceListStatus', false],
+    ['SlotStatus', 'SlotStatus', false],
+    ['ImportStatus', 'ImportStatus', false],
+    ['ImportMatchResult', 'ImportMatchResult', false],
+    ['ImportRowAction', 'ImportRowAction', false],
+    ['ChangeSetStatus', 'ChangeSetStatus', false],
+    ['LabRoleCode', 'RoleCode', true],
+    ['LabMembershipSettableStatus', 'MembershipStatus', true],
+    ['LabSlotSettableStatus', 'SlotStatus', true],
+    ['LabScopeProposalOperation', 'ChangeOperation', false],
   ];
 
   it.each(mirrored)('%s matches Prisma enum %s', (schema, prismaEnum, subset) => {
@@ -315,5 +349,115 @@ describe('enums shared with the database', () => {
       .map(([name]) => name)
       .filter((name) => !covered.has(name));
     expect(unchecked).toEqual([]);
+  });
+});
+
+describe('lab operations (API_CONTRACTS §6)', () => {
+  const labOperations = operations.filter((o) => o.path.startsWith('/lab/'));
+
+  /** Every property reachable from a schema, following `$ref`s, with its own schema. */
+  function reachableProperties(
+    node: unknown,
+    seen = new Set<string>(),
+  ): { name: string; schema: Schema | Ref }[] {
+    if (typeof node !== 'object' || node === null) return [];
+    if (isRef(node)) {
+      if (seen.has(node.$ref)) return [];
+      seen.add(node.$ref);
+      return reachableProperties(resolve(doc, node), seen);
+    }
+    const found: { name: string; schema: Schema | Ref }[] = [];
+    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+      if (key === 'examples' || key === 'example') continue;
+      if (key === 'properties' && typeof value === 'object' && value !== null) {
+        for (const [name, schema] of Object.entries(value as Record<string, Schema | Ref>)) {
+          found.push({ name, schema });
+        }
+      }
+      found.push(...reachableProperties(value, seen));
+    }
+    return found;
+  }
+
+  /** Properties of the JSON request body of an operation. */
+  function requestProperties(operation: Operation): { name: string; schema: Schema | Ref }[] {
+    const body = operation.requestBody as { content?: Record<string, MediaType> } | undefined;
+    return Object.values(body?.content ?? {}).flatMap((m) => reachableProperties(m.schema));
+  }
+
+  /** Properties of the 2xx responses of an operation. */
+  function responseProperties(operation: Operation): string[] {
+    return Object.entries(operation.responses)
+      .filter(([status]) => status.startsWith('2'))
+      .flatMap(([, value]) => Object.values(resolve<Response>(doc, value).content ?? {}))
+      .flatMap((m) => reachableProperties(m.schema).map((p) => p.name));
+  }
+
+  // Secrets that no lab response may carry (SECURITY_AND_PRIVACY §2, CLAUDE.md §5): a full bank
+  // account number (only `accountNumberLast4` is returned), a PAN, an OTP, a token or a secret.
+  // (`code` alone is not listed: it is the code of a master-data value.)
+  const secret =
+    /^(accountNumber|accountNumberCiphertext|pan|panCiphertext|otp|otpCode|codeHash|token|tokenHash|secret|secretCiphertext)$/i;
+
+  it('cover the lab section', () => {
+    expect(labOperations.length).toBeGreaterThan(0);
+  });
+
+  it('all require authentication', () => {
+    const open = labOperations
+      .filter(({ operation }) => (operation.security ?? doc.security ?? []).length === 0)
+      .map((o) => o.key);
+    expect(open).toEqual([]);
+  });
+
+  it('return no full account number, PAN, OTP, token or secret', () => {
+    const leaks = labOperations.flatMap(({ key, operation }) =>
+      responseProperties(operation)
+        .filter((name) => secret.test(name))
+        .map((name) => `${key}: ${name}`),
+    );
+    expect(leaks).toEqual([]);
+  });
+
+  it('accept a bank account number only as a write-only field', () => {
+    const accountNumbers = labOperations.flatMap(({ key, operation }) =>
+      requestProperties(operation)
+        .filter((p) => p.name === 'accountNumber')
+        .map((p) => ({ key, writeOnly: resolve<Schema>(doc, p.schema).writeOnly })),
+    );
+    expect(accountNumbers).not.toEqual([]);
+    for (const { key, writeOnly } of accountNumbers) expect(writeOnly, key).toBe(true);
+  });
+
+  it('take no organisation id from the client (TENANT_ISOLATION §2)', () => {
+    const orgId = /^(organisationId|organizationId|orgId|labOrgId|customerOrgId)$/i;
+    const taken = labOperations.flatMap(({ key, operation }) => [
+      ...requestProperties(operation)
+        .filter((p) => orgId.test(p.name))
+        .map((p) => `${key}: body ${p.name}`),
+      ...parametersOf(doc, operation)
+        .filter((p) => orgId.test(p.name))
+        .map((p) => `${key}: ${p.in} ${p.name}`),
+    ]);
+    expect(taken).toEqual([]);
+  });
+
+  it('require a step-up MFA to add bank details (AUTHENTICATION §2)', () => {
+    const stepUp = ['POST /lab/bank-accounts'];
+    for (const key of stepUp) {
+      const op = labOperations.find((o) => o.key === key);
+      const unauthenticated = op?.operation.responses['401'];
+      expect(unauthenticated, key).toBeDefined();
+      if (!unauthenticated) continue;
+      expect(backticked(describeResponse(unauthenticated)), key).toContain('STEP_UP_REQUIRED');
+    }
+  });
+
+  it('act as the active lab membership, except a claim, which comes before one', () => {
+    for (const { key, path, operation } of labOperations) {
+      const names = parametersOf(doc, operation).map((p) => p.name);
+      if (path.startsWith('/lab/claims')) expect(names, key).not.toContain('X-Active-Membership');
+      else expect(names, key).toContain('X-Active-Membership');
+    }
   });
 });

@@ -1,0 +1,659 @@
+# Lab onboarding: claims, checklist, KYC documents, bank accounts, users and invitations, and
+# the file upload URLs of the lab module (API_CONTRACTS.md §6, FR-DAT-07, FR-ONB-04, FR-ONB-06).
+# Lab-owned data (TENANT_ISOLATION.md §1): the organisation is always the caller's active
+# membership, never an id from the request. Bank account numbers are write-only: responses carry
+# the last four digits only. OTPs, invitation tokens and claim contact addresses are never
+# returned. Examples use obviously fake values.
+
+LabSiteRef:
+  type: object
+  description: A lab site of the caller's organisation, by id, code and name.
+  required:
+    - id
+    - siteCode
+    - name
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    siteCode:
+      type: string
+      maxLength: 30
+      examples:
+        - LS-UP-000123
+    name:
+      type: string
+
+CertificateNo:
+  type: string
+  minLength: 1
+  maxLength: 50
+  description: An accreditation certificate number as published by the accreditation body.
+  examples:
+    - TC-1234
+
+LockVersion:
+  type: integer
+  minimum: 0
+  description: >-
+    The row's optimistic-locking version. Collection items carry it in the body; single resources
+    also return it as `ETag: "<lockVersion>"`.
+
+# --- File upload URLs (FILES_AND_REPORTS.md §1) ---
+
+LabKycUploadUrlRequest:
+  type: object
+  description: >-
+    Asks for an upload URL for a KYC document (`KYC_DOCUMENT`: PDF, JPEG or PNG, at most 10 MB).
+  required:
+    - fileName
+    - contentType
+    - sizeBytes
+  additionalProperties: false
+  properties:
+    fileName:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: The original file name. It is sanitised before it is stored.
+      examples:
+        - gst-certificate.pdf
+    contentType:
+      type: string
+      enum:
+        - application/pdf
+        - image/jpeg
+        - image/png
+    sizeBytes:
+      type: integer
+      minimum: 1
+      maximum: 10485760
+
+LabImportUploadUrlRequest:
+  type: object
+  description: >-
+    Asks for an upload URL for a price-list import file (`IMPORT_SOURCE`: CSV or XLSX, at most
+    50 MB).
+  required:
+    - fileName
+    - contentType
+    - sizeBytes
+  additionalProperties: false
+  properties:
+    fileName:
+      type: string
+      minLength: 1
+      maxLength: 255
+      examples:
+        - price-list.xlsx
+    contentType:
+      type: string
+      enum:
+        - text/csv
+        - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    sizeBytes:
+      type: integer
+      minimum: 1
+      maximum: 52428800
+
+LabUploadUrl:
+  type: object
+  description: >-
+    A pre-signed S3 PUT to the quarantine prefix, valid for 15 minutes (FILES_AND_REPORTS §1). The
+    client uploads the file directly with exactly the returned headers. The file is then scanned
+    and validated; a domain command that references `fileId` before the file is `CLEAN` fails
+    with `FILE_NOT_CLEAN`.
+  required:
+    - fileId
+    - uploadUrl
+    - method
+    - headers
+    - expiresAt
+  additionalProperties: false
+  properties:
+    fileId:
+      $ref: './common.yaml#/Uuid'
+    uploadUrl:
+      type: string
+      format: uri
+    method:
+      type: string
+      const: PUT
+    headers:
+      type: object
+      description: Headers the upload must send unchanged (content type and length conditions).
+      additionalProperties:
+        type: string
+    expiresAt:
+      $ref: './common.yaml#/Timestamp'
+  examples:
+    - fileId: 01930000-0000-7000-8000-0000000000f1
+      uploadUrl: https://uploads.example.com/quarantine/KYC_DOCUMENT/01930000-0000-7000-8000-0000000000f1?X-Fake-Signature=FAKE
+      method: PUT
+      headers:
+        Content-Type: application/pdf
+        Content-Length: '182044'
+      expiresAt: '2026-11-24T10:45:00Z'
+
+# --- Claims (FR-DAT-07, AUTHENTICATION_AND_AUTHORISATION.md §5) ---
+
+LabClaimCreate:
+  type: object
+  description: >-
+    Starts a claim by certificate number. There is no address field: the OTP goes only to the
+    email address imported from NABL data.
+  required:
+    - certificateNo
+  additionalProperties: false
+  properties:
+    certificateNo:
+      $ref: '#/CertificateNo'
+
+LabClaimOtpVerify:
+  type: object
+  required:
+    - code
+  additionalProperties: false
+  properties:
+    code:
+      $ref: './auth.yaml#/OtpCode'
+      description: The 6-digit code sent to the lab's NABL-registered email address.
+
+LabClaimManual:
+  type: object
+  description: >-
+    The letterhead authorisation, uploaded first through
+    `/lab/claims/{id}/manual/upload-url`. Reviewed by `PLATFORM_OPS`.
+  required:
+    - fileId
+  additionalProperties: false
+  properties:
+    fileId:
+      $ref: './common.yaml#/Uuid'
+
+LabClaim:
+  type: object
+  description: >-
+    A claim request of the caller (SCHEMA_SPECIFICATION §5.7). On approval by `PLATFORM_OPS` the
+    claimant becomes the organisation's first `LAB_CHECKER` (MFA enrolment forced) and the
+    organisation becomes `CLAIMED`; the new membership then appears in `GET /me`.
+  required:
+    - id
+    - status
+    - method
+    - labSite
+    - otpSentTo
+    - createdAt
+    - reviewedAt
+    - decisionNotes
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    status:
+      $ref: './enums.yaml#/ClaimRequestStatus'
+    method:
+      $ref: './enums.yaml#/ClaimMethod'
+    labSite:
+      description: The listed site whose certificate was used (public data).
+      $ref: '#/LabSiteRef'
+    otpSentTo:
+      description: >-
+        The NABL-registered address the OTP was sent to, masked so that only the first character
+        of the local part and the top-level domain show (LAB_USER_FLOWS L1). `null` when the NABL
+        data has no email address for the site: the claim then needs the letterhead route.
+      type:
+        - string
+        - 'null'
+      examples:
+        - l***@***.in
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    reviewedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    decisionNotes:
+      description: The reviewer's notes, shown when a claim is rejected.
+      type:
+        - string
+        - 'null'
+
+# --- Onboarding checklist (FR-ONB-04, BR-001) ---
+
+LabKycDocumentCreate:
+  type: object
+  required:
+    - documentTypeCode
+    - fileId
+  additionalProperties: false
+  properties:
+    documentTypeCode:
+      description: Code of a node of the `KYC_DOCUMENT_TYPE` taxonomy.
+      $ref: './lab-sites.yaml#/NodeCode'
+    fileId:
+      description: The uploaded file (`/lab/kyc-documents/upload-url`). It must be `CLEAN`.
+      $ref: './common.yaml#/Uuid'
+
+LabKycDocument:
+  type: object
+  description: A KYC document of the organisation, reviewed by `PLATFORM_OPS`.
+  required:
+    - id
+    - documentType
+    - fileName
+    - status
+    - reviewNotes
+    - reviewedAt
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    documentType:
+      $ref: './lab-sites.yaml#/PublicCodeName'
+    fileName:
+      type:
+        - string
+        - 'null'
+    status:
+      $ref: './enums.yaml#/VerificationStatus'
+    reviewNotes:
+      description: The reviewer's notes, for example why the document was rejected.
+      type:
+        - string
+        - 'null'
+    reviewedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+LabBankAccountCreate:
+  type: object
+  description: >-
+    New bank details. The account number is write-only: it is stored envelope-encrypted and never
+    returned (SECURITY_AND_PRIVACY §1). Bank details are never edited: a change is a new account.
+  required:
+    - siteId
+    - accountHolderName
+    - accountNumber
+    - ifsc
+  additionalProperties: false
+  properties:
+    siteId:
+      description: A site of the caller's for a site account, or `null` for the organisation's account.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    accountHolderName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    accountNumber:
+      type: string
+      writeOnly: true
+      pattern: ^[0-9]{9,18}$
+      description: The full account number. Write-only; never logged.
+    ifsc:
+      type: string
+      pattern: ^[A-Z]{4}0[A-Z0-9]{6}$
+      description: The branch's IFSC.
+      examples:
+        - FAKE0000001
+
+LabBankAccount:
+  type: object
+  description: >-
+    Bank details, masked. Verified by `PLATFORM_FINANCE`. The full account number is never
+    returned.
+  required:
+    - id
+    - siteId
+    - accountHolderName
+    - accountNumberLast4
+    - ifsc
+    - status
+    - isPrimary
+    - verifiedAt
+    - retiredAt
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    siteId:
+      description: '`null` for the organisation-level account.'
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    accountHolderName:
+      type: string
+    accountNumberLast4:
+      type: string
+      pattern: ^[0-9]{4}$
+      examples:
+        - '0000'
+    ifsc:
+      type: string
+      examples:
+        - FAKE0000001
+    status:
+      $ref: './enums.yaml#/VerificationStatus'
+    isPrimary:
+      type: boolean
+    verifiedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    retiredAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+LabOnboardingChecklist:
+  type: object
+  description: >-
+    The onboarding checklist of one site (FR-ONB-04). The items marked BR-001 are the bookability
+    conditions; the others are setup steps a bookable site also needs.
+  required:
+    - claimApproved
+    - kycVerified
+    - bankAccountVerified
+    - accreditationValid
+    - testingCategory
+    - makerAssigned
+    - checkerAssigned
+    - receivingHoursSet
+    - slotTemplatesActive
+    - retentionRuleSet
+    - priceListPublished
+  additionalProperties: false
+  properties:
+    claimApproved:
+      type: boolean
+      description: BR-001. The organisation is `CLAIMED`.
+    kycVerified:
+      type: boolean
+      description: BR-001. The organisation's KYC is `VERIFIED`.
+    bankAccountVerified:
+      type: boolean
+      description: BR-001. A verified, current bank account exists for the site or the organisation.
+    accreditationValid:
+      type: boolean
+      description: BR-001. An accreditation of the site is `VALID` and in date.
+    testingCategory:
+      type: boolean
+      description: BR-001. That accreditation is in the `TESTING` category.
+    makerAssigned:
+      type: boolean
+      description: BR-001. At least one active `LAB_MAKER` is assigned to the site.
+    checkerAssigned:
+      type: boolean
+      description: >-
+        BR-001. At least one active `LAB_CHECKER` is assigned to the site, a different user from
+        the Maker.
+    receivingHoursSet:
+      type: boolean
+      description: The site has receiving hours.
+    slotTemplatesActive:
+      type: boolean
+      description: The site has at least one active slot template.
+    retentionRuleSet:
+      type: boolean
+      description: The site has a default retention rule (FR-ONB-07).
+    priceListPublished:
+      type: boolean
+      description: BR-001. A published price list is in effect.
+
+LabOnboardingSite:
+  type: object
+  required:
+    - site
+    - listingStatus
+    - isBookable
+    - bookabilityReasons
+    - checklist
+  additionalProperties: false
+  properties:
+    site:
+      $ref: '#/LabSiteRef'
+    listingStatus:
+      $ref: './enums.yaml#/ListingStatus'
+    isBookable:
+      type: boolean
+      description: '`lab_site.is_bookable` (BR-001), recalculated on every relevant change.'
+    bookabilityReasons:
+      type: array
+      description: >-
+        Why the site is not bookable (`lab_site.bookability_reasons`). Empty when it is bookable.
+      items:
+        type: string
+        pattern: ^[A-Z][A-Z0-9_]*$
+        examples:
+          - PRICE_LIST_MISSING
+    checklist:
+      $ref: '#/LabOnboardingChecklist'
+
+LabOnboarding:
+  type: object
+  description: >-
+    The onboarding state of the caller's organisation and of the sites the caller is assigned to
+    (FR-ONB-04), with the KYC documents and the masked bank accounts.
+  required:
+    - organisation
+    - kycDocuments
+    - bankAccounts
+    - sites
+  additionalProperties: false
+  properties:
+    organisation:
+      type: object
+      required:
+        - displayName
+        - claimStatus
+        - kycStatus
+      additionalProperties: false
+      properties:
+        displayName:
+          type: string
+        claimStatus:
+          $ref: './enums.yaml#/ClaimStatus'
+        kycStatus:
+          $ref: './enums.yaml#/VerificationStatus'
+    kycDocuments:
+      type: array
+      items:
+        $ref: '#/LabKycDocument'
+    bankAccounts:
+      type: array
+      description: >-
+        The organisation's account and the accounts of the caller's sites, including retired
+        ones, newest first.
+      items:
+        $ref: '#/LabBankAccount'
+    sites:
+      type: array
+      items:
+        $ref: '#/LabOnboardingSite'
+
+# --- Users and invitations (FR-ONB-06, RR-2, RR-3) ---
+
+LabUser:
+  type: object
+  description: >-
+    A member of the caller's lab organisation, with the one lab role the membership holds (RR-2)
+    and the sites the member is assigned to (RR-3).
+  required:
+    - userId
+    - fullName
+    - email
+    - designation
+    - role
+    - status
+    - sites
+    - mfaEnrolled
+    - lockVersion
+  additionalProperties: false
+  properties:
+    userId:
+      $ref: './common.yaml#/Uuid'
+    fullName:
+      type: string
+    email:
+      $ref: './auth.yaml#/Email'
+    designation:
+      type:
+        - string
+        - 'null'
+    role:
+      $ref: './enums.yaml#/LabRoleCode'
+    status:
+      $ref: './enums.yaml#/MembershipStatus'
+    sites:
+      type: array
+      items:
+        $ref: '#/LabSiteRef'
+    mfaEnrolled:
+      type: boolean
+    lockVersion:
+      description: The membership's lock version.
+      $ref: '#/LockVersion'
+
+LabUserList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/LabUser'
+    page:
+      $ref: './common.yaml#/Page'
+
+LabUserUpdate:
+  type: object
+  description: >-
+    Changes a member's lab role, site assignments or status. Fields that are absent are unchanged.
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    role:
+      description: >-
+        The one lab role the membership holds (RR-2). The change is logged and does not apply
+        retroactively to pending items.
+      $ref: './enums.yaml#/LabRoleCode'
+    siteIds:
+      type: array
+      description: >-
+        The complete set of the member's site assignments. Every site added or removed must be
+        one of the caller's sites.
+      uniqueItems: true
+      maxItems: 200
+      items:
+        $ref: './common.yaml#/Uuid'
+    status:
+      $ref: './enums.yaml#/LabMembershipSettableStatus'
+
+LabInvitationStatus:
+  type: string
+  description: Derived from the invitation's `accepted_at`, `revoked_at` and `expires_at`.
+  enum:
+    - PENDING
+    - ACCEPTED
+    - EXPIRED
+    - REVOKED
+
+LabInvitation:
+  type: object
+  description: >-
+    An invitation to join the caller's lab organisation with one lab role and site assignments.
+    The token is emailed to the address only; it is never returned.
+  required:
+    - id
+    - email
+    - role
+    - sites
+    - status
+    - expiresAt
+    - acceptedAt
+    - revokedAt
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    email:
+      $ref: './auth.yaml#/Email'
+    role:
+      $ref: './enums.yaml#/LabRoleCode'
+    sites:
+      type: array
+      items:
+        $ref: '#/LabSiteRef'
+    status:
+      $ref: '#/LabInvitationStatus'
+    expiresAt:
+      $ref: './common.yaml#/Timestamp'
+    acceptedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    revokedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+LabInvitationList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/LabInvitation'
+    page:
+      $ref: './common.yaml#/Page'
+
+LabInvitationCreate:
+  type: object
+  required:
+    - email
+    - role
+    - siteIds
+  additionalProperties: false
+  properties:
+    email:
+      $ref: './auth.yaml#/Email'
+    role:
+      $ref: './enums.yaml#/LabRoleCode'
+    siteIds:
+      type: array
+      description: Sites the new member is assigned to. Each must be one of the caller's sites.
+      minItems: 1
+      maxItems: 200
+      uniqueItems: true
+      items:
+        $ref: './common.yaml#/Uuid'
+
+LabInvitationUpdate:
+  type: object
+  description: Revokes a pending invitation. Revocation cannot be undone; invite again instead.
+  required:
+    - revoked
+  additionalProperties: false
+  properties:
+    revoked:
+      type: boolean
+      const: true
