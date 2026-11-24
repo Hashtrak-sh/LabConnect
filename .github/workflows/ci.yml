@@ -87,6 +87,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:db
 
+  # Contract suite (P2-08): the API in-process, every call held to the OpenAPI contract, plus the
+  # staged "every documented endpoint exists" check. See TESTING_STRATEGY.md §8.
+  contract:
+    name: contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:contract
+
   audit:
     name: audit
     runs-on: ubuntu-latest
@@ -123,8 +138,6 @@ jobs:
         include:
           - check: integration
             task: Phase 3
-          - check: contract
-            task: P2-08
           - check: permissions
             task: P3-05
           - check: isolation

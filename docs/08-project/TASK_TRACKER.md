@@ -45,12 +45,12 @@ Single-developer period (from 2026-11-24): A is not working on the project for n
 |---|---|---|---|---|
 | P2-01 | OpenAPI skeleton, conventions, error schema, auth endpoints | S (H) | G1 | ☑ |
 | P2-02 | Public search, lab pages, slots, leads | A | P2-01 | ☑ |
-| P2-03 | Booking, counter, cancel, handover, hold decision | S (A) | P2-01 | ☐ |
-| P2-04 | Lab onboarding, catalogue, capacity, inbox, decisions | H | P2-01 | ☐ |
-| P2-05 | Custody, receipts, reports, verification, share | H | P2-01 | ☐ |
-| P2-06 | Payments (adapter-level), disputes, admin | S (H) | P2-01 | ☐ |
+| P2-03 | Booking, counter, cancel, handover, hold decision | S (A) | P2-01 | ☑ |
+| P2-04 | Lab onboarding, catalogue, capacity, inbox, decisions | H | P2-01 | ☑ |
+| P2-05 | Custody, receipts, reports, verification, share | H | P2-01 | ☑ |
+| P2-06 | Payments (adapter-level), disputes, admin | S (H) | P2-01 | ☑ |
 | P2-07 | `packages/shared`: state machine table + doc-equality test, permissions map, error codes | S (H) | P2-01 | ☑ |
-| P2-08 | Contract test harness | S (A) | P2-01 | ☐ |
+| P2-08 | Contract test harness | S (A) | P2-01 | ☑ |
 | P2-09 | **G2 review and sign-off** | S | P2-02..08 | ☐ |
 
 P2-01 is implemented on `feature/P2-01-openapi-skeleton`: the split contract in `packages/api-contract/openapi/` (shared components, API_CONTRACTS §1 and `/health`), generation, Redocly lint and the contract convention tests; done when that PR merges.
@@ -74,6 +74,8 @@ P2-07 is implemented on `feature/P2-07-shared-domain`: `packages/shared/src/` ho
 | P3-10 | Search service: Postgres fallback + OpenSearch index + sync consumer | A | ☐ |
 | P3-11 | IaC: UAT environment | H | ☐ |
 | P3-12 | `deploy-uat.yml` | H | ☐ |
+
+P3-01 also adds the global exception filter (every error in the shared problem shape) and the `X-Request-Id` middleware. Three expected-failure tests in `apps/api/test/generic-responses.spec.ts` mark these gaps; they become normal tests when P3-01 closes them.
 
 ## Phase 4: Design (after G2)
 | ID | Task | Owner | Status |

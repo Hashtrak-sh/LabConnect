@@ -23,15 +23,19 @@ LabConnect/
 │   │   ├── src/lib/          api client (generated), auth, i18n, formatting
 │   │   └── messages/en.json  i18n strings (hi.json later)
 │   ├── api/                  NestJS
-│   │   └── src/
-│   │       ├── modules/      platform, identity, files, masterdata, labs, customers, search,
-│   │       │                 booking, custody, reports, payments, disputes, notifications, admin
-│   │       ├── common/       guards, filters, interceptors, decorators, tenant scope
-│   │       └── main.ts
+│   │   ├── src/
+│   │   │   ├── modules/      platform, identity, files, masterdata, labs, customers, search,
+│   │   │   │                 booking, custody, reports, payments, disputes, notifications, admin
+│   │   │   ├── common/       guards, filters, interceptors, decorators, tenant scope
+│   │   │   └── main.ts
+│   │   └── test/             API tests over HTTP, in-process (supertest)
+│   │       ├── support/      createTestApp(); contract/: the OpenAPI contract-test harness (contractRequest)
+│   │       └── contract/     endpoint coverage, not-implemented.txt, validator tests (TESTING_STRATEGY §8)
 │   └── worker/               NestJS standalone: outbox relay, consumers, timers, jobs
 ├── packages/
 │   ├── database/             prisma/schema/*, prisma/migrations/*, src/seed/*, src/factories/* (test-utils), src/db-context.ts
-│   ├── api-contract/         openapi/ (openapi.yaml, paths/, components/), src/generated/ (bundle, types; git-ignored), test/
+│   ├── api-contract/         openapi/ (openapi.yaml, paths/, components/), src/generated/ (bundle, types; git-ignored), test/,
+│   │                         src/client.ts (typed client), src/examples.ts (contract examples as mocks)
 │   ├── shared/               enums, booking-state-machine.ts, permissions.ts, error-codes.ts, money, time
 │   ├── validation/           zod: trf.v1, imports, query params, config values
 │   ├── ui/                   design-system components (design phase)
@@ -39,7 +43,6 @@ LabConnect/
 ├── infrastructure/           IaC (AWS CDK in TypeScript, proposed ADR-015): network, data, compute, edge, observability
 ├── tests/
 │   ├── e2e/                  Playwright specs + fixtures
-│   ├── contract/             OpenAPI contract tests
 │   └── load/                 k6 scripts
 ├── scripts/                  dev setup, seed, db reset, codegen
 ├── docs/                     this documentation pack
@@ -48,6 +51,8 @@ LabConnect/
 ├── eslint.config.mjs · .dependency-cruiser.cjs · .prettierignore · .gitattributes
 ├── CLAUDE.md · MASTER_PROMPT.md · README.md
 ```
+
+**API contract tests are not in `tests/contract/`** (the original plan). They live in `apps/api/test/` (harness in `test/support/contract/`, its tests in `test/contract/`) because the pnpm workspace covers only `apps/*` and `packages/*`, and the harness boots the API in-process with the API's own dependencies and lint rules. See TESTING_STRATEGY §8.
 
 ## Ownership map (CODEOWNERS)
 | Path | Owners |
