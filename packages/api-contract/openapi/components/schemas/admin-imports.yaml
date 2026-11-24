@@ -1,0 +1,265 @@
+# Admin views for the master-data import pipeline (API_CONTRACTS.md §10,
+# MASTER_DATA_MANAGEMENT.md §4 and §5, FR-MDM-04..06): mapping templates, import jobs and their
+# preview rows. An import is previewed row by row before anything is committed, and a commit
+# only creates a change set, which then goes through review.
+
+AdminMappingTemplate:
+  type: object
+  description: >-
+    A platform mapping template (`import_mapping_template`, `owner_org_id` null). `version` goes
+    up by one whenever `columnMap` or `defaults` change; an import records the version it used.
+    Templates are deactivated, never deleted.
+  required:
+    - id
+    - name
+    - targetKind
+    - sourceFormat
+    - version
+    - columnMap
+    - defaults
+    - status
+    - createdAt
+    - updatedAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    name:
+      type: string
+      examples:
+        - NABL export v1
+    targetKind:
+      $ref: './enums.yaml#/ImportKind'
+    sourceFormat:
+      $ref: './enums.yaml#/ImportSourceFormat'
+    version:
+      type: integer
+      minimum: 1
+    columnMap:
+      description: Source column → target field and value transforms, as stored.
+      type: object
+      additionalProperties: true
+    defaults:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+    status:
+      $ref: './enums.yaml#/MdStatus'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    updatedAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminMappingTemplateList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminMappingTemplate'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminMappingTemplateCreate:
+  type: object
+  description: A new platform template, version 1, `ACTIVE`.
+  required:
+    - name
+    - targetKind
+    - sourceFormat
+    - columnMap
+  additionalProperties: false
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 200
+    targetKind:
+      $ref: './enums.yaml#/ImportKind'
+    sourceFormat:
+      $ref: './enums.yaml#/ImportSourceFormat'
+    columnMap:
+      type: object
+      additionalProperties: true
+    defaults:
+      type: object
+      additionalProperties: true
+
+AdminMappingTemplateUpdate:
+  type: object
+  description: >-
+    Changes a template. A change to `columnMap` or `defaults` makes a new version. At least one
+    field is required.
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 200
+    columnMap:
+      type: object
+      additionalProperties: true
+    defaults:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+    status:
+      $ref: './enums.yaml#/MdStatus'
+
+AdminImportCreate:
+  type: object
+  description: >-
+    Starts an import of an uploaded file with a mapping template. The file must be clean and the
+    template active and of the same kind.
+  required:
+    - kind
+    - fileId
+    - mappingTemplateId
+  additionalProperties: false
+  properties:
+    kind:
+      $ref: './enums.yaml#/ImportKind'
+    fileId:
+      description: The file from `POST /admin/imports/upload-url`.
+      $ref: './common.yaml#/Uuid'
+    mappingTemplateId:
+      $ref: './common.yaml#/Uuid'
+    sourceLabel:
+      type: string
+      maxLength: 200
+      examples:
+        - NABL export 2026-11-01
+
+AdminImportJob:
+  type: object
+  description: >-
+    An import job (`import_job`). Parsing, mapping, validation, matching and geocoding run in the
+    background; poll until `status` is `PREVIEW_READY` or `FAILED`.
+  required:
+    - id
+    - kind
+    - sourceFileId
+    - sourceLabel
+    - mappingTemplateId
+    - mappingTemplateVersion
+    - status
+    - rowCount
+    - errorCount
+    - warningCount
+    - conflictCount
+    - changeSetId
+    - createdAt
+    - updatedAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    kind:
+      $ref: './enums.yaml#/ImportKind'
+    sourceFileId:
+      $ref: './common.yaml#/Uuid'
+    sourceLabel:
+      type:
+        - string
+        - 'null'
+    mappingTemplateId:
+      $ref: './common.yaml#/Uuid'
+    mappingTemplateVersion:
+      type: integer
+      minimum: 1
+    status:
+      $ref: './enums.yaml#/ImportStatus'
+    rowCount:
+      type: integer
+      minimum: 0
+    errorCount:
+      type: integer
+      minimum: 0
+    warningCount:
+      type: integer
+      minimum: 0
+    conflictCount:
+      type: integer
+      minimum: 0
+    changeSetId:
+      description: The change set created by the commit.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    updatedAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminImportRow:
+  type: object
+  description: >-
+    One row of an import preview (`import_row`, FR-MDM-05): the raw and mapped values, how it
+    matched, what the commit would do, and the validation messages.
+  required:
+    - id
+    - rowNumber
+    - raw
+    - mapped
+    - matchResult
+    - matchedTargetId
+    - action
+    - messages
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    rowNumber:
+      type: integer
+      minimum: 1
+    raw:
+      type: object
+      additionalProperties: true
+    mapped:
+      type:
+        - object
+        - 'null'
+      additionalProperties: true
+    matchResult:
+      oneOf:
+        - $ref: './enums.yaml#/ImportMatchResult'
+        - type: 'null'
+    matchedTargetId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    action:
+      oneOf:
+        - $ref: './enums.yaml#/ImportRowAction'
+        - type: 'null'
+    messages:
+      description: Validation and matching messages as stored. `null` when there are none.
+
+AdminImportRowList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminImportRow'
+    page:
+      $ref: './common.yaml#/Page'

@@ -1,0 +1,943 @@
+# Admin: master data (API_CONTRACTS.md §10, MASTER_DATA_MANAGEMENT.md, FR-MDM-01..09): taxonomy
+# configuration, change sets and their workflow, impact analysis and record version history.
+# Master records change only by publishing a change set, which needs an approver other than the
+# preparer (RR-6), and are never deleted.
+# Each top-level key is one path item, referenced from openapi.yaml. `x-roles`: see
+# admin-operations.yaml.
+
+taxonomies:
+  get:
+    operationId: listAdminTaxonomies
+    tags:
+      - Admin Master Data
+    summary: List taxonomies
+    description: >-
+      Every taxonomy, active or not, ordered by code (FR-MDM-01). Read-only here: the contract has
+      no write path for taxonomies, levels or attribute definitions yet, because a change set
+      cannot carry them (see API_CONTRACTS §10). Roles: `PLATFORM_DATA_STEWARD`,
+      `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of taxonomies.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminTaxonomyList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+taxonomy:
+  get:
+    operationId: getAdminTaxonomy
+    tags:
+      - Admin Master Data
+    summary: Get a taxonomy
+    description: >-
+      One taxonomy. Roles: `PLATFORM_DATA_STEWARD`, `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The taxonomy.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminTaxonomy'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such taxonomy.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+node-types:
+  get:
+    operationId: listAdminNodeTypes
+    tags:
+      - Admin Master Data
+    summary: List the levels of a taxonomy
+    description: >-
+      The node types (levels) of a taxonomy, by level. Roles: `PLATFORM_DATA_STEWARD`,
+      `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The taxonomy.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of node types.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminNodeTypeList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such taxonomy.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+attribute-definitions:
+  get:
+    operationId: listAdminAttributeDefinitions
+    tags:
+      - Admin Master Data
+    summary: List the attribute definitions of a level
+    description: >-
+      The typed extension attributes of one node type, by `sortOrder`. Roles:
+      `PLATFORM_DATA_STEWARD`, `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - name: nodeTypeId
+        in: query
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of attribute definitions.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminAttributeDefinitionList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such node type.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example a missing `nodeTypeId` or an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+change-sets:
+  get:
+    operationId: listAdminChangeSets
+    tags:
+      - Admin Master Data
+    summary: List change sets
+    description: >-
+      Change sets, newest first: the inbox of sets to review (`status=IN_REVIEW`) or the sets a
+      user prepared (`preparedByUserId`). Lab proposals appear here too (`LAB_PROPOSAL`). Roles:
+      `PLATFORM_DATA_STEWARD`, `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - name: status
+        in: query
+        required: false
+        description: One or more statuses, comma-separated.
+        style: form
+        explode: false
+        schema:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '../components/schemas/enums.yaml#/ChangeSetStatus'
+      - name: source
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/ChangeSource'
+      - name: preparedByUserId
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of change sets.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSetList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  post:
+    operationId: createAdminChangeSet
+    tags:
+      - Admin Master Data
+    summary: Prepare a change set
+    description: >-
+      Creates an empty `MANUAL` change set in `DRAFT`, prepared by the caller, for manual edits of
+      master records (FR-MDM-09). Items are added with `POST /admin/change-sets/{id}/items`.
+      Roles: `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSetCreate'
+    responses:
+      '201':
+        description: Created.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSet'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+change-set:
+  get:
+    operationId: getAdminChangeSet
+    tags:
+      - Admin Master Data
+    summary: Get a change set
+    description: >-
+      One change set. Roles: `PLATFORM_DATA_STEWARD`, `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The change set.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSet'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such change set.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+change-set-items:
+  get:
+    operationId: listAdminChangeItems
+    tags:
+      - Admin Master Data
+    summary: List the items of a change set
+    description: >-
+      The items of a change set, each with its proposed state, diff and validation result (the
+      diff viewer). Roles: `PLATFORM_DATA_STEWARD`, `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: validationStatus
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/ValidationStatus'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of items.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeItemList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such change set.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  post:
+    operationId: addAdminChangeItem
+    tags:
+      - Admin Master Data
+    summary: Add an item to a change set
+    description: >-
+      Adds one change to a `DRAFT` change set: create, update, deactivate or reactivate one record
+      (FR-MDM-09). Records are never deleted. The item is validated when added; an item with
+      validation errors is kept with `validationStatus` `ERROR`. Items are never removed: a draft
+      that is wrong as a whole is cancelled. Roles: `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeItemCreate'
+    responses:
+      '201':
+        description: Added.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeItem'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such change set, or no such target record.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the change set is not `DRAFT`.
+          `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+change-set-submit:
+  post:
+    operationId: submitAdminChangeSet
+    tags:
+      - Admin Master Data
+    summary: Submit a change set for review
+    description: >-
+      `DRAFT` → `IN_REVIEW` (MASTER_DATA_MANAGEMENT §3). Sets `submittedAt`. Audited. Roles:
+      `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Submitted. The change set as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSet'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such change set.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the change set is not `DRAFT`.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example a change set with no item), `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+change-set-send-back:
+  post:
+    operationId: sendBackAdminChangeSet
+    tags:
+      - Admin Master Data
+    summary: Send a change set back to draft
+    description: >-
+      `IN_REVIEW` → `DRAFT` (MASTER_DATA_MANAGEMENT §3), so the preparer can add to it. A reviewer
+      other than the preparer does this. Audited. Roles: `PLATFORM_DATA_STEWARD` (not the
+      preparer), `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Sent back. The change set as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSet'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.
+          `FOUR_EYES_REQUIRED`: the caller prepared the change set.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such change set.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the change set is not `IN_REVIEW`.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+change-set-approve:
+  post:
+    operationId: approveAdminChangeSet
+    tags:
+      - Admin Master Data
+    summary: Approve a change set
+    description: >-
+      `IN_REVIEW` → `APPROVED` (FR-MDM-07). The approver must be a different platform user from
+      the preparer (four-eyes, RR-6); the database enforces it too. The approver sees the impact
+      analysis first (`GET /admin/change-sets/{id}/impact`). Sets `approvedByUserId` and
+      `approvedAt`. Audited. Roles: `PLATFORM_DATA_STEWARD` (not the preparer), `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Approved. The change set as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSet'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.
+          `FOUR_EYES_REQUIRED`: the caller prepared the change set.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such change set.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the change set is not `IN_REVIEW`.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+change-set-reject:
+  post:
+    operationId: rejectAdminChangeSet
+    tags:
+      - Admin Master Data
+    summary: Reject a change set
+    description: >-
+      `IN_REVIEW` → `REJECTED`, with a reason (FR-MDM-07). A reviewer other than the preparer does
+      this. Audited. Roles: `PLATFORM_DATA_STEWARD` (not the preparer), `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSetRejection'
+    responses:
+      '200':
+        description: Rejected. The change set as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSet'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.
+          `FOUR_EYES_REQUIRED`: the caller prepared the change set.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such change set.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the change set is not `IN_REVIEW`.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+change-set-publish:
+  post:
+    operationId: publishAdminChangeSet
+    tags:
+      - Admin Master Data
+    summary: Publish a change set
+    description: >-
+      `APPROVED` → `PUBLISHED`, atomically (FR-MDM-08, MASTER_DATA_MANAGEMENT §3): in one
+      transaction every item's `baseVersionNo` is checked, every change is applied, a version row
+      is appended per record, and audit and `masterdata.published` events are written. If any item
+      is stale, nothing is published. Sets `publishedAt` and `impactSummary`. Like approval, it is
+      done by a platform user other than the preparer. Audited. Roles: `PLATFORM_DATA_STEWARD`
+      (not the preparer), `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Published. The change set as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSet'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.
+          `FOUR_EYES_REQUIRED`: the caller prepared the change set.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such change set.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the change set is not `APPROVED`.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: >-
+          `CONCURRENT_MODIFICATION`: `If-Match` does not match, or an item's `baseVersionNo` is no
+          longer the current version of its record. Nothing was published.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+change-set-cancel:
+  post:
+    operationId: cancelAdminChangeSet
+    tags:
+      - Admin Master Data
+    summary: Cancel a draft change set
+    description: >-
+      `DRAFT` → `CANCELLED` (MASTER_DATA_MANAGEMENT §3). The set and its items are kept. Audited.
+      Roles: `PLATFORM_DATA_STEWARD`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Cancelled. The change set as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSet'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such change set.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the change set is not `DRAFT`.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+change-set-impact:
+  get:
+    operationId: getAdminChangeSetImpact
+    tags:
+      - Admin Master Data
+    summary: Analyse the impact of a change set
+    description: >-
+      Counts per target type and operation, and the open bookings affected by deactivated scope
+      lines or accreditation status changes (FR-MDM-07, EC-58), computed now. Shown to the approver
+      before approval. Roles: `PLATFORM_DATA_STEWARD`, `PLATFORM_ADMIN`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_ADMIN
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The impact.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminChangeSetImpact'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_ADMIN`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such change set.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+record-versions:
+  get:
+    operationId: listAdminRecordVersions
+    tags:
+      - Admin Master Data
+    summary: List the version history of a master record
+    description: >-
+      The published versions of one record, newest first (FR-MDM-03,
+      VERSIONING_AND_SNAPSHOTS §1 pattern A), each with the change set that published it: who
+      prepared and approved it, and its title. Roles: `PLATFORM_DATA_STEWARD`, `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_DATA_STEWARD
+      - PLATFORM_OPS
+    parameters:
+      - name: type
+        in: path
+        required: true
+        description: The kind of record, as in change items.
+        schema:
+          $ref: '../components/schemas/enums.yaml#/MdTargetType'
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of versions.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-master-data.yaml#/AdminRecordVersionList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_DATA_STEWARD` or `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no record of this type with this id.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unknown type or an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

@@ -1,0 +1,706 @@
+# Admin views for Platform Operations (API_CONTRACTS.md §10): ops board, bookings, break-glass
+# report access, leads and disputes. Platform staff see report metadata only; a report file needs
+# a break-glass grant (TENANT_ISOLATION.md §2 rule 6, CD-26). These schemas never carry a file
+# id of a report, a file's object key, TRF content or report results.
+
+AdminStatusCount:
+  type: object
+  required:
+    - status
+    - count
+  additionalProperties: false
+  properties:
+    status:
+      $ref: './enums.yaml#/BookingStatus'
+    count:
+      type: integer
+      minimum: 0
+
+AdminOverdueCount:
+  type: object
+  description: >-
+    Open bookings with a deadline or reminder of this type that is past due and has not fired
+    yet or is still unanswered.
+  required:
+    - timerType
+    - count
+  additionalProperties: false
+  properties:
+    timerType:
+      $ref: './enums.yaml#/TimerType'
+    count:
+      type: integer
+      minimum: 0
+
+AdminOpsBoard:
+  type: object
+  description: >-
+    The live operations board (FR-ADM-02): bookings by state, and overdue deadlines (SLA
+    breaches, overdue drops, pending approvals) by timer type.
+  required:
+    - generatedAt
+    - bookingsByStatus
+    - overdue
+  additionalProperties: false
+  properties:
+    generatedAt:
+      $ref: './common.yaml#/Timestamp'
+    bookingsByStatus:
+      type: array
+      description: One entry per non-terminal booking status, including zero counts.
+      items:
+        $ref: '#/AdminStatusCount'
+    overdue:
+      type: array
+      description: One entry per timer type that has at least one overdue booking.
+      items:
+        $ref: '#/AdminOverdueCount'
+
+AdminBookingSummary:
+  type: object
+  description: A booking as listed in the admin booking search.
+  required:
+    - id
+    - bookingNo
+    - status
+    - statusChangedAt
+    - customerOrgId
+    - labOrgId
+    - labSiteId
+    - total
+    - frozenAt
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingNo:
+      type: string
+      maxLength: 20
+      examples:
+        - LC-2611-0004821
+    status:
+      $ref: './enums.yaml#/BookingStatus'
+    statusChangedAt:
+      $ref: './common.yaml#/Timestamp'
+    customerOrgId:
+      $ref: './common.yaml#/Uuid'
+    labOrgId:
+      $ref: './common.yaml#/Uuid'
+    labSiteId:
+      $ref: './common.yaml#/Uuid'
+    total:
+      $ref: './common.yaml#/Money'
+    frozenAt:
+      description: Set while the booking is frozen by an accreditation lapse (EC-01).
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+AdminBookingList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminBookingSummary'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminBookingLine:
+  type: object
+  required:
+    - id
+    - lineNo
+    - scopeLineId
+    - status
+    - lineTotal
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    lineNo:
+      type: integer
+      minimum: 1
+    scopeLineId:
+      $ref: './common.yaml#/Uuid'
+    status:
+      $ref: './enums.yaml#/BookingLineStatus'
+    lineTotal:
+      $ref: './common.yaml#/Money'
+
+AdminReportVersionMetadata:
+  type: object
+  description: >-
+    Metadata of one report version. No file, hash, result or review comment: the file is reached
+    only through break-glass (`/admin/break-glass/report-access`).
+  required:
+    - id
+    - versionNo
+    - status
+    - isAmendment
+    - issueDate
+    - submittedAt
+    - decidedAt
+    - releasedAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    versionNo:
+      type: integer
+      minimum: 1
+    status:
+      $ref: './enums.yaml#/ReportVersionStatus'
+    isAmendment:
+      type: boolean
+    issueDate:
+      oneOf:
+        - $ref: './common.yaml#/Date'
+        - type: 'null'
+    submittedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    decidedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    releasedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+
+AdminReportMetadata:
+  type: object
+  description: The booking's report as metadata only (ROLES_AND_PERMISSIONS §2 note 7).
+  required:
+    - id
+    - status
+    - reportNo
+    - ulrNo
+    - versions
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    status:
+      $ref: './enums.yaml#/ReportStatus'
+    reportNo:
+      type:
+        - string
+        - 'null'
+      maxLength: 60
+    ulrNo:
+      type:
+        - string
+        - 'null'
+      maxLength: 30
+    versions:
+      type: array
+      description: Every version, oldest first.
+      items:
+        $ref: '#/AdminReportVersionMetadata'
+
+AdminBooking:
+  type: object
+  description: >-
+    A booking as Platform Operations sees it: parties, status, deadlines, cancellation and
+    rejection details, lines, and report metadata. `lockVersion` is also returned as the `ETag`.
+  required:
+    - id
+    - bookingNo
+    - status
+    - statusChangedAt
+    - customerOrgId
+    - customerSiteId
+    - requesterUserId
+    - onBehalfByUserId
+    - labOrgId
+    - labSiteId
+    - itemName
+    - declaredPackageCount
+    - preferredDropDate
+    - slotId
+    - subtotal
+    - gst
+    - total
+    - labDecisionDueAt
+    - paymentDueAt
+    - dropDeadlineAt
+    - expectedReportDate
+    - reportReleasedAt
+    - disputeWindowEndsAt
+    - completedAt
+    - frozenAt
+    - frozenReason
+    - cancelledByParty
+    - cancellationCodeNodeId
+    - cancellationNotes
+    - rejectionReasonNodeId
+    - rejectionNotes
+    - lines
+    - report
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingNo:
+      type: string
+      maxLength: 20
+    status:
+      $ref: './enums.yaml#/BookingStatus'
+    statusChangedAt:
+      $ref: './common.yaml#/Timestamp'
+    customerOrgId:
+      $ref: './common.yaml#/Uuid'
+    customerSiteId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    requesterUserId:
+      $ref: './common.yaml#/Uuid'
+    onBehalfByUserId:
+      description: Set when Ops created the booking on behalf of the customer (FR-ADM-07).
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    labOrgId:
+      $ref: './common.yaml#/Uuid'
+    labSiteId:
+      $ref: './common.yaml#/Uuid'
+    itemName:
+      type: string
+    declaredPackageCount:
+      type: integer
+      minimum: 1
+      maximum: 50
+    preferredDropDate:
+      $ref: './common.yaml#/Date'
+    slotId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    subtotal:
+      $ref: './common.yaml#/Money'
+    gst:
+      $ref: './common.yaml#/Money'
+    total:
+      $ref: './common.yaml#/Money'
+    labDecisionDueAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    paymentDueAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    dropDeadlineAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    expectedReportDate:
+      oneOf:
+        - $ref: './common.yaml#/Date'
+        - type: 'null'
+    reportReleasedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    disputeWindowEndsAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    completedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    frozenAt:
+      description: Set by EC-01. While set, only cancellation and Ops actions are accepted.
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    frozenReason:
+      type:
+        - string
+        - 'null'
+    cancelledByParty:
+      oneOf:
+        - $ref: './enums.yaml#/PartyType'
+        - type: 'null'
+    cancellationCodeNodeId:
+      description: A node of the `CANCELLATION_REASON` taxonomy.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    cancellationNotes:
+      type:
+        - string
+        - 'null'
+    rejectionReasonNodeId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    rejectionNotes:
+      type:
+        - string
+        - 'null'
+    lines:
+      type: array
+      items:
+        $ref: '#/AdminBookingLine'
+    report:
+      description: '`null` until the lab starts a report.'
+      oneOf:
+        - $ref: '#/AdminReportMetadata'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminBookingCancelRequest:
+  type: object
+  description: >-
+    An exceptional cancellation by Platform Operations (T-25, T-26 or T-27). Both the reason code
+    and the notes are required.
+  required:
+    - cancellationCodeNodeId
+    - notes
+  additionalProperties: false
+  properties:
+    cancellationCodeNodeId:
+      description: An active node of the `CANCELLATION_REASON` taxonomy.
+      $ref: './common.yaml#/Uuid'
+    notes:
+      type: string
+      minLength: 1
+      maxLength: 2000
+      description: Why Ops cancels. Visible to both parties as the cancellation notes.
+
+AdminBreakGlassRequestCreate:
+  type: object
+  description: >-
+    A request to open one report version's file for a dispute investigation (CD-26,
+    FILES_AND_REPORTS §5).
+  required:
+    - reportVersionId
+    - disputeId
+    - reason
+  additionalProperties: false
+  properties:
+    reportVersionId:
+      $ref: './common.yaml#/Uuid'
+    disputeId:
+      description: >-
+        The dispute being investigated. It must be a dispute on the booking of the report
+        version.
+      $ref: './common.yaml#/Uuid'
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 2000
+
+AdminBreakGlassGrant:
+  type: object
+  description: >-
+    A time-boxed permission for one platform user to open one report file
+    (`break_glass_grant`). Pending while `approvedAt` and `rejectedAt` are both null. Usable while
+    approved, before `expiresAt` and not revoked.
+  required:
+    - id
+    - reportVersionId
+    - requestedByUserId
+    - reason
+    - approvedByUserId
+    - approvedAt
+    - expiresAt
+    - rejectedAt
+    - revokedAt
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    reportVersionId:
+      $ref: './common.yaml#/Uuid'
+    requestedByUserId:
+      $ref: './common.yaml#/Uuid'
+    reason:
+      type: string
+    approvedByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    approvedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    expiresAt:
+      description: Set on approval, 24 hours later (FILES_AND_REPORTS §5).
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    rejectedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    revokedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminBreakGlassGrantList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminBreakGlassGrant'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminLead:
+  type: object
+  description: A "Request a lab" or no-result lead (`lead_request`, FR-ADM-06).
+  required:
+    - id
+    - kind
+    - labSiteId
+    - query
+    - requesterUserId
+    - contactEmail
+    - status
+    - assignedToUserId
+    - notes
+    - notifiedAt
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    kind:
+      $ref: './enums.yaml#/LeadKind'
+    labSiteId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    query:
+      description: The search that led to the lead, as stored.
+      oneOf:
+        - $ref: './search.yaml#/LeadSearchCriteria'
+        - type: 'null'
+    requesterUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    contactEmail:
+      oneOf:
+        - $ref: './auth.yaml#/Email'
+        - type: 'null'
+    status:
+      $ref: './enums.yaml#/LeadStatus'
+    assignedToUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    notes:
+      type:
+        - string
+        - 'null'
+    notifiedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+AdminLeadList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminLead'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminLeadUpdate:
+  type: object
+  description: Fields Ops changes while working on a lead. At least one is required.
+  minProperties: 1
+  additionalProperties: false
+  properties:
+    status:
+      $ref: './enums.yaml#/LeadStatus'
+    assignedToUserId:
+      description: A `PLATFORM_OPS` user, or `null` to unassign.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    notes:
+      type:
+        - string
+        - 'null'
+      maxLength: 4000
+
+AdminDispute:
+  type: object
+  description: >-
+    A dispute as listed for Ops, with its decision once decided. The decision (`outcome`,
+    `refundAmount`, `decisionRationale`, `decidedByUserId`, `decidedAt`) never changes after
+    `decidedAt` is set (BR-083). The full dispute, with messages and evidence, is
+    `GET /disputes/{id}`.
+  required:
+    - id
+    - disputeNo
+    - bookingId
+    - customerOrgId
+    - labOrgId
+    - typeNodeId
+    - raisedByParty
+    - status
+    - labResponseDueAt
+    - assignedToUserId
+    - outcome
+    - refundAmount
+    - decisionRationale
+    - decidedByUserId
+    - decidedAt
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    disputeNo:
+      type: string
+      maxLength: 20
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    customerOrgId:
+      $ref: './common.yaml#/Uuid'
+    labOrgId:
+      $ref: './common.yaml#/Uuid'
+    typeNodeId:
+      description: A node of the `DISPUTE_TYPE` taxonomy.
+      $ref: './common.yaml#/Uuid'
+    raisedByParty:
+      $ref: './enums.yaml#/PartyType'
+    status:
+      $ref: './enums.yaml#/DisputeStatus'
+    labResponseDueAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    assignedToUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    outcome:
+      oneOf:
+        - $ref: './enums.yaml#/DisputeOutcome'
+        - type: 'null'
+    refundAmount:
+      oneOf:
+        - $ref: './common.yaml#/Money'
+        - type: 'null'
+    decisionRationale:
+      type:
+        - string
+        - 'null'
+    decidedByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    decidedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminDisputeList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminDispute'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminDisputeAssignRequest:
+  type: object
+  required:
+    - assigneeUserId
+  additionalProperties: false
+  properties:
+    assigneeUserId:
+      description: An active `PLATFORM_OPS` user.
+      $ref: './common.yaml#/Uuid'
+
+AdminDisputeDecisionRequest:
+  type: object
+  description: >-
+    The decision of a dispute (BR-083): outcome, rationale and refund amount. `refundAmount` is
+    required for `PARTIAL_REFUND` and `FULL_REFUND` and not allowed otherwise.
+  required:
+    - outcome
+    - rationale
+  additionalProperties: false
+  properties:
+    outcome:
+      $ref: './enums.yaml#/DisputeOutcome'
+    rationale:
+      type: string
+      minLength: 1
+      maxLength: 4000
+    refundAmount:
+      $ref: './common.yaml#/Money'
+  # The rule in the description, as JSON Schema conditionals (as in `LeadCreate`).
+  allOf:
+    - if:
+        properties:
+          outcome:
+            enum:
+              - PARTIAL_REFUND
+              - FULL_REFUND
+      then:
+        required:
+          - refundAmount
+        properties:
+          refundAmount: true
+      else:
+        properties:
+          refundAmount: false

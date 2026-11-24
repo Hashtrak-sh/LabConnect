@@ -1,0 +1,424 @@
+# Admin: lab onboarding (API_CONTRACTS.md §10, FR-ADM-01, FR-DAT-03, FR-DAT-07): claim review,
+# KYC and bank verification, and the geocode pin queue.
+# Each top-level key is one path item, referenced from openapi.yaml. `x-roles`: see
+# admin-operations.yaml.
+
+claims:
+  get:
+    operationId: listAdminLabClaims
+    tags:
+      - Admin Onboarding
+    summary: List lab claims
+    description: >-
+      Lab claim requests, oldest first, for review (FR-DAT-07). Manual claims wait in
+      `PENDING_REVIEW` with their letterhead authorisation. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/ClaimRequestStatus'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of claims.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-onboarding.yaml#/AdminLabClaimList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+claim-approve:
+  post:
+    operationId: approveAdminLabClaim
+    tags:
+      - Admin Onboarding
+    summary: Approve a lab claim
+    description: >-
+      Ops approves a claim waiting in `PENDING_REVIEW` (AUTHENTICATION §5). The claimant becomes
+      the organisation's first `LAB_CHECKER`, with MFA enrolment forced, and the organisation
+      becomes `CLAIMED`. Audited. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-onboarding.yaml#/AdminClaimApproval'
+    responses:
+      '200':
+        description: Approved. The claim as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-onboarding.yaml#/AdminLabClaim'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such claim.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the claim is not `PENDING_REVIEW`.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+claim-reject:
+  post:
+    operationId: rejectAdminLabClaim
+    tags:
+      - Admin Onboarding
+    summary: Reject a lab claim
+    description: >-
+      Ops rejects a claim waiting in `PENDING_REVIEW`, with notes. Audited. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-onboarding.yaml#/AdminClaimRejection'
+    responses:
+      '200':
+        description: Rejected. The claim as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-onboarding.yaml#/AdminLabClaim'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such claim.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the claim is not `PENDING_REVIEW`.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+kyc-document-verify:
+  post:
+    operationId: verifyAdminKycDocument
+    tags:
+      - Admin Onboarding
+    summary: Verify a KYC document
+    description: >-
+      Ops records the review of a `SUBMITTED` KYC document: `VERIFIED`, or `REJECTED` with notes
+      (FR-ADM-01). `kyc_document` has no `lock_version`, so there is no `If-Match`; a document that
+      is no longer `SUBMITTED` gives 409. Audited. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-onboarding.yaml#/AdminVerificationRequest'
+    responses:
+      '200':
+        description: Reviewed. The document as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-onboarding.yaml#/AdminKycDocument'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such KYC document.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the document is not `SUBMITTED`.
+          `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+bank-account-verify:
+  post:
+    operationId: verifyAdminBankAccount
+    tags:
+      - Admin Onboarding
+    summary: Verify a bank account
+    description: >-
+      Platform Finance records the verification of a `SUBMITTED` bank account: `VERIFIED`, or
+      `REJECTED` with notes (ROLES_AND_PERMISSIONS §2 note 10). The account is returned masked;
+      its number is never returned. `bank_account` has no notes column, so the notes are kept as
+      the audit reason. Audited. Roles: `PLATFORM_FINANCE`.
+    x-roles:
+      - PLATFORM_FINANCE
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-onboarding.yaml#/AdminVerificationRequest'
+    responses:
+      '200':
+        description: Reviewed. The account as it is now, masked.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-onboarding.yaml#/AdminBankAccount'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_FINANCE`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such bank account.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the account is not `SUBMITTED`, or is
+          retired. `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+geocode-queue:
+  get:
+    operationId: listAdminGeocodeQueue
+    tags:
+      - Admin Onboarding
+    summary: List the geocode pin queue
+    description: >-
+      Lab sites whose geocode is pending or below the confidence threshold (0.7), waiting for Ops
+      to approve a pin (FR-DAT-03, MAPS_AND_GEOCODING §3). Without `geocodeStatus`, both states.
+      Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: geocodeStatus
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/AdminGeocodeQueueStatus'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of sites.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-onboarding.yaml#/AdminLabSiteGeocodeList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+lab-site-pin:
+  post:
+    operationId: approveAdminLabSitePin
+    tags:
+      - Admin Onboarding
+    summary: Approve a lab site's map pin
+    description: >-
+      Ops sets the approved pin of a site in the queue: the site's location becomes this point and
+      its geocode status `MANUAL_APPROVED` (ROLES_AND_PERMISSIONS §2 note 5). Only an approved pin
+      is used for distance (BR-004). A pin correction proposed by the lab goes through a change set
+      instead (EC-04). Audited. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/admin-onboarding.yaml#/AdminPinApproval'
+    responses:
+      '200':
+        description: Approved. The site's geocoding as it is now.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-onboarding.yaml#/AdminLabSiteGeocode'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such lab site.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION` (`meta.currentState`): the site is not in the queue
+          (`PENDING` or `LOW_CONFIDENCE`). `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

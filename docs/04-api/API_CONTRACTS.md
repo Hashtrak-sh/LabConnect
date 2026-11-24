@@ -174,28 +174,29 @@ The `gatewayCheckout` shape is **adapter-defined** and stays opaque to the contr
 |---|---|---|---|---|
 | GET | `/admin/ops-board` | P-Ops | Counts by state, SLA breaches, overdue items | ADM-02 |
 | GET | `/admin/bookings?…` · `/admin/bookings/{id}` | P-Ops | Search and detail (report metadata only) | ADM-02 |
-| POST | `/admin/bookings/{id}/cancel` · `/override-decision` | P-Ops | Exceptional actions (reason required) | ADM-02 |
-| GET/POST | `/admin/claims`, `/admin/claims/{id}/approve\|reject` | P-Ops | Claims | ADM-01 |
+| POST | `/admin/bookings/{id}/cancel` | P-Ops | Exceptional cancellation, reason required: T-25/26/27 only, so up to UNDER_TEST. No later state and no override of a lab decision (OQ-24, decided for the MVP). | ADM-02 |
+| GET | `/admin/claims` · POST `/admin/claims/{id}/approve\|reject` | P-Ops | Claims | ADM-01 |
 | POST | `/admin/kyc-documents/{id}/verify` · `/admin/bank-accounts/{id}/verify` | P-Ops / P-Fin | Verification | ADM-01 |
-| GET/POST | `/admin/geocode-queue`, `/admin/lab-sites/{id}/pin` | P-Ops | Pin approval | DAT-03 |
-| CRUD | `/admin/taxonomies`, `/admin/taxonomies/{id}/node-types`, `/admin/attribute-definitions` | P-Data | Configuration (through a change set) | MDM-01 |
-| CRUD | `/admin/change-sets`, `/admin/change-sets/{id}/items`, `/submit`, `/approve`, `/reject`, `/publish` | P-Data / approver | Change-set workflow | MDM-03..09 |
-| GET | `/admin/change-sets/{id}/impact` | P-Data | Impact analysis | MDM-07 |
-| CRUD | `/admin/mapping-templates` | P-Data | Templates | MDM-04 |
-| POST | `/admin/imports` (upload) · GET `/admin/imports/{id}` · `/rows` · POST `/commit` · `/discard` | P-Data | Import pipeline | MDM-04..06 |
+| GET | `/admin/geocode-queue` · POST `/admin/lab-sites/{id}/pin` | P-Ops | Pin approval | DAT-03 |
+| GET | `/admin/taxonomies[/{id}]` · `/admin/taxonomies/{id}/node-types` · `/admin/attribute-definitions?nodeTypeId=` | P-Data, P-Admin | Configuration, read-only: a change item cannot target a taxonomy, level or attribute definition yet, so there is no write path | MDM-01 |
+| GET/POST | `/admin/change-sets[/{id}]` · `/admin/change-sets/{id}/items` | P-Data (prepare), P-Admin (read) | Change sets and their items (items are added, never deleted) | MDM-03..09 |
+| POST | `/admin/change-sets/{id}/submit\|send-back\|approve\|reject\|publish\|cancel` | P-Data / approver ≠ preparer (P-Data, P-Admin) | Change-set workflow | MDM-07/08 |
+| GET | `/admin/change-sets/{id}/impact` | P-Data, P-Admin | Impact analysis | MDM-07 |
+| GET/POST/PATCH | `/admin/mapping-templates[/{id}]` | P-Data | Templates (a change increments the version; deactivated, never deleted) | MDM-04 |
+| POST | `/admin/imports/upload-url` · `/admin/imports` (upload) · GET `/admin/imports/{id}` · `/rows` · POST `/commit` · `/discard` | P-Data | Import pipeline | MDM-04..06 |
 | GET | `/admin/records/{type}/{id}/versions` | P-Data, P-Ops | History | MDM-03 |
-| GET/POST | `/admin/disputes`, `/assign`, `/decide` | P-Ops | Disputes | SUP-02/03 |
-| POST/DELETE | `/admin/bookings/{id}/payout-holds` | P-Ops / P-Fin | Holds | SUP-05 |
-| GET/POST | `/admin/refunds`, `/admin/refunds/{id}/approve` | P-Fin | Refunds | PAY-06 |
-| GET/POST | `/admin/payouts`, `/admin/payouts/{id}/release` (step-up) | P-Fin | Payouts | PAY-09 |
-| GET/POST | `/admin/reconciliation/settlements` (import), `/admin/reconciliation/exceptions` | P-Fin | Reconciliation | FIN-03 |
-| GET | `/admin/exports/{kind}.csv` | P-Fin | Accounting exports | FIN-04 |
+| GET | `/admin/disputes` · POST `/admin/disputes/{id}/assign\|decide` | P-Ops | Disputes | SUP-02/03 |
+| POST | `/admin/bookings/{id}/payout-holds` · DELETE `/admin/bookings/{id}/payout-holds/{holdId}` | P-Ops, P-Fin place / P-Fin release | Holds | SUP-05 |
+| GET | `/admin/refunds` · POST `/admin/refunds/{id}/approve` | P-Fin (P-Ops up to the threshold) | Refunds | PAY-06 |
+| GET | `/admin/payouts` · POST `/admin/payouts/{id}/release` (step-up) | P-Fin | Payouts | PAY-09 |
+| GET/POST | `/admin/reconciliation/settlements` (import) · POST `/admin/reconciliation/settlements/upload-url` · GET `/admin/reconciliation/exceptions` | P-Fin | Reconciliation | FIN-03 |
+| GET | `/admin/exports/{kind}` | P-Fin | Accounting exports (CSV; `kind` is `payouts` or `reconciliation`) | FIN-04 |
 | GET/PUT | `/admin/config/{key}` | P-Admin | Config parameters | ADM-03 |
-| CRUD | `/admin/users`, `/admin/platform-roles` | P-Admin | Platform users | — |
-| POST | `/admin/break-glass/report-access` | P-Ops request, P-Admin approve | Time-boxed access | CD-26 |
+| GET/POST/PATCH | `/admin/users[/{id}]` · PUT `/admin/users/{id}/platform-roles` | P-Admin | Platform users (deactivated, never deleted); role changes need step-up | — |
+| GET/POST | `/admin/break-glass/report-access[/{id}]` · POST `/admin/break-glass/report-access/{id}/approve\|reject\|revoke\|download-url` | P-Ops request and download, P-Admin (≠ requester) approve | Time-boxed access | CD-26 |
 | GET | `/admin/audit-log?entityType=&entityId=&actor=` | platform | Audit search | ADM-05 |
-| GET/PATCH | `/admin/leads` | P-Ops | Leads | ADM-06 |
-| CRUD | `/admin/notification-templates` | P-Admin | Templates | NOT-02 |
+| GET/PATCH | `/admin/leads[/{id}]` | P-Ops | Leads | ADM-06 |
+| GET/POST/PATCH | `/admin/notification-templates[/{id}]` | P-Admin | Templates (a change is a new version; PATCH sets the status only) | NOT-02 |
 
 ## 11. Explicitly absent
 No logistics, rider, pickup, tracking, transport-fee, subcontracting, purchase-order or supplementary-payment endpoints (SCOPE_AND_EXCLUSIONS §3).

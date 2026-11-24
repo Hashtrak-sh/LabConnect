@@ -28,6 +28,20 @@ tags:
     description: Public report verification and share links. No sign-in.
   - name: Health
     description: Platform liveness.
+  - name: Admin Operations
+    description: >-
+      Platform Operations: ops board, bookings (report metadata only), exceptional cancellation,
+      disputes, break-glass report access and leads.
+  - name: Admin Onboarding
+    description: Lab claims, KYC and bank verification, and the geocode pin queue.
+  - name: Admin Master Data
+    description: >-
+      Taxonomy configuration, change sets and their four-eyes workflow, impact analysis, record
+      history, mapping templates and imports.
+  - name: Admin Finance
+    description: Payout holds, refunds, payouts, settlement reconciliation and accounting exports.
+  - name: Admin Platform
+    description: Configuration parameters, platform users and roles, audit log, notification templates.
 
 # Authenticated by default. Public operations override this with `security: []`.
 security:
@@ -83,6 +97,131 @@ paths:
     $ref: './paths/public-reports.yaml#/verify'
   /public/share/{token}:
     $ref: './paths/public-reports.yaml#/share'
+  # Admin (API_CONTRACTS.md §10)
+  /admin/ops-board:
+    $ref: './paths/admin-operations.yaml#/ops-board'
+  /admin/bookings:
+    $ref: './paths/admin-operations.yaml#/bookings'
+  /admin/bookings/{id}:
+    $ref: './paths/admin-operations.yaml#/booking'
+  /admin/bookings/{id}/cancel:
+    $ref: './paths/admin-operations.yaml#/booking-cancel'
+  /admin/claims:
+    $ref: './paths/admin-onboarding.yaml#/claims'
+  /admin/claims/{id}/approve:
+    $ref: './paths/admin-onboarding.yaml#/claim-approve'
+  /admin/claims/{id}/reject:
+    $ref: './paths/admin-onboarding.yaml#/claim-reject'
+  /admin/kyc-documents/{id}/verify:
+    $ref: './paths/admin-onboarding.yaml#/kyc-document-verify'
+  /admin/bank-accounts/{id}/verify:
+    $ref: './paths/admin-onboarding.yaml#/bank-account-verify'
+  /admin/geocode-queue:
+    $ref: './paths/admin-onboarding.yaml#/geocode-queue'
+  /admin/lab-sites/{id}/pin:
+    $ref: './paths/admin-onboarding.yaml#/lab-site-pin'
+  /admin/taxonomies:
+    $ref: './paths/admin-master-data.yaml#/taxonomies'
+  /admin/taxonomies/{id}:
+    $ref: './paths/admin-master-data.yaml#/taxonomy'
+  /admin/taxonomies/{id}/node-types:
+    $ref: './paths/admin-master-data.yaml#/node-types'
+  /admin/attribute-definitions:
+    $ref: './paths/admin-master-data.yaml#/attribute-definitions'
+  /admin/change-sets:
+    $ref: './paths/admin-master-data.yaml#/change-sets'
+  /admin/change-sets/{id}:
+    $ref: './paths/admin-master-data.yaml#/change-set'
+  /admin/change-sets/{id}/items:
+    $ref: './paths/admin-master-data.yaml#/change-set-items'
+  /admin/change-sets/{id}/submit:
+    $ref: './paths/admin-master-data.yaml#/change-set-submit'
+  /admin/change-sets/{id}/send-back:
+    $ref: './paths/admin-master-data.yaml#/change-set-send-back'
+  /admin/change-sets/{id}/approve:
+    $ref: './paths/admin-master-data.yaml#/change-set-approve'
+  /admin/change-sets/{id}/reject:
+    $ref: './paths/admin-master-data.yaml#/change-set-reject'
+  /admin/change-sets/{id}/publish:
+    $ref: './paths/admin-master-data.yaml#/change-set-publish'
+  /admin/change-sets/{id}/cancel:
+    $ref: './paths/admin-master-data.yaml#/change-set-cancel'
+  /admin/change-sets/{id}/impact:
+    $ref: './paths/admin-master-data.yaml#/change-set-impact'
+  /admin/records/{type}/{id}/versions:
+    $ref: './paths/admin-master-data.yaml#/record-versions'
+  /admin/mapping-templates:
+    $ref: './paths/admin-imports.yaml#/mapping-templates'
+  /admin/mapping-templates/{id}:
+    $ref: './paths/admin-imports.yaml#/mapping-template'
+  /admin/imports/upload-url:
+    $ref: './paths/admin-imports.yaml#/import-upload-url'
+  /admin/imports:
+    $ref: './paths/admin-imports.yaml#/imports'
+  /admin/imports/{id}:
+    $ref: './paths/admin-imports.yaml#/import'
+  /admin/imports/{id}/rows:
+    $ref: './paths/admin-imports.yaml#/import-rows'
+  /admin/imports/{id}/commit:
+    $ref: './paths/admin-imports.yaml#/import-commit'
+  /admin/imports/{id}/discard:
+    $ref: './paths/admin-imports.yaml#/import-discard'
+  /admin/disputes:
+    $ref: './paths/admin-operations.yaml#/disputes'
+  /admin/disputes/{id}/assign:
+    $ref: './paths/admin-operations.yaml#/dispute-assign'
+  /admin/disputes/{id}/decide:
+    $ref: './paths/admin-operations.yaml#/dispute-decide'
+  /admin/bookings/{id}/payout-holds:
+    $ref: './paths/admin-finance.yaml#/payout-holds'
+  /admin/bookings/{id}/payout-holds/{holdId}:
+    $ref: './paths/admin-finance.yaml#/payout-hold'
+  /admin/refunds:
+    $ref: './paths/admin-finance.yaml#/refunds'
+  /admin/refunds/{id}/approve:
+    $ref: './paths/admin-finance.yaml#/refund-approve'
+  /admin/payouts:
+    $ref: './paths/admin-finance.yaml#/payouts'
+  /admin/payouts/{id}/release:
+    $ref: './paths/admin-finance.yaml#/payout-release'
+  /admin/reconciliation/settlements:
+    $ref: './paths/admin-finance.yaml#/settlements'
+  /admin/reconciliation/settlements/upload-url:
+    $ref: './paths/admin-finance.yaml#/settlement-upload-url'
+  /admin/reconciliation/exceptions:
+    $ref: './paths/admin-finance.yaml#/reconciliation-exceptions'
+  /admin/exports/{kind}:
+    $ref: './paths/admin-finance.yaml#/export'
+  /admin/config/{key}:
+    $ref: './paths/admin-platform.yaml#/config'
+  /admin/users:
+    $ref: './paths/admin-platform.yaml#/users'
+  /admin/users/{id}:
+    $ref: './paths/admin-platform.yaml#/user'
+  /admin/users/{id}/platform-roles:
+    $ref: './paths/admin-platform.yaml#/user-platform-roles'
+  /admin/break-glass/report-access:
+    $ref: './paths/admin-operations.yaml#/break-glass-requests'
+  /admin/break-glass/report-access/{id}:
+    $ref: './paths/admin-operations.yaml#/break-glass-request'
+  /admin/break-glass/report-access/{id}/approve:
+    $ref: './paths/admin-operations.yaml#/break-glass-approve'
+  /admin/break-glass/report-access/{id}/reject:
+    $ref: './paths/admin-operations.yaml#/break-glass-reject'
+  /admin/break-glass/report-access/{id}/revoke:
+    $ref: './paths/admin-operations.yaml#/break-glass-revoke'
+  /admin/break-glass/report-access/{id}/download-url:
+    $ref: './paths/admin-operations.yaml#/break-glass-download-url'
+  /admin/audit-log:
+    $ref: './paths/admin-platform.yaml#/audit-log'
+  /admin/leads:
+    $ref: './paths/admin-operations.yaml#/leads'
+  /admin/leads/{id}:
+    $ref: './paths/admin-operations.yaml#/lead'
+  /admin/notification-templates:
+    $ref: './paths/admin-platform.yaml#/notification-templates'
+  /admin/notification-templates/{id}:
+    $ref: './paths/admin-platform.yaml#/notification-template'
   # Platform
   /health:
     $ref: './paths/health.yaml#/health'
@@ -141,6 +280,82 @@ components:
       $ref: './components/schemas/enums.yaml#/LeadKind'
     VerificationResult:
       $ref: './components/schemas/enums.yaml#/VerificationResult'
+    BookingStatus:
+      $ref: './components/schemas/enums.yaml#/BookingStatus'
+    BookingLineStatus:
+      $ref: './components/schemas/enums.yaml#/BookingLineStatus'
+    PartyType:
+      $ref: './components/schemas/enums.yaml#/PartyType'
+    ReportStatus:
+      $ref: './components/schemas/enums.yaml#/ReportStatus'
+    ReportVersionStatus:
+      $ref: './components/schemas/enums.yaml#/ReportVersionStatus'
+    TimerType:
+      $ref: './components/schemas/enums.yaml#/TimerType'
+    ClaimMethod:
+      $ref: './components/schemas/enums.yaml#/ClaimMethod'
+    ClaimRequestStatus:
+      $ref: './components/schemas/enums.yaml#/ClaimRequestStatus'
+    VerificationStatus:
+      $ref: './components/schemas/enums.yaml#/VerificationStatus'
+    AdminVerificationDecision:
+      $ref: './components/schemas/enums.yaml#/AdminVerificationDecision'
+    GeocodeStatus:
+      $ref: './components/schemas/enums.yaml#/GeocodeStatus'
+    AdminGeocodeQueueStatus:
+      $ref: './components/schemas/enums.yaml#/AdminGeocodeQueueStatus'
+    MdStatus:
+      $ref: './components/schemas/enums.yaml#/MdStatus'
+    MdDataType:
+      $ref: './components/schemas/enums.yaml#/MdDataType'
+    ChangeSource:
+      $ref: './components/schemas/enums.yaml#/ChangeSource'
+    ChangeSetStatus:
+      $ref: './components/schemas/enums.yaml#/ChangeSetStatus'
+    MdTargetType:
+      $ref: './components/schemas/enums.yaml#/MdTargetType'
+    ChangeOperation:
+      $ref: './components/schemas/enums.yaml#/ChangeOperation'
+    ValidationStatus:
+      $ref: './components/schemas/enums.yaml#/ValidationStatus'
+    ImportKind:
+      $ref: './components/schemas/enums.yaml#/ImportKind'
+    ImportStatus:
+      $ref: './components/schemas/enums.yaml#/ImportStatus'
+    ImportSourceFormat:
+      $ref: './components/schemas/enums.yaml#/ImportSourceFormat'
+    ImportMatchResult:
+      $ref: './components/schemas/enums.yaml#/ImportMatchResult'
+    ImportRowAction:
+      $ref: './components/schemas/enums.yaml#/ImportRowAction'
+    LeadStatus:
+      $ref: './components/schemas/enums.yaml#/LeadStatus'
+    DisputeStatus:
+      $ref: './components/schemas/enums.yaml#/DisputeStatus'
+    DisputeOutcome:
+      $ref: './components/schemas/enums.yaml#/DisputeOutcome'
+    RefundStatus:
+      $ref: './components/schemas/enums.yaml#/RefundStatus'
+    PayoutStatus:
+      $ref: './components/schemas/enums.yaml#/PayoutStatus'
+    PayoutMechanism:
+      $ref: './components/schemas/enums.yaml#/PayoutMechanism'
+    PayoutHoldReason:
+      $ref: './components/schemas/enums.yaml#/PayoutHoldReason'
+    AdminPayoutHoldPlaceReason:
+      $ref: './components/schemas/enums.yaml#/AdminPayoutHoldPlaceReason'
+    GatewayCode:
+      $ref: './components/schemas/enums.yaml#/GatewayCode'
+    SettlementMatchStatus:
+      $ref: './components/schemas/enums.yaml#/SettlementMatchStatus'
+    ConfigScope:
+      $ref: './components/schemas/enums.yaml#/ConfigScope'
+    UserStatus:
+      $ref: './components/schemas/enums.yaml#/UserStatus'
+    AdminUserStatusUpdate:
+      $ref: './components/schemas/enums.yaml#/AdminUserStatusUpdate'
+    AdminPlatformRoleCode:
+      $ref: './components/schemas/enums.yaml#/AdminPlatformRoleCode'
     Email:
       $ref: './components/schemas/auth.yaml#/Email'
     OtpCode:
@@ -257,6 +472,179 @@ components:
       $ref: './components/schemas/verification.yaml#/ShareLinkResolution'
     HealthStatus:
       $ref: './components/schemas/health.yaml#/HealthStatus'
+    # Admin (API_CONTRACTS.md §10)
+    AdminImportFileContentType:
+      $ref: './components/schemas/admin-common.yaml#/AdminImportFileContentType'
+    AdminUploadUrlRequest:
+      $ref: './components/schemas/admin-common.yaml#/AdminUploadUrlRequest'
+    AdminUploadUrl:
+      $ref: './components/schemas/admin-common.yaml#/AdminUploadUrl'
+    AdminDownloadUrl:
+      $ref: './components/schemas/admin-common.yaml#/AdminDownloadUrl'
+    AdminStatusCount:
+      $ref: './components/schemas/admin-operations.yaml#/AdminStatusCount'
+    AdminOverdueCount:
+      $ref: './components/schemas/admin-operations.yaml#/AdminOverdueCount'
+    AdminOpsBoard:
+      $ref: './components/schemas/admin-operations.yaml#/AdminOpsBoard'
+    AdminBookingSummary:
+      $ref: './components/schemas/admin-operations.yaml#/AdminBookingSummary'
+    AdminBookingList:
+      $ref: './components/schemas/admin-operations.yaml#/AdminBookingList'
+    AdminBookingLine:
+      $ref: './components/schemas/admin-operations.yaml#/AdminBookingLine'
+    AdminReportVersionMetadata:
+      $ref: './components/schemas/admin-operations.yaml#/AdminReportVersionMetadata'
+    AdminReportMetadata:
+      $ref: './components/schemas/admin-operations.yaml#/AdminReportMetadata'
+    AdminBooking:
+      $ref: './components/schemas/admin-operations.yaml#/AdminBooking'
+    AdminBookingCancelRequest:
+      $ref: './components/schemas/admin-operations.yaml#/AdminBookingCancelRequest'
+    AdminBreakGlassRequestCreate:
+      $ref: './components/schemas/admin-operations.yaml#/AdminBreakGlassRequestCreate'
+    AdminBreakGlassGrant:
+      $ref: './components/schemas/admin-operations.yaml#/AdminBreakGlassGrant'
+    AdminBreakGlassGrantList:
+      $ref: './components/schemas/admin-operations.yaml#/AdminBreakGlassGrantList'
+    AdminLead:
+      $ref: './components/schemas/admin-operations.yaml#/AdminLead'
+    AdminLeadList:
+      $ref: './components/schemas/admin-operations.yaml#/AdminLeadList'
+    AdminLeadUpdate:
+      $ref: './components/schemas/admin-operations.yaml#/AdminLeadUpdate'
+    AdminDispute:
+      $ref: './components/schemas/admin-operations.yaml#/AdminDispute'
+    AdminDisputeList:
+      $ref: './components/schemas/admin-operations.yaml#/AdminDisputeList'
+    AdminDisputeAssignRequest:
+      $ref: './components/schemas/admin-operations.yaml#/AdminDisputeAssignRequest'
+    AdminDisputeDecisionRequest:
+      $ref: './components/schemas/admin-operations.yaml#/AdminDisputeDecisionRequest'
+    AdminLabClaim:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminLabClaim'
+    AdminLabClaimList:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminLabClaimList'
+    AdminClaimApproval:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminClaimApproval'
+    AdminClaimRejection:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminClaimRejection'
+    AdminVerificationRequest:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminVerificationRequest'
+    AdminKycDocument:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminKycDocument'
+    AdminBankAccount:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminBankAccount'
+    AdminLabSiteGeocode:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminLabSiteGeocode'
+    AdminLabSiteGeocodeList:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminLabSiteGeocodeList'
+    AdminPinApproval:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminPinApproval'
+    AdminTaxonomy:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminTaxonomy'
+    AdminTaxonomyList:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminTaxonomyList'
+    AdminNodeType:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminNodeType'
+    AdminNodeTypeList:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminNodeTypeList'
+    AdminAttributeDefinition:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminAttributeDefinition'
+    AdminAttributeDefinitionList:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminAttributeDefinitionList'
+    AdminChangeSet:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminChangeSet'
+    AdminChangeSetList:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminChangeSetList'
+    AdminChangeSetCreate:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminChangeSetCreate'
+    AdminChangeSetRejection:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminChangeSetRejection'
+    AdminChangeItem:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminChangeItem'
+    AdminChangeItemList:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminChangeItemList'
+    AdminChangeItemCreate:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminChangeItemCreate'
+    AdminImpactCount:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminImpactCount'
+    AdminAffectedBooking:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminAffectedBooking'
+    AdminChangeSetImpact:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminChangeSetImpact'
+    AdminRecordVersionChangeSet:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminRecordVersionChangeSet'
+    AdminRecordVersion:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminRecordVersion'
+    AdminRecordVersionList:
+      $ref: './components/schemas/admin-master-data.yaml#/AdminRecordVersionList'
+    AdminMappingTemplate:
+      $ref: './components/schemas/admin-imports.yaml#/AdminMappingTemplate'
+    AdminMappingTemplateList:
+      $ref: './components/schemas/admin-imports.yaml#/AdminMappingTemplateList'
+    AdminMappingTemplateCreate:
+      $ref: './components/schemas/admin-imports.yaml#/AdminMappingTemplateCreate'
+    AdminMappingTemplateUpdate:
+      $ref: './components/schemas/admin-imports.yaml#/AdminMappingTemplateUpdate'
+    AdminImportCreate:
+      $ref: './components/schemas/admin-imports.yaml#/AdminImportCreate'
+    AdminImportJob:
+      $ref: './components/schemas/admin-imports.yaml#/AdminImportJob'
+    AdminImportRow:
+      $ref: './components/schemas/admin-imports.yaml#/AdminImportRow'
+    AdminImportRowList:
+      $ref: './components/schemas/admin-imports.yaml#/AdminImportRowList'
+    AdminPayoutHoldCreate:
+      $ref: './components/schemas/admin-finance.yaml#/AdminPayoutHoldCreate'
+    AdminPayoutHold:
+      $ref: './components/schemas/admin-finance.yaml#/AdminPayoutHold'
+    AdminRefund:
+      $ref: './components/schemas/admin-finance.yaml#/AdminRefund'
+    AdminRefundList:
+      $ref: './components/schemas/admin-finance.yaml#/AdminRefundList'
+    AdminPayout:
+      $ref: './components/schemas/admin-finance.yaml#/AdminPayout'
+    AdminPayoutList:
+      $ref: './components/schemas/admin-finance.yaml#/AdminPayoutList'
+    AdminPayoutRelease:
+      $ref: './components/schemas/admin-finance.yaml#/AdminPayoutRelease'
+    AdminSettlementImportRequest:
+      $ref: './components/schemas/admin-finance.yaml#/AdminSettlementImportRequest'
+    AdminSettlementLine:
+      $ref: './components/schemas/admin-finance.yaml#/AdminSettlementLine'
+    AdminSettlementLineList:
+      $ref: './components/schemas/admin-finance.yaml#/AdminSettlementLineList'
+    AdminExportKind:
+      $ref: './components/schemas/admin-finance.yaml#/AdminExportKind'
+    AdminConfigKey:
+      $ref: './components/schemas/admin-platform.yaml#/AdminConfigKey'
+    AdminConfigValue:
+      $ref: './components/schemas/admin-platform.yaml#/AdminConfigValue'
+    AdminConfigValueUpdate:
+      $ref: './components/schemas/admin-platform.yaml#/AdminConfigValueUpdate'
+    AdminPlatformUser:
+      $ref: './components/schemas/admin-platform.yaml#/AdminPlatformUser'
+    AdminPlatformUserList:
+      $ref: './components/schemas/admin-platform.yaml#/AdminPlatformUserList'
+    AdminPlatformUserCreate:
+      $ref: './components/schemas/admin-platform.yaml#/AdminPlatformUserCreate'
+    AdminPlatformUserUpdate:
+      $ref: './components/schemas/admin-platform.yaml#/AdminPlatformUserUpdate'
+    AdminPlatformRolesUpdate:
+      $ref: './components/schemas/admin-platform.yaml#/AdminPlatformRolesUpdate'
+    AdminAuditLogEntry:
+      $ref: './components/schemas/admin-platform.yaml#/AdminAuditLogEntry'
+    AdminAuditLogList:
+      $ref: './components/schemas/admin-platform.yaml#/AdminAuditLogList'
+    AdminNotificationTemplate:
+      $ref: './components/schemas/admin-platform.yaml#/AdminNotificationTemplate'
+    AdminNotificationTemplateList:
+      $ref: './components/schemas/admin-platform.yaml#/AdminNotificationTemplateList'
+    AdminNotificationTemplateCreate:
+      $ref: './components/schemas/admin-platform.yaml#/AdminNotificationTemplateCreate'
+    AdminNotificationTemplateUpdate:
+      $ref: './components/schemas/admin-platform.yaml#/AdminNotificationTemplateUpdate'
   parameters:
     IdempotencyKey:
       $ref: './components/parameters.yaml#/IdempotencyKey'

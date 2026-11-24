@@ -1,0 +1,294 @@
+# Admin views for lab onboarding (API_CONTRACTS.md §10, FR-ADM-01, FR-DAT-03, FR-DAT-07): lab
+# claims, KYC and bank verification, and the geocode pin queue. A bank account is shown with the
+# last four digits of its number only; the number itself is never returned.
+
+AdminLabClaim:
+  type: object
+  description: A lab claim request (`lab_claim_request`).
+  required:
+    - id
+    - organisationId
+    - labSiteId
+    - requestedByUserId
+    - method
+    - status
+    - authorisationFileId
+    - reviewedByUserId
+    - reviewedAt
+    - decisionNotes
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    organisationId:
+      description: The lab organisation being claimed.
+      $ref: './common.yaml#/Uuid'
+    labSiteId:
+      description: The site used for verification.
+      $ref: './common.yaml#/Uuid'
+    requestedByUserId:
+      $ref: './common.yaml#/Uuid'
+    method:
+      $ref: './enums.yaml#/ClaimMethod'
+    status:
+      $ref: './enums.yaml#/ClaimRequestStatus'
+    authorisationFileId:
+      description: The letterhead authorisation of a `MANUAL` claim.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    reviewedByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    reviewedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    decisionNotes:
+      type:
+        - string
+        - 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminLabClaimList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminLabClaim'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminClaimApproval:
+  type: object
+  additionalProperties: false
+  properties:
+    decisionNotes:
+      type: string
+      maxLength: 2000
+
+AdminClaimRejection:
+  type: object
+  required:
+    - decisionNotes
+  additionalProperties: false
+  properties:
+    decisionNotes:
+      type: string
+      minLength: 1
+      maxLength: 2000
+      description: Why the claim is rejected. Shown to the claimant.
+
+AdminVerificationRequest:
+  type: object
+  description: >-
+    The outcome of a KYC document or bank account review. `notes` is required when the decision
+    is `REJECTED`.
+  required:
+    - decision
+  additionalProperties: false
+  properties:
+    decision:
+      $ref: './enums.yaml#/AdminVerificationDecision'
+    notes:
+      type: string
+      minLength: 1
+      maxLength: 2000
+  # The rule in the description, as JSON Schema conditionals (as in `LeadCreate`).
+  allOf:
+    - if:
+        properties:
+          decision:
+            const: REJECTED
+      then:
+        required:
+          - notes
+        properties:
+          notes: true
+
+AdminKycDocument:
+  type: object
+  description: A KYC document of a lab organisation (`kyc_document`).
+  required:
+    - id
+    - organisationId
+    - documentTypeNodeId
+    - fileId
+    - status
+    - reviewedByUserId
+    - reviewedAt
+    - notes
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    organisationId:
+      $ref: './common.yaml#/Uuid'
+    documentTypeNodeId:
+      description: A node of the `KYC_DOCUMENT_TYPE` taxonomy.
+      $ref: './common.yaml#/Uuid'
+    fileId:
+      $ref: './common.yaml#/Uuid'
+    status:
+      $ref: './enums.yaml#/VerificationStatus'
+    reviewedByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    reviewedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    notes:
+      type:
+        - string
+        - 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+AdminBankAccount:
+  type: object
+  description: >-
+    A lab bank account (`bank_account`), masked: only the last four digits of the account number
+    are returned.
+  required:
+    - id
+    - organisationId
+    - labSiteId
+    - accountHolderName
+    - accountNumberLast4
+    - ifsc
+    - status
+    - verifiedByUserId
+    - verifiedAt
+    - isPrimary
+    - retiredAt
+    - createdAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    organisationId:
+      $ref: './common.yaml#/Uuid'
+    labSiteId:
+      description: '`null` for an organisation-level account.'
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    accountHolderName:
+      type: string
+    accountNumberLast4:
+      type: string
+      pattern: ^[0-9]{4}$
+    ifsc:
+      type: string
+      pattern: ^[A-Z]{4}0[A-Z0-9]{6}$
+      examples:
+        - ABCD0123456
+    status:
+      $ref: './enums.yaml#/VerificationStatus'
+    verifiedByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    verifiedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    isPrimary:
+      type: boolean
+    retiredAt:
+      description: Set when the account was replaced. A change creates a new account.
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminLabSiteGeocode:
+  type: object
+  description: >-
+    A lab site's geocoding state, as shown in the Ops pin queue. `location` is the approved pin
+    only (BR-004); a site without an approved pin has none.
+  required:
+    - labSiteId
+    - siteCode
+    - name
+    - organisationId
+    - address
+    - geocodeStatus
+    - geocodeConfidence
+    - location
+    - lockVersion
+  additionalProperties: false
+  properties:
+    labSiteId:
+      $ref: './common.yaml#/Uuid'
+    siteCode:
+      type: string
+      maxLength: 30
+      examples:
+        - LS-DL-000123
+    name:
+      type: string
+    organisationId:
+      $ref: './common.yaml#/Uuid'
+    address:
+      $ref: './lab-sites.yaml#/PublicAddress'
+    geocodeStatus:
+      $ref: './enums.yaml#/GeocodeStatus'
+    geocodeConfidence:
+      description: The geocoder's confidence, 0 to 1. Below 0.7 the site enters the queue.
+      type:
+        - number
+        - 'null'
+      minimum: 0
+      maximum: 1
+    location:
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicLocation'
+        - type: 'null'
+    lockVersion:
+      type: integer
+      minimum: 0
+
+AdminLabSiteGeocodeList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/AdminLabSiteGeocode'
+    page:
+      $ref: './common.yaml#/Page'
+
+AdminPinApproval:
+  type: object
+  description: The map pin Ops approves for the site.
+  required:
+    - location
+  additionalProperties: false
+  properties:
+    location:
+      $ref: './lab-sites.yaml#/PublicLocation'
