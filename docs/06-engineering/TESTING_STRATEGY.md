@@ -47,7 +47,8 @@
 - Coverage drops of more than 1% on a PR fail CI.
 
 ## 6. Test data and determinism
-- Factories (`packages/database/test-utils`) build orgs, users with roles, sites, bookings in any state (`bookingInState('UNDER_TEST')`).
+- Factories (`@labconnect/database/test-utils`, source in `packages/database/src/factories/`) build a platform team, customers, a scope catalogue, labs (onboarded or only listed) and bookings in any state (`bookingInState(tx, 'UNDER_TEST', { reference, customer, lab })`). They need the reference seed first, run inside a transaction on the owner connection, and walk a booking along the real transitions, so the database guards apply to test data too. `bookingInState` writes the status history, slot hold, counter-offer, payment with its ledger journal, packages and custody events, receipt, hold case, report version, dispute and payout hold. It does not write audit log, outbox events, timers, notifications, refunds, financial documents or payouts; the modules that own those add them.
+- The database suite's older raw-SQL fixtures (`test/db/fixtures.ts`) stay for the constraint tests, which need to write rows the factories would refuse to.
 - An injected `Clock`. No sleeps. Timers run with `TimerService.runDue(now)`.
 - Each integration test runs in its own schema or transaction. Tests run in parallel by worker.
 

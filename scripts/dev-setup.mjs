@@ -69,12 +69,18 @@ if (skipDocker) {
     fail('Docker is not running. Start Docker Desktop, then run this script again.');
   }
   run('docker compose up -d --wait');
+
+  step('Preparing the database (migrations, local login users, reference data)');
+  run('pnpm db:migrate');
+  run('pnpm db:local-users');
+  run('pnpm seed:reference');
 }
 
 console.log(`
 ✔ Setup complete.
   pnpm dev          start web, api and worker in watch mode
   pnpm test         run all tests
+  pnpm seed:demo    add fictitious demo data (200 lab sites, bookings in every state)
   pnpm dev:down     stop the local services
   Mailpit inbox     http://localhost:8025 (or MAILPIT_UI_PORT from .env)
 `);
