@@ -44,6 +44,7 @@ This pack is the reference for everyone working on LabConnect. Documents marked 
 | [VERSIONING_AND_SNAPSHOTS.md](03-database/VERSIONING_AND_SNAPSHOTS.md) | Effective dating, versioning, booking snapshots |
 | [MASTER_DATA_MANAGEMENT.md](03-database/MASTER_DATA_MANAGEMENT.md) | Configurable taxonomies, imports, review and publication |
 | [MIGRATION_AND_SEED_STRATEGY.md](03-database/MIGRATION_AND_SEED_STRATEGY.md) | Migrations, seed data, environments |
+| [DESIGN_REVIEW_P1-01.md](03-database/DESIGN_REVIEW_P1-01.md) | Consistency review of this folder (task P1-01). Open findings for the P1-02 meeting. |
 
 ## 04: API (DRAFT, review is gate G2)
 | File | Purpose |

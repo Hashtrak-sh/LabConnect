@@ -1,0 +1,40 @@
+-- Reference data that the schema itself depends on. Hand-written.
+--
+-- booking_transition mirrors docs/02-architecture/BOOKING_STATE_MACHINE.md section 3,
+-- one row per (transition, from-state). trg_booking_status_guard refuses any status
+-- change that is not listed here. A test compares this table with the document, and
+-- (from P2-07) with packages/shared/src/booking-state-machine.ts.
+INSERT INTO booking_transition (seq, transition_id, from_status, to_status) VALUES
+  ( 1, 'T-01', NULL,               'REQUESTED'),
+  ( 2, 'T-02', 'REQUESTED',        'REQUESTED'),
+  ( 3, 'T-03', 'REQUESTED',        'ACCEPTED'),
+  ( 4, 'T-04', 'REQUESTED',        'COUNTERED'),
+  ( 5, 'T-05', 'REQUESTED',        'REJECTED'),
+  ( 6, 'T-06', 'REQUESTED',        'EXPIRED'),
+  ( 7, 'T-07', 'COUNTERED',        'ACCEPTED'),
+  ( 8, 'T-08', 'COUNTERED',        'EXPIRED'),
+  ( 9, 'T-09', 'ACCEPTED',         'PAID'),
+  (10, 'T-10', 'ACCEPTED',         'EXPIRED_UNPAID'),
+  (11, 'T-11', 'PAID',             'HANDOVER_SET'),
+  (12, 'T-12', 'HANDOVER_SET',     'NO_SHOW'),
+  (13, 'T-13', 'HANDOVER_SET',     'SAMPLE_RECORDED'),
+  (14, 'T-14', 'SAMPLE_RECORDED',  'RECEIVED'),
+  (15, 'T-15', 'SAMPLE_RECORDED',  'ON_HOLD'),
+  (16, 'T-16', 'ON_HOLD',          'RECEIVED'),
+  (17, 'T-17', 'ON_HOLD',          'SAMPLE_RECORDED'),
+  (18, 'T-18', 'RECEIVED',         'UNDER_TEST'),
+  (19, 'T-19', 'UNDER_TEST',       'REPORT_IN_REVIEW'),
+  (20, 'T-20', 'REPORT_IN_REVIEW', 'UNDER_TEST'),
+  (21, 'T-21', 'REPORT_IN_REVIEW', 'REPORT_RELEASED'),
+  (22, 'T-22', 'REPORT_RELEASED',  'DISPUTED'),
+  (23, 'T-23', 'REPORT_RELEASED',  'COMPLETED'),
+  (24, 'T-24', 'DISPUTED',         'COMPLETED'),
+  (25, 'T-25', 'REQUESTED',        'CANCELLED'),
+  (26, 'T-25', 'COUNTERED',        'CANCELLED'),
+  (27, 'T-25', 'ACCEPTED',         'CANCELLED'),
+  (28, 'T-26', 'HANDOVER_SET',     'CANCELLED'),
+  (29, 'T-27', 'SAMPLE_RECORDED',  'CANCELLED'),
+  (30, 'T-27', 'ON_HOLD',          'CANCELLED'),
+  (31, 'T-27', 'RECEIVED',         'CANCELLED'),
+  (32, 'T-27', 'UNDER_TEST',       'CANCELLED'),
+  (33, 'T-28', 'SAMPLE_RECORDED',  'CANCELLED');

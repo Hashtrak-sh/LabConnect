@@ -1,0 +1,149 @@
+// 1. Platform
+
+model ConfigParameter {
+  id String @id @db.Uuid
+  key String @db.VarChar(100)
+  scopeType ConfigScope @map("scope_type")
+  scopeId String? @map("scope_id") @db.Uuid
+  value Json
+  effectiveFrom DateTime @map("effective_from") @db.Timestamptz(6)
+  effectiveTo DateTime? @map("effective_to") @db.Timestamptz(6)
+  changeReason String @map("change_reason")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  createdByUser AppUser? @relation("config_parameter_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([key, scopeType, scopeId, effectiveFrom], map: "uq_config_parameter_window")
+  @@map("config_parameter")
+}
+
+model HolidayCalendar {
+  id String @id @db.Uuid
+  holidayDate DateTime @map("holiday_date") @db.Date
+  name String
+  regionCode String? @map("region_code") @db.VarChar(10)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  createdByUser AppUser? @relation("holiday_calendar_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([holidayDate, regionCode], map: "uq_holiday_calendar_date_region")
+  @@map("holiday_calendar")
+}
+
+model AuditLog {
+  id String @db.Uuid
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(6)
+  actorUserId String? @map("actor_user_id") @db.Uuid
+  actorMembershipId String? @map("actor_membership_id") @db.Uuid
+  actorRole RoleCode? @map("actor_role")
+  actorOrgId String? @map("actor_org_id") @db.Uuid
+  action String @db.VarChar(100)
+  entityType String @map("entity_type") @db.VarChar(60)
+  entityId String @map("entity_id") @db.Uuid
+  before Json?
+  after Json?
+  reason String?
+  requestId String? @map("request_id") @db.VarChar(64)
+  ipAddress String? @map("ip_address") @db.Inet
+  userAgent String? @map("user_agent")
+
+
+  @@id([id, occurredAt])
+  @@index([entityType, entityId, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@map("audit_log")
+}
+
+model OutboxEvent {
+  id String @id @db.Uuid
+  aggregateType String @map("aggregate_type") @db.VarChar(60)
+  aggregateId String @map("aggregate_id") @db.Uuid
+  eventType String @map("event_type") @db.VarChar(100)
+  eventVersion Int @default(1) @map("event_version")
+  payload Json
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(6)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(6)
+  attempts Int @default(0)
+  lastError String? @map("last_error")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+
+  @@index([occurredAt], map: "ix_outbox_event_unpublished", where: { publishedAt: null })
+  @@map("outbox_event")
+}
+
+model ProcessedEvent {
+  consumer String @db.VarChar(60)
+  eventId String @map("event_id") @db.Uuid
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(6)
+
+
+  @@id([consumer, eventId])
+  @@map("processed_event")
+}
+
+model Timer {
+  id String @id @db.Uuid
+  timerType TimerType @map("timer_type")
+  aggregateType String @map("aggregate_type") @db.VarChar(60)
+  aggregateId String @map("aggregate_id") @db.Uuid
+  dueAt DateTime @map("due_at") @db.Timestamptz(6)
+  status TimerStatus @default(PENDING)
+  payload Json?
+  attempts Int @default(0)
+  firedAt DateTime? @map("fired_at") @db.Timestamptz(6)
+  lastError String? @map("last_error")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  createdByUser AppUser? @relation("timer_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([dueAt], map: "ix_timer_pending", where: { status: "PENDING" })
+  @@index([aggregateType, aggregateId])
+  @@map("timer")
+}
+
+model IdempotencyRecord {
+  id String @id @db.Uuid
+  idempotencyKey String @map("idempotency_key") @db.VarChar(100)
+  actorUserId String? @map("actor_user_id") @db.Uuid
+  route String @db.VarChar(200)
+  requestHash Bytes @map("request_hash")
+  status IdempotencyStatus
+  responseStatus Int? @map("response_status")
+  responseBody Json? @map("response_body")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  actorUser AppUser? @relation("idempotency_record_actor_user_id", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("idempotency_record_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([idempotencyKey, actorUserId, route], map: "uq_idempotency_record_key")
+  @@index([expiresAt])
+  @@map("idempotency_record")
+}
+
+model AuditLogChain {
+  id String @id @db.Uuid
+  chainMonth DateTime @map("chain_month") @db.Date
+  seq BigInt
+  auditLogId String @map("audit_log_id") @db.Uuid
+  auditOccurredAt DateTime @map("audit_occurred_at") @db.Timestamptz(6)
+  prevHash Bytes? @map("prev_hash")
+  hash Bytes
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+
+  @@unique([chainMonth, seq])
+  @@unique([auditLogId])
+  @@map("audit_log_chain")
+}

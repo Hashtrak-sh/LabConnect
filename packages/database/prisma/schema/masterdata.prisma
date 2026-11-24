@@ -1,0 +1,361 @@
+// 4. Master data
+
+model MdTaxonomy {
+  id String @id @db.Uuid
+  code String @db.VarChar(50)
+  name String
+  description String?
+  isHierarchical Boolean @default(false) @map("is_hierarchical")
+  isSystem Boolean @default(false) @map("is_system")
+  status MdStatus @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  createdByUser AppUser? @relation("md_taxonomy_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  mdNodeTypes MdNodeType[] @relation("md_node_type_taxonomy_id")
+  mdNodes MdNode[] @relation("md_node_taxonomy_id")
+
+  @@unique([code])
+  @@map("md_taxonomy")
+}
+
+model MdNodeType {
+  id String @id @db.Uuid
+  taxonomyId String @map("taxonomy_id") @db.Uuid
+  code String @db.VarChar(50)
+  name String
+  level Int
+  parentNodeTypeId String? @map("parent_node_type_id") @db.Uuid
+  status MdStatus @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  taxonomy MdTaxonomy @relation("md_node_type_taxonomy_id", fields: [taxonomyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  parentNodeType MdNodeType? @relation("md_node_type_parent_node_type_id", fields: [parentNodeTypeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("md_node_type_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  mdNodeTypes MdNodeType[] @relation("md_node_type_parent_node_type_id")
+  mdAttributeDefinitions MdAttributeDefinition[] @relation("md_attribute_definition_node_type_id")
+  mdNodes MdNode[] @relation("md_node_node_type_id")
+
+  @@unique([taxonomyId, code])
+  @@unique([taxonomyId, level])
+  @@map("md_node_type")
+}
+
+model MdAttributeDefinition {
+  id String @id @db.Uuid
+  nodeTypeId String @map("node_type_id") @db.Uuid
+  key String @db.VarChar(60)
+  label String
+  dataType MdDataType @map("data_type")
+  isRequired Boolean @default(false) @map("is_required")
+  isSearchable Boolean @default(false) @map("is_searchable")
+  validation Json?
+  sortOrder Int @default(0) @map("sort_order")
+  status MdStatus @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  nodeType MdNodeType @relation("md_attribute_definition_node_type_id", fields: [nodeTypeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("md_attribute_definition_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([nodeTypeId, key])
+  @@map("md_attribute_definition")
+}
+
+model MdNode {
+  id String @id @db.Uuid
+  taxonomyId String @map("taxonomy_id") @db.Uuid
+  nodeTypeId String @map("node_type_id") @db.Uuid
+  parentId String? @map("parent_id") @db.Uuid
+  code String @db.VarChar(100)
+  name String
+  aliases String[] @default([])
+  attributes Json @default("{}")
+  path Unsupported("ltree")?
+  status MdStatus @default(ACTIVE)
+  effectiveFrom DateTime? @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  currentVersionNo Int @default(1) @map("current_version_no")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  taxonomy MdTaxonomy @relation("md_node_taxonomy_id", fields: [taxonomyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  nodeType MdNodeType @relation("md_node_node_type_id", fields: [nodeTypeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  parent MdNode? @relation("md_node_parent_id", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("md_node_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  mdNodes MdNode[] @relation("md_node_parent_id")
+  mdNodeVersions MdNodeVersion[] @relation("md_node_version_node_id")
+  scopeLinesAsDisciplineNode ScopeLine[] @relation("scope_line_discipline_node_id")
+  scopeLinesAsGroupNode ScopeLine[] @relation("scope_line_group_node_id")
+  scopeLinesAsProductNode ScopeLine[] @relation("scope_line_product_node_id")
+  scopeLinesAsParameterNode ScopeLine[] @relation("scope_line_parameter_node_id")
+  scopeLinesAsMethodNode ScopeLine[] @relation("scope_line_method_node_id")
+  scopeLinesAsRangeUnitNode ScopeLine[] @relation("scope_line_range_unit_node_id")
+  kycDocuments KycDocument[] @relation("kyc_document_document_type_node_id")
+  retentionRules RetentionRule[] @relation("retention_rule_discipline_node_id")
+  priceItems PriceItem[] @relation("price_item_sample_unit_node_id")
+  slotTemplates SlotTemplate[] @relation("slot_template_discipline_node_id")
+  slots Slot[] @relation("slot_discipline_node_id")
+  bookingsAsProductNode Booking[] @relation("booking_product_node_id")
+  bookingsAsCancellationCodeNode Booking[] @relation("booking_cancellation_code_node_id")
+  bookingsAsRejectionReasonNode Booking[] @relation("booking_rejection_reason_node_id")
+  receiptRecords ReceiptRecord[] @relation("receipt_record_condition_node_id")
+  receiptPackages ReceiptPackage[] @relation("receipt_package_condition_node_id")
+  holdCases HoldCase[] @relation("hold_case_reason_node_id")
+  refunds Refund[] @relation("refund_reason_code_node_id")
+  disputes Dispute[] @relation("dispute_type_node_id")
+
+  @@unique([taxonomyId, code])
+  @@index([taxonomyId, nodeTypeId, status])
+  @@index([parentId])
+  @@index([aliases], type: Gin)
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([path], type: Gist)
+  @@map("md_node")
+}
+
+model MdNodeVersion {
+  id String @id @db.Uuid
+  nodeId String @map("node_id") @db.Uuid
+  versionNo Int @map("version_no")
+  snapshot Json
+  changeSetId String @map("change_set_id") @db.Uuid
+  publishedAt DateTime @map("published_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  node MdNode @relation("md_node_version_node_id", fields: [nodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  changeSet MdChangeSet @relation("md_node_version_change_set_id", fields: [changeSetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("md_node_version_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([nodeId, versionNo])
+  @@map("md_node_version")
+}
+
+model MdChangeSet {
+  id String @id @db.Uuid
+  title String
+  source ChangeSource
+  status ChangeSetStatus @default(DRAFT)
+  importJobId String? @map("import_job_id") @db.Uuid
+  proposedByOrgId String? @map("proposed_by_org_id") @db.Uuid
+  preparedByUserId String @map("prepared_by_user_id") @db.Uuid
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(6)
+  approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(6)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(6)
+  rejectionReason String? @map("rejection_reason")
+  impactSummary Json? @map("impact_summary")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  importJob ImportJob? @relation("md_change_set_import_job_id", fields: [importJobId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  proposedByOrg Organisation? @relation("md_change_set_proposed_by_org_id", fields: [proposedByOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  preparedByUser AppUser @relation("md_change_set_prepared_by_user_id", fields: [preparedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  approvedByUser AppUser? @relation("md_change_set_approved_by_user_id", fields: [approvedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("md_change_set_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  organisationVersions OrganisationVersion[] @relation("organisation_version_change_set_id")
+  mdNodeVersions MdNodeVersion[] @relation("md_node_version_change_set_id")
+  mdChangeItems MdChangeItem[] @relation("md_change_item_change_set_id")
+  importJobs ImportJob[] @relation("import_job_change_set_id")
+  searchSynonymVersions SearchSynonymVersion[] @relation("search_synonym_version_change_set_id")
+  labSiteVersions LabSiteVersion[] @relation("lab_site_version_change_set_id")
+  accreditationVersions AccreditationVersion[] @relation("accreditation_version_change_set_id")
+  scopeLineVersions ScopeLineVersion[] @relation("scope_line_version_change_set_id")
+
+  @@index([status, submittedAt])
+  @@map("md_change_set")
+}
+
+model MdChangeItem {
+  id String @id @db.Uuid
+  changeSetId String @map("change_set_id") @db.Uuid
+  targetType MdTargetType @map("target_type")
+  targetId String? @map("target_id") @db.Uuid
+  operation ChangeOperation
+  proposed Json
+  diff Json?
+  baseVersionNo Int? @map("base_version_no")
+  validationStatus ValidationStatus @map("validation_status")
+  validationMessages Json? @map("validation_messages")
+  importRowId String? @map("import_row_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  changeSet MdChangeSet @relation("md_change_item_change_set_id", fields: [changeSetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  importRow ImportRow? @relation("md_change_item_import_row_id", fields: [importRowId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("md_change_item_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([changeSetId])
+  @@index([targetType, targetId])
+  @@map("md_change_item")
+}
+
+model ImportMappingTemplate {
+  id String @id @db.Uuid
+  name String
+  targetKind ImportKind @map("target_kind")
+  sourceFormat ImportSourceFormat @map("source_format")
+  version Int @default(1)
+  columnMap Json @map("column_map")
+  defaults Json?
+  ownerOrgId String? @map("owner_org_id") @db.Uuid
+  status MdStatus @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  ownerOrg Organisation? @relation("import_mapping_template_owner_org_id", fields: [ownerOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("import_mapping_template_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  importJobs ImportJob[] @relation("import_job_mapping_template_id")
+
+  @@map("import_mapping_template")
+}
+
+model ImportJob {
+  id String @id @db.Uuid
+  kind ImportKind
+  organisationId String? @map("organisation_id") @db.Uuid
+  labSiteId String? @map("lab_site_id") @db.Uuid
+  sourceFileId String @map("source_file_id") @db.Uuid
+  sourceLabel String? @map("source_label")
+  mappingTemplateId String @map("mapping_template_id") @db.Uuid
+  mappingTemplateVersion Int @map("mapping_template_version")
+  status ImportStatus @default(UPLOADED)
+  rowCount Int @default(0) @map("row_count")
+  errorCount Int @default(0) @map("error_count")
+  warningCount Int @default(0) @map("warning_count")
+  conflictCount Int @default(0) @map("conflict_count")
+  changeSetId String? @map("change_set_id") @db.Uuid
+  priceListId String? @map("price_list_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  organisation Organisation? @relation("import_job_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite? @relation("import_job_lab_site_id", fields: [labSiteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sourceFile FileObject @relation("import_job_source_file_id", fields: [sourceFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  mappingTemplate ImportMappingTemplate @relation("import_job_mapping_template_id", fields: [mappingTemplateId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  changeSet MdChangeSet? @relation("import_job_change_set_id", fields: [changeSetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  priceList PriceList? @relation("import_job_price_list_id", fields: [priceListId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("import_job_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  mdChangeSets MdChangeSet[] @relation("md_change_set_import_job_id")
+  importRowsAsImportJob ImportRow[] @relation("import_row_import_job_id")
+  importRowsAsImportJobTenant ImportRow[] @relation("import_row_import_job_id_organisation_id")
+  priceLists PriceList[] @relation("price_list_import_job_id")
+  settlementReportLines SettlementReportLine[] @relation("settlement_report_line_import_job_id")
+
+  @@unique([id, organisationId])
+  @@index([status])
+  @@index([organisationId])
+  @@map("import_job")
+}
+
+model ImportRow {
+  id String @id @db.Uuid
+  importJobId String @map("import_job_id") @db.Uuid
+  rowNumber Int @map("row_number")
+  raw Json
+  mapped Json?
+  matchResult ImportMatchResult? @map("match_result")
+  matchedTargetId String? @map("matched_target_id") @db.Uuid
+  action ImportRowAction?
+  messages Json?
+  organisationId String? @map("organisation_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  importJob ImportJob @relation("import_row_import_job_id", fields: [importJobId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("import_row_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  importJobTenant ImportJob? @relation("import_row_import_job_id_organisation_id", fields: [importJobId, organisationId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+  mdChangeItems MdChangeItem[] @relation("md_change_item_import_row_id")
+
+  @@unique([importJobId, rowNumber])
+  @@map("import_row")
+}
+
+model AccreditationBody {
+  id String @id @db.Uuid
+  code String @db.VarChar(30)
+  name String
+  verificationUrlTemplate String? @map("verification_url_template")
+  status MdStatus @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  createdByUser AppUser? @relation("accreditation_body_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  accreditations Accreditation[] @relation("accreditation_accreditation_body_id")
+
+  @@unique([code])
+  @@map("accreditation_body")
+}
+
+model AccreditationStandard {
+  id String @id @db.Uuid
+  code String @db.VarChar(50)
+  name String
+  labCategory LabCategory @map("lab_category")
+  isSupported Boolean @default(true) @map("is_supported")
+  isBookable Boolean @default(false) @map("is_bookable")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  createdByUser AppUser? @relation("accreditation_standard_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  accreditations Accreditation[] @relation("accreditation_standard_id")
+
+  @@unique([code])
+  @@map("accreditation_standard")
+}
+
+model SearchSynonym {
+  id String @id @db.Uuid
+  term String @db.Citext
+  expandsTo String[] @map("expands_to")
+  status MdStatus @default(ACTIVE)
+  currentVersionNo Int @default(1) @map("current_version_no")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  createdByUser AppUser? @relation("search_synonym_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  searchSynonymVersions SearchSynonymVersion[] @relation("search_synonym_version_search_synonym_id")
+
+  @@unique([term])
+  @@map("search_synonym")
+}
+
+model SearchSynonymVersion {
+  id String @id @db.Uuid
+  searchSynonymId String @map("search_synonym_id") @db.Uuid
+  versionNo Int @map("version_no")
+  snapshot Json
+  changeSetId String @map("change_set_id") @db.Uuid
+  publishedAt DateTime @map("published_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  searchSynonym SearchSynonym @relation("search_synonym_version_search_synonym_id", fields: [searchSynonymId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  changeSet MdChangeSet @relation("search_synonym_version_change_set_id", fields: [changeSetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("search_synonym_version_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([searchSynonymId, versionNo])
+  @@map("search_synonym_version")
+}

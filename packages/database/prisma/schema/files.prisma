@@ -1,0 +1,64 @@
+// 3. Files
+
+model FileObject {
+  id String @id @db.Uuid
+  ownerOrgId String? @map("owner_org_id") @db.Uuid
+  customerOrgId String? @map("customer_org_id") @db.Uuid
+  labOrgId String? @map("lab_org_id") @db.Uuid
+  purpose FilePurpose
+  bucket String @db.VarChar(63)
+  objectKey String @map("object_key")
+  objectVersionId String? @map("object_version_id")
+  originalFilename String? @map("original_filename")
+  declaredContentType String @map("declared_content_type") @db.VarChar(100)
+  detectedContentType String? @map("detected_content_type") @db.VarChar(100)
+  sizeBytes BigInt @map("size_bytes")
+  sha256 Bytes?
+  scanStatus ScanStatus @default(PENDING) @map("scan_status")
+  scanCompletedAt DateTime? @map("scan_completed_at") @db.Timestamptz(6)
+  validationErrors Json? @map("validation_errors")
+  uploadedByUserId String? @map("uploaded_by_user_id") @db.Uuid
+  retentionClass String @map("retention_class") @db.VarChar(40)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  ownerOrg Organisation? @relation("file_object_owner_org_id", fields: [ownerOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  customerOrg Organisation? @relation("file_object_customer_org_id", fields: [customerOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labOrg Organisation? @relation("file_object_lab_org_id", fields: [labOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  uploadedByUser AppUser? @relation("file_object_uploaded_by_user_id", fields: [uploadedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("file_object_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  fileLinks FileLink[] @relation("file_link_file_id")
+  importJobs ImportJob[] @relation("import_job_source_file_id")
+  labClaimRequests LabClaimRequest[] @relation("lab_claim_request_authorisation_file_id")
+  kycDocuments KycDocument[] @relation("kyc_document_file_id")
+  labelPrints LabelPrint[] @relation("label_print_file_id")
+  custodyEventPhotos CustodyEventPhoto[] @relation("custody_event_photo_file_id")
+  reportVersionsAsOriginalFile ReportVersion[] @relation("report_version_original_file_id")
+  reportVersionsAsStampedFile ReportVersion[] @relation("report_version_stamped_file_id")
+  financialDocuments FinancialDocument[] @relation("financial_document_file_id")
+  disputeEvidences DisputeEvidence[] @relation("dispute_evidence_file_id")
+
+  @@unique([bucket, objectKey])
+  @@index([ownerOrgId])
+  @@map("file_object")
+}
+
+model FileLink {
+  id String @id @db.Uuid
+  fileId String @map("file_id") @db.Uuid
+  entityType String @map("entity_type") @db.VarChar(60)
+  entityId String @map("entity_id") @db.Uuid
+  role String @db.VarChar(40)
+  removedAt DateTime? @map("removed_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  file FileObject @relation("file_link_file_id", fields: [fileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("file_link_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([entityType, entityId])
+  @@index([fileId])
+  @@map("file_link")
+}

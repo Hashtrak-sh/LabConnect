@@ -12,14 +12,14 @@
 
 ## 2. Audit log
 - Written by `AuditService.record()` inside the same transaction as the change.
-- Fields: actor (user, membership, role), action code, entity type and id, `before`/`after` JSON diff (with sensitive fields redacted), request id, IP, user agent, `occurred_at`, `prev_hash`, `hash`.
-- `hash = SHA-256(prev_hash || canonical_json(row))` is computed per partition (monthly). A nightly job verifies the chain and alerts on a break.
-- The DB role `app_rw` has `INSERT, SELECT` only. `UPDATE` and `DELETE` are revoked, and a trigger raises an error on them.
+- Fields: actor (user, membership, role), action code, entity type and id, `before`/`after` JSON diff (with sensitive fields redacted), request id, IP, user agent, `occurred_at`.
+- **Hash chain.** The insert carries no hash, so transactions never wait on each other. A worker job seals new rows in (`occurred_at`, `id`) order, in batches, by appending to `audit_log_chain` (one chain per month): `hash = SHA-256(prev_hash || canonical_json(row))`. A nightly job verifies each chain against the audit rows and alerts on a break or on a row that stays unsealed for more than an hour.
+- The DB roles `app_rw` and `app_worker` have `INSERT, SELECT` only. `UPDATE`, `DELETE` and `TRUNCATE` are revoked, and a trigger raises an error on them. Only `app_worker` can insert into `audit_log_chain`.
 - Mandatory audited actions include: every booking transition, Maker submission, Checker approval, role change, user (de)activation, price-list publish, change-set approve and publish, KYC and bank verification, refund, payout hold and release, dispute decision, break-glass access, config change, share-link create and revoke, label reprint.
 
 ## 3. Outbox and events
 - `outbox_event(id, aggregate_type, aggregate_id, event_type, event_version, payload, occurred_at, published_at, attempts, last_error)`.
-- Relay (worker): polls `WHERE published_at IS NULL ORDER BY occurred_at LIMIT 100 FOR UPDATE SKIP LOCKED`, publishes to SNS-less SQS queues by routing table, and sets `published_at`. Delivery is at-least-once, so **consumers must be idempotent** (`processed_event(consumer, event_id)` table).
+- Relay (worker): polls `WHERE published_at IS NULL ORDER BY occurred_at LIMIT 100 FOR UPDATE SKIP LOCKED`, publishes to SNS-less SQS queues by routing table, and sets `published_at`. The relay connects as `app_worker`, the only role that can read or update `outbox_event`; the API role can only insert. Delivery is at-least-once, so **consumers must be idempotent** (`processed_event(consumer, event_id)` table).
 - Queues (each with a DLQ and a max receive count of 5):
 
 | Queue | Consumers | Notes |
@@ -34,7 +34,7 @@
 - Event names follow `NOTIFICATIONS_MATRIX.md` codes plus the analytics events in FS §14.1.
 
 ## 4. Timers (ADR-008)
-- `timer(id, timer_type, aggregate_type, aggregate_id, due_at, status PENDING|FIRED|CANCELLED, payload, attempts, fired_at)`.
+- `timer(id, timer_type, aggregate_type, aggregate_id, due_at, status PENDING|FIRED|CANCELLED|FAILED, payload, attempts, fired_at, last_error)`.
 - The worker loop runs every 15 s: `SELECT … WHERE status='PENDING' AND due_at <= now() FOR UPDATE SKIP LOCKED LIMIT 50`. It runs the handler in a transaction, and the handler re-checks the aggregate state.
 - Timer types: `LAB_DECISION_REMINDER_50`, `LAB_DECISION_REMINDER_90`, `LAB_DECISION_DUE`, `COUNTER_RESPONSE_DUE`, `PAYMENT_REMINDER`, `PAYMENT_DUE`, `DROP_REMINDER`, `DROP_DEADLINE`, `NO_SHOW_DUE`, `RECEIPT_APPROVAL_REMINDER`, `HOLD_DECISION_DUE`, `REPORT_DUE`, `REPORT_APPROVAL_REMINDER`, `DISPUTE_WINDOW_END`, `PAYMENT_RECONCILE`.
 - Business-hour durations are converted to an absolute `due_at` at scheduling time using `BusinessCalendar`. If the lab changes its hours, open timers aren't recalculated (documented behaviour).
