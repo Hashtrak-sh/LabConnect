@@ -1,0 +1,28 @@
+# Redocly CLI configuration for `pnpm --filter @labconnect/api-contract lint:openapi`.
+# Base: the `recommended` ruleset. Every rule changed below says why.
+
+# Do not send usage data to Redocly from developer machines or CI.
+telemetry: off
+
+extends:
+  - recommended
+
+rules:
+  # The API has no published licence and none has been decided, so the contract does not
+  # invent one.
+  info-license: off
+  info-license-strict: off
+
+  # Tightened: ERROR_HANDLING.md requires `application/problem+json` on every error response.
+  operation-4xx-problem-details-rfc7807: error
+  # Tightened: API_CONVENTIONS.md §2 requires kebab-case paths.
+  paths-kebab-case: error
+  # Tightened: generated types and the contract tests key operations by operationId and tag.
+  operation-operationId: error
+  operation-tag-defined: error
+  tag-description: error
+  operation-2xx-response: error
+  # Tightened: examples are documentation; an example that does not match its schema is a bug.
+  no-invalid-media-type-examples: error
+  no-invalid-schema-examples: error
+  no-invalid-parameter-examples: error

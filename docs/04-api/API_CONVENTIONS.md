@@ -3,8 +3,15 @@
 **Status:** DRAFT for gate G2.
 
 ## 1. Contract-first
-- The source of truth is `packages/api-contract/openapi.yaml` (OpenAPI 3.1).
-- Process: change the YAML in a PR → both developers review it (shared change) → generate types (`openapi-typescript`) and the web client → implement.
+- The source of truth is the OpenAPI 3.1 contract in `packages/api-contract/openapi/`, split per module so that tasks add files rather than edit one big one:
+  - `openapi.yaml`: the root (info, `/v1` server, tags, security schemes, the path list, and the shared components by name).
+  - `paths/<module>.yaml`: the path items of one module (`auth.yaml`, `me.yaml`, `health.yaml`, …). A new path is added here and listed in the root.
+  - `components/`: shared schemas (`schemas/common.yaml`, `errors.yaml`, `enums.yaml`, plus one file per module), `parameters.yaml`, `headers.yaml` and `responses.yaml`.
+- Commands (from the repo root):
+  - `pnpm contract:generate`: bundles the files into one document (`src/generated/openapi.json`) and generates TypeScript types (`src/generated/types.ts`, `openapi-typescript`). Both are git-ignored; `build`, `typecheck`, `test` and the root `lint` run it first.
+  - `pnpm --filter @labconnect/api-contract lint:openapi`: Redocly lint (`redocly.yaml`, the `recommended` rules with documented changes).
+  - `pnpm --filter @labconnect/api-contract test`: the lint, plus equality with `API_CONTRACTS.md` and checks of the conventions in this document and `ERROR_HANDLING.md`.
+- Process: change the YAML in a PR → both developers review it (shared change) → generate types and the web client → implement.
 - The NestJS implementation is validated against the contract in CI (contract tests, see TESTING_STRATEGY §5).
 
 ## 2. URLs and resources

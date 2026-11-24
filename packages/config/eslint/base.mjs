@@ -14,7 +14,7 @@ export default tseslint.config(
       '**/.turbo/**',
       '**/coverage/**',
       '**/next-env.d.ts',
-      'packages/api-contract/generated/**',
+      'packages/api-contract/src/generated/**',
       'packages/database/src/generated/**',
     ],
   },

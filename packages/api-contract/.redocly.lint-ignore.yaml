@@ -1,0 +1,7 @@
+# Individual findings of `redocly lint` that are accepted on purpose. Each one says why.
+# Rules that should not apply anywhere are switched off in redocly.yaml instead.
+openapi/paths/health.yaml:
+  # The liveness endpoint returns only 200 (apps/api/src/modules/platform/health). The contract
+  # must match the implementation, so it declares no 4xx response.
+  operation-4xx-response:
+    - '#/health/get/responses'

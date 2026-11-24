@@ -31,7 +31,7 @@ LabConnect/
 │   └── worker/               NestJS standalone: outbox relay, consumers, timers, jobs
 ├── packages/
 │   ├── database/             prisma/schema/*, prisma/migrations/*, src/seed/*, src/factories/* (test-utils), src/db-context.ts
-│   ├── api-contract/         openapi.yaml, generated/ (types, client)
+│   ├── api-contract/         openapi/ (openapi.yaml, paths/, components/), src/generated/ (bundle, types; git-ignored), test/
 │   ├── shared/               enums, booking-state-machine.ts, permissions.ts, error-codes.ts, money, time
 │   ├── validation/           zod: trf.v1, imports, query params, config values
 │   ├── ui/                   design-system components (design phase)

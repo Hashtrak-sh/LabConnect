@@ -1,0 +1,63 @@
+# Shared value types (API_CONVENTIONS.md §3). Every module reuses these.
+
+Uuid:
+  type: string
+  format: uuid
+  description: A UUIDv7 identifier. Human-readable references are separate fields.
+  examples:
+    - 01930000-0000-7000-8000-000000000000
+
+Date:
+  type: string
+  format: date
+  description: A calendar date, `YYYY-MM-DD`.
+  examples:
+    - '2026-12-03'
+
+Timestamp:
+  type: string
+  format: date-time
+  pattern: Z$
+  description: An ISO-8601 timestamp in UTC, ending in `Z`.
+  examples:
+    - '2026-11-24T10:30:00Z'
+
+Money:
+  type: object
+  description: An amount in integer paise. Never a float. The client formats it in Indian style.
+  required:
+    - amountPaise
+    - currency
+  additionalProperties: false
+  properties:
+    amountPaise:
+      type: integer
+      format: int64
+      description: Amount in paise (1 rupee = 100 paise).
+    currency:
+      type: string
+      const: INR
+  examples:
+    - amountPaise: 354000
+      currency: INR
+
+Page:
+  type: object
+  description: >-
+    Cursor pagination block of a collection response (`{ "data": [...], "page": {...} }`).
+    The cursor is opaque to the client.
+  required:
+    - nextCursor
+    - limit
+  additionalProperties: false
+  properties:
+    nextCursor:
+      type:
+        - string
+        - 'null'
+      description: Pass as `cursor` to get the next page. `null` when there are no more items.
+    limit:
+      type: integer
+      minimum: 1
+      maximum: 100
+      description: The page size that was applied.

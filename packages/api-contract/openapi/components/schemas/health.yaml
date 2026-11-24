@@ -1,0 +1,12 @@
+# Matches apps/api/src/modules/platform/health/health.service.ts (liveness only).
+
+HealthStatus:
+  type: object
+  required:
+    - status
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - ok

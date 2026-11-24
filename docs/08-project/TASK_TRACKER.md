@@ -7,10 +7,10 @@
 |---|---|---|---|---|
 | P0-01 | Commit the documentation pack to `main` | H | — | ☑ |
 | P0-02 | Apply GitHub settings (GIT_WORKFLOW §5), create `dev-lab`, `dev-customer`, `production` | H | P0-01 | ◐ |
-| P0-03 | Monorepo skeleton (pnpm, Turborepo, apps, packages, config) | S (H) | P0-02 | ◐ |
-| P0-04 | docker-compose (Postgres+PostGIS, Redis, OpenSearch, LocalStack, Mailpit) + `scripts/dev-setup` | S (A) | P0-03 | ◐ |
-| P0-05 | Lint, format, typecheck, dependency-cruiser config | S (A) | P0-03 | ◐ |
-| P0-06 | `ci.yml` with placeholder test jobs | S (H) | P0-05 | ◐ |
+| P0-03 | Monorepo skeleton (pnpm, Turborepo, apps, packages, config) | S (H) | P0-02 | ☑ |
+| P0-04 | docker-compose (Postgres+PostGIS, Redis, OpenSearch, LocalStack, Mailpit) + `scripts/dev-setup` | S (A) | P0-03 | ☑ |
+| P0-05 | Lint, format, typecheck, dependency-cruiser config | S (A) | P0-03 | ☑ |
+| P0-06 | `ci.yml` with placeholder test jobs | S (H) | P0-05 | ☑ |
 | P0-07 | GitHub Project board + issue templates in use | S (A) | P0-02 | ☐ |
 | P0-08 | Obtain the QCI Brand & Communication Guidelines PDF content into `09-design-handoff/BRAND_GUIDELINES.md` (OQ-19) | H | — | ☑ |
 
@@ -24,26 +24,26 @@ P0-08 note: the PDF (v1.0, May 2024) has no colour codes, clear-space values or 
 | ID | Task | Owner | Depends | Status |
 |---|---|---|---|---|
 | P1-01 | Claude Code consistency review of `03-database/*` (MASTER_PROMPT Step 2) | S (H) | P0-03 | ☑ |
-| P1-02 | Developers' review meeting. Resolve DOMAIN_MODEL §4 questions. | S | P1-01 | ◐ |
-| P1-03 | Prisma schema: platform, identity, files | S (H) | P1-02 | ◐ |
-| P1-04 | Prisma schema: master data, labs | S (H) | P1-02 | ◐ |
-| P1-05 | Prisma schema: customers, booking, custody, reports | S (A) | P1-02 | ◐ |
-| P1-06 | Prisma schema: payments, ledger, disputes, notifications | S (H) | P1-02 | ◐ |
-| P1-07 | Raw SQL migrations: extensions, PostGIS, CHECKs, partial uniques, triggers C-01..C-30, AO protections, partitions | S (H) | P1-03..06 | ◐ |
-| P1-08 | RLS spike (Prisma + SET LOCAL + pooling). Update ADR-005. | S (H) | P1-07 | ◐ |
-| P1-09 | DB test suite (TESTING_STRATEGY §4) | S (A) | P1-07 | ◐ |
-| P1-10 | `seed:reference`, `seed:platform-admin`, `seed:demo` | S (A) | P1-07 | ◐ |
-| P1-11 | Test factories (`bookingInState`, etc.) | S (A) | P1-10 | ◐ |
+| P1-02 | Developers' review meeting. Resolve DOMAIN_MODEL §4 questions. | S | P1-01 | ☑ |
+| P1-03 | Prisma schema: platform, identity, files | S (H) | P1-02 | ☑ |
+| P1-04 | Prisma schema: master data, labs | S (H) | P1-02 | ☑ |
+| P1-05 | Prisma schema: customers, booking, custody, reports | S (A) | P1-02 | ☑ |
+| P1-06 | Prisma schema: payments, ledger, disputes, notifications | S (H) | P1-02 | ☑ |
+| P1-07 | Raw SQL migrations: extensions, PostGIS, CHECKs, partial uniques, triggers C-01..C-30, AO protections, partitions | S (H) | P1-03..06 | ☑ |
+| P1-08 | RLS spike (Prisma + SET LOCAL + pooling). Update ADR-005. | S (H) | P1-07 | ☑ |
+| P1-09 | DB test suite (TESTING_STRATEGY §4) | S (A) | P1-07 | ☑ |
+| P1-10 | `seed:reference`, `seed:platform-admin`, `seed:demo` | S (A) | P1-07 | ☑ |
+| P1-11 | Test factories (`bookingInState`, etc.) | S (A) | P1-10 | ☑ |
 | P1-12 | **G1 review and sign-off** | S | P1-08..11 | ☐ |
 
 P1-03 to P1-07 are implemented together on `feature/P1-03-database-schema` (the Prisma schema for all 101 tables and seven migrations) and marked done when that PR merges. P1-09: the suite exists with 91 tests and covers every registered constraint; A reviews it and extends it. P1-08: the spike passed and is on `feature/P1-08-rls-spike`; done when that PR merges. P1-10 and P1-11 are implemented on `feature/P1-10-seeds-and-factories` and marked done when that PR merges; H did them at the owner's request, and A reviews them. `seed:load` is not part of P1-10 and is not built.
 
-Single-developer period (from 2026-11-24): A is not working on the project for now. H reviews and decides alone until A starts; tasks led by A are done by H. OQ-24 to OQ-32 were settled on that basis with their defaults (`RISKS_AND_OPEN_QUESTIONS.md`). P1-12 (G1) stays open until the schema PRs are on `main`.
+Single-developer period (from 2026-11-24): A is not working on the project for now. H reviews and decides alone until A starts; tasks led by A are done by H. OQ-24 to OQ-32 were settled on that basis with their defaults (`RISKS_AND_OPEN_QUESTIONS.md`). All Phase 0 and Phase 1 implementation PRs were merged to `main` on 2026-11-24. P1-12 (G1) is waiting for the owner's sign-off.
 
 ## Phase 2: API contracts (gate G2)
 | ID | Task | Owner | Depends | Status |
 |---|---|---|---|---|
-| P2-01 | OpenAPI skeleton, conventions, error schema, auth endpoints | S (H) | G1 | ☐ |
+| P2-01 | OpenAPI skeleton, conventions, error schema, auth endpoints | S (H) | G1 | ◐ |
 | P2-02 | Public search, lab pages, slots, leads | A | P2-01 | ☐ |
 | P2-03 | Booking, counter, cancel, handover, hold decision | S (A) | P2-01 | ☐ |
 | P2-04 | Lab onboarding, catalogue, capacity, inbox, decisions | H | P2-01 | ☐ |
@@ -52,6 +52,8 @@ Single-developer period (from 2026-11-24): A is not working on the project for n
 | P2-07 | `packages/shared`: state machine table + doc-equality test, permissions map, error codes | S (H) | P2-01 | ☐ |
 | P2-08 | Contract test harness | S (A) | P2-01 | ☐ |
 | P2-09 | **G2 review and sign-off** | S | P2-02..08 | ☐ |
+
+P2-01 is implemented on `feature/P2-01-openapi-skeleton`: the split contract in `packages/api-contract/openapi/` (shared components, API_CONTRACTS §1 and `/health`), generation, Redocly lint and the contract convention tests; done when that PR merges.
 
 ## Phase 3: Backend foundations
 | ID | Task | Owner | Status |

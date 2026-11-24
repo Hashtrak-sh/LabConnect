@@ -1,0 +1,22 @@
+# Platform health. Matches apps/api/src/modules/platform/health (liveness only; dependency
+# checks arrive in Phase 3). It returns only 200, so no error responses are declared.
+
+health:
+  get:
+    operationId: getHealth
+    tags:
+      - Health
+    summary: Liveness check
+    security: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The API process is up.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/health.yaml#/HealthStatus'

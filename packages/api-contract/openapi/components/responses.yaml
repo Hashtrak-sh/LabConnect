@@ -1,0 +1,105 @@
+# Shared error responses (API_CONVENTIONS.md §6, ERROR_HANDLING.md).
+# Every non-2xx response in the contract is one of these. An operation may override the
+# description to list the codes it can return.
+
+BadRequest:
+  description: Malformed request, for example a body that is not valid JSON.
+  headers:
+    X-Request-Id:
+      $ref: './headers.yaml#/RequestId'
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/errors.yaml#/Problem'
+
+Unauthenticated:
+  description: No valid credentials (`UNAUTHENTICATED`), or a fresh MFA is needed (`STEP_UP_REQUIRED`).
+  headers:
+    X-Request-Id:
+      $ref: './headers.yaml#/RequestId'
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/errors.yaml#/Problem'
+
+Forbidden:
+  description: Authenticated, but the role or a rule does not permit the action.
+  headers:
+    X-Request-Id:
+      $ref: './headers.yaml#/RequestId'
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/errors.yaml#/Problem'
+
+NotFound:
+  description: Does not exist, or is outside the caller's scope (`NOT_FOUND`).
+  headers:
+    X-Request-Id:
+      $ref: './headers.yaml#/RequestId'
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/errors.yaml#/Problem'
+
+Conflict:
+  description: State conflict, or a duplicate idempotent request still in flight.
+  headers:
+    X-Request-Id:
+      $ref: './headers.yaml#/RequestId'
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/errors.yaml#/Problem'
+
+PreconditionFailed:
+  description: '`If-Match` does not match the current version (`CONCURRENT_MODIFICATION`).'
+  headers:
+    X-Request-Id:
+      $ref: './headers.yaml#/RequestId'
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/errors.yaml#/Problem'
+
+UnprocessableEntity:
+  description: Validation failed or a business rule was broken.
+  headers:
+    X-Request-Id:
+      $ref: './headers.yaml#/RequestId'
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/errors.yaml#/Problem'
+
+TooManyRequests:
+  description: Rate limit reached.
+  headers:
+    X-Request-Id:
+      $ref: './headers.yaml#/RequestId'
+    Retry-After:
+      $ref: './headers.yaml#/RetryAfter'
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/errors.yaml#/Problem'
+
+InternalError:
+  description: Unexpected server error (`INTERNAL_ERROR`). Correlate with `requestId`.
+  headers:
+    X-Request-Id:
+      $ref: './headers.yaml#/RequestId'
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/errors.yaml#/Problem'
+
+ServiceUnavailable:
+  description: A partner is unavailable (`GATEWAY_UNAVAILABLE`). Safe to retry.
+  headers:
+    X-Request-Id:
+      $ref: './headers.yaml#/RequestId'
+  content:
+    application/problem+json:
+      schema:
+        $ref: './schemas/errors.yaml#/Problem'

@@ -1,0 +1,107 @@
+# Error envelope and code catalogue (ERROR_HANDLING.md §1 and §2).
+# The test suite checks that ErrorCode equals the catalogue in ERROR_HANDLING.md.
+
+Problem:
+  type: object
+  description: >-
+    RFC 9457 problem details, extended with a stable `code`. Served as `application/problem+json`.
+    `detail` is safe for end users and never contains stack traces, SQL or other tenants' data.
+  required:
+    - type
+    - title
+    - status
+    - code
+    - requestId
+  properties:
+    type:
+      type: string
+      format: uri
+      description: A URI that identifies the problem type.
+    title:
+      type: string
+      description: A short, human-readable summary of the problem type.
+    status:
+      type: integer
+      minimum: 400
+      maximum: 599
+      description: The HTTP status code.
+    code:
+      $ref: '#/ErrorCode'
+    detail:
+      type: string
+      description: An explanation of this occurrence, safe to show to end users (not for 5xx).
+    requestId:
+      type: string
+      description: The request id, also returned in `X-Request-Id`. Use it to correlate with logs.
+    errors:
+      type: array
+      description: Field-level problems, for example schema validation errors.
+      items:
+        $ref: '#/ProblemIssue'
+    meta:
+      type: object
+      description: Code-specific details, for example `currentState` or `maxAgeSeconds`.
+      additionalProperties: true
+  examples:
+    - type: https://labconnect/errors/invalid-state-transition
+      title: Invalid state transition
+      status: 409
+      code: INVALID_STATE_TRANSITION
+      detail: Booking LC-0000-0000000 cannot be accepted from state PAID.
+      requestId: req-example-0001
+      meta:
+        currentState: PAID
+
+ProblemIssue:
+  type: object
+  required:
+    - path
+    - code
+    - message
+  properties:
+    path:
+      type: string
+      description: Location of the problem in the request, for example `lines[2].scopeLineId`.
+    code:
+      type: string
+      description: A machine-readable code for this item.
+    message:
+      type: string
+      description: A human-readable explanation.
+
+ErrorCode:
+  type: string
+  description: Stable error codes. The web app maps each one to a localised message (`errors.<CODE>`).
+  enum:
+    - VALIDATION_FAILED
+    - UNAUTHENTICATED
+    - STEP_UP_REQUIRED
+    - MFA_ENROLMENT_REQUIRED
+    - FORBIDDEN
+    - SELF_APPROVAL_FORBIDDEN
+    - FOUR_EYES_REQUIRED
+    - NOT_FOUND
+    - INVALID_STATE_TRANSITION
+    - CONCURRENT_MODIFICATION
+    - REQUEST_IN_PROGRESS
+    - IDEMPOTENCY_KEY_REUSED
+    - SLOT_UNAVAILABLE
+    - SITE_NOT_BOOKABLE
+    - SCOPE_LINE_NOT_BOOKABLE
+    - OPEN_BOOKING_LIMIT
+    - COUNTER_FIELD_NOT_ALLOWED
+    - PAYMENT_AMOUNT_MISMATCH
+    - QR_INVALID_SIGNATURE
+    - QR_WRONG_SITE
+    - PACKAGE_ALREADY_RECEIVED
+    - PACKAGE_VOIDED
+    - FILE_NOT_CLEAN
+    - REPORT_PARAMETER_NOT_BOOKED
+    - ULR_NOT_UNIQUE
+    - DISPUTE_WINDOW_CLOSED
+    - RATE_LIMITED
+    - OTP_INVALID
+    - OTP_EXPIRED
+    - OTP_LOCKED
+    - GATEWAY_UNAVAILABLE
+    - INTERNAL_ERROR

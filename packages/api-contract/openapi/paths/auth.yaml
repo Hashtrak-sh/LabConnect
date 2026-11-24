@@ -1,0 +1,340 @@
+# Auth (API_CONTRACTS.md §1, AUTHENTICATION_AND_AUTHORISATION.md §1, §2 and §4).
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+otp-request:
+  post:
+    operationId: requestOtp
+    tags:
+      - Auth
+    summary: Request an email OTP
+    description: >-
+      Sends a 6-digit OTP (10-minute expiry) to the address. Always returns 202, whether or not an
+      account exists, so the response never reveals which addresses are registered. Rate limits:
+      5 per 15 minutes per destination, 20 per hour per IP.
+    security: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/auth.yaml#/OtpRequest'
+    responses:
+      '202':
+        description: Accepted. If the address can receive an OTP, it is on its way.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+otp-verify:
+  post:
+    operationId: verifyOtp
+    tags:
+      - Auth
+    summary: Verify an email OTP
+    description: >-
+      Verifies the OTP. If no user has this address, one is created (`ACTIVE`, email verified) for
+      customer self-signup. Returns a full session, or an `mfaRequired` challenge when one of the
+      user's active memberships has a role that requires MFA. On a full session the refresh token
+      is set as a cookie.
+    security: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/auth.yaml#/OtpVerifyRequest'
+    responses:
+      '200':
+        description: A full session, or an `mfaRequired` challenge.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          Set-Cookie:
+            $ref: '../components/headers.yaml#/SetRefreshCookie'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/auth.yaml#/OtpVerifyResult'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`OTP_INVALID`, `OTP_EXPIRED`, `VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`OTP_LOCKED` (too many wrong attempts), `RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+mfa-verify:
+  post:
+    operationId: verifyMfa
+    tags:
+      - Auth
+    summary: Complete MFA, or step up
+    description: >-
+      With a partial session: completes sign-in and returns a full session (the refresh cookie is
+      set). With a full session: a step-up, which records a fresh MFA (valid for 5 minutes) for
+      sensitive actions such as publishing a report or changing bank details. Either way a new
+      access token is returned.
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/auth.yaml#/MfaCodeRequest'
+    responses:
+      '200':
+        description: MFA verified.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          Set-Cookie:
+            $ref: '../components/headers.yaml#/SetRefreshCookie'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/auth.yaml#/Session'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`MFA_ENROLMENT_REQUIRED`: the user has no verified TOTP factor.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`OTP_INVALID`, `VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`OTP_LOCKED`, `RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+mfa-enrol:
+  post:
+    operationId: startMfaEnrolment
+    tags:
+      - Auth
+    summary: Start TOTP enrolment
+    description: >-
+      Creates a pending TOTP factor and returns its secret. Accepted with a partial session (a
+      user who must enrol before a full session is issued) or a full session.
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '201':
+        description: Pending factor created.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/auth.yaml#/MfaEnrolment'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the user already has a verified factor (MFA reset is a
+          `PLATFORM_ADMIN` action). `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+mfa-enrol-confirm:
+  post:
+    operationId: confirmMfaEnrolment
+    tags:
+      - Auth
+    summary: Confirm TOTP enrolment
+    description: >-
+      Activates the pending factor with a first TOTP code and returns 10 single-use recovery
+      codes, shown once. It does not issue a session: a user with a partial session then calls
+      `/auth/mfa/verify` with a new code.
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/auth.yaml#/MfaCodeRequest'
+    responses:
+      '200':
+        description: Factor active.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/auth.yaml#/MfaRecoveryCodes'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: there is no pending factor to confirm.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`OTP_INVALID`, `VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`OTP_LOCKED`, `RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+refresh:
+  post:
+    operationId: refreshSession
+    tags:
+      - Auth
+    summary: Rotate the refresh token
+    description: >-
+      Authenticated by the refresh cookie only (the only endpoint that accepts it; SameSite=Lax
+      plus an `Origin` check). Returns a new access token and sets a new refresh cookie. Reuse of
+      a rotated refresh token revokes the whole token family.
+    security:
+      - refreshCookie: []
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Rotated.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          Set-Cookie:
+            $ref: '../components/headers.yaml#/SetRefreshCookie'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/auth.yaml#/Session'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`: no cookie, or the token is expired, revoked or reused.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the `Origin` check failed.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+logout:
+  post:
+    operationId: logout
+    tags:
+      - Auth
+    summary: Sign out of this session
+    description: Revokes the current session and clears the refresh cookie.
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '204':
+        description: Signed out.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          Set-Cookie:
+            $ref: '../components/headers.yaml#/SetRefreshCookie'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+logout-all:
+  post:
+    operationId: logoutAll
+    tags:
+      - Auth
+    summary: Sign out of every session
+    description: Revokes all of the user's sessions, including this one, and clears the refresh cookie.
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '204':
+        description: All sessions revoked.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          Set-Cookie:
+            $ref: '../components/headers.yaml#/SetRefreshCookie'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

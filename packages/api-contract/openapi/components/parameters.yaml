@@ -1,0 +1,65 @@
+# Shared parameters (API_CONVENTIONS.md §3 and §4).
+
+IdempotencyKey:
+  name: Idempotency-Key
+  in: header
+  required: true
+  description: >-
+    Required on every POST that creates or changes something. Scope: key, user and route; kept
+    for 24 h. A repeat with the same body returns the stored response; a different body returns
+    422 `IDEMPOTENCY_KEY_REUSED`; a concurrent duplicate returns 409 `REQUEST_IN_PROGRESS`.
+  schema:
+    type: string
+    minLength: 1
+    maxLength: 100
+  example: 01930000-0000-7000-8000-0000000000aa
+
+IfMatch:
+  name: If-Match
+  in: header
+  required: true
+  description: >-
+    The `ETag` (`"<lockVersion>"`) last read. Required on PATCH and PUT and on transition commands
+    of mutable aggregates. A mismatch returns 412 `CONCURRENT_MODIFICATION`.
+  schema:
+    type: string
+    pattern: ^"[0-9]+"$
+  example: '"3"'
+
+ActiveMembership:
+  name: X-Active-Membership
+  in: header
+  required: false
+  description: >-
+    Optional switch of the membership this request acts as, validated against the session. It is
+    never taken as authority on its own; the API checks it belongs to the authenticated user.
+  schema:
+    $ref: './schemas/common.yaml#/Uuid'
+
+RequestId:
+  name: X-Request-Id
+  in: header
+  required: false
+  description: Optional client request id. Echoed back, or generated when absent.
+  schema:
+    type: string
+    maxLength: 128
+
+Cursor:
+  name: cursor
+  in: query
+  required: false
+  description: The `page.nextCursor` of the previous page.
+  schema:
+    type: string
+
+Limit:
+  name: limit
+  in: query
+  required: false
+  description: Page size.
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 100
+    default: 25

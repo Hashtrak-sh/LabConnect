@@ -1,0 +1,26 @@
+# Shared response headers (API_CONVENTIONS.md §4, ERROR_HANDLING.md §2).
+
+RequestId:
+  description: The request id (echoed from the request, or generated). Also `requestId` in errors.
+  schema:
+    type: string
+
+ETag:
+  description: Returned on aggregates. The value is `"<lockVersion>"`; send it back in `If-Match`.
+  schema:
+    type: string
+    pattern: ^"[0-9]+"$
+
+RetryAfter:
+  description: Seconds to wait before retrying (`RATE_LIMITED`).
+  schema:
+    type: integer
+    minimum: 0
+
+SetRefreshCookie:
+  description: >-
+    Sets the rotating refresh token as an httpOnly, Secure, SameSite=Lax cookie scoped to the API
+    domain (12 h idle, 7 days absolute). On logout the cookie is cleared. Its value never
+    appears in a response body.
+  schema:
+    type: string
