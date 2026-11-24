@@ -1,0 +1,12 @@
+# The documentation pack and GitHub templates keep their own formatting.
+*.md
+docs/
+.github/ISSUE_TEMPLATE/
+pnpm-lock.yaml
+dist/
+.next/
+.turbo/
+coverage/
+next-env.d.ts
+packages/database/src/generated/
+packages/database/prisma/migrations/

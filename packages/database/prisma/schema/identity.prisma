@@ -1,0 +1,440 @@
+// 2. Identity
+
+model Organisation {
+  id String @id @db.Uuid
+  orgType OrgType @map("org_type")
+  customerSegment CustomerSegment? @map("customer_segment")
+  legalName String @map("legal_name")
+  displayName String @map("display_name")
+  gstin String? @db.VarChar(15)
+  registeredAddress Json? @map("registered_address")
+  claimStatus ClaimStatus @map("claim_status")
+  kycStatus VerificationStatus @default(NOT_STARTED) @map("kyc_status")
+  status OrgStatus @default(ACTIVE)
+  nablLabRef String? @map("nabl_lab_ref") @db.VarChar(50)
+  currentVersionNo Int @default(1) @map("current_version_no")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  createdByUser AppUser? @relation("organisation_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  memberships Membership[] @relation("membership_organisation_id")
+  invitations Invitation[] @relation("invitation_organisation_id")
+  organisationPrivates OrganisationPrivate[] @relation("organisation_private_organisation_id")
+  organisationVersions OrganisationVersion[] @relation("organisation_version_organisation_id")
+  fileObjectsAsOwnerOrg FileObject[] @relation("file_object_owner_org_id")
+  fileObjectsAsCustomerOrg FileObject[] @relation("file_object_customer_org_id")
+  fileObjectsAsLabOrg FileObject[] @relation("file_object_lab_org_id")
+  mdChangeSets MdChangeSet[] @relation("md_change_set_proposed_by_org_id")
+  importMappingTemplates ImportMappingTemplate[] @relation("import_mapping_template_owner_org_id")
+  importJobs ImportJob[] @relation("import_job_organisation_id")
+  labSites LabSite[] @relation("lab_site_organisation_id")
+  labClaimRequests LabClaimRequest[] @relation("lab_claim_request_organisation_id")
+  kycDocuments KycDocument[] @relation("kyc_document_organisation_id")
+  bankAccounts BankAccount[] @relation("bank_account_organisation_id")
+  labPenalties LabPenalty[] @relation("lab_penalty_lab_org_id")
+  customerSites CustomerSite[] @relation("customer_site_organisation_id")
+  customerSettingses CustomerSettings[] @relation("customer_settings_organisation_id")
+  bookings Booking[] @relation("booking_customer_org_id")
+  payouts Payout[] @relation("payout_lab_org_id")
+  ledgerAccounts LedgerAccount[] @relation("ledger_account_party_org_id")
+  documentSerieses DocumentSeries[] @relation("document_series_issuer_org_id")
+  financialDocumentsAsIssuerOrg FinancialDocument[] @relation("financial_document_issuer_org_id")
+  financialDocumentsAsRecipientOrg FinancialDocument[] @relation("financial_document_recipient_org_id")
+  notifications Notification[] @relation("notification_organisation_id")
+
+  @@unique([orgType, gstin])
+  @@index([orgType, status])
+  @@map("organisation")
+}
+
+model AppUser {
+  id String @id @db.Uuid
+  email String @db.Citext
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(6)
+  phoneE164 String? @map("phone_e164") @db.VarChar(16)
+  phoneVerifiedAt DateTime? @map("phone_verified_at") @db.Timestamptz(6)
+  fullName String @map("full_name")
+  designation String?
+  status UserStatus
+  isPlatformStaff Boolean @default(false) @map("is_platform_staff")
+  mfaEnrolledAt DateTime? @map("mfa_enrolled_at") @db.Timestamptz(6)
+  lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(6)
+  locale String @default("en-IN") @db.VarChar(10)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  createdByUser AppUser? @relation("app_user_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  configParameters ConfigParameter[] @relation("config_parameter_created_by_user_id")
+  holidayCalendars HolidayCalendar[] @relation("holiday_calendar_created_by_user_id")
+  timers Timer[] @relation("timer_created_by_user_id")
+  idempotencyRecordsAsActorUser IdempotencyRecord[] @relation("idempotency_record_actor_user_id")
+  idempotencyRecordsAsCreatedByUser IdempotencyRecord[] @relation("idempotency_record_created_by_user_id")
+  organisations Organisation[] @relation("organisation_created_by_user_id")
+  appUsers AppUser[] @relation("app_user_created_by_user_id")
+  membershipsAsUser Membership[] @relation("membership_user_id")
+  membershipsAsDeactivatedByUser Membership[] @relation("membership_deactivated_by_user_id")
+  membershipsAsCreatedByUser Membership[] @relation("membership_created_by_user_id")
+  membershipRolesAsGrantedByUser MembershipRole[] @relation("membership_role_granted_by_user_id")
+  membershipRolesAsCreatedByUser MembershipRole[] @relation("membership_role_created_by_user_id")
+  membershipSites MembershipSite[] @relation("membership_site_created_by_user_id")
+  invitations Invitation[] @relation("invitation_created_by_user_id")
+  otpChallenges OtpChallenge[] @relation("otp_challenge_created_by_user_id")
+  mfaFactorsAsUser MfaFactor[] @relation("mfa_factor_user_id")
+  mfaFactorsAsCreatedByUser MfaFactor[] @relation("mfa_factor_created_by_user_id")
+  mfaRecoveryCodesAsUser MfaRecoveryCode[] @relation("mfa_recovery_code_user_id")
+  mfaRecoveryCodesAsCreatedByUser MfaRecoveryCode[] @relation("mfa_recovery_code_created_by_user_id")
+  userSessionsAsUser UserSession[] @relation("user_session_user_id")
+  userSessionsAsCreatedByUser UserSession[] @relation("user_session_created_by_user_id")
+  invitationSites InvitationSite[] @relation("invitation_site_created_by_user_id")
+  organisationPrivates OrganisationPrivate[] @relation("organisation_private_created_by_user_id")
+  organisationVersions OrganisationVersion[] @relation("organisation_version_created_by_user_id")
+  fileObjectsAsUploadedByUser FileObject[] @relation("file_object_uploaded_by_user_id")
+  fileObjectsAsCreatedByUser FileObject[] @relation("file_object_created_by_user_id")
+  fileLinks FileLink[] @relation("file_link_created_by_user_id")
+  mdTaxonomies MdTaxonomy[] @relation("md_taxonomy_created_by_user_id")
+  mdNodeTypes MdNodeType[] @relation("md_node_type_created_by_user_id")
+  mdAttributeDefinitions MdAttributeDefinition[] @relation("md_attribute_definition_created_by_user_id")
+  mdNodes MdNode[] @relation("md_node_created_by_user_id")
+  mdNodeVersions MdNodeVersion[] @relation("md_node_version_created_by_user_id")
+  mdChangeSetsAsPreparedByUser MdChangeSet[] @relation("md_change_set_prepared_by_user_id")
+  mdChangeSetsAsApprovedByUser MdChangeSet[] @relation("md_change_set_approved_by_user_id")
+  mdChangeSetsAsCreatedByUser MdChangeSet[] @relation("md_change_set_created_by_user_id")
+  mdChangeItems MdChangeItem[] @relation("md_change_item_created_by_user_id")
+  importMappingTemplates ImportMappingTemplate[] @relation("import_mapping_template_created_by_user_id")
+  importJobs ImportJob[] @relation("import_job_created_by_user_id")
+  importRows ImportRow[] @relation("import_row_created_by_user_id")
+  accreditationBodies AccreditationBody[] @relation("accreditation_body_created_by_user_id")
+  accreditationStandards AccreditationStandard[] @relation("accreditation_standard_created_by_user_id")
+  searchSynonyms SearchSynonym[] @relation("search_synonym_created_by_user_id")
+  searchSynonymVersions SearchSynonymVersion[] @relation("search_synonym_version_created_by_user_id")
+  labSites LabSite[] @relation("lab_site_created_by_user_id")
+  labSiteVersions LabSiteVersion[] @relation("lab_site_version_created_by_user_id")
+  accreditations Accreditation[] @relation("accreditation_created_by_user_id")
+  accreditationVersions AccreditationVersion[] @relation("accreditation_version_created_by_user_id")
+  scopeLines ScopeLine[] @relation("scope_line_created_by_user_id")
+  scopeLineVersions ScopeLineVersion[] @relation("scope_line_version_created_by_user_id")
+  labClaimRequestsAsRequestedByUser LabClaimRequest[] @relation("lab_claim_request_requested_by_user_id")
+  labClaimRequestsAsReviewedByUser LabClaimRequest[] @relation("lab_claim_request_reviewed_by_user_id")
+  labClaimRequestsAsCreatedByUser LabClaimRequest[] @relation("lab_claim_request_created_by_user_id")
+  kycDocumentsAsReviewedByUser KycDocument[] @relation("kyc_document_reviewed_by_user_id")
+  kycDocumentsAsCreatedByUser KycDocument[] @relation("kyc_document_created_by_user_id")
+  bankAccountsAsVerifiedByUser BankAccount[] @relation("bank_account_verified_by_user_id")
+  bankAccountsAsCreatedByUser BankAccount[] @relation("bank_account_created_by_user_id")
+  receivingHourses ReceivingHours[] @relation("receiving_hours_created_by_user_id")
+  siteClosures SiteClosure[] @relation("site_closure_created_by_user_id")
+  retentionRules RetentionRule[] @relation("retention_rule_created_by_user_id")
+  priceListsAsPublishedByUser PriceList[] @relation("price_list_published_by_user_id")
+  priceListsAsCreatedByUser PriceList[] @relation("price_list_created_by_user_id")
+  priceItems PriceItem[] @relation("price_item_created_by_user_id")
+  slotTemplates SlotTemplate[] @relation("slot_template_created_by_user_id")
+  slots Slot[] @relation("slot_created_by_user_id")
+  labSitePrivates LabSitePrivate[] @relation("lab_site_private_created_by_user_id")
+  labPenaltiesAsRecordedByUser LabPenalty[] @relation("lab_penalty_recorded_by_user_id")
+  labPenaltiesAsCreatedByUser LabPenalty[] @relation("lab_penalty_created_by_user_id")
+  customerSites CustomerSite[] @relation("customer_site_created_by_user_id")
+  customerSettingses CustomerSettings[] @relation("customer_settings_created_by_user_id")
+  leadRequestsAsRequesterUser LeadRequest[] @relation("lead_request_requester_user_id")
+  leadRequestsAsAssignedToUser LeadRequest[] @relation("lead_request_assigned_to_user_id")
+  leadRequestsAsCreatedByUser LeadRequest[] @relation("lead_request_created_by_user_id")
+  bookingsAsRequesterUser Booking[] @relation("booking_requester_user_id")
+  bookingsAsOnBehalfByUser Booking[] @relation("booking_on_behalf_by_user_id")
+  bookingsAsCreatedByUser Booking[] @relation("booking_created_by_user_id")
+  bookingLines BookingLine[] @relation("booking_line_created_by_user_id")
+  trfsAsSubmittedByUser Trf[] @relation("trf_submitted_by_user_id")
+  trfsAsCreatedByUser Trf[] @relation("trf_created_by_user_id")
+  bookingStatusHistoriesAsActorUser BookingStatusHistory[] @relation("booking_status_history_actor_user_id")
+  bookingStatusHistoriesAsCreatedByUser BookingStatusHistory[] @relation("booking_status_history_created_by_user_id")
+  counterOffersAsProposedByUser CounterOffer[] @relation("counter_offer_proposed_by_user_id")
+  counterOffersAsRespondedByUser CounterOffer[] @relation("counter_offer_responded_by_user_id")
+  counterOffersAsCreatedByUser CounterOffer[] @relation("counter_offer_created_by_user_id")
+  slotHolds SlotHold[] @relation("slot_hold_created_by_user_id")
+  qrSigningKeys QrSigningKey[] @relation("qr_signing_key_created_by_user_id")
+  packages Package[] @relation("package_created_by_user_id")
+  custodyEventsAsActorUser CustodyEvent[] @relation("custody_event_actor_user_id")
+  custodyEventsAsCreatedByUser CustodyEvent[] @relation("custody_event_created_by_user_id")
+  receiptRecordsAsMakerUser ReceiptRecord[] @relation("receipt_record_maker_user_id")
+  receiptRecordsAsCheckerUser ReceiptRecord[] @relation("receipt_record_checker_user_id")
+  receiptRecordsAsCreatedByUser ReceiptRecord[] @relation("receipt_record_created_by_user_id")
+  receiptPackages ReceiptPackage[] @relation("receipt_package_created_by_user_id")
+  holdCasesAsDecidedByUser HoldCase[] @relation("hold_case_decided_by_user_id")
+  holdCasesAsCreatedByUser HoldCase[] @relation("hold_case_created_by_user_id")
+  labelPrintsAsPrintedByUser LabelPrint[] @relation("label_print_printed_by_user_id")
+  labelPrintsAsApprovedByUser LabelPrint[] @relation("label_print_approved_by_user_id")
+  labelPrintsAsCreatedByUser LabelPrint[] @relation("label_print_created_by_user_id")
+  custodyEventPhotos CustodyEventPhoto[] @relation("custody_event_photo_created_by_user_id")
+  reports Report[] @relation("report_created_by_user_id")
+  reportVersionsAsMakerUser ReportVersion[] @relation("report_version_maker_user_id")
+  reportVersionsAsCheckerUser ReportVersion[] @relation("report_version_checker_user_id")
+  reportVersionsAsCreatedByUser ReportVersion[] @relation("report_version_created_by_user_id")
+  reportParameterResults ReportParameterResult[] @relation("report_parameter_result_created_by_user_id")
+  reportShareLinksAsRevokedByUser ReportShareLink[] @relation("report_share_link_revoked_by_user_id")
+  reportShareLinksAsCreatedByUser ReportShareLink[] @relation("report_share_link_created_by_user_id")
+  reportAccessLogsAsAccessorUser ReportAccessLog[] @relation("report_access_log_accessor_user_id")
+  reportAccessLogsAsCreatedByUser ReportAccessLog[] @relation("report_access_log_created_by_user_id")
+  breakGlassGrantsAsRequestedByUser BreakGlassGrant[] @relation("break_glass_grant_requested_by_user_id")
+  breakGlassGrantsAsApprovedByUser BreakGlassGrant[] @relation("break_glass_grant_approved_by_user_id")
+  breakGlassGrantsAsCreatedByUser BreakGlassGrant[] @relation("break_glass_grant_created_by_user_id")
+  paymentOrdersAsInitiatedByUser PaymentOrder[] @relation("payment_order_initiated_by_user_id")
+  paymentOrdersAsCreatedByUser PaymentOrder[] @relation("payment_order_created_by_user_id")
+  paymentTransactions PaymentTransaction[] @relation("payment_transaction_created_by_user_id")
+  refundsAsInitiatedByUser Refund[] @relation("refund_initiated_by_user_id")
+  refundsAsApprovedByUser Refund[] @relation("refund_approved_by_user_id")
+  refundsAsCreatedByUser Refund[] @relation("refund_created_by_user_id")
+  payoutsAsReleasedByUser Payout[] @relation("payout_released_by_user_id")
+  payoutsAsCreatedByUser Payout[] @relation("payout_created_by_user_id")
+  payoutItems PayoutItem[] @relation("payout_item_created_by_user_id")
+  payoutHoldsAsPlacedByUser PayoutHold[] @relation("payout_hold_placed_by_user_id")
+  payoutHoldsAsReleasedByUser PayoutHold[] @relation("payout_hold_released_by_user_id")
+  payoutHoldsAsCreatedByUser PayoutHold[] @relation("payout_hold_created_by_user_id")
+  ledgerAccounts LedgerAccount[] @relation("ledger_account_created_by_user_id")
+  ledgerJournalsAsPostedByUser LedgerJournal[] @relation("ledger_journal_posted_by_user_id")
+  ledgerJournalsAsCreatedByUser LedgerJournal[] @relation("ledger_journal_created_by_user_id")
+  ledgerEntries LedgerEntry[] @relation("ledger_entry_created_by_user_id")
+  documentSerieses DocumentSeries[] @relation("document_series_created_by_user_id")
+  financialDocuments FinancialDocument[] @relation("financial_document_created_by_user_id")
+  feeRules FeeRule[] @relation("fee_rule_created_by_user_id")
+  settlementReportLines SettlementReportLine[] @relation("settlement_report_line_created_by_user_id")
+  disputesAsRaisedByUser Dispute[] @relation("dispute_raised_by_user_id")
+  disputesAsAssignedToUser Dispute[] @relation("dispute_assigned_to_user_id")
+  disputesAsDecidedByUser Dispute[] @relation("dispute_decided_by_user_id")
+  disputesAsCreatedByUser Dispute[] @relation("dispute_created_by_user_id")
+  disputeMessagesAsAuthorUser DisputeMessage[] @relation("dispute_message_author_user_id")
+  disputeMessagesAsCreatedByUser DisputeMessage[] @relation("dispute_message_created_by_user_id")
+  disputeEvidencesAsSubmittedByUser DisputeEvidence[] @relation("dispute_evidence_submitted_by_user_id")
+  disputeEvidencesAsCreatedByUser DisputeEvidence[] @relation("dispute_evidence_created_by_user_id")
+  ratingsAsRatedByUser Rating[] @relation("rating_rated_by_user_id")
+  ratingsAsCreatedByUser Rating[] @relation("rating_created_by_user_id")
+  notificationTemplates NotificationTemplate[] @relation("notification_template_created_by_user_id")
+  notificationsAsRecipientUser Notification[] @relation("notification_recipient_user_id")
+  notificationsAsCreatedByUser Notification[] @relation("notification_created_by_user_id")
+  notificationPreferencesAsUser NotificationPreference[] @relation("notification_preference_user_id")
+  notificationPreferencesAsCreatedByUser NotificationPreference[] @relation("notification_preference_created_by_user_id")
+
+  @@unique([email])
+  @@unique([phoneE164])
+  @@map("app_user")
+}
+
+model Membership {
+  id String @id @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  status MembershipStatus
+  activatedAt DateTime? @map("activated_at") @db.Timestamptz(6)
+  deactivatedAt DateTime? @map("deactivated_at") @db.Timestamptz(6)
+  deactivatedByUserId String? @map("deactivated_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  user AppUser @relation("membership_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  organisation Organisation @relation("membership_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  deactivatedByUser AppUser? @relation("membership_deactivated_by_user_id", fields: [deactivatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("membership_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  membershipRoles MembershipRole[] @relation("membership_role_membership_id")
+  membershipSites MembershipSite[] @relation("membership_site_membership_id")
+  userSessions UserSession[] @relation("user_session_active_membership_id_user_id")
+
+  @@unique([userId, organisationId])
+  @@unique([id, userId])
+  @@index([organisationId, status])
+  @@map("membership")
+}
+
+model MembershipRole {
+  id String @id @db.Uuid
+  membershipId String @map("membership_id") @db.Uuid
+  role RoleCode
+  grantedByUserId String? @map("granted_by_user_id") @db.Uuid
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  membership Membership @relation("membership_role_membership_id", fields: [membershipId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  grantedByUser AppUser? @relation("membership_role_granted_by_user_id", fields: [grantedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("membership_role_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([membershipId, role], map: "uq_membership_role_active", where: { revokedAt: null })
+  @@unique([membershipId], map: "uq_membership_role_one_lab_role", where: raw("((role = ANY (ARRAY['LAB_MAKER'::role_code, 'LAB_CHECKER'::role_code])) AND (revoked_at IS NULL))"))
+  @@map("membership_role")
+}
+
+model MembershipSite {
+  id String @id @db.Uuid
+  membershipId String @map("membership_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  membership Membership @relation("membership_site_membership_id", fields: [membershipId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("membership_site_lab_site_id", fields: [labSiteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("membership_site_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([membershipId, labSiteId], map: "uq_membership_site_active", where: { revokedAt: null })
+  @@index([labSiteId], map: "ix_membership_site_site_active", where: { revokedAt: null })
+  @@map("membership_site")
+}
+
+model Invitation {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  email String @db.Citext
+  roles RoleCode[]
+  tokenHash Bytes @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  acceptedAt DateTime? @map("accepted_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  organisation Organisation @relation("invitation_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("invitation_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  invitationSites InvitationSite[] @relation("invitation_site_invitation_id")
+
+  @@unique([tokenHash])
+  @@index([organisationId, email])
+  @@map("invitation")
+}
+
+model OtpChallenge {
+  id String @id @db.Uuid
+  channel OtpChannel
+  destinationHash Bytes @map("destination_hash")
+  purpose OtpPurpose
+  codeHash Bytes @map("code_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  attempts Int @default(0)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  contextId String? @map("context_id") @db.Uuid
+  ipAddress String? @map("ip_address") @db.Inet
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  createdByUser AppUser? @relation("otp_challenge_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([destinationHash, purpose, createdAt])
+  @@map("otp_challenge")
+}
+
+model MfaFactor {
+  id String @id @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  factorType MfaFactorType @map("factor_type")
+  secretCiphertext Bytes @map("secret_ciphertext")
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  user AppUser @relation("mfa_factor_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("mfa_factor_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([userId, factorType], map: "uq_mfa_factor_active", where: { verifiedAt: { not: null }, revokedAt: null })
+  @@map("mfa_factor")
+}
+
+model MfaRecoveryCode {
+  id String @id @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  codeHash Bytes @map("code_hash")
+  usedAt DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  user AppUser @relation("mfa_recovery_code_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("mfa_recovery_code_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([userId])
+  @@map("mfa_recovery_code")
+}
+
+model UserSession {
+  id String @id @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  activeMembershipId String? @map("active_membership_id") @db.Uuid
+  refreshTokenHash Bytes @map("refresh_token_hash")
+  tokenFamilyId String @map("token_family_id") @db.Uuid
+  mfaVerifiedAt DateTime? @map("mfa_verified_at") @db.Timestamptz(6)
+  ipAddress String? @map("ip_address") @db.Inet
+  userAgent String? @map("user_agent")
+  deviceLabel String? @map("device_label")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokedReason String? @map("revoked_reason") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  user AppUser @relation("user_session_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("user_session_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  activeMembership Membership? @relation("user_session_active_membership_id_user_id", fields: [activeMembershipId, userId], references: [id, userId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([refreshTokenHash])
+  @@index([tokenFamilyId])
+  @@index([userId], map: "ix_user_session_user_live", where: { revokedAt: null })
+  @@map("user_session")
+}
+
+model InvitationSite {
+  id String @id @db.Uuid
+  invitationId String @map("invitation_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  invitation Invitation @relation("invitation_site_invitation_id", fields: [invitationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("invitation_site_lab_site_id", fields: [labSiteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("invitation_site_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([invitationId, labSiteId])
+  @@map("invitation_site")
+}
+
+model OrganisationPrivate {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  panCiphertext Bytes? @map("pan_ciphertext")
+  panLast4 String? @map("pan_last4") @db.VarChar(4)
+  trustFlags Json? @map("trust_flags")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  organisation Organisation @relation("organisation_private_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("organisation_private_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organisationId])
+  @@map("organisation_private")
+}
+
+model OrganisationVersion {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  versionNo Int @map("version_no")
+  snapshot Json
+  changeSetId String @map("change_set_id") @db.Uuid
+  publishedAt DateTime @map("published_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  organisation Organisation @relation("organisation_version_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  changeSet MdChangeSet @relation("organisation_version_change_set_id", fields: [changeSetId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("organisation_version_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organisationId, versionNo])
+  @@map("organisation_version")
+}

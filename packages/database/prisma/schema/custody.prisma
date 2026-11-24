@@ -1,0 +1,237 @@
+// 8. Custody
+
+model QrSigningKey {
+  id String @id @db.Uuid
+  keyId String @map("key_id") @db.VarChar(8)
+  purpose QrPurpose
+  kmsKeyArn String @map("kms_key_arn")
+  status KeyStatus
+  activatedAt DateTime? @map("activated_at") @db.Timestamptz(6)
+  verifyUntil DateTime? @map("verify_until") @db.Timestamptz(6)
+  retiredAt DateTime? @map("retired_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  createdByUser AppUser? @relation("qr_signing_key_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  packages Package[] @relation("package_signing_key_id")
+  reportVersions ReportVersion[] @relation("report_version_signing_key_id")
+
+  @@unique([keyId])
+  @@unique([purpose], map: "uq_qr_signing_key_active", where: { status: "ACTIVE" })
+  @@map("qr_signing_key")
+}
+
+model Package {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  seqNo Int @map("seq_no")
+  totalPackages Int @map("total_packages")
+  isTopUp Boolean @default(false) @map("is_top_up")
+  shortCode String @map("short_code") @db.Char(6)
+  labelVersion Int @default(1) @map("label_version")
+  qrPayload String @map("qr_payload")
+  signingKeyId String @map("signing_key_id") @db.VarChar(8)
+  status PackageStatus @default(ISSUED)
+  labSampleId String? @map("lab_sample_id") @db.VarChar(60)
+  receivedAt DateTime? @map("received_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  signingKey QrSigningKey @relation("package_signing_key_id", fields: [signingKeyId], references: [keyId], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("package_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("package_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  custodyEvents CustodyEvent[] @relation("custody_event_package_id")
+  receiptPackages ReceiptPackage[] @relation("receipt_package_package_id_booking_id")
+  labelPrints LabelPrint[] @relation("label_print_package_id")
+  reportVersions ReportVersion[] @relation("report_version_bound_package_id_booking_id")
+
+  @@unique([shortCode])
+  @@unique([bookingId, seqNo, labelVersion])
+  @@unique([id, bookingId])
+  @@map("package")
+}
+
+model CustodyEvent {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  packageId String? @map("package_id") @db.Uuid
+  eventType CustodyEventType @map("event_type")
+  actorUserId String? @map("actor_user_id") @db.Uuid
+  actorRole RoleCode? @map("actor_role")
+  labSiteId String? @map("lab_site_id") @db.Uuid
+  deviceId String? @map("device_id") @db.VarChar(64)
+  clientRecordedAt DateTime? @map("client_recorded_at") @db.Timestamptz(6)
+  clientSeq BigInt? @map("client_seq")
+  serverReceivedAt DateTime @default(now()) @map("server_received_at") @db.Timestamptz(6)
+  clockSkewFlag Boolean @default(false) @map("clock_skew_flag")
+  details Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  package Package? @relation("custody_event_package_id", fields: [packageId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actorUser AppUser? @relation("custody_event_actor_user_id", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite? @relation("custody_event_lab_site_id", fields: [labSiteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("custody_event_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("custody_event_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  receiptPackages ReceiptPackage[] @relation("receipt_package_scan_event_id")
+  custodyEventPhotos CustodyEventPhoto[] @relation("custody_event_photo_custody_event_id_customer_org_id_lab_org_id")
+  reportVersions ReportVersion[] @relation("report_version_bind_event_id")
+
+  @@unique([id, customerOrgId, labOrgId])
+  @@unique([deviceId, clientSeq], map: "uq_custody_event_device_seq", where: { deviceId: { not: null }, clientSeq: { not: null } })
+  @@index([bookingId, serverReceivedAt])
+  @@index([packageId])
+  @@map("custody_event")
+}
+
+model ReceiptRecord {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  versionNo Int @map("version_no")
+  receivedAt DateTime @map("received_at") @db.Timestamptz(6)
+  declaredPackageCount Int @map("declared_package_count")
+  actualPackageCount Int @map("actual_package_count")
+  conditionNodeId String @map("condition_node_id") @db.Uuid
+  itemMatches Boolean @map("item_matches")
+  batchMatches Boolean @map("batch_matches")
+  quantitySufficient Boolean @map("quantity_sufficient")
+  sealIntact Boolean @map("seal_intact")
+  observedBatchNo String? @map("observed_batch_no") @db.VarChar(100)
+  discrepancyFlag Boolean @default(false) @map("discrepancy_flag")
+  discrepancyNotes String? @map("discrepancy_notes")
+  makerUserId String @map("maker_user_id") @db.Uuid
+  submittedAt DateTime @map("submitted_at") @db.Timestamptz(6)
+  checkerUserId String? @map("checker_user_id") @db.Uuid
+  decision ReceiptDecision?
+  decisionNotes String? @map("decision_notes")
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(6)
+  labSampleId String? @map("lab_sample_id") @db.VarChar(60)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  conditionNode MdNode @relation("receipt_record_condition_node_id", fields: [conditionNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  makerUser AppUser @relation("receipt_record_maker_user_id", fields: [makerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  checkerUser AppUser? @relation("receipt_record_checker_user_id", fields: [checkerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("receipt_record_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("receipt_record_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  receiptPackages ReceiptPackage[] @relation("receipt_package_receipt_record_id_booking_id")
+  holdCases HoldCase[] @relation("hold_case_receipt_record_id_booking_id")
+
+  @@unique([bookingId, versionNo])
+  @@unique([id, bookingId])
+  @@index([bookingId], map: "ix_receipt_record_pending", where: { decision: null })
+  @@map("receipt_record")
+}
+
+model ReceiptPackage {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  receiptRecordId String @map("receipt_record_id") @db.Uuid
+  packageId String @map("package_id") @db.Uuid
+  scannedAt DateTime @map("scanned_at") @db.Timestamptz(6)
+  scanEventId String @map("scan_event_id") @db.Uuid
+  conditionNodeId String? @map("condition_node_id") @db.Uuid
+  notes String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  scanEvent CustodyEvent @relation("receipt_package_scan_event_id", fields: [scanEventId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  conditionNode MdNode? @relation("receipt_package_condition_node_id", fields: [conditionNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("receipt_package_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("receipt_package_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  receiptRecord ReceiptRecord @relation("receipt_package_receipt_record_id_booking_id", fields: [receiptRecordId, bookingId], references: [id, bookingId], onDelete: Restrict, onUpdate: Restrict)
+  package Package @relation("receipt_package_package_id_booking_id", fields: [packageId, bookingId], references: [id, bookingId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([receiptRecordId, packageId])
+  @@map("receipt_package")
+}
+
+model HoldCase {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  receiptRecordId String @map("receipt_record_id") @db.Uuid
+  reasonNodeId String @map("reason_node_id") @db.Uuid
+  details String?
+  dueAt DateTime @map("due_at") @db.Timestamptz(6)
+  customerDecision HoldDecision? @map("customer_decision")
+  decidedByUserId String? @map("decided_by_user_id") @db.Uuid
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(6)
+  escalatedAt DateTime? @map("escalated_at") @db.Timestamptz(6)
+  status HoldStatus @default(OPEN)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  reasonNode MdNode @relation("hold_case_reason_node_id", fields: [reasonNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  decidedByUser AppUser? @relation("hold_case_decided_by_user_id", fields: [decidedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("hold_case_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("hold_case_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  receiptRecord ReceiptRecord @relation("hold_case_receipt_record_id_booking_id", fields: [receiptRecordId, bookingId], references: [id, bookingId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([bookingId], map: "uq_hold_case_open", where: raw("(status = ANY (ARRAY['OPEN'::hold_status, 'ESCALATED'::hold_status]))"))
+  @@index([status, dueAt])
+  @@map("hold_case")
+}
+
+model LabelPrint {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  packageId String? @map("package_id") @db.Uuid
+  labelVersion Int @map("label_version")
+  printedByUserId String @map("printed_by_user_id") @db.Uuid
+  printedByParty PartyType @map("printed_by_party")
+  isReprint Boolean @default(false) @map("is_reprint")
+  reprintReason String? @map("reprint_reason")
+  approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+  fileId String? @map("file_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  package Package? @relation("label_print_package_id", fields: [packageId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  printedByUser AppUser @relation("label_print_printed_by_user_id", fields: [printedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  approvedByUser AppUser? @relation("label_print_approved_by_user_id", fields: [approvedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  file FileObject? @relation("label_print_file_id", fields: [fileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("label_print_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("label_print_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([bookingId])
+  @@map("label_print")
+}
+
+model CustodyEventPhoto {
+  id String @id @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  custodyEventId String @map("custody_event_id") @db.Uuid
+  fileId String @map("file_id") @db.Uuid
+  sha256 Bytes
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  file FileObject @relation("custody_event_photo_file_id", fields: [fileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("custody_event_photo_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  custodyEvent CustodyEvent @relation("custody_event_photo_custody_event_id_customer_org_id_lab_org_id", fields: [custodyEventId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([custodyEventId, fileId])
+  @@map("custody_event_photo")
+}

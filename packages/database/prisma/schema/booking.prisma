@@ -1,0 +1,244 @@
+// 7. Booking
+
+model Booking {
+  id String @id @db.Uuid
+  bookingNo String @map("booking_no") @db.VarChar(20)
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  customerSiteId String? @map("customer_site_id") @db.Uuid
+  requesterUserId String @map("requester_user_id") @db.Uuid
+  onBehalfByUserId String? @map("on_behalf_by_user_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  status BookingStatus
+  statusChangedAt DateTime @default(now()) @map("status_changed_at") @db.Timestamptz(6)
+  itemName String @map("item_name")
+  batchNo String? @map("batch_no") @db.VarChar(100)
+  productNodeId String? @map("product_node_id") @db.Uuid
+  declaredPackageCount Int @map("declared_package_count")
+  slotId String? @map("slot_id") @db.Uuid
+  preferredDropDate DateTime @map("preferred_drop_date") @db.Date
+  currentTrfVersion Int @default(1) @map("current_trf_version")
+  priceListId String @map("price_list_id") @db.Uuid
+  subtotalPaise BigInt @map("subtotal_paise")
+  gstPaise BigInt @map("gst_paise")
+  platformFeePaise BigInt @default(0) @map("platform_fee_paise")
+  totalPaise BigInt @map("total_paise")
+  currency String @default("INR") @db.Char(3)
+  labSnapshot Json @map("lab_snapshot")
+  labDecisionDueAt DateTime? @map("lab_decision_due_at") @db.Timestamptz(6)
+  paymentDueAt DateTime? @map("payment_due_at") @db.Timestamptz(6)
+  dropDeadlineAt DateTime? @map("drop_deadline_at") @db.Timestamptz(6)
+  expectedReportDate DateTime? @map("expected_report_date") @db.Date
+  reportReleasedAt DateTime? @map("report_released_at") @db.Timestamptz(6)
+  disputeWindowEndsAt DateTime? @map("dispute_window_ends_at") @db.Timestamptz(6)
+  retainUntil DateTime? @map("retain_until") @db.Date
+  deviationNoted Boolean @default(false) @map("deviation_noted")
+  deviationNotes String? @map("deviation_notes")
+  cancellationCodeNodeId String? @map("cancellation_code_node_id") @db.Uuid
+  cancelledByParty PartyType? @map("cancelled_by_party")
+  cancellationNotes String? @map("cancellation_notes")
+  rejectionReasonNodeId String? @map("rejection_reason_node_id") @db.Uuid
+  rejectionNotes String? @map("rejection_notes")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  frozenAt DateTime? @map("frozen_at") @db.Timestamptz(6)
+  frozenReason String? @map("frozen_reason")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  customerOrg Organisation @relation("booking_customer_org_id", fields: [customerOrgId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  requesterUser AppUser @relation("booking_requester_user_id", fields: [requesterUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  onBehalfByUser AppUser? @relation("booking_on_behalf_by_user_id", fields: [onBehalfByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  productNode MdNode? @relation("booking_product_node_id", fields: [productNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  cancellationCodeNode MdNode? @relation("booking_cancellation_code_node_id", fields: [cancellationCodeNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  rejectionReasonNode MdNode? @relation("booking_rejection_reason_node_id", fields: [rejectionReasonNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("booking_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  labSite LabSite @relation("booking_lab_site_id_lab_org_id", fields: [labSiteId, labOrgId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+  customerSite CustomerSite? @relation("booking_customer_site_id_customer_org_id", fields: [customerSiteId, customerOrgId], references: [id, organisationId], onDelete: Restrict, onUpdate: Restrict)
+  slot Slot? @relation("booking_slot_id_lab_site_id", fields: [slotId, labSiteId], references: [id, labSiteId], onDelete: Restrict, onUpdate: Restrict)
+  priceList PriceList @relation("booking_price_list_id_lab_site_id", fields: [priceListId, labSiteId], references: [id, labSiteId], onDelete: Restrict, onUpdate: Restrict)
+  labPenalties LabPenalty[] @relation("lab_penalty_booking_id")
+  bookingLines BookingLine[] @relation("booking_line_booking_id_customer_org_id_lab_org_id")
+  trfs Trf[] @relation("trf_booking_id_customer_org_id_lab_org_id")
+  bookingStatusHistories BookingStatusHistory[] @relation("booking_status_history_booking_id_customer_org_id_lab_org_id")
+  counterOffers CounterOffer[] @relation("counter_offer_booking_id_customer_org_id_lab_org_id")
+  slotHolds SlotHold[] @relation("slot_hold_booking_id_customer_org_id_lab_org_id")
+  packages Package[] @relation("package_booking_id_customer_org_id_lab_org_id")
+  custodyEvents CustodyEvent[] @relation("custody_event_booking_id_customer_org_id_lab_org_id")
+  receiptRecords ReceiptRecord[] @relation("receipt_record_booking_id_customer_org_id_lab_org_id")
+  receiptPackages ReceiptPackage[] @relation("receipt_package_booking_id_customer_org_id_lab_org_id")
+  holdCases HoldCase[] @relation("hold_case_booking_id_customer_org_id_lab_org_id")
+  labelPrints LabelPrint[] @relation("label_print_booking_id_customer_org_id_lab_org_id")
+  reports Report[] @relation("report_booking_id_customer_org_id_lab_org_id")
+  reportVersions ReportVersion[] @relation("report_version_booking_id_customer_org_id_lab_org_id")
+  reportParameterResults ReportParameterResult[] @relation("report_parameter_result_booking_id_customer_org_id_lab_org_id")
+  paymentOrders PaymentOrder[] @relation("payment_order_booking_id_customer_org_id_lab_org_id")
+  refunds Refund[] @relation("refund_booking_id_customer_org_id_lab_org_id")
+  payoutItems PayoutItem[] @relation("payout_item_booking_id_customer_org_id_lab_org_id")
+  payoutHolds PayoutHold[] @relation("payout_hold_booking_id_customer_org_id_lab_org_id")
+  ledgerJournals LedgerJournal[] @relation("ledger_journal_booking_id_customer_org_id_lab_org_id")
+  financialDocuments FinancialDocument[] @relation("financial_document_booking_id_customer_org_id_lab_org_id")
+  disputes Dispute[] @relation("dispute_booking_id_customer_org_id_lab_org_id")
+  ratings Rating[] @relation("rating_booking_id_customer_org_id_lab_org_id")
+
+  @@unique([bookingNo])
+  @@unique([id, customerOrgId, labOrgId])
+  @@index([customerOrgId, status, createdAt(sort: Desc)])
+  @@index([labSiteId, status, createdAt(sort: Desc)])
+  @@index([labOrgId, status])
+  @@index([status, statusChangedAt])
+  @@index([requesterUserId, createdAt(sort: Desc)])
+  @@index([slotId])
+  @@map("booking")
+}
+
+model BookingLine {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  lineNo Int @map("line_no")
+  scopeLineId String @map("scope_line_id") @db.Uuid
+  scopeLineVersionId String @map("scope_line_version_id") @db.Uuid
+  priceItemId String @map("price_item_id") @db.Uuid
+  snapshot Json
+  unitPricePaise BigInt @map("unit_price_paise")
+  samplePrepPaise BigInt @map("sample_prep_paise")
+  gstRateBp Int @map("gst_rate_bp")
+  gstPaise BigInt @map("gst_paise")
+  lineTotalPaise BigInt @map("line_total_paise")
+  status BookingLineStatus @default(NOT_STARTED)
+  cancelledReason String? @map("cancelled_reason")
+  requiredSampleQty Decimal? @map("required_sample_qty") @db.Decimal(12, 3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  scopeLine ScopeLine @relation("booking_line_scope_line_id", fields: [scopeLineId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  priceItem PriceItem @relation("booking_line_price_item_id", fields: [priceItemId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("booking_line_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("booking_line_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  scopeLineVersion ScopeLineVersion @relation("booking_line_scope_line_version_id_scope_line_id", fields: [scopeLineVersionId, scopeLineId], references: [id, scopeLineId], onDelete: Restrict, onUpdate: Restrict)
+  reportParameterResults ReportParameterResult[] @relation("report_parameter_result_booking_line_id_booking_id")
+
+  @@unique([bookingId, lineNo])
+  @@unique([bookingId, scopeLineId])
+  @@unique([id, bookingId])
+  @@index([scopeLineId])
+  @@map("booking_line")
+}
+
+model Trf {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  versionNo Int @map("version_no")
+  schemaVersion String @map("schema_version") @db.VarChar(10)
+  form Json
+  conformityRequired Boolean @map("conformity_required")
+  decisionRule String? @map("decision_rule")
+  submittedByUserId String @map("submitted_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  submittedByUser AppUser @relation("trf_submitted_by_user_id", fields: [submittedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("trf_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("trf_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([bookingId, versionNo])
+  @@map("trf")
+}
+
+model BookingStatusHistory {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  transitionId String @map("transition_id") @db.VarChar(6)
+  fromStatus BookingStatus? @map("from_status")
+  toStatus BookingStatus @map("to_status")
+  actorUserId String? @map("actor_user_id") @db.Uuid
+  actorRole RoleCode? @map("actor_role")
+  actorParty PartyType @map("actor_party")
+  reason String?
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  metadata Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  actorUser AppUser? @relation("booking_status_history_actor_user_id", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("booking_status_history_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("booking_status_history_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([bookingId, occurredAt])
+  @@map("booking_status_history")
+}
+
+model CounterOffer {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  proposedSlotId String? @map("proposed_slot_id") @db.Uuid
+  proposedDropDate DateTime? @map("proposed_drop_date") @db.Date
+  extraQuantityNotes String? @map("extra_quantity_notes")
+  perLineQuantity Json? @map("per_line_quantity")
+  message String
+  status CounterStatus @default(PENDING)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  proposedByUserId String @map("proposed_by_user_id") @db.Uuid
+  respondedByUserId String? @map("responded_by_user_id") @db.Uuid
+  respondedAt DateTime? @map("responded_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  proposedSlot Slot? @relation("counter_offer_proposed_slot_id", fields: [proposedSlotId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  proposedByUser AppUser @relation("counter_offer_proposed_by_user_id", fields: [proposedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  respondedByUser AppUser? @relation("counter_offer_responded_by_user_id", fields: [respondedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("counter_offer_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("counter_offer_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([bookingId], map: "uq_counter_offer_pending", where: { status: "PENDING" })
+  @@index([bookingId])
+  @@map("counter_offer")
+}
+
+model SlotHold {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  slotId String @map("slot_id") @db.Uuid
+  kind HoldKind
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  slot Slot @relation("slot_hold_slot_id", fields: [slotId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("slot_hold_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("slot_hold_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([bookingId], map: "uq_slot_hold_live", where: { releasedAt: null })
+  @@index([slotId], map: "ix_slot_hold_slot_live", where: { releasedAt: null })
+  @@index([expiresAt], map: "ix_slot_hold_expiry_live", where: { releasedAt: null })
+  @@map("slot_hold")
+}
+
+model BookingTransition {
+  seq Int @db.SmallInt
+  transitionId String @map("transition_id") @db.VarChar(6)
+  fromStatus BookingStatus? @map("from_status")
+  toStatus BookingStatus @map("to_status")
+
+
+  @@id([seq])
+  @@unique([transitionId, fromStatus], map: "uq_booking_transition")
+  @@map("booking_transition")
+}

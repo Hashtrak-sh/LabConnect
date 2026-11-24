@@ -5,15 +5,15 @@
 ## 1. Test levels and tools
 | Level | Scope | Tools | Runs |
 |---|---|---|---|
-| Unit | Pure domain logic: state machine, money, fees, refunds, eligibility, calendar, QR payload, validation | Jest (api, worker), Vitest (web, packages) | Every PR |
-| Integration | Service + real Postgres/PostGIS (Testcontainers) + Redis + LocalStack | Jest + Testcontainers | Every PR |
-| Database | Migrations from empty, constraints, triggers, RLS, append-only | Jest + Testcontainers + raw SQL | Every PR |
-| API contract | Responses validate against `openapi.yaml`. Every documented endpoint exists. | Jest + an OpenAPI response validator | Every PR |
-| Permission matrix | Every endpoint × role → expected allow/deny (generated from `permissions.ts`) | Jest (supertest) | Every PR |
-| Tenant isolation | Cross-org access for every tenant endpoint returns 404 or empty | Jest (supertest) | Every PR |
-| Workflow | Full booking lifecycle at the API level with a fake clock and fake gateway | Jest | Every PR |
-| Payment and webhook | Signature, replay, duplicate, out-of-order, amount mismatch, reconciliation | Jest + FakePaymentGateway (+ ICICI sandbox in UAT) | Every PR / UAT |
-| QR | Sign and verify, tamper, rotation, wrong site, voided label, short code | Jest | Every PR |
+| Unit | Pure domain logic: state machine, money, fees, refunds, eligibility, calendar, QR payload, validation | Vitest (all apps and packages, ADR-019) | Every PR |
+| Integration | Service + real Postgres/PostGIS (Testcontainers) + Redis + LocalStack | Vitest + Testcontainers | Every PR |
+| Database | Migrations from empty, constraints, triggers, RLS, append-only | Vitest + Testcontainers + raw SQL | Every PR |
+| API contract | Responses validate against `openapi.yaml`. Every documented endpoint exists. | Vitest + an OpenAPI response validator | Every PR |
+| Permission matrix | Every endpoint × role → expected allow/deny (generated from `permissions.ts`) | Vitest (supertest) | Every PR |
+| Tenant isolation | Cross-org access for every tenant endpoint returns 404 or empty | Vitest (supertest) | Every PR |
+| Workflow | Full booking lifecycle at the API level with a fake clock and fake gateway | Vitest | Every PR |
+| Payment and webhook | Signature, replay, duplicate, out-of-order, amount mismatch, reconciliation | Vitest + FakePaymentGateway (+ ICICI sandbox in UAT) | Every PR / UAT |
+| QR | Sign and verify, tamper, rotation, wrong site, voided label, short code | Vitest | Every PR |
 | E2E | Critical user journeys in the browser | Playwright (desktop + mobile profile) | PR to `main` (smoke), nightly (full) |
 | Accessibility | axe-core on key pages | Playwright + @axe-core | Nightly |
 | Security | SAST (CodeQL), dependency audit, secrets scan, DAST (OWASP ZAP baseline on UAT) | GitHub | PR / nightly |
@@ -38,7 +38,7 @@
 | UI screen | component test | — | — | — | ✔ |
 
 ## 4. Database tests
-- Apply all migrations to an empty DB, then: every table in `SCHEMA_SPECIFICATION.md` exists; every constraint in `INDEXES_AND_CONSTRAINTS.md` C-01..C-30 has a test that tries to violate it; `app_rw` can't UPDATE or DELETE AO tables; RLS hides other tenants' rows; `prisma migrate diff` shows no drift.
+- Apply all migrations to an empty DB, then: every table in `SCHEMA_SPECIFICATION.md` exists; every constraint in `INDEXES_AND_CONSTRAINTS.md` (C-01 to C-81) has a test that tries to violate it, and a test fails if one has none; `app_rw` can't UPDATE or DELETE AO tables; RLS hides other tenants' rows; `prisma migrate diff` shows no drift. Run with `pnpm test:db` (needs Docker: the suite starts a PostGIS container, applies the migrations to a template database and gives each test file its own copy).
 
 ## 5. Coverage gates
 - `packages/shared`, domain layers of `booking`, `payments`, `custody`, `reports`: **≥ 90% line, ≥ 85% branch**.
@@ -47,7 +47,8 @@
 - Coverage drops of more than 1% on a PR fail CI.
 
 ## 6. Test data and determinism
-- Factories (`packages/database/test-utils`) build orgs, users with roles, sites, bookings in any state (`bookingInState('UNDER_TEST')`).
+- Factories (`@labconnect/database/test-utils`, source in `packages/database/src/factories/`) build a platform team, customers, a scope catalogue, labs (onboarded or only listed) and bookings in any state (`bookingInState(tx, 'UNDER_TEST', { reference, customer, lab })`). They need the reference seed first, run inside a transaction on the owner connection, and walk a booking along the real transitions, so the database guards apply to test data too. `bookingInState` writes the status history, slot hold, counter-offer, payment with its ledger journal, packages and custody events, receipt, hold case, report version, dispute and payout hold. It does not write audit log, outbox events, timers, notifications, refunds, financial documents or payouts; the modules that own those add them.
+- The database suite's older raw-SQL fixtures (`test/db/fixtures.ts`) stay for the constraint tests, which need to write rows the factories would refuse to.
 - An injected `Clock`. No sleeps. Timers run with `TimerService.runDue(now)`.
 - Each integration test runs in its own schema or transaction. Tests run in parallel by worker.
 

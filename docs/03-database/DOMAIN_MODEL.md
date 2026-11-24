@@ -9,8 +9,8 @@ This document explains *what* the entities are and *why* they're shaped this way
 2. **Configurable master data, controlled transactions.** Taxonomies (disciplines, groups, products, parameters, methods, units, reason codes) are configurable data. Transactional entities (booking, payment, report…) are fixed tables with real columns, foreign keys and CHECK constraints. JSONB is used only for (a) validated extension attributes on master data, (b) the TRF form body, validated against a versioned Zod schema, (c) frozen snapshots, (d) raw import and webhook payloads.
 3. **Immutability of history.** Published or released things are never updated in place: price lists, report versions, ledger entries, custody events, status history, audit log, master-data versions, issued financial documents. Corrections are new rows.
 4. **Snapshots at commitment points.** A booking stores what it was sold: price, GST rate, scope-line version, method, range, and accreditation certificate and validity. Later master-data changes never change existing bookings or financial records.
-5. **Separation of duties is part of the data.** Rows that need two people carry both `maker_user_id` and `checker_user_id`, with `CHECK (maker_user_id <> checker_user_id)`.
-6. **Tenant keys on every row** that belongs to an organisation, so RLS and repository scoping are possible.
+5. **Separation of duties is part of the data.** Rows that need two people carry both `maker_user_id` and `checker_user_id`, with `CHECK (checker_user_id IS NULL OR checker_user_id <> maker_user_id)`.
+6. **Tenant keys on every row** that belongs to an organisation, so RLS and repository scoping are possible. Composite foreign keys guarantee that a child's keys equal its parent's.
 7. **Money as integer paise**, and a **double-entry ledger** keeps customer money, lab payables, refunds, credits and (future) platform fees separate.
 
 ## 2. Bounded areas and aggregates
@@ -29,7 +29,7 @@ This document explains *what* the entities are and *why* they're shaped this way
 - Reference entities: **AccreditationBody** (NABL) and **AccreditationStandard** (ISO/IEC 17025 testing, ISO/IEC 17025 calibration, ISO 15189 medical, with an `is_supported` flag).
 
 ### 2.3 Labs
-- **LabSite** belongs to a lab organisation. It holds address, geo point (approved), receiving setup, claim status, and the derived `is_bookable`.
+- **LabSite** belongs to a lab organisation. It holds address, geo point (approved), receiving setup and the derived `is_bookable`. Claim status is on the organisation. Non-public contact details are in **LabSitePrivate**. **LabPenalty** records penalties for scoring.
 - **Accreditation** belongs to a lab site: certificate number, standard, category (`TESTING` / `CALIBRATION`), validity and status. Versioned.
 - **ScopeLine** belongs to a site and an accreditation and points to taxonomy nodes (discipline, group, product, parameter) and a method node, plus a range and a site type. Versioned.
 - **PriceList** (per site, versioned, `DRAFT → PUBLISHED → SUPERSEDED`) and **PriceItem** (per scope line: price, prep charge, GST rate, sample quantity and packaging, TAT, availability).
@@ -46,6 +46,7 @@ This document explains *what* the entities are and *why* they're shaped this way
 - **BookingStatusHistory**: every transition.
 - **CounterOffer**: the slot and/or quantity proposal and the response.
 - **SlotHold**: capacity reservation while REQUESTED or COUNTERED.
+- **BookingTransition**: the legal transitions as reference data, read by the status guard trigger.
 
 ### 2.6 Custody
 - **Package**: one per declared parcel, with a signed QR payload, short code, label version, status and lab sample ID.
@@ -56,9 +57,9 @@ This document explains *what* the entities are and *why* they're shaped this way
 - **QrSigningKey**: key registry (KMS key references, status, rotation).
 
 ### 2.7 Reports
-- **Report**: one logical report per booking (report number, ULR).
+- **Report**: one logical report per booking. It owns the report number and the ULR.
 - **ReportVersion**: each upload and its review lifecycle. Maker and Checker, original and stamped file, hashes, verification code, supersession.
-- **ReportShareLink**, **ReportAccessLog**, **VerificationEvent**.
+- **ReportShareLink**, **ReportAccessLog**, **VerificationEvent**, **BreakGlassGrant** (time-boxed platform access to a report file, approved by a second person).
 
 ### 2.8 Payments and finance
 - **PaymentOrder** (an attempt) → **PaymentTransaction** (gateway-confirmed movements). **GatewayWebhookEvent** (raw, deduplicated).
@@ -74,7 +75,7 @@ This document explains *what* the entities are and *why* they're shaped this way
 - **NotificationTemplate** (event × channel × locale × version), **Notification** (per recipient per channel, with in-app read state), **NotificationPreference**.
 
 ### 2.11 Platform
-- **AuditLog**, **OutboxEvent**, **ProcessedEvent**, **Timer**, **IdempotencyRecord**, **ConfigParameter**, **HolidayCalendar**.
+- **AuditLog** with **AuditLogChain** (the hash chain, sealed by the worker), **OutboxEvent**, **ProcessedEvent**, **Timer**, **IdempotencyRecord**, **ConfigParameter**, **HolidayCalendar**.
 
 ## 3. Key relationships (prose)
 - Organisation(LAB) 1—N LabSite 1—N Accreditation 1—N ScopeLine N—1 Node(PARAMETER), N—1 Node(METHOD).

@@ -1,0 +1,26 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Single place for versions shared by several workspaces.
+# TypeScript stays on 6.0.x: @nestjs/cli and typescript-eslint do not support 7 yet.
+# Install scripts of dependencies are not run. pnpm fails a CI install unless each
+# package that has one is listed here with a decision. Prisma fetches its engines on
+# first use; the other three are optional native builds we do not need.
+allowBuilds:
+  '@prisma/engines': false
+  cpu-features: false
+  prisma: false
+  protobufjs: false
+  ssh2: false
+
+catalog:
+  '@nestjs/common': ^12.6.0
+  '@nestjs/core': ^12.6.0
+  '@nestjs/testing': ^12.6.0
+  '@types/node': ^24.0.0
+  eslint: ^10.15.0
+  reflect-metadata: ^0.2.2
+  rxjs: ^7.8.2
+  typescript: ~6.0.3
+  vitest: ^5.1.1

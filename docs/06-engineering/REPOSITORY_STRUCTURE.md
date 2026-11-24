@@ -30,7 +30,7 @@ LabConnect/
 │   │       └── main.ts
 │   └── worker/               NestJS standalone: outbox relay, consumers, timers, jobs
 ├── packages/
-│   ├── database/             prisma/schema.prisma, prisma/migrations/*, seeds/*, rls/*, test-utils
+│   ├── database/             prisma/schema/*, prisma/migrations/*, src/seed/*, src/factories/* (test-utils), src/db-context.ts
 │   ├── api-contract/         openapi.yaml, generated/ (types, client)
 │   ├── shared/               enums, booking-state-machine.ts, permissions.ts, error-codes.ts, money, time
 │   ├── validation/           zod: trf.v1, imports, query params, config values
@@ -44,7 +44,8 @@ LabConnect/
 ├── scripts/                  dev setup, seed, db reset, codegen
 ├── docs/                     this documentation pack
 ├── docker-compose.yml        postgres+postgis, redis, opensearch, localstack, mailpit
-├── turbo.json · pnpm-workspace.yaml · package.json · .nvmrc · .editorconfig
+├── turbo.json · pnpm-workspace.yaml · package.json · .nvmrc · .editorconfig · .env.example
+├── eslint.config.mjs · .dependency-cruiser.cjs · .prettierignore · .gitattributes
 ├── CLAUDE.md · MASTER_PROMPT.md · README.md
 ```
 

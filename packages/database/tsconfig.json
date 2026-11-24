@@ -1,0 +1,7 @@
+{
+  "extends": "@labconnect/config/tsconfig/library.json",
+  "compilerOptions": {
+    "outDir": "dist"
+  },
+  "include": ["src", "test", "prisma.config.ts", "vitest.config.ts", "vitest.db.config.ts"]
+}

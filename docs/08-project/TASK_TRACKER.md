@@ -5,30 +5,40 @@
 ## Phase 0: Foundations
 | ID | Task | Owner | Depends | Status |
 |---|---|---|---|---|
-| P0-01 | Commit the documentation pack to `main` | H | — | ☐ |
-| P0-02 | Apply GitHub settings (GIT_WORKFLOW §5), create `dev-lab`, `dev-customer`, `production` | H | P0-01 | ☐ |
-| P0-03 | Monorepo skeleton (pnpm, Turborepo, apps, packages, config) | S (H) | P0-02 | ☐ |
-| P0-04 | docker-compose (Postgres+PostGIS, Redis, OpenSearch, LocalStack, Mailpit) + `scripts/dev-setup` | S (A) | P0-03 | ☐ |
-| P0-05 | Lint, format, typecheck, dependency-cruiser config | S (A) | P0-03 | ☐ |
-| P0-06 | `ci.yml` with placeholder test jobs | S (H) | P0-05 | ☐ |
+| P0-01 | Commit the documentation pack to `main` | H | — | ☑ |
+| P0-02 | Apply GitHub settings (GIT_WORKFLOW §5), create `dev-lab`, `dev-customer`, `production` | H | P0-01 | ◐ |
+| P0-03 | Monorepo skeleton (pnpm, Turborepo, apps, packages, config) | S (H) | P0-02 | ◐ |
+| P0-04 | docker-compose (Postgres+PostGIS, Redis, OpenSearch, LocalStack, Mailpit) + `scripts/dev-setup` | S (A) | P0-03 | ◐ |
+| P0-05 | Lint, format, typecheck, dependency-cruiser config | S (A) | P0-03 | ◐ |
+| P0-06 | `ci.yml` with placeholder test jobs | S (H) | P0-05 | ◐ |
 | P0-07 | GitHub Project board + issue templates in use | S (A) | P0-02 | ☐ |
-| P0-08 | Obtain the QCI Brand & Communication Guidelines PDF content into `09-design-handoff/BRAND_GUIDELINES.md` (OQ-19) | H | — | ☐ |
+| P0-08 | Obtain the QCI Brand & Communication Guidelines PDF content into `09-design-handoff/BRAND_GUIDELINES.md` (OQ-19) | H | — | ☑ |
+
+P0-02 remaining items: required status checks on `main` and `production` (set once `ci.yml` from P0-06 is on `main`, since a check that has never run would block every PR) and GitHub OIDC → AWS roles (P3-11). Everything else in GIT_WORKFLOW §5 is applied; `dependabot.yml` comes with the skeleton PR.
+
+P0-03 to P0-06 are implemented on `feature/P0-03-monorepo-skeleton` and marked done when that PR merges. P0-04 and P0-05 were done by H together with P0-03 at the owner's request.
+
+P0-08 note: the PDF (v1.0, May 2024) has no colour codes, clear-space values or web typeface. Those stay open under OQ-19 and are listed in BRAND_GUIDELINES §9.
 
 ## Phase 1: Domain and database (gate G1)
 | ID | Task | Owner | Depends | Status |
 |---|---|---|---|---|
-| P1-01 | Claude Code consistency review of `03-database/*` (MASTER_PROMPT Step 2) | S (H) | P0-03 | ☐ |
-| P1-02 | Developers' review meeting. Resolve DOMAIN_MODEL §4 questions. | S | P1-01 | ☐ |
-| P1-03 | Prisma schema: platform, identity, files | S (H) | P1-02 | ☐ |
-| P1-04 | Prisma schema: master data, labs | S (H) | P1-02 | ☐ |
-| P1-05 | Prisma schema: customers, booking, custody, reports | S (A) | P1-02 | ☐ |
-| P1-06 | Prisma schema: payments, ledger, disputes, notifications | S (H) | P1-02 | ☐ |
-| P1-07 | Raw SQL migrations: extensions, PostGIS, CHECKs, partial uniques, triggers C-01..C-30, AO protections, partitions | S (H) | P1-03..06 | ☐ |
-| P1-08 | RLS spike (Prisma + SET LOCAL + pooling). Update ADR-005. | S (H) | P1-07 | ☐ |
-| P1-09 | DB test suite (TESTING_STRATEGY §4) | S (A) | P1-07 | ☐ |
-| P1-10 | `seed:reference`, `seed:platform-admin`, `seed:demo` | S (A) | P1-07 | ☐ |
-| P1-11 | Test factories (`bookingInState`, etc.) | S (A) | P1-10 | ☐ |
+| P1-01 | Claude Code consistency review of `03-database/*` (MASTER_PROMPT Step 2) | S (H) | P0-03 | ☑ |
+| P1-02 | Developers' review meeting. Resolve DOMAIN_MODEL §4 questions. | S | P1-01 | ◐ |
+| P1-03 | Prisma schema: platform, identity, files | S (H) | P1-02 | ◐ |
+| P1-04 | Prisma schema: master data, labs | S (H) | P1-02 | ◐ |
+| P1-05 | Prisma schema: customers, booking, custody, reports | S (A) | P1-02 | ◐ |
+| P1-06 | Prisma schema: payments, ledger, disputes, notifications | S (H) | P1-02 | ◐ |
+| P1-07 | Raw SQL migrations: extensions, PostGIS, CHECKs, partial uniques, triggers C-01..C-30, AO protections, partitions | S (H) | P1-03..06 | ◐ |
+| P1-08 | RLS spike (Prisma + SET LOCAL + pooling). Update ADR-005. | S (H) | P1-07 | ◐ |
+| P1-09 | DB test suite (TESTING_STRATEGY §4) | S (A) | P1-07 | ◐ |
+| P1-10 | `seed:reference`, `seed:platform-admin`, `seed:demo` | S (A) | P1-07 | ◐ |
+| P1-11 | Test factories (`bookingInState`, etc.) | S (A) | P1-10 | ◐ |
 | P1-12 | **G1 review and sign-off** | S | P1-08..11 | ☐ |
+
+P1-03 to P1-07 are implemented together on `feature/P1-03-database-schema` (the Prisma schema for all 101 tables and seven migrations) and marked done when that PR merges. P1-09: the suite exists with 91 tests and covers every registered constraint; A reviews it and extends it. P1-08: the spike passed and is on `feature/P1-08-rls-spike`; done when that PR merges. P1-10 and P1-11 are implemented on `feature/P1-10-seeds-and-factories` and marked done when that PR merges; H did them at the owner's request, and A reviews them. `seed:load` is not part of P1-10 and is not built.
+
+Single-developer period (from 2026-11-24): A is not working on the project for now. H reviews and decides alone until A starts; tasks led by A are done by H. OQ-24 to OQ-32 were settled on that basis with their defaults (`RISKS_AND_OPEN_QUESTIONS.md`). P1-12 (G1) stays open until the schema PRs are on `main`.
 
 ## Phase 2: API contracts (gate G2)
 | ID | Task | Owner | Depends | Status |

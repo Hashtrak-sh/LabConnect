@@ -46,6 +46,7 @@ stateDiagram-v2
   HANDOVER_SET --> NO_SHOW: deadline+grace (system)
   SAMPLE_RECORDED --> RECEIVED: approve (checker ≠ maker)
   SAMPLE_RECORDED --> ON_HOLD: confirm discrepancy (checker ≠ maker)
+  SAMPLE_RECORDED --> CANCELLED: reject sample as unfit (checker ≠ maker)
   ON_HOLD --> RECEIVED: customer proceeds (system)
   ON_HOLD --> SAMPLE_RECORDED: replacement recorded (maker)
   RECEIVED --> UNDER_TEST: start testing (maker)
@@ -82,25 +83,28 @@ stateDiagram-v2
 | T-09 | ACCEPTED | PAID | `ConfirmPayment` | system (Payments) | Verified capture equals the booking total | Ledger journal. Receipt document. Event. |
 | T-10 | ACCEPTED | EXPIRED_UNPAID | `ExpirePayment` | system | No pending payment order (otherwise extend, BR-032) | Slot released |
 | T-11 | PAID | HANDOVER_SET | `IssueHandover` | system | — | Booking QR and package QRs. Drop deadline. Timers `DROP_DEADLINE`, `NO_SHOW_DUE`. |
-| T-12 | HANDOVER_SET | NO_SHOW | `MarkNoShow` | system | No receipt record | Refund minus fee (BR-072) |
-| T-13 | HANDOVER_SET | SAMPLE_RECORDED | `SubmitReceipt` | L-Maker of the site | ≥1 package scanned at this site | `receipt_record` (maker). Timer `RECEIPT_APPROVAL_DUE`. |
+| T-12 | HANDOVER_SET | NO_SHOW | `MarkNoShow` | system | No receipt record | Refund minus fee (BR-072). Slot hold released. |
+| T-13 | HANDOVER_SET | SAMPLE_RECORDED | `SubmitReceipt` | L-Maker of the site | ≥1 package scanned at this site | `receipt_record` (maker). Timer `RECEIPT_APPROVAL_REMINDER`. The item waits for a Checker; it is never decided automatically (EC-54). |
 | T-14 | SAMPLE_RECORDED | RECEIVED | `ApproveReceipt` | L-Checker | checker ≠ maker. Lab sample ID present. | Packages → RECEIVED. `retain_until`. Event. |
 | T-15 | SAMPLE_RECORDED | ON_HOLD | `ConfirmDiscrepancy` | L-Checker | checker ≠ maker. Reason required. | `hold_case`. Timer `HOLD_DECISION_DUE` (24 h). |
-| T-16 | ON_HOLD | RECEIVED | `CustomerProceed` | owner, C-Admin | Hold case open | Deviation flag on booking. Lab sample ID from the hold decision. |
+| T-16 | ON_HOLD | RECEIVED | `CustomerProceed` | owner, C-Admin | Hold case open. Receipt record is HOLD_CONFIRMED with a lab sample ID. | Deviation flag on booking. Packages → RECEIVED. `retain_until` counted from the customer's decision (BR-049). Event. |
 | T-17 | ON_HOLD | SAMPLE_RECORDED | `SubmitReplacementReceipt` | L-Maker | Customer chose REPLACE. New or top-up packages scanned. | New receipt record version |
 | T-18 | RECEIVED | UNDER_TEST | `StartTesting` | L-Maker | — | `expected_report_date` required. Timer `REPORT_DUE`. |
-| T-19 | UNDER_TEST | REPORT_IN_REVIEW | `SubmitReport` | L-Maker | File CLEAN. Bound package belongs to the booking (BR-063). Parameters ⊆ lines (BR-061). ULR unique. | Timer `REPORT_APPROVAL_DUE` |
+| T-19 | UNDER_TEST | REPORT_IN_REVIEW | `SubmitReport` | L-Maker | File CLEAN. Bound package belongs to the booking (BR-063). Parameters ⊆ lines (BR-061). ULR unique. | Verification code and signing key assigned. **Stamp job** (ADR-014). Timer `REPORT_APPROVAL_REMINDER`. |
 | T-20 | REPORT_IN_REVIEW | UNDER_TEST | `ReturnReport` | L-Checker | Comments required | Version → RETURNED |
-| T-21 | REPORT_IN_REVIEW | REPORT_RELEASED | `PublishReport` | L-Checker | checker ≠ maker. Step-up MFA ≤ 5 min. | Stamp job. Version RELEASED. Timer `DISPUTE_WINDOW_END` (72 h). |
+| T-21 | REPORT_IN_REVIEW | REPORT_RELEASED | `PublishReport` | L-Checker | checker ≠ maker. Step-up MFA ≤ 5 min. The stamp job has finished (`stamped_file_id` set). | Version RELEASED, in one synchronous transaction. The previous RELEASED version, if any, becomes SUPERSEDED. Timer `DISPUTE_WINDOW_END` (72 h). |
 | T-22 | REPORT_RELEASED | DISPUTED | `RaiseDispute` | C-Admin, C-Req (own), C-Fin, L-Checker | Within the window (or billing type) | `dispute`. Automatic `payout_hold`. |
 | T-23 | REPORT_RELEASED | COMPLETED | `CompleteBooking` | system | Timer fired. No open dispute. | Payout eligible (unless a hold exists) |
-| T-24 | DISPUTED | COMPLETED | `ResolveDispute` | P-Ops | Dispute decided | Refund and/or payout per decision |
-| T-25 | REQUESTED, COUNTERED, ACCEPTED | CANCELLED | `CancelBooking` | owner, C-Admin, Ops | — | Free (BR-070). Hold released. |
-| T-26 | HANDOVER_SET | CANCELLED | `CancelBooking` | owner, C-Admin, L-Checker, Ops | — | Refund minus fee (customer) or 100% (lab) |
-| T-27 | SAMPLE_RECORDED, ON_HOLD, RECEIVED, UNDER_TEST | CANCELLED | `CancelBooking` | owner, C-Admin, L-Checker, Ops | Line statuses supplied | Per-line refund (BR-073 to BR-076) |
+| T-24 | DISPUTED | COMPLETED | `ResolveDispute` | P-Ops, system | Dispute decided, or withdrawn by the party that raised it | Refund and/or payout per decision. On withdrawal: payout hold released, no refund. |
+| T-25 | REQUESTED, COUNTERED, ACCEPTED | CANCELLED | `CancelBooking` | owner, C-Admin, Ops, system (EC-01) | — | Free (BR-070). Hold released. |
+| T-26 | HANDOVER_SET | CANCELLED | `CancelBooking` | owner, C-Admin, L-Checker, Ops, system (EC-01) | — | Refund minus fee (customer) or 100% (lab, system). Slot hold released. |
+| T-27 | SAMPLE_RECORDED, ON_HOLD, RECEIVED, UNDER_TEST | CANCELLED | `CancelBooking` | owner, C-Admin, L-Checker, Ops, system (EC-01) | Line statuses supplied | Per-line refund (BR-073 to BR-075). Slot hold released. A hold decision of `CANCEL` uses this transition from ON_HOLD. |
+| T-28 | SAMPLE_RECORDED | CANCELLED | `RejectSample` | L-Checker | checker ≠ maker. Reason required. | Receipt record → REJECTED_UNFIT. Custody event `SAMPLE_REJECTED`. Refund minus handling fee (BR-076, EC-35). Slot hold released. |
 
 **Rules**
-- Any transition not in this table returns `409 INVALID_STATE_TRANSITION` with `currentState`.
+- Any transition not in this table returns `409 INVALID_STATE_TRANSITION` with `currentState`. The table `booking_transition` holds the same rows, and the database trigger `trg_booking_status_guard` refuses any status change that is not one of them.
+- While `booking.frozen_at` is set (EC-01), only T-25 to T-27 and Ops actions are accepted.
+- **Not decided yet:** Ops overriding a lab decision (T-03 to T-05) and Ops cancelling from REPORT_IN_REVIEW, REPORT_RELEASED or DISPUTED (OQ-24); billing disputes outside REPORT_RELEASED (OQ-25); bookings without a slot (OQ-26); a payment captured after EXPIRED_UNPAID (OQ-27). Until then none of these is a transition.
 - Every transition writes `booking_status_history` (with `transition_id`), `audit_log` and `outbox_event` in the same transaction.
 - Timers check the current state when they fire and do nothing if it has moved on (idempotent).
 - Report amendments after REPORT_RELEASED or COMPLETED **don't change the booking state**. They live in the report version lifecycle (`05-integrations/FILES_AND_REPORTS.md`). Whether an amendment reopens the dispute window is OQ-14. The default is that it doesn't.
