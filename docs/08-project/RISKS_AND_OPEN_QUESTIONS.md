@@ -28,6 +28,10 @@
 | OQ-20 | Can one-person labs be onboarded? (A Maker and Checker must be different people.) | Product owner | No. A site needs 2 people. | I2 | Open |
 | OQ-21 | When is the lab tax invoice issued: on payment or on report release? | Finance | On report release | I6 | Open |
 | OQ-22 | Booking number format standard of the operating authority | Product owner | `LC-YYMM-NNNNNNN` | G1 | Open |
+| OQ-24 | May Ops override a lab decision (accept, reject, counter), and may Ops cancel from REPORT_IN_REVIEW, REPORT_RELEASED or DISPUTED? The permission notes say yes; the transition table has no such rows. (Review A-05) | Product owner | Not allowed. No transition exists. `booking.frozen_at` is available for EC-01. | I3 (lab decision), ops board | Open |
+| OQ-25 | Can a billing dispute be raised while the booking is in a state other than REPORT_RELEASED (BR-080)? If so, does the booking state change? (Review A-06) | Product owner | Disputes are raised only through T-22. One open dispute per booking. | I6 | Open |
+| OQ-26 | Can a booking exist without a slot (drop date only)? `booking.slot_id` is nullable and a counter-offer can carry a drop date, but BR-017 names only slot and quantity. (Review A-08) | H + A | The schema allows both. The API requires a slot. | G2 (booking contract) | Open |
+| OQ-27 | What happens to a payment captured after the booking reached EXPIRED_UNPAID? (Review A-11) | H + Finance | Treated like a duplicate capture: recorded and auto-refunded in full. | I4 | Open |
 
 ## 2. Risk register
 

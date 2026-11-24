@@ -6,7 +6,7 @@
 - **Prisma Migrate** creates migrations from `schema.prisma`. **Raw SQL** migrations (in the same migrations folder, run in order) cover: extensions, PostGIS columns (`Unsupported("geography(Point,4326)")`), CHECK constraints, partial unique indexes, triggers, RLS policies, grants, and partitions.
 - Rule: **one migration per PR** that changes the schema, with a descriptive name (`20261201_0900_booking_core`).
 - Migrations are **forward-only**. A rollback is a new migration. Destructive changes (drop or rename) use expand → migrate data → contract across at least two releases.
-- DB roles: `app_owner` (runs migrations, owns objects), `app_rw` (application, no DDL, no BYPASSRLS), `app_ro` (reporting, read replicas later).
+- DB roles: `app_owner` (runs migrations, owns objects), `app_rw` (API, no DDL, no BYPASSRLS), `app_worker` (worker and SYSTEM jobs: the only role that reads and updates `outbox_event`, fires timers, seals the audit chain and purges expired rows; no DDL, no BYPASSRLS), `app_ro` (reporting, read replicas later).
 
 ## 2. Process
 1. A developer changes the schema on their dev branch and runs `pnpm db:migrate:dev`.
