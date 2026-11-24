@@ -13,7 +13,7 @@
   - `pnpm --filter @labconnect/api-contract lint:openapi`: Redocly lint (`redocly.yaml`, the `recommended` rules with documented changes).
   - `pnpm --filter @labconnect/api-contract test`: the lint, plus equality with `API_CONTRACTS.md` and checks of the conventions in this document and `ERROR_HANDLING.md`.
 - Process: change the YAML in a PR → both developers review it (shared change) → generate types and the web client → implement.
-- The NestJS implementation is validated against the contract in CI (contract tests, see TESTING_STRATEGY §5).
+- The NestJS implementation is validated against the contract in CI (`pnpm test:contract`, job `contract`; see TESTING_STRATEGY §8).
 
 ## 2. URLs and resources
 - Base: `https://<api-host>/v1`. Plural nouns, kebab-case: `/v1/lab-sites/{siteId}/price-lists`.
