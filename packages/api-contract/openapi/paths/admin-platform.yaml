@@ -258,11 +258,7 @@ user:
     x-roles:
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -304,11 +300,7 @@ user:
     x-roles:
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:
@@ -368,11 +360,7 @@ user-platform-roles:
     x-roles:
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:
@@ -628,11 +616,7 @@ notification-template:
     x-roles:
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -672,11 +656,7 @@ notification-template:
     x-roles:
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:

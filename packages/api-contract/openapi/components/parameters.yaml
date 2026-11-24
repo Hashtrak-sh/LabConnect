@@ -63,3 +63,20 @@ Limit:
     minimum: 1
     maximum: 100
     default: 25
+
+# Path parameters used by many paths. A path whose parameter needs its own description ("The
+# booking.") keeps it inline.
+
+PathId:
+  name: id
+  in: path
+  required: true
+  schema:
+    $ref: './schemas/common.yaml#/Uuid'
+
+PathSiteId:
+  name: siteId
+  in: path
+  required: true
+  schema:
+    $ref: './schemas/common.yaml#/Uuid'

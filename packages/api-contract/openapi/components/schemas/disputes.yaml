@@ -12,10 +12,7 @@ DisputeBookingSummary:
     id:
       $ref: './common.yaml#/Uuid'
     bookingNo:
-      type: string
-      maxLength: 20
-      examples:
-        - LC-2611-0004821
+      $ref: './common.yaml#/BookingNo'
 
 DisputeCreate:
   type: object

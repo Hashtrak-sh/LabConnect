@@ -77,10 +77,7 @@ CustodyBookingSummary:
     id:
       $ref: './common.yaml#/Uuid'
     bookingNo:
-      type: string
-      maxLength: 20
-      examples:
-        - LC-0000-0000000
+      $ref: './common.yaml#/BookingNo'
     status:
       $ref: './enums.yaml#/BookingStatus'
     labSiteId:
@@ -518,7 +515,8 @@ ReceiptHoldCase:
   type: object
   description: >-
     The hold opened by a confirmed discrepancy (T-15): the reason, and when the customer's decision
-    is due (24 h, BR-046).
+    is due (24 h, BR-046). A subset of `BookingHoldCase` (the customer's view of the same
+    `hold_case`), with identical fields.
   required:
     - id
     - reason
@@ -529,8 +527,8 @@ ReceiptHoldCase:
     id:
       $ref: './common.yaml#/Uuid'
     reason:
-      description: HOLD_REASON taxonomy.
-      $ref: './common.yaml#/NodeCode'
+      description: A node of the HOLD_REASON taxonomy.
+      $ref: './common.yaml#/CodeName'
     details:
       type:
         - string

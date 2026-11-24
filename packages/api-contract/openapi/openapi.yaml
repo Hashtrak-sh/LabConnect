@@ -514,6 +514,10 @@ components:
       $ref: './components/schemas/common.yaml#/Pincode'
     GeoPoint:
       $ref: './components/schemas/common.yaml#/GeoPoint'
+    ContactPerson:
+      $ref: './components/schemas/common.yaml#/ContactPerson'
+    PostalAddress:
+      $ref: './components/schemas/common.yaml#/PostalAddress'
     TaxonomyCode:
       $ref: './components/schemas/common.yaml#/TaxonomyCode'
     NodeCode:
@@ -711,14 +715,10 @@ components:
       $ref: './components/schemas/files.yaml#/ReportOriginalUploadUrlRequest'
     FileUploadUrl:
       $ref: './components/schemas/files.yaml#/FileUploadUrl'
-    FileUploadUrlWithHeaders:
-      $ref: './components/schemas/files.yaml#/FileUploadUrlWithHeaders'
     FileDownloadUrl:
       $ref: './components/schemas/files.yaml#/FileDownloadUrl'
     ReportDownloadUrl:
       $ref: './components/schemas/files.yaml#/ReportDownloadUrl'
-    AdminDownloadUrl:
-      $ref: './components/schemas/files.yaml#/AdminDownloadUrl'
     # §1 Auth: components/schemas/auth.yaml
     OtpRequest:
       $ref: './components/schemas/auth.yaml#/OtpRequest'
@@ -779,8 +779,6 @@ components:
     LeadCreate:
       $ref: './components/schemas/public-search.yaml#/LeadCreate'
     # §2 Public: lab sites, scope, prices, slots, taxonomies: components/schemas/public-lab-sites.yaml
-    PublicAddress:
-      $ref: './components/schemas/public-lab-sites.yaml#/PublicAddress'
     PublicRating:
       $ref: './components/schemas/public-lab-sites.yaml#/PublicRating'
     PublicAccreditation:
@@ -813,8 +811,6 @@ components:
     ReportVerification:
       $ref: './components/schemas/public-reports.yaml#/ReportVerification'
     # §3 Customer org: components/schemas/customer.yaml
-    CustomerAddress:
-      $ref: './components/schemas/customer.yaml#/CustomerAddress'
     CustomerOrganisation:
       $ref: './components/schemas/customer.yaml#/CustomerOrganisation'
     CustomerOrganisationCreate:
@@ -882,8 +878,6 @@ components:
       $ref: './components/schemas/bookings.yaml#/BookingLabSite'
     BookingLabSnapshot:
       $ref: './components/schemas/bookings.yaml#/BookingLabSnapshot'
-    BookingLabContact:
-      $ref: './components/schemas/bookings.yaml#/BookingLabContact'
     BookingAttachment:
       $ref: './components/schemas/bookings.yaml#/BookingAttachment'
     BookingCounterLineQuantity:
@@ -999,8 +993,6 @@ components:
     LabInvitationUpdate:
       $ref: './components/schemas/lab-onboarding.yaml#/LabInvitationUpdate'
     # §6 Lab: site settings: components/schemas/lab-site-settings.yaml
-    LabPublicContact:
-      $ref: './components/schemas/lab-site-settings.yaml#/LabPublicContact'
     LabSite:
       $ref: './components/schemas/lab-site-settings.yaml#/LabSite'
     LabSiteUpdate:
@@ -1364,6 +1356,10 @@ components:
       $ref: './components/parameters.yaml#/Cursor'
     Limit:
       $ref: './components/parameters.yaml#/Limit'
+    PathId:
+      $ref: './components/parameters.yaml#/PathId'
+    PathSiteId:
+      $ref: './components/parameters.yaml#/PathSiteId'
   headers:
     RequestId:
       $ref: './components/headers.yaml#/RequestId'

@@ -140,6 +140,79 @@ GeoPoint:
       minimum: -180
       maximum: 180
 
+ContactPerson:
+  type: object
+  description: >-
+    A contact person: name, phone and email, each `null` when not set. Used for the contact a lab
+    site sets for its customers (`lab_site_private.public_contact`), shown to the customer of a
+    booking only once it has been paid and never publicly. (`CustomerSiteContact` stays separate:
+    none of its fields is required.)
+  required:
+    - name
+    - phone
+    - email
+  additionalProperties: false
+  properties:
+    name:
+      type:
+        - string
+        - 'null'
+      maxLength: 200
+    phone:
+      type:
+        - string
+        - 'null'
+      maxLength: 20
+      examples:
+        - '+910000000000'
+    email:
+      oneOf:
+        - $ref: '#/Email'
+        - type: 'null'
+
+PostalAddress:
+  type: object
+  description: >-
+    A postal address in India (`{line1, line2, city, district, state_code, pincode}`,
+    SCHEMA_SPECIFICATION §2.1, §5.1, §6.1): a lab site's address (`lab_site.address`), a customer
+    organisation's registered address or a customer site's address. The same bounds apply in
+    requests and responses.
+  required:
+    - line1
+    - line2
+    - city
+    - district
+    - stateCode
+    - pincode
+  additionalProperties: false
+  properties:
+    line1:
+      type: string
+      minLength: 1
+      maxLength: 200
+    line2:
+      type:
+        - string
+        - 'null'
+      maxLength: 200
+    city:
+      type: string
+      minLength: 1
+      maxLength: 100
+    district:
+      type:
+        - string
+        - 'null'
+      maxLength: 100
+    stateCode:
+      type: string
+      minLength: 2
+      maxLength: 4
+      examples:
+        - UP
+    pincode:
+      $ref: '#/Pincode'
+
 # --- Master data and accreditation ---
 
 TaxonomyCode:

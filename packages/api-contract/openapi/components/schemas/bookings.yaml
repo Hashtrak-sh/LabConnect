@@ -521,7 +521,7 @@ BookingLabSite:
     name:
       type: string
     address:
-      $ref: './public-lab-sites.yaml#/PublicAddress'
+      $ref: './common.yaml#/PostalAddress'
     location:
       description: '`null` while the site has no approved pin.'
       oneOf:
@@ -542,33 +542,9 @@ BookingLabSnapshot:
     siteName:
       type: string
     address:
-      $ref: './public-lab-sites.yaml#/PublicAddress'
+      $ref: './common.yaml#/PostalAddress'
     accreditation:
       $ref: './public-lab-sites.yaml#/PublicAccreditation'
-
-BookingLabContact:
-  type: object
-  description: >-
-    The contact the lab has set for its customers (`lab_site_private.public_contact`). Shown to
-    the customer only once the booking has been paid.
-  required:
-    - name
-    - phone
-    - email
-  additionalProperties: false
-  properties:
-    name:
-      type:
-        - string
-        - 'null'
-    phone:
-      type:
-        - string
-        - 'null'
-    email:
-      oneOf:
-        - $ref: './common.yaml#/Email'
-        - type: 'null'
 
 BookingAttachment:
   type: object
@@ -1106,7 +1082,7 @@ BookingForCustomer:
             `null` until the booking has been paid (`lab_site_private.public_contact`), and when
             the lab has set no contact.
           oneOf:
-            - $ref: '#/BookingLabContact'
+            - $ref: './common.yaml#/ContactPerson'
             - type: 'null'
         ownRating:
           description: The customer's rating of the lab, once given.
@@ -1366,9 +1342,7 @@ BookingHandoverPackage:
     status:
       $ref: './enums.yaml#/PackageStatus'
     qrPayload:
-      type: string
-      examples:
-        - LC1.P.LC-0000-0000001.1-2.1.k0.FAKEMAC
+      $ref: './common.yaml#/QrPayload'
 
 BookingHandover:
   type: object
@@ -1409,7 +1383,7 @@ BookingHandover:
     labContact:
       description: The contact the lab has set for its customers, if any.
       oneOf:
-        - $ref: '#/BookingLabContact'
+        - $ref: './common.yaml#/ContactPerson'
         - type: 'null'
     slot:
       oneOf:

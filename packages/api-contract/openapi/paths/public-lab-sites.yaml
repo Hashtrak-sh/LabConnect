@@ -15,11 +15,7 @@ lab-site:
       (FR-DIS-06). Contact details are not public (`lab_site_private`).
     security: []
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -52,11 +48,7 @@ lab-site-scope:
       scope with the same text matching as the lab search.
     security: []
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - name: q
         in: query
         required: false
@@ -96,11 +88,7 @@ lab-site-prices:
       §2). Drafts are never public (TENANT_ISOLATION §1).
     security: []
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/Cursor'
       - $ref: '../components/parameters.yaml#/Limit'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -136,11 +124,7 @@ lab-site-slots:
       discipline and the slots open to every discipline.
     security: []
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - name: from
         in: query
         required: true

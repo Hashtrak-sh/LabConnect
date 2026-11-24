@@ -260,11 +260,7 @@ site:
     summary: Get a customer site
     description: One site of the active membership's customer organisation. Every member may read it.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
@@ -305,11 +301,7 @@ site:
       Changes a site, or retires it with `status: INACTIVE` (sites are never deleted). Bookings
       that already use the site keep it. `CUSTOMER_ADMIN` only.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -507,11 +499,7 @@ user:
       is deleted. A membership that is already deactivated is left as it is. The user's open
       bookings stay with the organisation (EC-46). `CUSTOMER_ADMIN` only.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
@@ -642,11 +630,7 @@ invitation:
       Revokes a pending invitation; its link stops working. An invitation that is already revoked
       or expired is left as it is. `CUSTOMER_ADMIN` only.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:

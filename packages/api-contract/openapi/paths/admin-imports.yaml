@@ -118,11 +118,7 @@ mapping-template:
     x-roles:
       - PLATFORM_DATA_STEWARD
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -163,11 +159,7 @@ mapping-template:
     x-roles:
       - PLATFORM_DATA_STEWARD
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:
@@ -336,11 +328,7 @@ import:
     x-roles:
       - PLATFORM_DATA_STEWARD
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -382,11 +370,7 @@ import-rows:
     x-roles:
       - PLATFORM_DATA_STEWARD
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - name: action
         in: query
         required: false
@@ -443,11 +427,7 @@ import-commit:
     x-roles:
       - PLATFORM_DATA_STEWARD
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -501,11 +481,7 @@ import-discard:
     x-roles:
       - PLATFORM_DATA_STEWARD
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
