@@ -44,7 +44,8 @@ LabConnect/
 ├── scripts/                  dev setup, seed, db reset, codegen
 ├── docs/                     this documentation pack
 ├── docker-compose.yml        postgres+postgis, redis, opensearch, localstack, mailpit
-├── turbo.json · pnpm-workspace.yaml · package.json · .nvmrc · .editorconfig
+├── turbo.json · pnpm-workspace.yaml · package.json · .nvmrc · .editorconfig · .env.example
+├── eslint.config.mjs · .dependency-cruiser.cjs · .prettierignore · .gitattributes
 ├── CLAUDE.md · MASTER_PROMPT.md · README.md
 ```
 

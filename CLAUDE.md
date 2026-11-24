@@ -70,7 +70,7 @@ If you find a conflict that this order doesn't resolve, **stop and ask**. Don't 
 - IDs are UUIDv7. Human-readable references (booking numbers, short codes) are separate columns.
 - API: REST, JSON, `/v1`, contract-first OpenAPI in `packages/api-contract/`. Errors follow `docs/04-api/ERROR_HANDLING.md`.
 - Database naming: `snake_case` tables and columns. Prisma models are PascalCase mapped with `@@map`.
-- Tests: Jest for `apps/api` and `apps/worker`, Vitest for `apps/web` and `packages/*`, Testcontainers for Postgres integration tests, Playwright for E2E.
+- Tests: Vitest for all apps and packages (ADR-019), Testcontainers for Postgres integration tests, Playwright for E2E.
 
 Full details are in `docs/06-engineering/CODING_STANDARDS.md`.
 

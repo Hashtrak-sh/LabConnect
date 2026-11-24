@@ -5,15 +5,15 @@
 ## 1. Test levels and tools
 | Level | Scope | Tools | Runs |
 |---|---|---|---|
-| Unit | Pure domain logic: state machine, money, fees, refunds, eligibility, calendar, QR payload, validation | Jest (api, worker), Vitest (web, packages) | Every PR |
-| Integration | Service + real Postgres/PostGIS (Testcontainers) + Redis + LocalStack | Jest + Testcontainers | Every PR |
-| Database | Migrations from empty, constraints, triggers, RLS, append-only | Jest + Testcontainers + raw SQL | Every PR |
-| API contract | Responses validate against `openapi.yaml`. Every documented endpoint exists. | Jest + an OpenAPI response validator | Every PR |
-| Permission matrix | Every endpoint × role → expected allow/deny (generated from `permissions.ts`) | Jest (supertest) | Every PR |
-| Tenant isolation | Cross-org access for every tenant endpoint returns 404 or empty | Jest (supertest) | Every PR |
-| Workflow | Full booking lifecycle at the API level with a fake clock and fake gateway | Jest | Every PR |
-| Payment and webhook | Signature, replay, duplicate, out-of-order, amount mismatch, reconciliation | Jest + FakePaymentGateway (+ ICICI sandbox in UAT) | Every PR / UAT |
-| QR | Sign and verify, tamper, rotation, wrong site, voided label, short code | Jest | Every PR |
+| Unit | Pure domain logic: state machine, money, fees, refunds, eligibility, calendar, QR payload, validation | Vitest (all apps and packages, ADR-019) | Every PR |
+| Integration | Service + real Postgres/PostGIS (Testcontainers) + Redis + LocalStack | Vitest + Testcontainers | Every PR |
+| Database | Migrations from empty, constraints, triggers, RLS, append-only | Vitest + Testcontainers + raw SQL | Every PR |
+| API contract | Responses validate against `openapi.yaml`. Every documented endpoint exists. | Vitest + an OpenAPI response validator | Every PR |
+| Permission matrix | Every endpoint × role → expected allow/deny (generated from `permissions.ts`) | Vitest (supertest) | Every PR |
+| Tenant isolation | Cross-org access for every tenant endpoint returns 404 or empty | Vitest (supertest) | Every PR |
+| Workflow | Full booking lifecycle at the API level with a fake clock and fake gateway | Vitest | Every PR |
+| Payment and webhook | Signature, replay, duplicate, out-of-order, amount mismatch, reconciliation | Vitest + FakePaymentGateway (+ ICICI sandbox in UAT) | Every PR / UAT |
+| QR | Sign and verify, tamper, rotation, wrong site, voided label, short code | Vitest | Every PR |
 | E2E | Critical user journeys in the browser | Playwright (desktop + mobile profile) | PR to `main` (smoke), nightly (full) |
 | Accessibility | axe-core on key pages | Playwright + @axe-core | Nightly |
 | Security | SAST (CodeQL), dependency audit, secrets scan, DAST (OWASP ZAP baseline on UAT) | GitHub | PR / nightly |
