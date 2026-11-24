@@ -1,0 +1,730 @@
+// Enumerations (schema spec §13)
+
+enum ConfigScope {
+  GLOBAL
+  LAB_ORG
+  LAB_SITE
+  CATEGORY
+
+  @@map("config_scope")
+}
+
+enum TimerType {
+  LAB_DECISION_REMINDER_50
+  LAB_DECISION_REMINDER_90
+  LAB_DECISION_DUE
+  COUNTER_RESPONSE_DUE
+  PAYMENT_REMINDER
+  PAYMENT_DUE
+  DROP_REMINDER
+  DROP_DEADLINE
+  NO_SHOW_DUE
+  RECEIPT_APPROVAL_REMINDER
+  HOLD_DECISION_DUE
+  REPORT_DUE
+  REPORT_APPROVAL_REMINDER
+  DISPUTE_WINDOW_END
+  PAYMENT_RECONCILE
+
+  @@map("timer_type")
+}
+
+enum TimerStatus {
+  PENDING
+  FIRED
+  CANCELLED
+  FAILED
+
+  @@map("timer_status")
+}
+
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("idempotency_status")
+}
+
+enum OrgType {
+  CUSTOMER
+  LAB
+  PLATFORM
+
+  @@map("org_type")
+}
+
+enum CustomerSegment {
+  INDIVIDUAL
+  BUSINESS
+  INDUSTRY
+  GOVERNMENT
+
+  @@map("customer_segment")
+}
+
+enum ClaimStatus {
+  UNCLAIMED
+  CLAIM_PENDING
+  CLAIMED
+  NOT_APPLICABLE
+
+  @@map("claim_status")
+}
+
+enum VerificationStatus {
+  NOT_STARTED
+  SUBMITTED
+  VERIFIED
+  REJECTED
+
+  @@map("verification_status")
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+
+  @@map("org_status")
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+
+  @@map("user_status")
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  DEACTIVATED
+
+  @@map("membership_status")
+}
+
+enum RoleCode {
+  CUSTOMER_ADMIN
+  CUSTOMER_REQUESTER
+  CUSTOMER_FINANCE
+  LAB_MAKER
+  LAB_CHECKER
+  PLATFORM_OPS
+  PLATFORM_DATA_STEWARD
+  PLATFORM_FINANCE
+  PLATFORM_ADMIN
+
+  @@map("role_code")
+}
+
+enum OtpChannel {
+  EMAIL
+  SMS
+
+  @@map("otp_channel")
+}
+
+enum OtpPurpose {
+  LOGIN
+  LAB_CLAIM
+  VERIFY_EMAIL
+  VERIFY_PHONE
+
+  @@map("otp_purpose")
+}
+
+enum MfaFactorType {
+  TOTP
+
+  @@map("mfa_factor_type")
+}
+
+enum FilePurpose {
+  REPORT_ORIGINAL
+  REPORT_STAMPED
+  RECEIPT_PHOTO
+  BOOKING_ATTACHMENT
+  KYC_DOCUMENT
+  DISPUTE_EVIDENCE
+  IMPORT_SOURCE
+  FINANCIAL_DOCUMENT
+  LABEL_SHEET
+  CUSTODY_TRAIL
+
+  @@map("file_purpose")
+}
+
+enum ScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  ERROR
+  REJECTED
+
+  @@map("scan_status")
+}
+
+enum MdStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("md_status")
+}
+
+enum MdDataType {
+  STRING
+  INTEGER
+  DECIMAL
+  BOOLEAN
+  DATE
+  ENUM
+  NODE_REF
+  STRING_ARRAY
+
+  @@map("md_data_type")
+}
+
+enum ChangeSource {
+  MANUAL
+  IMPORT
+  LAB_PROPOSAL
+  NABL_SYNC
+
+  @@map("change_source")
+}
+
+enum ChangeSetStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  REJECTED
+  CANCELLED
+
+  @@map("change_set_status")
+}
+
+enum MdTargetType {
+  MD_NODE
+  LAB_ORG
+  LAB_SITE
+  ACCREDITATION
+  SCOPE_LINE
+  SYNONYM
+
+  @@map("md_target_type")
+}
+
+enum ChangeOperation {
+  CREATE
+  UPDATE
+  DEACTIVATE
+  REACTIVATE
+
+  @@map("change_operation")
+}
+
+enum ValidationStatus {
+  VALID
+  WARNING
+  ERROR
+
+  @@map("validation_status")
+}
+
+enum ImportKind {
+  NABL_LABS
+  NABL_SCOPE
+  TAXONOMY_NODES
+  LAB_PRICE_LIST
+
+  @@map("import_kind")
+}
+
+enum ImportStatus {
+  UPLOADED
+  PARSING
+  PREVIEW_READY
+  FAILED
+  COMMITTED
+  DISCARDED
+
+  @@map("import_status")
+}
+
+enum ImportSourceFormat {
+  CSV
+  XLSX
+
+  @@map("import_source_format")
+}
+
+enum ImportMatchResult {
+  NEW
+  MATCHED
+  DUPLICATE_IN_FILE
+  CONFLICT
+
+  @@map("import_match_result")
+}
+
+enum ImportRowAction {
+  CREATE
+  UPDATE
+  NO_CHANGE
+  SKIP
+  ERROR
+
+  @@map("import_row_action")
+}
+
+enum LabCategory {
+  TESTING
+  CALIBRATION
+  MEDICAL
+  OTHER
+
+  @@map("lab_category")
+}
+
+enum AccreditationStatus {
+  VALID
+  SUSPENDED
+  WITHDRAWN
+  EXPIRED
+
+  @@map("accreditation_status")
+}
+
+enum ScopeSiteType {
+  PERMANENT
+  SITE
+  MOBILE
+
+  @@map("scope_site_type")
+}
+
+enum GeocodeStatus {
+  PENDING
+  AUTO_OK
+  LOW_CONFIDENCE
+  MANUAL_APPROVED
+
+  @@map("geocode_status")
+}
+
+enum ListingStatus {
+  LISTED
+  BOOKABLE
+  HIDDEN
+
+  @@map("listing_status")
+}
+
+enum ClaimMethod {
+  EMAIL_OTP
+  MANUAL
+
+  @@map("claim_method")
+}
+
+enum ClaimRequestStatus {
+  PENDING_OTP
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+
+  @@map("claim_request_status")
+}
+
+enum PriceListStatus {
+  DRAFT
+  PUBLISHED
+  SUPERSEDED
+  DISCARDED
+
+  @@map("price_list_status")
+}
+
+enum SlotStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+
+  @@map("slot_status")
+}
+
+enum LeadKind {
+  REQUEST_LAB
+  NO_RESULT
+
+  @@map("lead_kind")
+}
+
+enum LeadStatus {
+  NEW
+  IN_PROGRESS
+  CLOSED_ONBOARDED
+  CLOSED_NO_ACTION
+
+  @@map("lead_status")
+}
+
+enum BookingStatus {
+  REQUESTED
+  COUNTERED
+  ACCEPTED
+  PAID
+  HANDOVER_SET
+  SAMPLE_RECORDED
+  ON_HOLD
+  RECEIVED
+  UNDER_TEST
+  REPORT_IN_REVIEW
+  REPORT_RELEASED
+  DISPUTED
+  COMPLETED
+  REJECTED
+  EXPIRED
+  EXPIRED_UNPAID
+  NO_SHOW
+  CANCELLED
+
+  @@map("booking_status")
+}
+
+enum BookingLineStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  DONE
+  CANCELLED
+
+  @@map("booking_line_status")
+}
+
+enum PartyType {
+  CUSTOMER
+  LAB
+  PLATFORM
+  SYSTEM
+
+  @@map("party_type")
+}
+
+enum CounterStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WITHDRAWN
+
+  @@map("counter_status")
+}
+
+enum HoldKind {
+  SOFT
+  CONFIRMED
+
+  @@map("hold_kind")
+}
+
+enum QrPurpose {
+  BOOKING
+  PACKAGE
+  REPORT
+
+  @@map("qr_purpose")
+}
+
+enum KeyStatus {
+  ACTIVE
+  VERIFY_ONLY
+  RETIRED
+
+  @@map("key_status")
+}
+
+enum PackageStatus {
+  ISSUED
+  RECEIVED
+  MISSING
+  VOIDED
+
+  @@map("package_status")
+}
+
+enum CustodyEventType {
+  QR_ISSUED
+  LABELS_PRINTED
+  LABEL_REPRINTED
+  LABEL_VOIDED
+  SCAN_ACCEPTED
+  SCAN_REJECTED
+  MANUAL_LOOKUP
+  RECEIPT_SUBMITTED
+  RECEIPT_APPROVED
+  RECEIPT_ON_HOLD
+  SAMPLE_REJECTED
+  REPORT_BOUND
+
+  @@map("custody_event_type")
+}
+
+enum ReceiptDecision {
+  APPROVED
+  HOLD_CONFIRMED
+  REJECTED_UNFIT
+
+  @@map("receipt_decision")
+}
+
+enum HoldDecision {
+  PROCEED
+  REPLACE
+  CANCEL
+
+  @@map("hold_decision")
+}
+
+enum HoldStatus {
+  OPEN
+  DECIDED
+  ESCALATED
+  CLOSED
+
+  @@map("hold_status")
+}
+
+enum ReportStatus {
+  IN_PROGRESS
+  RELEASED
+  AMENDMENT_IN_PROGRESS
+
+  @@map("report_status")
+}
+
+enum ReportVersionStatus {
+  DRAFT
+  IN_REVIEW
+  RETURNED
+  RELEASED
+  SUPERSEDED
+
+  @@map("report_version_status")
+}
+
+enum ConformityResult {
+  CONFORMS
+  DOES_NOT_CONFORM
+  NOT_STATED
+  NOT_APPLICABLE
+
+  @@map("conformity_result")
+}
+
+enum ReportAccessType {
+  DOWNLOAD
+  SHARE_LINK_DOWNLOAD
+  BREAK_GLASS
+
+  @@map("report_access_type")
+}
+
+enum VerificationResult {
+  GENUINE_CURRENT
+  GENUINE_SUPERSEDED
+  NOT_FOUND
+  REVOKED
+
+  @@map("verification_result")
+}
+
+enum GatewayCode {
+  ICICI
+  FAKE
+
+  @@map("gateway_code")
+}
+
+enum PaymentOrderStatus {
+  CREATED
+  PENDING
+  CAPTURED
+  FAILED
+  EXPIRED
+  REFUNDED_PARTIAL
+  REFUNDED_FULL
+
+  @@map("payment_order_status")
+}
+
+enum PaymentTxnType {
+  CAPTURE
+  REFUND
+  CHARGEBACK
+
+  @@map("payment_txn_type")
+}
+
+enum PaymentTxnStatus {
+  SUCCESS
+  FAILED
+  PENDING
+
+  @@map("payment_txn_status")
+}
+
+enum WebhookProcessingStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+
+  @@map("webhook_processing_status")
+}
+
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  SUBMITTED
+  SUCCEEDED
+  FAILED
+
+  @@map("refund_status")
+}
+
+enum PayoutStatus {
+  PENDING
+  ON_HOLD
+  ELIGIBLE
+  RELEASED
+  FAILED
+  CANCELLED
+
+  @@map("payout_status")
+}
+
+enum PayoutMechanism {
+  GATEWAY_SETTLEMENT
+  BANK_TRANSFER_MANUAL
+  TBD
+
+  @@map("payout_mechanism")
+}
+
+enum PayoutHoldReason {
+  DISPUTE
+  OPS_MANUAL
+  COMPLIANCE
+
+  @@map("payout_hold_reason")
+}
+
+enum LedgerNormalBalance {
+  DEBIT
+  CREDIT
+
+  @@map("ledger_normal_balance")
+}
+
+enum LedgerJournalType {
+  PAYMENT_CAPTURED
+  REFUND_ISSUED
+  CANCELLATION_FEE
+  NO_SHOW_FEE
+  PAYOUT_RELEASED
+  DUPLICATE_CAPTURE
+  ADJUSTMENT
+
+  @@map("ledger_journal_type")
+}
+
+enum FinDocType {
+  TAX_INVOICE
+  PAYMENT_RECEIPT
+  CREDIT_NOTE
+  REFUND_NOTE
+
+  @@map("fin_doc_type")
+}
+
+enum FeeType {
+  PLATFORM_FEE
+  CANCELLATION_FEE
+  NO_SHOW_FEE
+  HANDLING_FEE
+
+  @@map("fee_type")
+}
+
+enum FeeCalc {
+  PERCENT_BP
+  FLAT_PAISE
+
+  @@map("fee_calc")
+}
+
+enum SettlementMatchStatus {
+  MATCHED
+  UNMATCHED
+  MISMATCH
+
+  @@map("settlement_match_status")
+}
+
+enum DisputeStatus {
+  OPEN
+  AWAITING_LAB
+  AWAITING_CUSTOMER
+  UNDER_REVIEW
+  DECIDED
+  CLOSED
+  WITHDRAWN
+
+  @@map("dispute_status")
+}
+
+enum DisputeOutcome {
+  NO_ACTION
+  PARTIAL_REFUND
+  FULL_REFUND
+  REPORT_AMENDMENT_REQUIRED
+  REFERRED_TO_LAB_COMPLAINT_PROCESS
+
+  @@map("dispute_outcome")
+}
+
+enum RatingDirection {
+  CUSTOMER_TO_LAB
+  LAB_TO_CUSTOMER
+
+  @@map("rating_direction")
+}
+
+enum MessageVisibility {
+  ALL
+  PLATFORM_ONLY
+
+  @@map("message_visibility")
+}
+
+enum NotifChannel {
+  EMAIL
+  IN_APP
+  SMS
+  WHATSAPP
+
+  @@map("notif_channel")
+}
+
+enum NotifStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  SUPPRESSED
+
+  @@map("notif_status")
+}

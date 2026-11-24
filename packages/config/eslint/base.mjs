@@ -15,6 +15,7 @@ export default tseslint.config(
       '**/coverage/**',
       '**/next-env.d.ts',
       'packages/api-contract/generated/**',
+      'packages/database/src/generated/**',
     ],
   },
   js.configs.recommended,

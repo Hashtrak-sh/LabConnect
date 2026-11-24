@@ -1,0 +1,71 @@
+// 6. Customers
+
+model CustomerSite {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  name String
+  address Json
+  pincode String @db.Char(6)
+  stateCode String @map("state_code") @db.VarChar(4)
+  geoPoint Unsupported("geography(Point,4326)")? @map("geo_point")
+  gstin String? @db.VarChar(15)
+  contact Json?
+  isDefaultBilling Boolean @default(false) @map("is_default_billing")
+  status MdStatus @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  organisation Organisation @relation("customer_site_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("customer_site_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  customerSettingses CustomerSettings[] @relation("customer_settings_default_customer_site_id")
+  bookings Booking[] @relation("booking_customer_site_id_customer_org_id")
+
+  @@unique([id, organisationId])
+  @@index([organisationId])
+  @@map("customer_site")
+}
+
+model CustomerSettings {
+  id String @id @db.Uuid
+  organisationId String @map("organisation_id") @db.Uuid
+  requesterCanPay Boolean @default(false) @map("requester_can_pay")
+  defaultCustomerSiteId String? @map("default_customer_site_id") @db.Uuid
+  reportRecipients Json? @map("report_recipients")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  organisation Organisation @relation("customer_settings_organisation_id", fields: [organisationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  defaultCustomerSite CustomerSite? @relation("customer_settings_default_customer_site_id", fields: [defaultCustomerSiteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("customer_settings_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organisationId])
+  @@map("customer_settings")
+}
+
+model LeadRequest {
+  id String @id @db.Uuid
+  kind LeadKind
+  labSiteId String? @map("lab_site_id") @db.Uuid
+  query Json?
+  requesterUserId String? @map("requester_user_id") @db.Uuid
+  contactEmail String? @map("contact_email") @db.Citext
+  status LeadStatus @default(NEW)
+  assignedToUserId String? @map("assigned_to_user_id") @db.Uuid
+  notes String?
+  notifiedAt DateTime? @map("notified_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  labSite LabSite? @relation("lead_request_lab_site_id", fields: [labSiteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  requesterUser AppUser? @relation("lead_request_requester_user_id", fields: [requesterUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  assignedToUser AppUser? @relation("lead_request_assigned_to_user_id", fields: [assignedToUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("lead_request_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([status, createdAt])
+  @@map("lead_request")
+}

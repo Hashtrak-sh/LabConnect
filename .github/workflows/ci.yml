@@ -72,6 +72,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+  # Database suite: applies every migration to an empty PostGIS database (Testcontainers),
+  # then checks tables, constraints, append-only protection, RLS and Prisma drift.
+  db:
+    name: db
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:db
+
   audit:
     name: audit
     runs-on: ubuntu-latest
@@ -106,8 +121,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - check: db
-            task: P1-09
           - check: integration
             task: Phase 3
           - check: contract

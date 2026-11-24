@@ -1,0 +1,109 @@
+// 11. Disputes and ratings
+
+model Dispute {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  disputeNo String @map("dispute_no") @db.VarChar(20)
+  typeNodeId String @map("type_node_id") @db.Uuid
+  raisedByUserId String @map("raised_by_user_id") @db.Uuid
+  raisedByParty PartyType @map("raised_by_party")
+  description String
+  status DisputeStatus @default(OPEN)
+  labResponseDueAt DateTime? @map("lab_response_due_at") @db.Timestamptz(6)
+  assignedToUserId String? @map("assigned_to_user_id") @db.Uuid
+  outcome DisputeOutcome?
+  refundAmountPaise BigInt? @map("refund_amount_paise")
+  decisionRationale String? @map("decision_rationale")
+  decidedByUserId String? @map("decided_by_user_id") @db.Uuid
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  typeNode MdNode @relation("dispute_type_node_id", fields: [typeNodeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  raisedByUser AppUser @relation("dispute_raised_by_user_id", fields: [raisedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  assignedToUser AppUser? @relation("dispute_assigned_to_user_id", fields: [assignedToUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  decidedByUser AppUser? @relation("dispute_decided_by_user_id", fields: [decidedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("dispute_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("dispute_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  refunds Refund[] @relation("refund_dispute_id")
+  payoutHolds PayoutHold[] @relation("payout_hold_dispute_id")
+  disputeMessages DisputeMessage[] @relation("dispute_message_dispute_id_customer_org_id_lab_org_id")
+  disputeEvidences DisputeEvidence[] @relation("dispute_evidence_dispute_id_customer_org_id_lab_org_id")
+
+  @@unique([disputeNo])
+  @@unique([id, customerOrgId, labOrgId])
+  @@unique([bookingId], map: "uq_dispute_open", where: raw("(status = ANY (ARRAY['OPEN'::dispute_status, 'AWAITING_LAB'::dispute_status, 'AWAITING_CUSTOMER'::dispute_status, 'UNDER_REVIEW'::dispute_status]))"))
+  @@index([customerOrgId, status])
+  @@index([labOrgId, status])
+  @@index([status, labResponseDueAt])
+  @@map("dispute")
+}
+
+model DisputeMessage {
+  id String @id @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  disputeId String @map("dispute_id") @db.Uuid
+  authorUserId String @map("author_user_id") @db.Uuid
+  authorParty PartyType @map("author_party")
+  body String
+  visibility MessageVisibility @default(ALL)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  authorUser AppUser @relation("dispute_message_author_user_id", fields: [authorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("dispute_message_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  dispute Dispute @relation("dispute_message_dispute_id_customer_org_id_lab_org_id", fields: [disputeId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([disputeId, occurredAt])
+  @@map("dispute_message")
+}
+
+model DisputeEvidence {
+  id String @id @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  disputeId String @map("dispute_id") @db.Uuid
+  fileId String @map("file_id") @db.Uuid
+  submittedByUserId String @map("submitted_by_user_id") @db.Uuid
+  description String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  file FileObject @relation("dispute_evidence_file_id", fields: [fileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  submittedByUser AppUser @relation("dispute_evidence_submitted_by_user_id", fields: [submittedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("dispute_evidence_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  dispute Dispute @relation("dispute_evidence_dispute_id_customer_org_id_lab_org_id", fields: [disputeId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([disputeId])
+  @@map("dispute_evidence")
+}
+
+model Rating {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  direction RatingDirection
+  ratedByUserId String @map("rated_by_user_id") @db.Uuid
+  scoreOverall Int @map("score_overall") @db.SmallInt
+  scoreTat Int? @map("score_tat") @db.SmallInt
+  scoreCommunication Int? @map("score_communication") @db.SmallInt
+  comment String?
+  isPublic Boolean @map("is_public")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  ratedByUser AppUser @relation("rating_rated_by_user_id", fields: [ratedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("rating_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("rating_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([bookingId, direction])
+  @@map("rating")
+}

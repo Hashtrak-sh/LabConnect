@@ -10,14 +10,29 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "generate": "prisma generate",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "typecheck": "prisma generate && tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:db": "vitest run --config vitest.db.config.ts",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:drift": "prisma migrate diff --from-config-datasource --to-schema prisma/schema --exit-code"
   },
   "devDependencies": {
     "@labconnect/config": "workspace:*",
+    "@testcontainers/postgresql": "^12.2.2",
     "@types/node": "catalog:",
+    "@types/pg": "^8.23.1",
+    "dotenv": "^18.0.10",
+    "prisma": "^7.10.1",
+    "testcontainers": "^12.2.2",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "pg": "^8.23.1"
   }
 }

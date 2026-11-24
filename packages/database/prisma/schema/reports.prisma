@@ -1,0 +1,207 @@
+// 9. Reports
+
+model Report {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  labSiteId String @map("lab_site_id") @db.Uuid
+  reportNo String? @map("report_no") @db.VarChar(60)
+  ulrNo String? @map("ulr_no") @db.VarChar(30)
+  currentReleasedVersionId String? @map("current_released_version_id") @db.Uuid
+  status ReportStatus @default(IN_PROGRESS)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  labSite LabSite @relation("report_lab_site_id", fields: [labSiteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentReleasedVersion ReportVersion? @relation("report_current_released_version_id", fields: [currentReleasedVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("report_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("report_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  reportVersions ReportVersion[] @relation("report_version_report_id_booking_id")
+
+  @@unique([bookingId])
+  @@unique([ulrNo])
+  @@unique([labSiteId, reportNo])
+  @@unique([id, bookingId])
+  @@index([labOrgId])
+  @@index([customerOrgId])
+  @@map("report")
+}
+
+model ReportVersion {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  reportId String @map("report_id") @db.Uuid
+  versionNo Int @map("version_no")
+  status ReportVersionStatus @default(DRAFT)
+  isAmendment Boolean @default(false) @map("is_amendment")
+  issueDate DateTime? @map("issue_date") @db.Date
+  originalFileId String? @map("original_file_id") @db.Uuid
+  originalSha256 Bytes? @map("original_sha256")
+  stampedFileId String? @map("stamped_file_id") @db.Uuid
+  stampedSha256 Bytes? @map("stamped_sha256")
+  boundPackageId String? @map("bound_package_id") @db.Uuid
+  bindEventId String? @map("bind_event_id") @db.Uuid
+  amendmentReason String? @map("amendment_reason")
+  makerUserId String @map("maker_user_id") @db.Uuid
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(6)
+  checkerUserId String? @map("checker_user_id") @db.Uuid
+  checkerMfaAt DateTime? @map("checker_mfa_at") @db.Timestamptz(6)
+  decidedAt DateTime? @map("decided_at") @db.Timestamptz(6)
+  reviewComments String? @map("review_comments")
+  verificationCode String? @map("verification_code") @db.VarChar(16)
+  signingKeyId String? @map("signing_key_id") @db.VarChar(8)
+  supersededByVersionId String? @map("superseded_by_version_id") @db.Uuid
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  originalFile FileObject? @relation("report_version_original_file_id", fields: [originalFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  stampedFile FileObject? @relation("report_version_stamped_file_id", fields: [stampedFileId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  bindEvent CustodyEvent? @relation("report_version_bind_event_id", fields: [bindEventId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  makerUser AppUser @relation("report_version_maker_user_id", fields: [makerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  checkerUser AppUser? @relation("report_version_checker_user_id", fields: [checkerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  signingKey QrSigningKey? @relation("report_version_signing_key_id", fields: [signingKeyId], references: [keyId], onDelete: Restrict, onUpdate: Restrict)
+  supersededByVersion ReportVersion? @relation("report_version_superseded_by_version_id", fields: [supersededByVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("report_version_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("report_version_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  report Report @relation("report_version_report_id_booking_id", fields: [reportId, bookingId], references: [id, bookingId], onDelete: Restrict, onUpdate: Restrict)
+  boundPackage Package? @relation("report_version_bound_package_id_booking_id", fields: [boundPackageId, bookingId], references: [id, bookingId], onDelete: Restrict, onUpdate: Restrict)
+  reports Report[] @relation("report_current_released_version_id")
+  reportVersions ReportVersion[] @relation("report_version_superseded_by_version_id")
+  reportParameterResults ReportParameterResult[] @relation("report_parameter_result_report_version_id_booking_id")
+  reportShareLinks ReportShareLink[] @relation("report_share_link_report_version_id_customer_org_id_lab_org_id")
+  reportAccessLogs ReportAccessLog[] @relation("report_access_log_report_version_id_customer_org_id_lab_org_id")
+  breakGlassGrants BreakGlassGrant[] @relation("break_glass_grant_report_version_id_customer_org_id_lab_org_id")
+
+  @@unique([reportId, versionNo])
+  @@unique([id, bookingId])
+  @@unique([id, customerOrgId, labOrgId])
+  @@unique([verificationCode])
+  @@unique([reportId], map: "uq_report_version_open", where: raw("(status = ANY (ARRAY['DRAFT'::report_version_status, 'IN_REVIEW'::report_version_status]))"))
+  @@unique([reportId], map: "uq_report_version_released", where: { status: "RELEASED" })
+  @@index([status], map: "ix_report_version_in_review", where: { status: "IN_REVIEW" })
+  @@map("report_version")
+}
+
+model ReportParameterResult {
+  id String @id @db.Uuid
+  bookingId String @map("booking_id") @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  reportVersionId String @map("report_version_id") @db.Uuid
+  bookingLineId String @map("booking_line_id") @db.Uuid
+  conformity ConformityResult
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  createdByUser AppUser? @relation("report_parameter_result_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  booking Booking @relation("report_parameter_result_booking_id_customer_org_id_lab_org_id", fields: [bookingId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  reportVersion ReportVersion @relation("report_parameter_result_report_version_id_booking_id", fields: [reportVersionId, bookingId], references: [id, bookingId], onDelete: Restrict, onUpdate: Restrict)
+  bookingLine BookingLine @relation("report_parameter_result_booking_line_id_booking_id", fields: [bookingLineId, bookingId], references: [id, bookingId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([reportVersionId, bookingLineId])
+  @@index([bookingLineId])
+  @@map("report_parameter_result")
+}
+
+model ReportShareLink {
+  id String @id @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  reportVersionId String @map("report_version_id") @db.Uuid
+  tokenHash Bytes @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokedByUserId String? @map("revoked_by_user_id") @db.Uuid
+  accessCount Int @default(0) @map("access_count")
+  lastAccessedAt DateTime? @map("last_accessed_at") @db.Timestamptz(6)
+  recipientNote String? @map("recipient_note")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  revokedByUser AppUser? @relation("report_share_link_revoked_by_user_id", fields: [revokedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("report_share_link_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reportVersion ReportVersion @relation("report_share_link_report_version_id_customer_org_id_lab_org_id", fields: [reportVersionId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  reportAccessLogs ReportAccessLog[] @relation("report_access_log_share_link_id")
+
+  @@unique([tokenHash])
+  @@index([reportVersionId])
+  @@map("report_share_link")
+}
+
+model ReportAccessLog {
+  id String @id @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  reportVersionId String @map("report_version_id") @db.Uuid
+  accessorUserId String? @map("accessor_user_id") @db.Uuid
+  accessType ReportAccessType @map("access_type")
+  shareLinkId String? @map("share_link_id") @db.Uuid
+  grantId String? @map("grant_id") @db.Uuid
+  reason String?
+  ipAddress String? @map("ip_address") @db.Inet
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  accessorUser AppUser? @relation("report_access_log_accessor_user_id", fields: [accessorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  shareLink ReportShareLink? @relation("report_access_log_share_link_id", fields: [shareLinkId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  grant BreakGlassGrant? @relation("report_access_log_grant_id", fields: [grantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("report_access_log_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reportVersion ReportVersion @relation("report_access_log_report_version_id_customer_org_id_lab_org_id", fields: [reportVersionId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([reportVersionId, occurredAt])
+  @@map("report_access_log")
+}
+
+model VerificationEvent {
+  id String @id @db.Uuid
+  verificationCode String @map("verification_code") @db.VarChar(16)
+  result VerificationResult
+  ipHash Bytes @map("ip_hash")
+  userAgentFamily String? @map("user_agent_family") @db.VarChar(40)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+
+  @@index([verificationCode, occurredAt])
+  @@index([ipHash, occurredAt])
+  @@map("verification_event")
+}
+
+model BreakGlassGrant {
+  id String @id @db.Uuid
+  customerOrgId String @map("customer_org_id") @db.Uuid
+  labOrgId String @map("lab_org_id") @db.Uuid
+  reportVersionId String @map("report_version_id") @db.Uuid
+  requestedByUserId String @map("requested_by_user_id") @db.Uuid
+  reason String
+  approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(6)
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  rejectedAt DateTime? @map("rejected_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  lockVersion Int @default(0) @map("lock_version")
+
+  requestedByUser AppUser @relation("break_glass_grant_requested_by_user_id", fields: [requestedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  approvedByUser AppUser? @relation("break_glass_grant_approved_by_user_id", fields: [approvedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdByUser AppUser? @relation("break_glass_grant_created_by_user_id", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reportVersion ReportVersion @relation("break_glass_grant_report_version_id_customer_org_id_lab_org_id", fields: [reportVersionId, customerOrgId, labOrgId], references: [id, customerOrgId, labOrgId], onDelete: Restrict, onUpdate: Restrict)
+  reportAccessLogs ReportAccessLog[] @relation("report_access_log_grant_id")
+
+  @@index([reportVersionId])
+  @@map("break_glass_grant")
+}

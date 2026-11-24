@@ -19,7 +19,9 @@
     "dev": "turbo run dev",
     "dev:setup": "node scripts/dev-setup.mjs",
     "dev:up": "docker compose up -d --wait",
-    "dev:down": "docker compose down"
+    "dev:down": "docker compose down",
+    "test:db": "pnpm --filter @labconnect/database test:db",
+    "db:generate": "pnpm --filter @labconnect/database generate"
   },
   "devDependencies": {
     "@labconnect/config": "workspace:*",
