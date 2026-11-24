@@ -15,11 +15,7 @@ site:
       The lab's view of the site: the public profile plus the bookability state, the operational
       fields the Checker edits and the lock version.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
@@ -58,11 +54,7 @@ site:
       customers after payment (FR-LAB-06). Audited. NABL-sourced fields (name, address,
       accreditations) change only through master-data change sets.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -118,11 +110,7 @@ receiving-hours:
       (EC-13); slots already generated are not changed, and the Checker closes any that no longer
       fit (`PATCH /lab/sites/{siteId}/slots/{slotId}`).
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:
@@ -169,11 +157,7 @@ closures:
     summary: List closures
     description: Closures of the site that end on or after `from`, ordered by start date.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - name: from
         in: query
         required: false
@@ -221,11 +205,7 @@ closures:
       new slots are generated for them. Customers whose bookings hold a cancelled slot are
       notified; their bookings do not change state. The first day may not be in the past.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -280,11 +260,7 @@ closure:
       Withdraws a closure that has not started yet. Slots it cancelled stay `CANCELLED`; they are
       not reopened.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - name: closureId
         in: path
         required: true
@@ -324,11 +300,7 @@ slot-templates:
     summary: Get slot templates
     description: The site's capacity templates, active and retired (FR-LAB-06).
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
@@ -367,11 +339,7 @@ slot-templates:
       to slots generated from now on (30 days ahead, nightly); existing slots are adjusted with
       `PATCH /lab/sites/{siteId}/slots/{slotId}`. Returns all templates of the site.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:
@@ -425,11 +393,7 @@ slots:
       The site's slots between `from` and `to` (inclusive, by slot date in IST) with capacity,
       held and booked counts and status, ordered by start.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - name: from
         in: query
         required: true
@@ -498,11 +462,7 @@ slot:
       reopens it. Closing stops new bookings; bookings that already hold the slot keep it. A
       `CANCELLED` slot cannot be changed.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - name: slotId
         in: path
         required: true
@@ -562,11 +522,7 @@ retention-rules:
     summary: Get retention rules
     description: The site's retention period per discipline and its default (FR-ONB-07, CD-13).
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
@@ -604,11 +560,7 @@ retention-rules:
       412. Rules that are not listed are unchanged. A new period applies to receipts approved from
       now on: `retain_until` is fixed at receipt approval (BR-049). Returns all rules of the site.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:
@@ -661,11 +613,7 @@ scope-lines:
       The site's active scope lines, ordered along the scope tree, with their availability, lock
       version and whether the effective price list prices them. `q` searches inside the scope.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - name: q
         in: query
         required: false
@@ -714,11 +662,7 @@ scope-line-availability:
       existing bookings are not affected. Audited. The scope itself changes only through a
       proposal (`/lab/sites/{siteId}/proposals`).
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - name: id
         in: path
         required: true
@@ -780,11 +724,7 @@ proposals:
       only an approved pin is used (BR-004). A scope correction names scope lines of this site
       and the master-data codes of the proposed state.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'

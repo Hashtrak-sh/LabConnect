@@ -86,11 +86,7 @@ claim-verify-otp:
       to `PENDING_REVIEW`; `PLATFORM_OPS` approves or rejects it (ADMIN_USER_FLOWS). On
       approval the caller becomes the organisation's first `LAB_CHECKER`.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -147,11 +143,7 @@ claim-manual-upload-url:
       A pre-signed upload for the letterhead authorisation of the caller's claim (PDF, JPEG or
       PNG, at most 10 MB; FILES_AND_REPORTS §1). Only while the claim is `PENDING_OTP`.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:
@@ -169,7 +161,7 @@ claim-manual-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/files.yaml#/FileUploadUrlWithHeaders'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrl'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -203,11 +195,7 @@ claim-manual:
       The fallback route of FR-DAT-07: the claim moves from `PENDING_OTP` to `PENDING_REVIEW` with
       method `MANUAL`, and `PLATFORM_OPS` reviews the letterhead authorisation.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -321,7 +309,7 @@ kyc-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/files.yaml#/FileUploadUrlWithHeaders'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrl'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -685,11 +673,7 @@ invitation:
       Revokes a pending invitation; its token stops working. Revoking an invitation that is
       already revoked changes nothing.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:

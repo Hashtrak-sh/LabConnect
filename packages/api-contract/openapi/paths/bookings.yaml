@@ -281,11 +281,7 @@ booking:
       member never sees the customer's requester, sites or contacts; a customer member sees the
       lab's contact only once the booking has been paid.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
@@ -331,11 +327,7 @@ booking:
     x-transitions:
       - T-02
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -399,11 +391,7 @@ attachment-upload-url:
       PNG, XLSX, DOCX; at most 25 MB in total per booking (BR-021). Only while the booking is
       `REQUESTED`, and only by the owner.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -422,7 +410,7 @@ attachment-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/files.yaml#/FileUploadUrlWithHeaders'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrl'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -463,11 +451,7 @@ accept:
     x-transitions:
       - T-03
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -523,11 +507,7 @@ reject:
     x-transitions:
       - T-05
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -598,11 +578,7 @@ counter:
     x-transitions:
       - T-04
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -670,11 +646,7 @@ counter-accept:
     x-transitions:
       - T-07
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -729,11 +701,7 @@ counter-decline:
     x-transitions:
       - T-08
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -804,11 +772,7 @@ cancel:
       - T-26
       - T-27
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -874,11 +838,7 @@ handover:
       (T-11, `HANDOVER_SET`) and afterwards. Who: the owner, a `CUSTOMER_ADMIN`, or a
       `LAB_MAKER` or `LAB_CHECKER` of the site (ROLES_AND_PERMISSIONS §2).
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
@@ -929,11 +889,7 @@ labels:
       (`HANDOVER_SET`, `SAMPLE_RECORDED`, `ON_HOLD`). Who: the owner, or a `LAB_MAKER` or
       `LAB_CHECKER` of the site (CD-12, FR-LOG-04, FR-LOG-09).
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - name: format
         in: query
         required: false
@@ -1007,11 +963,7 @@ hold-decision:
       - T-16
       - T-27
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -1075,11 +1027,7 @@ start-testing:
     x-transitions:
       - T-18
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -1140,11 +1088,7 @@ expected-report-date:
       Not a state transition. The customer is notified. Only while `UNDER_TEST` or
       `REPORT_IN_REVIEW`. Who: a `LAB_MAKER` assigned to the booking's site.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -1207,11 +1151,7 @@ line-status:
       booking is `ON_HOLD`, `RECEIVED` or `UNDER_TEST`. `If-Match` carries the booking's `ETag`.
       Who: a `LAB_MAKER` assigned to the booking's site.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - name: lineId
         in: path
         required: true
@@ -1280,11 +1220,7 @@ timeline:
       look-ups and clock-skew flags are shown to the lab only. Who: any member who can see the
       booking (a `CUSTOMER_REQUESTER` for their own bookings).
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/Cursor'
       - $ref: '../components/parameters.yaml#/Limit'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -1330,11 +1266,7 @@ custody-trail:
       been released (`REPORT_RELEASED`, `DISPUTED`, `COMPLETED`). The download is logged. Who: the
       owner or a `CUSTOMER_ADMIN` of the organisation.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
@@ -1386,11 +1318,7 @@ rating:
       changed. Only once the report has been released (`REPORT_RELEASED`, `DISPUTED`,
       `COMPLETED`).
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'

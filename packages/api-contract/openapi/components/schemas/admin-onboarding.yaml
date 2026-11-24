@@ -249,7 +249,7 @@ AdminLabSiteGeocode:
     organisationId:
       $ref: './common.yaml#/Uuid'
     address:
-      $ref: './public-lab-sites.yaml#/PublicAddress'
+      $ref: './common.yaml#/PostalAddress'
     geocodeStatus:
       $ref: './enums.yaml#/GeocodeStatus'
     geocodeConfidence:

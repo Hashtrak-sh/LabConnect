@@ -61,11 +61,7 @@ claim-approve:
     x-roles:
       - PLATFORM_OPS
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -126,11 +122,7 @@ claim-reject:
     x-roles:
       - PLATFORM_OPS
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -193,11 +185,7 @@ kyc-document-verify:
     x-roles:
       - PLATFORM_OPS
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:
@@ -255,11 +243,7 @@ bank-account-verify:
     x-roles:
       - PLATFORM_FINANCE
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -369,11 +353,7 @@ lab-site-pin:
     x-roles:
       - PLATFORM_OPS
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'

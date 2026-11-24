@@ -56,8 +56,7 @@ VerifiedReport:
       additionalProperties: false
       properties:
         certificateNo:
-          type: string
-          maxLength: 50
+          $ref: './common.yaml#/CertificateNo'
         status:
           $ref: './enums.yaml#/AccreditationStatus'
     approvedBy:

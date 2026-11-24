@@ -69,8 +69,7 @@ bookings:
         required: false
         description: Exact booking number.
         schema:
-          type: string
-          maxLength: 20
+          $ref: '../components/schemas/common.yaml#/BookingNo'
       - name: customerOrgId
         in: query
         required: false
@@ -139,11 +138,7 @@ booking:
     x-roles:
       - PLATFORM_OPS
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -190,11 +185,7 @@ booking-cancel:
     x-roles:
       - PLATFORM_OPS
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -364,11 +355,7 @@ break-glass-request:
       - PLATFORM_OPS
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -411,11 +398,7 @@ break-glass-approve:
     x-roles:
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -472,11 +455,7 @@ break-glass-reject:
     x-roles:
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -529,11 +508,7 @@ break-glass-revoke:
     x-roles:
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -590,11 +565,7 @@ break-glass-download-url:
     x-roles:
       - PLATFORM_OPS
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
@@ -606,7 +577,7 @@ break-glass-download-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/files.yaml#/AdminDownloadUrl'
+              $ref: '../components/schemas/files.yaml#/FileDownloadUrl'
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: >-
@@ -698,11 +669,7 @@ lead:
     x-roles:
       - PLATFORM_OPS
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:
       required: true
@@ -814,11 +781,7 @@ dispute-assign:
     x-roles:
       - PLATFORM_OPS
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -887,11 +850,7 @@ dispute-decide:
     x-roles:
       - PLATFORM_OPS
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'

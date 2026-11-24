@@ -39,10 +39,7 @@ LabInboxBookingSummary:
     id:
       $ref: './common.yaml#/Uuid'
     bookingNo:
-      type: string
-      maxLength: 20
-      examples:
-        - LC-2611-0000001
+      $ref: './common.yaml#/BookingNo'
     status:
       $ref: './enums.yaml#/BookingStatus'
     statusChangedAt:

@@ -80,6 +80,12 @@ const intendedDuplicates: { names: string[]; reason: string }[] = [
       'claimed lab, and the TOTP code of the signed-in user.',
   },
   {
+    names: ['DisputeEvidenceUploadUrlRequest', 'KycDocumentUploadUrlRequest'],
+    reason:
+      'Two upload purposes of FILES_AND_REPORTS §1 (DISPUTE_EVIDENCE, KYC_DOCUMENT) that happen ' +
+      'to allow the same types (PDF, JPEG, PNG) and the same size (10 MB); each has its own row.',
+  },
+  {
     names: ['LabClaimManual', 'LabPriceListImportCreate'],
     reason:
       'Two commands whose only input today is an uploaded file: the claim letterhead, and a ' +

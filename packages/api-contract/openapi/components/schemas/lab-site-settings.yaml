@@ -4,34 +4,6 @@
 # lock versions) to the public shapes of public-lab-sites.yaml, which are reused where the data
 # is the same. Every site is one of the caller's assigned sites (RR-3).
 
-LabPublicContact:
-  type: object
-  description: >-
-    The contact the lab sets for its customers (`lab_site_private.public_contact`). Shown to the
-    customer of a booking after payment only, never publicly.
-  required:
-    - name
-    - phone
-    - email
-  additionalProperties: false
-  properties:
-    name:
-      type:
-        - string
-        - 'null'
-      maxLength: 200
-    phone:
-      type:
-        - string
-        - 'null'
-      maxLength: 20
-      examples:
-        - '+910000000000'
-    email:
-      oneOf:
-        - $ref: './common.yaml#/Email'
-        - type: 'null'
-
 LabSite:
   type: object
   description: >-
@@ -67,7 +39,7 @@ LabSite:
     name:
       type: string
     address:
-      $ref: './public-lab-sites.yaml#/PublicAddress'
+      $ref: './common.yaml#/PostalAddress'
     location:
       description: The approved pin. `null` while the site has none.
       oneOf:
@@ -97,7 +69,7 @@ LabSite:
       minimum: 1
     publicContact:
       oneOf:
-        - $ref: '#/LabPublicContact'
+        - $ref: './common.yaml#/ContactPerson'
         - type: 'null'
     accreditations:
       type: array
@@ -131,7 +103,7 @@ LabSiteUpdate:
       minimum: 1
     publicContact:
       oneOf:
-        - $ref: '#/LabPublicContact'
+        - $ref: './common.yaml#/ContactPerson'
         - type: 'null'
 
 LabReceivingHoursSet:

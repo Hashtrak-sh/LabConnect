@@ -60,11 +60,7 @@ taxonomy:
       - PLATFORM_DATA_STEWARD
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -317,11 +313,7 @@ change-set:
       - PLATFORM_DATA_STEWARD
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -363,11 +355,7 @@ change-set-items:
       - PLATFORM_DATA_STEWARD
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - name: validationStatus
         in: query
         required: false
@@ -416,11 +404,7 @@ change-set-items:
     x-roles:
       - PLATFORM_DATA_STEWARD
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/RequestId'
     requestBody:
@@ -476,11 +460,7 @@ change-set-submit:
     x-roles:
       - PLATFORM_DATA_STEWARD
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -536,11 +516,7 @@ change-set-send-back:
       - PLATFORM_DATA_STEWARD
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -599,11 +575,7 @@ change-set-approve:
       - PLATFORM_DATA_STEWARD
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -660,11 +632,7 @@ change-set-reject:
       - PLATFORM_DATA_STEWARD
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -733,11 +701,7 @@ change-set-publish:
       - PLATFORM_DATA_STEWARD
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -795,11 +759,7 @@ change-set-cancel:
     x-roles:
       - PLATFORM_DATA_STEWARD
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -855,11 +815,7 @@ change-set-impact:
       - PLATFORM_DATA_STEWARD
       - PLATFORM_ADMIN
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
       '200':
@@ -906,11 +862,7 @@ record-versions:
         description: The kind of record, as in change items.
         schema:
           $ref: '../components/schemas/enums.yaml#/MdTargetType'
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/Cursor'
       - $ref: '../components/parameters.yaml#/Limit'
       - $ref: '../components/parameters.yaml#/RequestId'

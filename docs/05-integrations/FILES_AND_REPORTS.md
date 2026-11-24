@@ -19,8 +19,10 @@
 | DISPUTE_EVIDENCE | PDF, JPEG, PNG | 10 MB each |
 | IMPORT_SOURCE | CSV, XLSX | 50 MB |
 
+In the API contract (`components/schemas/files.yaml`) every upload request has one shape, `{fileName?, contentType, sizeBytes}`, narrowed per purpose to the types and size of this table, and every upload answer has one shape, `{fileId, uploadUrl, method: "PUT", headers, expiresAt}`. The client sends the PUT with exactly the returned `headers`, because the content type and length are conditions of the signature.
+
 ## 2. Downloads
-- Only through `POST …/download-url`, which checks permission, writes `report_access_log` (for reports), and returns a **15-minute pre-signed GET** with `Content-Disposition: attachment`.
+- Only through `POST …/download-url`, which checks permission, writes `report_access_log` (for reports), and returns a **15-minute pre-signed GET** with `Content-Disposition: attachment`. The answer is always `{downloadUrl, expiresAt}`; a report download adds `copy` (`STAMPED` or `ORIGINAL`).
 - Buckets: Block Public Access on. Bucket policy denies non-TLS. Versioning on. Object Lock (governance) for `REPORT_*` and `FINANCIAL_DOCUMENT` prefixes, for the retention period (to be confirmed with legal review).
 
 ## 3. Report lifecycle

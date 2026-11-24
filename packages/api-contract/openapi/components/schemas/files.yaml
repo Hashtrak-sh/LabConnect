@@ -5,9 +5,9 @@
 # Downloads are 15-minute pre-signed GETs. No schema here carries a bucket, an object key or the
 # bytes of a file.
 #
-# There is one upload request per purpose of the FILES_AND_REPORTS §1 table. Purposes that differ
-# only in the allowed content types and the size limit compose `FileUploadUrlRequest`; the others
-# also differ in the file name field and stand alone (see the comment above each).
+# Every upload request is `FileUploadUrlRequest`, narrowed per purpose of the FILES_AND_REPORTS §1
+# table to its content types and size limit. Every upload answer is `FileUploadUrl`; every
+# download answer is `FileDownloadUrl` (a report download adds `copy`: `ReportDownloadUrl`).
 
 # --- Upload requests ---
 
@@ -15,7 +15,9 @@ FileName:
   type: string
   minLength: 1
   maxLength: 255
-  description: The original file name. It is sanitised before it is stored.
+  description: >-
+    The original file name (`file_object.original_filename`, nullable, so optional here). It is
+    sanitised before it is stored.
 
 FileUploadUrlRequest:
   type: object
@@ -25,7 +27,6 @@ FileUploadUrlRequest:
     `PENDING` until the malware scan and validation have passed. Each purpose narrows
     `contentType` and `sizeBytes`.
   required:
-    - fileName
     - contentType
     - sizeBytes
   additionalProperties: false
@@ -101,139 +102,86 @@ BookingAttachmentContentType:
     - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
     - application/vnd.openxmlformats-officedocument.wordprocessingml.document
 
-# Stands alone: `fileName` is at most 200 characters here (255 elsewhere).
 BookingAttachmentUploadUrlRequest:
-  type: object
   description: >-
-    Requests a pre-signed upload for one booking attachment (FILES_AND_REPORTS.md §1). The total
-    of the booking's attachments, this one included, may not exceed 25 MB (BR-021).
-  required:
-    - fileName
-    - contentType
-    - sizeBytes
-  additionalProperties: false
-  properties:
-    fileName:
-      type: string
-      minLength: 1
-      maxLength: 200
-      description: The original file name. It is sanitised before it is stored.
-    contentType:
-      $ref: '#/BookingAttachmentContentType'
-    sizeBytes:
-      type: integer
-      format: int64
-      minimum: 1
-      maximum: 26214400
+    Requests a pre-signed upload for one booking attachment (`BOOKING_ATTACHMENT`,
+    FILES_AND_REPORTS.md §1). The total of the booking's attachments, this one included, may not
+    exceed 25 MB (BR-021).
+  allOf:
+    - $ref: '#/FileUploadUrlRequest'
+    - type: object
+      properties:
+        contentType:
+          $ref: '#/BookingAttachmentContentType'
+        sizeBytes:
+          type: integer
+          maximum: 26214400
   examples:
     - fileName: example-drawing.pdf
       contentType: application/pdf
       sizeBytes: 120000
 
-# Stands alone: `fileName` is optional here.
 DisputeEvidenceUploadUrlRequest:
-  type: object
   description: >-
     Declares the evidence file to be uploaded (FILES_AND_REPORTS §1, purpose
     `DISPUTE_EVIDENCE`: PDF, JPEG or PNG, at most 10 MB each).
-  required:
-    - contentType
-    - sizeBytes
-  additionalProperties: false
-  properties:
-    contentType:
-      type: string
-      enum:
-        - application/pdf
-        - image/jpeg
-        - image/png
-    sizeBytes:
-      type: integer
-      format: int64
-      minimum: 1
-      maximum: 10485760
-    fileName:
-      $ref: '#/FileName'
+  allOf:
+    - $ref: '#/FileUploadUrlRequest'
+    - type: object
+      properties:
+        contentType:
+          type: string
+          enum:
+            - application/pdf
+            - image/jpeg
+            - image/png
+        sizeBytes:
+          type: integer
+          maximum: 10485760
 
-# Stands alone: the optional file name is spelled `filename` here.
 ReceiptPhotoUploadUrlRequest:
-  type: object
   description: >-
     A receipt photo to upload (FILES_AND_REPORTS §1, purpose `RECEIPT_PHOTO`): JPEG, PNG or HEIC
     (converted to JPEG), at most 10 MB.
-  required:
-    - contentType
-    - sizeBytes
-  additionalProperties: false
-  properties:
-    contentType:
-      type: string
-      enum:
-        - image/jpeg
-        - image/png
-        - image/heic
-    sizeBytes:
-      type: integer
-      format: int64
-      minimum: 1
-      maximum: 10485760
-    filename:
-      $ref: '#/FileName'
+  allOf:
+    - $ref: '#/FileUploadUrlRequest'
+    - type: object
+      properties:
+        contentType:
+          type: string
+          enum:
+            - image/jpeg
+            - image/png
+            - image/heic
+        sizeBytes:
+          type: integer
+          maximum: 10485760
 
-# Stands alone: the optional file name is spelled `filename` here.
 ReportOriginalUploadUrlRequest:
-  type: object
   description: >-
     A report PDF to upload (FILES_AND_REPORTS §1, purpose `REPORT_ORIGINAL`, BR-060): a PDF of at
     most 20 MB. Encrypted, corrupt or JavaScript-bearing PDFs are rejected after upload (EC-42).
-  required:
-    - contentType
-    - sizeBytes
-  additionalProperties: false
-  properties:
-    contentType:
-      type: string
-      const: application/pdf
-    sizeBytes:
-      type: integer
-      format: int64
-      minimum: 1
-      maximum: 20971520
-    filename:
-      $ref: '#/FileName'
+  allOf:
+    - $ref: '#/FileUploadUrlRequest'
+    - type: object
+      properties:
+        contentType:
+          type: string
+          const: application/pdf
+        sizeBytes:
+          type: integer
+          maximum: 20971520
 
-# --- Upload responses ---
+# --- Upload response ---
 
 FileUploadUrl:
   type: object
   description: >-
-    A pre-signed S3 PUT to the quarantine area, valid for 15 minutes (FILES_AND_REPORTS §1). The
-    client uploads the file straight to storage with exactly the declared `Content-Type` and
-    `Content-Length`. A domain command can use `fileId` only once the file is `CLEAN`
-    (`FILE_NOT_CLEAN` otherwise).
-  required:
-    - fileId
-    - uploadUrl
-    - expiresAt
-  additionalProperties: false
-  properties:
-    fileId:
-      $ref: './common.yaml#/Uuid'
-    uploadUrl:
-      type: string
-      format: uri
-      description: Valid for 15 minutes.
-    expiresAt:
-      $ref: './common.yaml#/Timestamp'
-
-# The same as `FileUploadUrl`, plus the method and the exact headers the upload must send.
-FileUploadUrlWithHeaders:
-  type: object
-  description: >-
-    A pre-signed S3 PUT to the quarantine area, valid for 15 minutes (FILES_AND_REPORTS §1). The
-    client uploads the file directly with exactly the returned headers. The file is then scanned
-    and validated; a domain command that references `fileId` before the file is `CLEAN` fails
-    with `FILE_NOT_CLEAN`.
+    A pre-signed S3 PUT to the quarantine area, valid for 15 minutes, with content-type and
+    content-length conditions (FILES_AND_REPORTS §1). The client uploads the file directly with
+    the returned `method` and exactly the returned `headers`. The file is then scanned and
+    validated; a domain command that references `fileId` before the file is `CLEAN` fails with
+    `FILE_NOT_CLEAN`.
   required:
     - fileId
     - uploadUrl
@@ -247,6 +195,7 @@ FileUploadUrlWithHeaders:
     uploadUrl:
       type: string
       format: uri
+      description: Valid for 15 minutes.
     method:
       type: string
       const: PUT
@@ -274,7 +223,8 @@ FileDownloadUrl:
   type: object
   description: >-
     A short-lived download URL (FILES_AND_REPORTS §2), never the file itself: a financial
-    document, or the stamped copy of a shared report version (FILES_AND_REPORTS §4).
+    document, the stamped copy of a shared report version (FILES_AND_REPORTS §4), or a report
+    file under a break-glass grant (issuing it is logged).
   required:
     - downloadUrl
     - expiresAt
@@ -289,7 +239,8 @@ FileDownloadUrl:
     expiresAt:
       $ref: './common.yaml#/Timestamp'
 
-# `FileDownloadUrl` plus `copy`.
+# `FileDownloadUrl` plus `copy`. It cannot compose `FileDownloadUrl` exactly: that schema allows
+# no other property (`additionalProperties: false`).
 ReportDownloadUrl:
   type: object
   description: >-
@@ -314,20 +265,3 @@ ReportDownloadUrl:
       enum:
         - STAMPED
         - ORIGINAL
-
-# Like `FileDownloadUrl`, but the URL property is named `url`.
-AdminDownloadUrl:
-  type: object
-  description: >-
-    A pre-signed GET valid for 15 minutes, served with `Content-Disposition: attachment`
-    (FILES_AND_REPORTS §2), for a break-glass report download. Issuing it is logged.
-  required:
-    - url
-    - expiresAt
-  additionalProperties: false
-  properties:
-    url:
-      type: string
-      format: uri
-    expiresAt:
-      $ref: './common.yaml#/Timestamp'

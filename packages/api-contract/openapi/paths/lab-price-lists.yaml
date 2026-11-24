@@ -14,11 +14,7 @@ site-price-lists:
     description: >-
       The site's price-list versions, newest first: the draft, the published one and history.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - name: status
         in: query
         required: false
@@ -64,11 +60,7 @@ site-price-lists:
       Creates a DRAFT with the next version number, as a copy of the effective published list
       (empty when there is none). A site has at most one DRAFT at a time.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -117,11 +109,7 @@ import-upload-url:
       A pre-signed upload for a CSV or XLSX price list (`IMPORT_SOURCE`, at most 50 MB;
       FILES_AND_REPORTS §1). Start the import with the file id once the file is clean.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -140,7 +128,7 @@ import-upload-url:
         content:
           application/json:
             schema:
-              $ref: '../components/schemas/files.yaml#/FileUploadUrlWithHeaders'
+              $ref: '../components/schemas/files.yaml#/FileUploadUrl'
       '400':
         $ref: '../components/responses.yaml#/BadRequest'
       '401':
@@ -177,11 +165,7 @@ imports:
       MASTER_DATA_MANAGEMENT §4. The job runs asynchronously; read it with
       `GET /lab/price-list-imports/{id}` until it is `PREVIEW_READY` or `FAILED`.
     parameters:
-      - name: siteId
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathSiteId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -238,11 +222,7 @@ import:
     summary: Get a price-list import
     description: The import's status and the counts of its preview.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
     responses:
@@ -282,11 +262,7 @@ import-rows:
       Row-level preview: each row as read and as mapped, what it matched and what committing
       would do with it, with its errors and warnings. Ordered by row number.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - name: action
         in: query
         required: false
@@ -337,11 +313,7 @@ import-commit:
       imported. The import becomes `COMMITTED`. Nothing is public until the Checker publishes
       the draft (CD-06).
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -391,11 +363,7 @@ import-discard:
     summary: Discard an import
     description: Discards an import that has not been committed. Nothing is imported.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -448,11 +416,7 @@ price-list-items:
       ordered along the scope tree, with the list itself (its `lockVersion` is the `If-Match` for
       editing a draft).
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/Cursor'
       - $ref: '../components/parameters.yaml#/Limit'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -494,11 +458,7 @@ price-list-items:
       immutable (VERSIONING_AND_SNAPSHOTS B): to change prices, start a new draft. Every item
       references an active scope line of the list's site.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
       - $ref: '../components/parameters.yaml#/RequestId'
@@ -559,11 +519,7 @@ price-list-publish:
       becomes `SUPERSEDED`, and the site's bookability is recalculated (BR-001). Bookings keep
       the prices they were made with (EC-56).
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'
@@ -615,11 +571,7 @@ price-list-discard:
     summary: Discard a draft
     description: The DRAFT becomes `DISCARDED`. Published versions cannot be discarded.
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/PathId'
       - $ref: '../components/parameters.yaml#/IdempotencyKey'
       - $ref: '../components/parameters.yaml#/IfMatch'
       - $ref: '../components/parameters.yaml#/ActiveMembership'

@@ -4,38 +4,6 @@
 # draft price lists, slot capacity counts, or any customer or booking data. The deny-list test
 # (test/public-boundary.test.ts) checks this.
 
-PublicAddress:
-  type: object
-  description: The site's postal address (`lab_site.address`).
-  required:
-    - line1
-    - line2
-    - city
-    - district
-    - stateCode
-    - pincode
-  additionalProperties: false
-  properties:
-    line1:
-      type: string
-    line2:
-      type:
-        - string
-        - 'null'
-    city:
-      type: string
-    district:
-      type:
-        - string
-        - 'null'
-    stateCode:
-      type: string
-      maxLength: 4
-      examples:
-        - UP
-    pincode:
-      $ref: './common.yaml#/Pincode'
-
 PublicRating:
   type: object
   description: >-
@@ -75,10 +43,7 @@ PublicAccreditation:
   additionalProperties: false
   properties:
     certificateNo:
-      type: string
-      maxLength: 50
-      examples:
-        - TC-1234
+      $ref: './common.yaml#/CertificateNo'
     accreditationBody:
       $ref: './common.yaml#/CodeName'
     standard:
@@ -204,7 +169,7 @@ PublicLabSite:
     name:
       type: string
     address:
-      $ref: '#/PublicAddress'
+      $ref: './common.yaml#/PostalAddress'
     location:
       description: '`null` while the site has no approved pin.'
       oneOf:
@@ -247,8 +212,7 @@ PublicScopeLine:
     id:
       $ref: './common.yaml#/Uuid'
     certificateNo:
-      type: string
-      maxLength: 50
+      $ref: './common.yaml#/CertificateNo'
       description: The accreditation certificate this line is published under.
     discipline:
       $ref: './common.yaml#/CodeName'
