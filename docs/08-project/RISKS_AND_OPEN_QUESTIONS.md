@@ -35,6 +35,7 @@
 | OQ-27 | What happens to a payment captured after the booking reached EXPIRED_UNPAID? (Review A-11) | H + Finance | Treated like a duplicate capture: recorded and auto-refunded in full. | I4 | Open |
 | OQ-28 | Who creates the monthly `audit_log` partitions? It is DDL, and `app_worker` has none. Options: a scheduled task that runs as the owner role, or a narrowly scoped SECURITY DEFINER function the worker may call. | H | A default partition catches every row, so nothing fails. Partitions for the first months are added by migration. | Before production (H-07) | Open |
 | OQ-29 | How does one party see the name of the other party's user (for example the Checker named on a report)? RLS hides `app_user` rows of other organisations. Options: store the name in the snapshot at the time of the action, or a SECURITY DEFINER view limited to counterparties of a shared booking. | H + A | Names are copied into snapshots (`lab_snapshot`, audit rows). No cross-organisation read of `app_user`. | P1-08 spike, I5 | Open |
+| OQ-30 | Should the `system` database context be narrower? Any code on the API's role can set `app.is_system` and read every tenant's rows. The API needs some of that before a user is known (session by token, user by email). Options: keep as is and allow `system` only in the auth and webhook modules by lint rule; or replace the pre-login lookups with SECURITY DEFINER functions and make `app_is_system()` require the worker role. | H + A | `app_rw` can use the `system` context. Only named modules may, by code review until the lint rule exists. | I1 (auth) | Open |
 
 ## 2. Risk register
 
@@ -49,7 +50,7 @@
 | R-07 | Parallel development conflicts on shared files | M | M | Contract-first shared PRs, CODEOWNERS, daily merges from main | Both |
 | R-08 | Claude Code introduces scope creep or invents integrations | M | H | CLAUDE.md rules, plan approval, PR review checklist, exclusion list | Both |
 | R-09 | Regulatory non-compliance (payments, GST, DPDP) | M | H | Legal review gate G4, no compliance claims, configurable policies | Product owner |
-| R-10 | RLS + Prisma pooling incompatibility | M | M | Spike in P1-08, fallback to app-level scoping + audit query | H |
+| R-10 | RLS + Prisma pooling incompatibility | L | M | Spike P1-08 passed (Prisma 7.10, pg pool, PgBouncer transaction mode); the test stays in the suite. RDS Proxy is not verified: run the test through it before adopting it. | H |
 | R-11 | Map or geocode provider usage limits | M | M | Self-hosting, provider interface | H |
 | R-12 | Report PDF stamping breaks some PDFs | M | M | Stamp at submit, so the Checker reviews the stamped copy. Fallback to an appended page. | H |
 | R-13 | Customers want pickup and choose other labs | M | M | Clear self-drop UX. Track lost bookings to size a later transport phase. | Product |

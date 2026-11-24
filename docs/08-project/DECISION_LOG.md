@@ -38,10 +38,12 @@ Template:
 - Consequences: Two migration sources in one folder. Drift checks in CI.
 
 ## ADR-005: PostgreSQL RLS as defence in depth for tenant isolation
-- Status: **Proposed**, pending spike P1-08
-- Decision: Application-level scoping is primary. RLS uses `SET LOCAL app.*` inside per-request transactions.
+- Status: **Proposed** (G1). Spike P1-08 passed on 2026-11-24.
+- Decision: Application-level scoping is primary. RLS uses `SET LOCAL app.*` inside per-request transactions, set by `withDbContext` in `packages/database`.
+- Spike result: with Prisma 7.10, the `pg` driver adapter and transaction-local settings, tenants stayed isolated across reused connections, under 600 concurrent units of work on a pool of 4, and through PgBouncer in transaction mode. The fallback (application scoping plus a nightly audit query) is not needed. Details and limits are in `TENANT_ISOLATION.md` §3.
 - Alternatives: App-level only (simpler, but a single bug leaks data), schema-per-tenant (doesn't fit shared booking rows).
-- Consequences: Every request uses an interactive transaction. Pooling behaviour must be verified.
+- Alternatives for setting the context: a per-query client extension. Rejected: inside an interactive transaction its writes were committed although the transaction rolled back.
+- Consequences: Every request uses an interactive transaction, which holds one pooled connection for its whole length, so no slow external call (payment gateway, S3, email) is made inside one. Prisma's defaults (2 s to get a connection, 5 s per transaction) are set deliberately per use. The application connects as login users that inherit `app_rw` or `app_worker`, never as the owner. RDS Proxy is not verified.
 
 ## ADR-006: In-house passwordless authentication
 - Status: **Proposed** (G2)
