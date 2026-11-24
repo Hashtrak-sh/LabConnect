@@ -1,0 +1,734 @@
+# Lab claim and onboarding: claims, checklist, KYC, bank accounts, users and invitations
+# (API_CONTRACTS.md §6, FR-DAT-07, FR-ONB-04, FR-ONB-06, AUTHENTICATION_AND_AUTHORISATION.md §2
+# and §5). Except for the claim endpoints, every operation acts for the caller's active lab
+# membership: the organisation comes from the session, never from the request (TENANT_ISOLATION
+# §2). A resource of another organisation, or a site the caller is not assigned to, is 404.
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+claims:
+  post:
+    operationId: startLabClaim
+    tags:
+      - Lab onboarding
+    summary: Start a lab claim
+    description: >-
+      Any signed-in user can claim an unclaimed lab organisation by the certificate number of one
+      of its sites (FR-DAT-07). A 6-digit OTP (10 minutes) is sent to the site's email address
+      from NABL-imported data only, never to an address from the request (AUTHENTICATION §5);
+      the response shows it masked. When the NABL data has no address, no OTP is sent and the
+      claim continues with a letterhead (`/lab/claims/{id}/manual`). If the caller already has a
+      claim awaiting its OTP for the same organisation, a new OTP is sent and that claim is
+      returned (200). Rate limit of OTPs: 5 per 15 minutes per destination.
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab.yaml#/LabClaimCreate'
+    responses:
+      '200':
+        description: An OTP was sent again for the caller's open claim.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabClaim'
+      '201':
+        description: Claim started.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabClaim'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: platform staff cannot join a lab organisation (RR-5).'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the organisation is already `CLAIMED`, or has a pending
+          claim of another user (`meta.currentState`). `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example no listed site has this certificate number),
+          `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+claim-verify-otp:
+  post:
+    operationId: verifyLabClaimOtp
+    tags:
+      - Lab onboarding
+    summary: Verify the claim OTP
+    description: >-
+      Verifies the OTP sent to the NABL-registered address. The claim moves from `PENDING_OTP`
+      to `PENDING_REVIEW`; `PLATFORM_OPS` approves or rejects it (ADMIN_USER_FLOWS). On
+      approval the caller becomes the organisation's first `LAB_CHECKER`.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab.yaml#/LabClaimOtpVerify'
+    responses:
+      '200':
+        description: Verified; the claim waits for review.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabClaim'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no claim with this id by the caller.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the claim is not `PENDING_OTP` (`meta.currentState`).
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `OTP_INVALID`, `OTP_EXPIRED`, `VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`OTP_LOCKED` (too many wrong attempts), `RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+claim-manual-upload-url:
+  post:
+    operationId: createLabClaimLetterheadUploadUrl
+    tags:
+      - Lab onboarding
+    summary: Get an upload URL for a claim letterhead
+    description: >-
+      A pre-signed upload for the letterhead authorisation of the caller's claim (PDF, JPEG or
+      PNG, at most 10 MB; FILES_AND_REPORTS §1). Only while the claim is `PENDING_OTP`.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab.yaml#/LabKycUploadUrlRequest'
+    responses:
+      '201':
+        description: Upload URL created.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabUploadUrl'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no claim with this id by the caller.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the claim is not `PENDING_OTP` (`meta.currentState`).
+          `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (type or size not allowed), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+claim-manual:
+  post:
+    operationId: submitLabClaimLetterhead
+    tags:
+      - Lab onboarding
+    summary: Submit a claim with a letterhead
+    description: >-
+      The fallback route of FR-DAT-07: the claim moves from `PENDING_OTP` to `PENDING_REVIEW` with
+      method `MANUAL`, and `PLATFORM_OPS` reviews the letterhead authorisation.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab.yaml#/LabClaimManual'
+    responses:
+      '200':
+        description: Submitted for review.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabClaim'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no claim with this id by the caller, or no such file of this claim.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the claim is not `PENDING_OTP` (`meta.currentState`).
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `FILE_NOT_CLEAN` (scan pending, infected or invalid; retry once the scan is done),
+          `VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+onboarding:
+  get:
+    operationId: getLabOnboarding
+    tags:
+      - Lab onboarding
+    summary: Get the onboarding checklist
+    description: >-
+      The checklist of FR-ONB-04 for each site the caller is assigned to, with the bookability
+      flag and reasons (BR-001), the organisation's claim and KYC status, its KYC documents and
+      its bank accounts (masked). `LAB_CHECKER` only.
+    parameters:
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The onboarding state.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabOnboarding'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: `X-Active-Membership` is not an active membership of this user.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+kyc-upload-url:
+  post:
+    operationId: createLabKycUploadUrl
+    tags:
+      - Lab onboarding
+    summary: Get an upload URL for a KYC document
+    description: >-
+      A pre-signed upload for a KYC document (`KYC_DOCUMENT`: PDF, JPEG or PNG, at most 10 MB;
+      FILES_AND_REPORTS §1). Register the file with `POST /lab/kyc-documents` once it is clean.
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab.yaml#/LabKycUploadUrlRequest'
+    responses:
+      '201':
+        description: Upload URL created.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabUploadUrl'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: `X-Active-Membership` is not an active membership of this user.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (type or size not allowed), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+kyc-documents:
+  post:
+    operationId: createLabKycDocument
+    tags:
+      - Lab onboarding
+    summary: Submit a KYC document
+    description: >-
+      Registers an uploaded, clean file as a KYC document of the organisation, by file id. The
+      document is `SUBMITTED` for review by `PLATFORM_OPS`, and the organisation's KYC status
+      becomes `SUBMITTED` unless it is already `VERIFIED`.
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab.yaml#/LabKycDocumentCreate'
+    responses:
+      '201':
+        description: Submitted.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabKycDocument'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: >-
+          `NOT_FOUND`: no KYC upload of this organisation with this file id, or
+          `X-Active-Membership` is not an active membership of this user.
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `FILE_NOT_CLEAN` (scan pending, infected or invalid; retry once the scan is done),
+          `VALIDATION_FAILED` (for example an unknown document type), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+bank-accounts:
+  post:
+    operationId: createLabBankAccount
+    tags:
+      - Lab onboarding
+    summary: Add bank details
+    description: >-
+      Adds a bank account for the organisation or one of the caller's sites. Needs a step-up MFA
+      within the last 5 minutes (AUTHENTICATION §2; `POST /auth/mfa/verify`). The account number
+      is write-only: it is stored envelope-encrypted and the response carries only its last four
+      digits. Bank details are never edited: a change is a new account, `SUBMITTED` for
+      verification by `PLATFORM_FINANCE`.
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab.yaml#/LabBankAccountCreate'
+    responses:
+      '201':
+        description: Added, masked.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabBankAccount'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: >-
+          `UNAUTHENTICATED`, or `STEP_UP_REQUIRED` (no MFA in the last 5 minutes;
+          `meta.maxAgeSeconds`).
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: >-
+          `NOT_FOUND`: `siteId` is not one of the caller's sites, or `X-Active-Membership` is not
+          an active membership of this user.
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example a malformed IFSC), `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+users:
+  get:
+    operationId: listLabUsers
+    tags:
+      - Lab onboarding
+    summary: List lab users
+    description: >-
+      The members of the caller's lab organisation, each with one lab role (RR-2) and their site
+      assignments (RR-3).
+    parameters:
+      - name: status
+        in: query
+        required: false
+        description: Only members with this membership status.
+        schema:
+          $ref: '../components/schemas/enums.yaml#/MembershipStatus'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of members.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabUserList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: `X-Active-Membership` is not an active membership of this user.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+user:
+  patch:
+    operationId: updateLabUser
+    tags:
+      - Lab onboarding
+    summary: Change a lab user's role, sites or status
+    description: >-
+      Sets the member's one lab role (RR-2: logged, not retroactive to pending items), the
+      complete set of their site assignments, or their membership status. The caller can add or
+      remove only sites they are assigned to themselves, and cannot change their own membership.
+      A role change or deactivation revokes the member's sessions (AUTHENTICATION §4); a new
+      `LAB_CHECKER` must enrol in MFA. Bookability is recalculated (BR-001).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The member's user id.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab.yaml#/LabUserUpdate'
+    responses:
+      '200':
+        description: Changed.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabUser'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`, or the target is the
+          caller's own membership.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no member of this organisation with this user id.'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example a site that is not one of the caller's sites).
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+invitations:
+  get:
+    operationId: listLabInvitations
+    tags:
+      - Lab onboarding
+    summary: List invitations
+    description: Invitations of the caller's lab organisation, newest first.
+    parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/lab.yaml#/LabInvitationStatus'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of invitations.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabInvitationList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: `X-Active-Membership` is not an active membership of this user.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  post:
+    operationId: createLabInvitation
+    tags:
+      - Lab onboarding
+    summary: Invite a Maker or Checker
+    description: >-
+      Emails an invitation to join the organisation with one lab role (RR-2) and the given sites,
+      each of which must be one of the caller's sites (RR-3). The token goes to the address only
+      and is never returned. How an invitation is accepted is not specified yet (OQ-35).
+    parameters:
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab.yaml#/LabInvitationCreate'
+    responses:
+      '201':
+        description: Invitation sent.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabInvitation'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: `X-Active-Membership` is not an active membership of this user.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example a site that is not one of the caller's sites, or an
+          address that is already an active member), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+invitation:
+  patch:
+    operationId: revokeLabInvitation
+    tags:
+      - Lab onboarding
+    summary: Revoke an invitation
+    description: >-
+      Revokes a pending invitation; its token stops working. Revoking an invitation that is
+      already revoked changes nothing.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab.yaml#/LabInvitationUpdate'
+    responses:
+      '200':
+        description: Revoked.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabInvitation'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no invitation of this organisation with this id.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the invitation was already accepted
+          (`meta.currentState`).
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

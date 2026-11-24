@@ -1,0 +1,847 @@
+# Custody and receipt at the lab counter (API_CONTRACTS.md §7, QR_AND_VERIFICATION.md §3 and §4,
+# FILES_AND_REPORTS.md §1, SCHEMA_SPECIFICATION §8). Every response here is for the lab's Maker
+# and Checker of the booking's site. Nothing here is public, and no response carries a QR MAC, a
+# file or an object key.
+# Schemas that stand in for another module's resource carry the prefix `Custody`.
+
+CustodyQrPayload:
+  type: string
+  minLength: 1
+  maxLength: 200
+  description: >-
+    The text of a booking or package QR as decoded by the scanner: `LC1.B.<bookingNo>.<keyId>.<mac>`
+    or `LC1.P.<bookingNo>.<seq>-<total>.<labelVer>.<keyId>.<mac>` (QR_AND_VERIFICATION §1). The MAC
+    is checked server side with KMS `VerifyMac`; a client never verifies it.
+  examples:
+    - LC1.P.LC-0000-0000000.1-2.1.k0.NOT-A-REAL-MAC
+
+CustodyShortCode:
+  type: string
+  pattern: ^[0-9A-HJKMNP-TV-Z]{6}$
+  description: >-
+    The 6-character short code printed on a package label (Crockford base32, upper case), for the
+    manual fallback when the QR is missing or unreadable (EC-26).
+  examples:
+    - 0A1B2C
+
+CustodyDeviceId:
+  type: string
+  minLength: 1
+  maxLength: 64
+  description: >-
+    A stable id the browser scanner generates once and keeps (`custody_event.device_id`). Together
+    with `clientSeq` it identifies one scan, so a scan that is sent twice is recorded once.
+  examples:
+    - dev-example-0001
+
+CustodyClientSeq:
+  type: integer
+  format: int64
+  minimum: 0
+  description: >-
+    The device's monotonic scan counter (`custody_event.client_seq`). It never repeats on one
+    device. The server orders offline scans by it (EC-50).
+
+CustodyScanRequest:
+  type: object
+  description: >-
+    One counter scan (API_CONTRACTS §7.1): the QR text (`payload`), or the label's short code
+    (`shortCode`) when the QR cannot be read; exactly one of the two. `siteId` is the lab site
+    where the scan happens; it must be one of the caller's assigned sites.
+  required:
+    - siteId
+    - deviceId
+    - clientRecordedAt
+    - clientSeq
+  additionalProperties: false
+  properties:
+    payload:
+      $ref: '#/CustodyQrPayload'
+    shortCode:
+      $ref: '#/CustodyShortCode'
+    siteId:
+      $ref: './common.yaml#/Uuid'
+    deviceId:
+      $ref: '#/CustodyDeviceId'
+    clientRecordedAt:
+      description: The device clock when the code was read.
+      $ref: './common.yaml#/Timestamp'
+    clientSeq:
+      $ref: '#/CustodyClientSeq'
+  oneOf:
+    - required:
+        - payload
+      properties:
+        payload: true
+        shortCode: false
+    - required:
+        - shortCode
+      properties:
+        payload: false
+        shortCode: true
+
+CustodyBookingSummary:
+  type: object
+  description: >-
+    The booking a scanned code belongs to, as the lab's Maker may see it at the counter
+    (FR-LOG-06, FR-RPT-01). No price, payment or customer contact detail.
+  required:
+    - id
+    - bookingNo
+    - status
+    - labSiteId
+    - dropDeadlineAt
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingNo:
+      type: string
+      maxLength: 20
+      examples:
+        - LC-0000-0000000
+    status:
+      $ref: './enums.yaml#/BookingStatus'
+    labSiteId:
+      $ref: './common.yaml#/Uuid'
+    dropDeadlineAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    lockVersion:
+      type: integer
+      minimum: 0
+      description: >-
+        The booking's version. Send it as `If-Match: "<lockVersion>"` when submitting the receipt.
+
+CustodyPackageSummary:
+  type: object
+  description: >-
+    One package label of the booking (`package`). `total` is the package count printed on the
+    label (`n/N`); `labelVersion` grows with each reprint.
+  required:
+    - id
+    - seqNo
+    - total
+    - labelVersion
+    - isTopUp
+    - status
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    seqNo:
+      type: integer
+      minimum: 1
+    total:
+      type: integer
+      minimum: 1
+    labelVersion:
+      type: integer
+      minimum: 1
+    isTopUp:
+      type: boolean
+      description: A top-up package issued after an insufficient quantity (EC-34).
+    status:
+      $ref: './enums.yaml#/PackageStatus'
+
+CustodyTrfLine:
+  type: object
+  description: >-
+    One booked test as frozen in the booking line snapshot: parameter, method and the sample
+    quantity the lab needs (`required_sample_qty` after an accepted counter-offer, otherwise the
+    snapshot quantity).
+  required:
+    - id
+    - lineNo
+    - parameter
+    - method
+    - sampleQty
+    - sampleUnit
+    - status
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    lineNo:
+      type: integer
+      minimum: 1
+    parameter:
+      $ref: './lab-sites.yaml#/PublicCodeName'
+    method:
+      oneOf:
+        - $ref: './lab-sites.yaml#/PublicCodeName'
+        - type: 'null'
+    sampleQty:
+      type: number
+      minimum: 0
+    sampleUnit:
+      $ref: './lab-sites.yaml#/PublicCodeName'
+    status:
+      $ref: './enums.yaml#/BookingLineStatus'
+
+CustodyTrfSummary:
+  type: object
+  description: >-
+    What the Maker checks the sample against (FR-RPT-01): the item, the batch, whether a statement
+    of conformity was asked for, and the booked tests, from the current TRF version.
+  required:
+    - trfVersionNo
+    - itemName
+    - batchNo
+    - conformityRequired
+    - decisionRule
+    - lines
+  additionalProperties: false
+  properties:
+    trfVersionNo:
+      type: integer
+      minimum: 1
+    itemName:
+      type: string
+    batchNo:
+      type:
+        - string
+        - 'null'
+      maxLength: 100
+    conformityRequired:
+      type: boolean
+    decisionRule:
+      type:
+        - string
+        - 'null'
+    lines:
+      type: array
+      items:
+        $ref: '#/CustodyTrfLine'
+
+CustodyScanEvent:
+  type: object
+  description: >-
+    The custody event the scan wrote (append-only). Its `id` is what the receipt submission
+    references for each package.
+  required:
+    - id
+    - type
+    - serverReceivedAt
+    - clockSkewFlag
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    type:
+      $ref: './enums.yaml#/CustodyScanEventType'
+    serverReceivedAt:
+      $ref: './common.yaml#/Timestamp'
+    clockSkewFlag:
+      type: boolean
+      description: >-
+        `true` when the device time and the server time differ by more than 15 minutes (EC-50).
+        The scan is still recorded.
+
+CustodyScanResult:
+  type: object
+  description: >-
+    An accepted scan (API_CONTRACTS §7.1): the booking, the package (`null` for a booking QR), the
+    TRF summary, the expected package count and the packages already identified at the counter.
+    Refused scans are answered with an error, not with this object.
+  required:
+    - result
+    - scanEvent
+    - booking
+    - package
+    - trf
+    - expectedPackageCount
+    - scannedPackages
+  additionalProperties: false
+  properties:
+    result:
+      type: string
+      enum:
+        - ACCEPTED
+    scanEvent:
+      $ref: '#/CustodyScanEvent'
+    booking:
+      $ref: '#/CustodyBookingSummary'
+    package:
+      oneOf:
+        - $ref: '#/CustodyPackageSummary'
+        - type: 'null'
+    trf:
+      $ref: '#/CustodyTrfSummary'
+    expectedPackageCount:
+      type: integer
+      minimum: 1
+      description: The package count the customer declared (`booking.declared_package_count`).
+    scannedPackages:
+      type: array
+      description: >-
+        Sequence numbers of the booking's current packages that have an accepted scan or manual
+        lookup and are not yet part of a submitted receipt record, in ascending order.
+      items:
+        type: integer
+        minimum: 1
+
+CustodyScanBatchItem:
+  type: object
+  description: One queued offline scan. Exactly one of `payload` and `shortCode`.
+  required:
+    - clientRecordedAt
+    - clientSeq
+  additionalProperties: false
+  properties:
+    payload:
+      $ref: '#/CustodyQrPayload'
+    shortCode:
+      $ref: '#/CustodyShortCode'
+    clientRecordedAt:
+      $ref: './common.yaml#/Timestamp'
+    clientSeq:
+      $ref: '#/CustodyClientSeq'
+  oneOf:
+    - required:
+        - payload
+      properties:
+        payload: true
+        shortCode: false
+    - required:
+        - shortCode
+      properties:
+        payload: false
+        shortCode: true
+
+CustodyScanBatchRequest:
+  type: object
+  description: >-
+    The offline queue of one device at one site (QR_AND_VERIFICATION §4, EC-50). The `clientSeq`
+    values are distinct.
+  required:
+    - siteId
+    - deviceId
+    - scans
+  additionalProperties: false
+  properties:
+    siteId:
+      $ref: './common.yaml#/Uuid'
+    deviceId:
+      $ref: '#/CustodyDeviceId'
+    scans:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: '#/CustodyScanBatchItem'
+
+CustodyScanBatchError:
+  type: object
+  description: >-
+    Why one queued scan was refused, with the code and `meta` the single scan would have returned
+    (for example `QR_WRONG_SITE` with `meta.intendedSite`).
+  required:
+    - code
+    - detail
+    - meta
+  additionalProperties: false
+  properties:
+    code:
+      $ref: './errors.yaml#/ErrorCode'
+    detail:
+      type: string
+    meta:
+      type: object
+      additionalProperties: true
+
+CustodyScanBatchItemResult:
+  type: object
+  description: >-
+    The outcome of one queued scan: `result` when it was accepted, `error` when it was refused.
+    Offline scans are provisional until this outcome is known.
+  required:
+    - clientSeq
+    - result
+    - error
+  additionalProperties: false
+  properties:
+    clientSeq:
+      $ref: '#/CustodyClientSeq'
+    result:
+      oneOf:
+        - $ref: '#/CustodyScanResult'
+        - type: 'null'
+    error:
+      oneOf:
+        - $ref: '#/CustodyScanBatchError'
+        - type: 'null'
+
+CustodyScanBatchResult:
+  type: object
+  description: One outcome per queued scan, in ascending `clientSeq` order.
+  required:
+    - results
+  additionalProperties: false
+  properties:
+    results:
+      type: array
+      items:
+        $ref: '#/CustodyScanBatchItemResult'
+
+CustodyIntendedSite:
+  type: object
+  description: >-
+    The `meta.intendedSite` of `QR_WRONG_SITE` (ERROR_HANDLING §2, BR-043, EC-27): the public name
+    and address of the site the booking belongs to, and nothing else about the booking.
+  required:
+    - name
+    - addressLine
+    - city
+  additionalProperties: false
+  properties:
+    name:
+      type: string
+    addressLine:
+      type: string
+    city:
+      type: string
+
+ReceiptPhotoUploadUrlRequest:
+  type: object
+  description: >-
+    A receipt photo to upload (FILES_AND_REPORTS §1, purpose `RECEIPT_PHOTO`): JPEG, PNG or HEIC
+    (converted to JPEG), at most 10 MB.
+  required:
+    - contentType
+    - sizeBytes
+  additionalProperties: false
+  properties:
+    contentType:
+      type: string
+      enum:
+        - image/jpeg
+        - image/png
+        - image/heic
+    sizeBytes:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 10485760
+    filename:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: The original file name. Stored sanitised.
+
+ReceiptPhotoUploadUrl:
+  type: object
+  description: >-
+    A pre-signed S3 PUT into quarantine (FILES_AND_REPORTS §1). The PUT must send the declared
+    `Content-Type` and `Content-Length`. The file can be referenced once its malware scan and
+    validation have marked it `CLEAN`.
+  required:
+    - fileId
+    - uploadUrl
+    - expiresAt
+  additionalProperties: false
+  properties:
+    fileId:
+      $ref: './common.yaml#/Uuid'
+    uploadUrl:
+      type: string
+      format: uri
+      description: Valid for 15 minutes.
+    expiresAt:
+      $ref: './common.yaml#/Timestamp'
+
+ReceiptPackageInput:
+  type: object
+  description: >-
+    One package in the receipt, with the custody event that identified it at this site (a
+    `SCAN_ACCEPTED` or `MANUAL_LOOKUP` event of the scan endpoints).
+  required:
+    - packageId
+    - scanEventId
+  additionalProperties: false
+  properties:
+    packageId:
+      $ref: './common.yaml#/Uuid'
+    scanEventId:
+      $ref: './common.yaml#/Uuid'
+    condition:
+      description: The package's own condition, when it differs (SAMPLE_CONDITION taxonomy).
+      $ref: './lab-sites.yaml#/NodeCode'
+    notes:
+      type: string
+      maxLength: 2000
+
+ReceiptSubmit:
+  type: object
+  description: >-
+    The Maker's receipt record (FR-LOG-07, FR-RPT-02): time, count, condition, checks, photos and
+    discrepancy. `discrepancyNotes` is required when `discrepancyFlag` is true, and so is at least
+    one photo (EC-29). At least one photo is also required when a listed package was identified by
+    a manual lookup (QR_AND_VERIFICATION §3).
+  required:
+    - receivedAt
+    - actualPackageCount
+    - condition
+    - itemMatches
+    - batchMatches
+    - quantitySufficient
+    - sealIntact
+    - discrepancyFlag
+    - packages
+  additionalProperties: false
+  properties:
+    receivedAt:
+      $ref: './common.yaml#/Timestamp'
+    actualPackageCount:
+      type: integer
+      minimum: 0
+      maximum: 50
+      description: How many packages were handed over, labelled or not.
+    condition:
+      description: Overall sample condition (SAMPLE_CONDITION taxonomy).
+      $ref: './lab-sites.yaml#/NodeCode'
+    itemMatches:
+      type: boolean
+    batchMatches:
+      type: boolean
+    quantitySufficient:
+      type: boolean
+    sealIntact:
+      type: boolean
+    observedBatchNo:
+      type:
+        - string
+        - 'null'
+      maxLength: 100
+    discrepancyFlag:
+      type: boolean
+    discrepancyNotes:
+      type: string
+      minLength: 1
+      maxLength: 4000
+    packages:
+      type: array
+      minItems: 1
+      maxItems: 50
+      items:
+        $ref: '#/ReceiptPackageInput'
+    photoFileIds:
+      type: array
+      maxItems: 10
+      uniqueItems: true
+      description: '`CLEAN` files uploaded through the receipt photo upload URL of this booking.'
+      items:
+        $ref: './common.yaml#/Uuid'
+  # The discrepancy rule of the description, as a JSON Schema conditional. The `properties`
+  # entries add to the schemas above. The manual-lookup rule needs the scan events, so the server
+  # checks it.
+  if:
+    properties:
+      discrepancyFlag:
+        const: true
+  then:
+    required:
+      - discrepancyNotes
+      - photoFileIds
+    properties:
+      discrepancyNotes: true
+      photoFileIds:
+        minItems: 1
+
+ReceiptPackage:
+  type: object
+  required:
+    - packageId
+    - seqNo
+    - labelVersion
+    - scanEventId
+    - scannedAt
+    - condition
+    - notes
+  additionalProperties: false
+  properties:
+    packageId:
+      $ref: './common.yaml#/Uuid'
+    seqNo:
+      type: integer
+      minimum: 1
+    labelVersion:
+      type: integer
+      minimum: 1
+    scanEventId:
+      $ref: './common.yaml#/Uuid'
+    scannedAt:
+      $ref: './common.yaml#/Timestamp'
+    condition:
+      oneOf:
+        - $ref: './lab-sites.yaml#/NodeCode'
+        - type: 'null'
+    notes:
+      type:
+        - string
+        - 'null'
+
+ReceiptHoldCase:
+  type: object
+  description: >-
+    The hold opened by a confirmed discrepancy (T-15): the reason, and when the customer's decision
+    is due (24 h, BR-046).
+  required:
+    - id
+    - reason
+    - details
+    - dueAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    reason:
+      description: HOLD_REASON taxonomy.
+      $ref: './lab-sites.yaml#/NodeCode'
+    details:
+      type:
+        - string
+        - 'null'
+    dueAt:
+      $ref: './common.yaml#/Timestamp'
+
+ReceiptRecord:
+  type: object
+  description: >-
+    A receipt record as the lab sees it (SCHEMA_SPECIFICATION §8.4). `decision` is `null` while it
+    waits for a Checker; once decided the record is immutable, and a replacement after a hold is a
+    new record with the next `versionNo`. `checkerUserId` is never `makerUserId` (CD-23).
+  required:
+    - id
+    - bookingId
+    - versionNo
+    - receivedAt
+    - declaredPackageCount
+    - actualPackageCount
+    - condition
+    - itemMatches
+    - batchMatches
+    - quantitySufficient
+    - sealIntact
+    - observedBatchNo
+    - discrepancyFlag
+    - discrepancyNotes
+    - packages
+    - photoFileIds
+    - makerUserId
+    - submittedAt
+    - checkerUserId
+    - decision
+    - decisionNotes
+    - decidedAt
+    - labSampleId
+    - holdCase
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    versionNo:
+      type: integer
+      minimum: 1
+    receivedAt:
+      $ref: './common.yaml#/Timestamp'
+    declaredPackageCount:
+      type: integer
+      minimum: 1
+    actualPackageCount:
+      type: integer
+      minimum: 0
+    condition:
+      $ref: './lab-sites.yaml#/NodeCode'
+    itemMatches:
+      type: boolean
+    batchMatches:
+      type: boolean
+    quantitySufficient:
+      type: boolean
+    sealIntact:
+      type: boolean
+    observedBatchNo:
+      type:
+        - string
+        - 'null'
+    discrepancyFlag:
+      type: boolean
+    discrepancyNotes:
+      type:
+        - string
+        - 'null'
+    packages:
+      type: array
+      items:
+        $ref: '#/ReceiptPackage'
+    photoFileIds:
+      type: array
+      items:
+        $ref: './common.yaml#/Uuid'
+    makerUserId:
+      $ref: './common.yaml#/Uuid'
+    submittedAt:
+      $ref: './common.yaml#/Timestamp'
+    checkerUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    decision:
+      oneOf:
+        - $ref: './enums.yaml#/ReceiptDecision'
+        - type: 'null'
+    decisionNotes:
+      type:
+        - string
+        - 'null'
+    decidedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    labSampleId:
+      description: Set when the decision is `APPROVED` or `HOLD_CONFIRMED`.
+      type:
+        - string
+        - 'null'
+      maxLength: 60
+    holdCase:
+      description: The hold opened by this record, when the decision is `HOLD_CONFIRMED`.
+      oneOf:
+        - $ref: '#/ReceiptHoldCase'
+        - type: 'null'
+    lockVersion:
+      type: integer
+      minimum: 0
+      description: Send it as `If-Match` with the Checker's decision.
+
+LabSampleId:
+  type: string
+  minLength: 1
+  maxLength: 60
+  description: The lab's own sample id (`receipt_record.lab_sample_id`, `package.lab_sample_id`).
+  examples:
+    - S-EXAMPLE-0001
+
+ReceiptApprove:
+  type: object
+  description: Approval of a receipt record (T-14). The lab sample id is required.
+  required:
+    - labSampleId
+  additionalProperties: false
+  properties:
+    labSampleId:
+      $ref: '#/LabSampleId'
+    notes:
+      type: string
+      maxLength: 4000
+
+ReceiptConfirmDiscrepancy:
+  type: object
+  description: >-
+    Confirmation of a discrepancy (T-15): the reason (HOLD_REASON taxonomy) is required. The lab
+    sample id is required too, because a held sample the customer lets proceed is received under
+    it (T-16).
+  required:
+    - reason
+    - labSampleId
+  additionalProperties: false
+  properties:
+    reason:
+      $ref: './lab-sites.yaml#/NodeCode'
+    details:
+      type: string
+      maxLength: 4000
+    labSampleId:
+      $ref: '#/LabSampleId'
+
+ReceiptRejectUnfit:
+  type: object
+  description: Rejection of the sample as unfit for testing (T-28, EC-35). The reason is required.
+  required:
+    - reason
+  additionalProperties: false
+  properties:
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 4000
+
+LabelReprintRequestStatus:
+  type: string
+  description: >-
+    `PENDING` until a Checker approves it, then `APPROVED`. API_CONTRACTS §7 has no endpoint to
+    decline or withdraw a request.
+  enum:
+    - PENDING
+    - APPROVED
+
+LabelReprintRequestCreate:
+  type: object
+  description: A Maker's request to void a package label and issue a new label version (EC-26).
+  required:
+    - reason
+  additionalProperties: false
+  properties:
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 2000
+
+LabelReprintRequest:
+  type: object
+  description: >-
+    A lab request to reprint one package label (EC-26, FR-LOG-09). On approval the old label
+    version is `VOIDED` (a later scan of it returns `PACKAGE_VOIDED`) and `newPackage` is the new
+    `ISSUED` label version with a new short code, printable through the booking's labels.
+    `approvedByUserId` is never `requestedByUserId` (C-03).
+  required:
+    - id
+    - bookingId
+    - package
+    - reason
+    - status
+    - requestedByUserId
+    - requestedAt
+    - approvedByUserId
+    - approvedAt
+    - newPackage
+    - lockVersion
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    package:
+      description: The label the request is about, as it is now.
+      $ref: '#/CustodyPackageSummary'
+    reason:
+      type: string
+    status:
+      $ref: '#/LabelReprintRequestStatus'
+    requestedByUserId:
+      $ref: './common.yaml#/Uuid'
+    requestedAt:
+      $ref: './common.yaml#/Timestamp'
+    approvedByUserId:
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    approvedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    newPackage:
+      oneOf:
+        - $ref: '#/CustodyPackageSummary'
+        - type: 'null'
+    lockVersion:
+      type: integer
+      minimum: 0
+      description: Send it as `If-Match` with the approval.

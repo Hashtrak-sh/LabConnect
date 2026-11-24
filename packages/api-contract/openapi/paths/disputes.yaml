@@ -1,0 +1,418 @@
+# Disputes: raise, detail, messages, evidence, withdraw (API_CONTRACTS.md §9, FR-SUP-02,
+# BUSINESS_RULES BR-080..083, BOOKING_STATE_MACHINE T-22 and T-24). Ops assigns and decides
+# through the admin module (§10).
+#
+# Who: the roles of the `Raise dispute` row of ROLES_AND_PERMISSIONS §2 act on a dispute:
+# `CUSTOMER_ADMIN`, `CUSTOMER_FINANCE`, `CUSTOMER_REQUESTER` on their own bookings, and
+# `LAB_CHECKER` at the booking's site. `PLATFORM_OPS` can also read it.
+# The dispute sub-state machine is not fully stated (OQ-38), so no operation here encodes a
+# dispute status change other than the ones the documents state.
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+booking-disputes:
+  post:
+    operationId: raiseDispute
+    x-transitions:
+      - T-22
+    tags:
+      - Disputes
+    summary: Raise a dispute
+    description: >-
+      T-22 (`RaiseDispute`): moves the booking from `REPORT_RELEASED` to `DISPUTED`, creates the
+      dispute (`OPEN`) and places an automatic payout hold (BR-078). Allowed within the dispute
+      window of 72 h after report release (BR-080, config `dispute.window_minutes`); a dispute
+      of type `BILLING` is not bound to the window, but is still raised only through T-22, so
+      only while the booking is `REPORT_RELEASED` (OQ-25, decided for the MVP). One open dispute
+      per booking: a booking that is already `DISPUTED` refuses another. The lab must respond
+      within 2 business days (BR-081). `If-Match` carries the booking's ETag.
+
+
+      Who: `CUSTOMER_ADMIN`, `CUSTOMER_FINANCE`, `CUSTOMER_REQUESTER` on their own bookings,
+      `LAB_CHECKER` at the booking's site.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The booking.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/disputes.yaml#/DisputeCreate'
+    responses:
+      '201':
+        description: Raised. The ETag is the new dispute's.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/disputes.yaml#/Dispute'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the role may not raise a dispute, or the caller is a requester and the
+          booking is not theirs.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the booking is not `REPORT_RELEASED` (including when it is
+          already `DISPUTED`); `meta.currentState` is set. `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `DISPUTE_WINDOW_CLOSED`: more than 72 h since report release and the type is not
+          `BILLING`. `VALIDATION_FAILED` (including a `typeCode` that is not an active
+          `DISPUTE_TYPE` value). `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+dispute:
+  get:
+    operationId: getDispute
+    tags:
+      - Disputes
+    summary: Get a dispute
+    description: >-
+      The dispute with its messages and evidence (FR-SUP-02). Messages with visibility
+      `PLATFORM_ONLY` are left out for the parties and included for platform users
+      (TENANT_ISOLATION §1).
+
+
+      Who: the roles that may raise a dispute on the booking (see the file header) and
+      `PLATFORM_OPS`.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The dispute.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The dispute.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/disputes.yaml#/Dispute'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the role may not see disputes (for example `LAB_MAKER`), or the caller is
+          a requester and the booking is not theirs.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such dispute in the caller's scope."
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+dispute-messages:
+  post:
+    operationId: addDisputeMessage
+    tags:
+      - Disputes
+    summary: Add a message to a dispute
+    description: >-
+      Appends a message from a party (FR-SUP-02). Party messages are visible to both parties and
+      the platform; they cannot be made `PLATFORM_ONLY`. Messages are never edited or deleted.
+      Accepted until the dispute is decided, closed or withdrawn.
+
+
+      Who: the roles that may raise a dispute on the booking (see the file header).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The dispute.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/disputes.yaml#/DisputeMessageCreate'
+    responses:
+      '201':
+        description: Added.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/disputes.yaml#/DisputeMessage'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the role may not take part in disputes, or the caller is a requester and
+          the booking is not theirs.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such dispute in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the dispute is `DECIDED`, `CLOSED` or `WITHDRAWN`;
+          `meta.currentState` is set. `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+dispute-evidence-upload-url:
+  post:
+    operationId: createDisputeEvidenceUploadUrl
+    tags:
+      - Disputes
+    summary: Get an upload URL for dispute evidence
+    description: >-
+      Step 1 of the upload pipeline (FILES_AND_REPORTS §1): checks the role, type and size,
+      creates a `DISPUTE_EVIDENCE` file in `PENDING` scan status and returns a 15-minute
+      pre-signed PUT. The file never passes through the API. After the upload and a clean
+      malware scan, attach it with `POST /disputes/{id}/evidence`. Accepted until the dispute is
+      decided, closed or withdrawn.
+
+
+      Who: the roles that may raise a dispute on the booking (see the file header).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The dispute.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/disputes.yaml#/DisputeUploadUrlRequest'
+    responses:
+      '201':
+        description: The file id and its upload URL.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/disputes.yaml#/DisputeUploadUrl'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the role may not take part in disputes, or the caller is a requester and
+          the booking is not theirs.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such dispute in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the dispute is `DECIDED`, `CLOSED` or `WITHDRAWN`;
+          `meta.currentState` is set. `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example a type other than PDF, JPEG or PNG, or more than
+          10 MB), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+dispute-evidence:
+  post:
+    operationId: addDisputeEvidence
+    tags:
+      - Disputes
+    summary: Attach evidence to a dispute
+    description: >-
+      Attaches an uploaded file to the dispute by its file id (FR-SUP-02). The file must be a
+      `DISPUTE_EVIDENCE` upload issued for this dispute to the caller, and must have passed the
+      malware scan (`CLEAN`). Evidence is never edited or removed. Accepted until the dispute is
+      decided, closed or withdrawn.
+
+
+      Who: the roles that may raise a dispute on the booking (see the file header).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The dispute.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/disputes.yaml#/DisputeEvidenceCreate'
+    responses:
+      '201':
+        description: Attached.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/disputes.yaml#/DisputeEvidence'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the role may not take part in disputes, or the caller is a requester and
+          the booking is not theirs.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such dispute in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the dispute is `DECIDED`, `CLOSED` or `WITHDRAWN`;
+          `meta.currentState` is set. `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `FILE_NOT_CLEAN`: the scan is pending, or the file is infected or invalid.
+          `VALIDATION_FAILED` (including a `fileId` that is not a dispute-evidence upload of this
+          dispute by the caller). `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+dispute-withdraw:
+  post:
+    operationId: withdrawDispute
+    x-transitions:
+      - T-24
+    tags:
+      - Disputes
+    summary: Withdraw a dispute
+    description: >-
+      The user who raised the dispute withdraws it (`raisedByMe` is true). The dispute becomes
+      `WITHDRAWN` and the booking moves from `DISPUTED` to `COMPLETED` through T-24
+      (`ResolveDispute`): the dispute's payout hold is released and no refund is made. A decided
+      dispute cannot be withdrawn, because its decision is immutable (BR-083); from which other
+      statuses a withdrawal is accepted is not stated yet (OQ-38), and any status that does not
+      allow it answers 409. `If-Match` carries the dispute's ETag. No body.
+
+
+      Who: the raiser only.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The dispute.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Withdrawn.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/disputes.yaml#/Dispute'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller did not raise this dispute.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such dispute in the caller's scope."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the dispute's status does not allow a withdrawal (for
+          example `DECIDED`, `CLOSED` or `WITHDRAWN`); `meta.currentState` is set.
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: '`CONCURRENT_MODIFICATION`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

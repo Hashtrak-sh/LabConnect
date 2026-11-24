@@ -1,0 +1,830 @@
+# Lab site settings: profile, receiving hours, closures, slot templates, slots, retention, scope
+# availability and proposals (API_CONTRACTS.md §6, FR-LAB-06, FR-LAB-07, FR-ONB-07, EC-04,
+# EC-13). `LAB_CHECKER` only (permission `lab_profile.manage`). `siteId` must be one of the
+# sites the caller is assigned to (RR-3); any other site, of this or another organisation, is
+# 404. The organisation comes from the active membership, never from the request.
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+site:
+  get:
+    operationId: getLabSite
+    tags:
+      - Lab sites
+    summary: Get a site's settings
+    description: >-
+      The lab's view of the site: the public profile plus the bookability state, the operational
+      fields the Checker edits and the lock version.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The site.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabSite'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  patch:
+    operationId: updateLabSite
+    tags:
+      - Lab sites
+    summary: Edit a site's instructions, contact and job limit
+    description: >-
+      Sets the submission instructions, the maximum number of open jobs and the contact shown to
+      customers after payment (FR-LAB-06). Audited. NABL-sourced fields (name, address,
+      accreditations) change only through master-data change sets.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab-settings.yaml#/LabSiteUpdate'
+    responses:
+      '200':
+        description: Saved.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabSite'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+receiving-hours:
+  put:
+    operationId: setLabReceivingHours
+    tags:
+      - Lab sites
+    summary: Set receiving hours
+    description: >-
+      Replaces the site's weekly receiving windows (FR-LAB-06). Windows of one weekday must not
+      overlap, and each closes after it opens. Slots are generated only inside receiving hours
+      (EC-13); slots already generated are not changed, and the Checker closes any that no longer
+      fit (`PATCH /lab/sites/{siteId}/slots/{slotId}`).
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab-settings.yaml#/LabReceivingHoursSet'
+    responses:
+      '200':
+        description: Saved.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabReceivingHoursSet'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example overlapping windows).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+closures:
+  get:
+    operationId: listLabSiteClosures
+    tags:
+      - Lab sites
+    summary: List closures
+    description: Closures of the site that end on or after `from`, ordered by start date.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: from
+        in: query
+        required: false
+        description: Earliest end date. Defaults to today (IST).
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of closures.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabSiteClosureList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  post:
+    operationId: createLabSiteClosure
+    tags:
+      - Lab sites
+    summary: Close the site for some days
+    description: >-
+      An ad hoc closure (EC-13). The site's slots on the closed days become `CANCELLED` and no
+      new slots are generated for them. Customers whose bookings hold a cancelled slot are
+      notified; their bookings do not change state. The first day may not be in the past.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab-settings.yaml#/LabSiteClosureCreate'
+    responses:
+      '201':
+        description: Closed.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabSiteClosureResult'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example `endsOn` before `startsOn`, or a first day in the
+          past), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+closure:
+  delete:
+    operationId: deleteLabSiteClosure
+    tags:
+      - Lab sites
+    summary: Withdraw a closure
+    description: >-
+      Withdraws a closure that has not started yet. Slots it cancelled stay `CANCELLED`; they are
+      not reopened.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: closureId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '204':
+        description: Withdrawn.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no closure with this id at one of the caller's sites."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`: the closure has already started.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+slot-templates:
+  get:
+    operationId: getLabSlotTemplates
+    tags:
+      - Lab sites
+    summary: Get slot templates
+    description: The site's capacity templates, active and retired (FR-LAB-06).
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The templates.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabSlotTemplateSet'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  put:
+    operationId: setLabSlotTemplates
+    tags:
+      - Lab sites
+    summary: Create or update slot templates
+    description: >-
+      Creates the listed templates without an `id` and updates those with one; each update
+      carries the `lockVersion` last read, and any mismatch fails the whole request with 412.
+      Templates that are not listed are unchanged; retire one with `active: false`. Changes apply
+      to slots generated from now on (30 days ahead, nightly); existing slots are adjusted with
+      `PATCH /lab/sites/{siteId}/slots/{slotId}`. Returns all templates of the site.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab-settings.yaml#/LabSlotTemplateSetUpdate'
+    responses:
+      '200':
+        description: Saved.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabSlotTemplateSet'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites, or a template `id` not of this site."
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: "`CONCURRENT_MODIFICATION`: a template's `lockVersion` is missing or stale."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example `endTime` not after `startTime`, or an unknown
+          discipline).
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+slots:
+  get:
+    operationId: listLabSlots
+    tags:
+      - Lab sites
+    summary: List generated slots
+    description: >-
+      The site's slots between `from` and `to` (inclusive, by slot date in IST) with capacity,
+      held and booked counts and status, ordered by start.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: from
+        in: query
+        required: true
+        description: First slot date.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - name: to
+        in: query
+        required: true
+        description: Last slot date. Not before `from`.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Date'
+      - name: discipline
+        in: query
+        required: false
+        description: Code of a DISCIPLINE node of the SCOPE taxonomy.
+        schema:
+          $ref: '../components/schemas/lab-sites.yaml#/NodeCode'
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/SlotStatus'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of slots.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabSlotList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED`: `to` is before `from`, the discipline is unknown, or the cursor is
+          unreadable.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+slot:
+  patch:
+    operationId: updateLabSlot
+    tags:
+      - Lab sites
+    summary: Adjust or close a slot
+    description: >-
+      Changes a slot's capacity (not below its held and booked counts, BR-011), or closes or
+      reopens it. Closing stops new bookings; bookings that already hold the slot keep it. A
+      `CANCELLED` slot cannot be changed.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: slotId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab-settings.yaml#/LabSlotUpdate'
+    responses:
+      '200':
+        description: Saved.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabSlot'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no slot with this id at one of the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION`: the slot is `CANCELLED` (`meta.currentState`).'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example a capacity below the held and booked count).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+retention-rules:
+  get:
+    operationId: getLabRetentionRules
+    tags:
+      - Lab sites
+    summary: Get retention rules
+    description: The site's retention period per discipline and its default (FR-ONB-07, CD-13).
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The rules.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabRetentionRuleSet'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  put:
+    operationId: setLabRetentionRules
+    tags:
+      - Lab sites
+    summary: Set retention rules
+    description: >-
+      Sets the rule of each listed discipline, or the default with `disciplineCode: null`.
+      Existing rules need the `lockVersion` last read; any mismatch fails the whole request with
+      412. Rules that are not listed are unchanged. A new period applies to receipts approved from
+      now on: `retain_until` is fixed at receipt approval (BR-049). Returns all rules of the site.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab-settings.yaml#/LabRetentionRuleSetUpdate'
+    responses:
+      '200':
+        description: Saved.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabRetentionRuleSet'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+        description: "`CONCURRENT_MODIFICATION`: a rule's `lockVersion` is missing or stale."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example an unknown discipline, or a discipline listed twice).
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+scope-lines:
+  get:
+    operationId: listLabScopeLines
+    tags:
+      - Lab sites
+    summary: List the site's scope lines
+    description: >-
+      The site's active scope lines, ordered along the scope tree, with their availability, lock
+      version and whether the effective price list prices them. `q` searches inside the scope.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: q
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/search.yaml#/SearchText'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of scope lines.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabScopeLineList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+scope-line-availability:
+  patch:
+    operationId: setLabScopeLineAvailability
+    tags:
+      - Lab sites
+    summary: Mark a scope line temporarily unavailable
+    description: >-
+      Sets `temporarilyUnavailable` (FR-LAB-07). While it is set the line cannot be booked;
+      existing bookings are not affected. Audited. The scope itself changes only through a
+      proposal (`/lab/sites/{siteId}/proposals`).
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: id
+        in: path
+        required: true
+        description: The scope line id.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab-settings.yaml#/LabScopeLineAvailabilityUpdate'
+    responses:
+      '200':
+        description: Saved.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabScopeLine'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no active scope line with this id at one of the caller's sites."
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+proposals:
+  post:
+    operationId: createLabProposal
+    tags:
+      - Lab sites
+    summary: Propose a map-pin or scope correction
+    description: >-
+      Creates a master-data change set with source `LAB_PROPOSAL` for this site (MASTER_DATA_MANAGEMENT
+      §3, EC-04). Platform staff review, approve and publish it; nothing changes until then, and
+      only an approved pin is used (BR-004). A scope correction names scope lines of this site
+      and the master-data codes of the proposed state.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab-settings.yaml#/LabProposalCreate'
+    responses:
+      '201':
+        description: Proposed.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-settings.yaml#/LabProposal'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example a scope line of another site, an unknown code, or an
+          item without the fields its operation needs), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
