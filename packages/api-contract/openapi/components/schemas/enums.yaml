@@ -92,3 +92,82 @@ VerificationResult:
     - GENUINE_SUPERSEDED
     - NOT_FOUND
     - REVOKED
+
+# ---- P2-06a: payments and disputes (API_CONTRACTS.md §5 and §9) ----
+
+PartyType:
+  type: string
+  description: The side of a booking an actor belongs to. `SYSTEM` is the platform's own jobs.
+  enum:
+    - CUSTOMER
+    - LAB
+    - PLATFORM
+    - SYSTEM
+
+GatewayCode:
+  type: string
+  description: >-
+    The payment gateway adapter (ICICI_PAYMENT_INTEGRATION §4). `FAKE` is the deterministic test
+    gateway used in local, CI and early UAT environments.
+  enum:
+    - ICICI
+    - FAKE
+
+PaymentOrderStatus:
+  type: string
+  description: >-
+    Status of a payment order (BOOKING_STATE_MACHINE §4): `CREATED → PENDING → CAPTURED | FAILED |
+    EXPIRED`, plus `CAPTURED → REFUNDED_PARTIAL | REFUNDED_FULL`.
+  enum:
+    - CREATED
+    - PENDING
+    - CAPTURED
+    - FAILED
+    - EXPIRED
+    - REFUNDED_PARTIAL
+    - REFUNDED_FULL
+
+FinDocType:
+  type: string
+  description: Type of a financial document (FR-FIN-02, PAYMENTS_AND_LEDGER §6).
+  enum:
+    - TAX_INVOICE
+    - PAYMENT_RECEIPT
+    - CREDIT_NOTE
+    - REFUND_NOTE
+
+DisputeStatus:
+  type: string
+  description: >-
+    Status of a dispute. BOOKING_STATE_MACHINE §4 states `OPEN → AWAITING_LAB → UNDER_REVIEW →
+    DECIDED → CLOSED` (or `WITHDRAWN`); the other moves, including `AWAITING_CUSTOMER`, are not
+    stated yet (OQ-38).
+  enum:
+    - OPEN
+    - AWAITING_LAB
+    - AWAITING_CUSTOMER
+    - UNDER_REVIEW
+    - DECIDED
+    - CLOSED
+    - WITHDRAWN
+
+DisputeOutcome:
+  type: string
+  description: >-
+    The commercial outcome Ops records (FR-SUP-03, BR-083). Technical result questions are
+    referred to the lab's own ISO/IEC 17025 complaint process (BR-082).
+  enum:
+    - NO_ACTION
+    - PARTIAL_REFUND
+    - FULL_REFUND
+    - REPORT_AMENDMENT_REQUIRED
+    - REFERRED_TO_LAB_COMPLAINT_PROCESS
+
+MessageVisibility:
+  type: string
+  description: >-
+    Who sees a dispute message. `PLATFORM_ONLY` messages are never shown to either party
+    (TENANT_ISOLATION §1).
+  enum:
+    - ALL
+    - PLATFORM_ONLY

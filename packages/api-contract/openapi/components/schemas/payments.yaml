@@ -1,0 +1,203 @@
+# Payments: payment orders, the gateway-facing objects and financial documents
+# (API_CONTRACTS.md §5, PAYMENTS_AND_LEDGER.md, ICICI_PAYMENT_INTEGRATION.md §4).
+#
+# Nothing here describes a real gateway. The ICICI documentation is not available yet (OQ-01),
+# so every object that a gateway defines is opaque: `PaymentGatewayCheckout` (what the adapter's
+# `createOrder()` returns as `checkout`) and `PaymentGatewayWebhookBody` (the raw callback body).
+# Do not add named fields to either until ICICI_PAYMENT_INTEGRATION.md §3 records them.
+
+PaymentOrder:
+  type: object
+  description: >-
+    One payment attempt on a booking (`payment_order`, SCHEMA_SPECIFICATION §10.1). The amount
+    is always the booking total, set by the server (C-06); it is never taken from a request. A
+    booking has at most one order in `CAPTURED`, `REFUNDED_PARTIAL` or `REFUNDED_FULL`
+    (BR-033): a further capture is recorded as a duplicate and refunded automatically, as is a
+    capture that arrives after the booking reached `EXPIRED_UNPAID` (OQ-27). Gateway references,
+    the idempotency key and the initiating user are not returned.
+  required:
+    - id
+    - bookingId
+    - attemptNo
+    - gateway
+    - status
+    - amount
+    - checkoutExpiresAt
+    - createdAt
+    - updatedAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    attemptNo:
+      type: integer
+      minimum: 1
+      description: Attempt number on the booking, from 1. Unique per booking.
+    gateway:
+      $ref: './enums.yaml#/GatewayCode'
+    status:
+      $ref: './enums.yaml#/PaymentOrderStatus'
+    amount:
+      $ref: './common.yaml#/Money'
+    checkoutExpiresAt:
+      description: When the hosted checkout of this attempt stops accepting a payment, if known.
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    updatedAt:
+      $ref: './common.yaml#/Timestamp'
+
+PaymentOrderList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/PaymentOrder'
+    page:
+      $ref: './common.yaml#/Page'
+
+PaymentGatewayCheckout:
+  type: object
+  description: >-
+    Adapter-defined and opaque to the contract (API_CONTRACTS §5, ICICI_PAYMENT_INTEGRATION §4):
+    the `checkout` value that `PaymentGateway.createOrder()` returns, passed unchanged to the web
+    component chosen by the order's `gateway`. Its fields are defined by the gateway adapter, not
+    here, and stay unspecified until the ICICI documentation is available (OQ-01). It never
+    carries card data (FR-PAY-02: hosted checkout only).
+  additionalProperties: true
+
+PaymentCheckout:
+  type: object
+  description: The payment order just created, and what the web app needs to open its checkout.
+  required:
+    - paymentOrder
+    - gatewayCheckout
+  additionalProperties: false
+  properties:
+    paymentOrder:
+      $ref: '#/PaymentOrder'
+    gatewayCheckout:
+      $ref: '#/PaymentGatewayCheckout'
+
+PaymentGatewayWebhookBody:
+  description: >-
+    The raw body of a gateway callback, in whatever format and content type the gateway sends.
+    Opaque to the contract: its format, its fields and the signature scheme that authenticates
+    it are defined by the gateway's documentation, which is not available yet (OQ-01). The API
+    stores it encrypted and hashed (`gateway_webhook_event`) before parsing it.
+
+FinancialDocument:
+  type: object
+  description: >-
+    An issued financial document (`financial_document`, SCHEMA_SPECIFICATION §10.12, FR-FIN-02):
+    a payment receipt, tax invoice, credit note or refund note. Issued documents never change; a
+    correction is a new credit note whose `relatedDocumentId` points at the corrected document.
+    Which organisation issues which type is still open (OQ-08), so the issuer is any
+    organisation. GSTINs, the line snapshot and the e-invoice reference are on the PDF only.
+  required:
+    - id
+    - bookingId
+    - docType
+    - docNo
+    - issuer
+    - recipient
+    - relatedDocumentId
+    - taxable
+    - cgst
+    - sgst
+    - igst
+    - total
+    - placeOfSupplyState
+    - sacCode
+    - issuedAt
+    - fileAvailable
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingId:
+      $ref: './common.yaml#/Uuid'
+    docType:
+      $ref: './enums.yaml#/FinDocType'
+    docNo:
+      type: string
+      maxLength: 30
+      description: Gapless number from the issuer's series for this type and financial year.
+    issuer:
+      $ref: './me.yaml#/OrganisationSummary'
+    recipient:
+      $ref: './me.yaml#/OrganisationSummary'
+    relatedDocumentId:
+      description: For a credit note, the document it corrects. Otherwise `null`.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    taxable:
+      $ref: './common.yaml#/Money'
+    cgst:
+      $ref: './common.yaml#/Money'
+    sgst:
+      $ref: './common.yaml#/Money'
+    igst:
+      $ref: './common.yaml#/Money'
+    total:
+      description: '`taxable + cgst + sgst + igst` (C-05).'
+      $ref: './common.yaml#/Money'
+    placeOfSupplyState:
+      type:
+        - string
+        - 'null'
+      maxLength: 4
+      description: State code of the place of supply, when the document has one.
+    sacCode:
+      type:
+        - string
+        - 'null'
+      maxLength: 8
+    issuedAt:
+      $ref: './common.yaml#/Timestamp'
+    fileAvailable:
+      type: boolean
+      description: >-
+        Whether the PDF has been rendered. The worker renders it after issue, so a new document
+        can briefly be listed without one; `download` answers 404 until it is.
+
+FinancialDocumentList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/FinancialDocument'
+    page:
+      $ref: './common.yaml#/Page'
+
+FinancialDocumentDownload:
+  type: object
+  description: A short-lived download URL for the document's PDF, never the file itself.
+  required:
+    - downloadUrl
+    - expiresAt
+  additionalProperties: false
+  properties:
+    downloadUrl:
+      type: string
+      format: uri
+      description: >-
+        A pre-signed GET with `Content-Disposition: attachment`, valid for 15 minutes
+        (FILES_AND_REPORTS §2).
+    expiresAt:
+      $ref: './common.yaml#/Timestamp'

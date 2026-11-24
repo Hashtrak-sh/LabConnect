@@ -1,0 +1,258 @@
+# Disputes: raise, detail, messages, evidence (API_CONTRACTS.md §9, SCHEMA_SPECIFICATION §11,
+# BUSINESS_RULES BR-080..083). Ops decisions are in the admin module (§10).
+
+DisputeBookingSummary:
+  type: object
+  description: The booking a dispute is about. The booking itself is read through `/bookings/{id}`.
+  required:
+    - id
+    - bookingNo
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingNo:
+      type: string
+      maxLength: 20
+      examples:
+        - LC-2611-0004821
+
+DisputeCreate:
+  type: object
+  description: >-
+    A new dispute (T-22). The type is a code of the `DISPUTE_TYPE` taxonomy, listed by
+    `/public/taxonomies/DISPUTE_TYPE/nodes` (FR-SUP-02). Evidence is added afterwards through
+    `/disputes/{id}/evidence/upload-url` and `/disputes/{id}/evidence`.
+  required:
+    - typeCode
+    - description
+  additionalProperties: false
+  properties:
+    typeCode:
+      $ref: './lab-sites.yaml#/NodeCode'
+    description:
+      type: string
+      minLength: 1
+      maxLength: 4000
+      description: What is disputed, in the raiser's words.
+
+DisputeMessage:
+  type: object
+  description: >-
+    One message on a dispute (`dispute_message`, append-only). Messages with visibility
+    `PLATFORM_ONLY` are returned to platform users only and never to either party
+    (TENANT_ISOLATION §1). The author is identified by party only.
+  required:
+    - id
+    - authorParty
+    - authoredByMe
+    - body
+    - visibility
+    - occurredAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    authorParty:
+      $ref: './enums.yaml#/PartyType'
+    authoredByMe:
+      type: boolean
+      description: Whether the current user wrote the message.
+    body:
+      type: string
+      maxLength: 4000
+    visibility:
+      $ref: './enums.yaml#/MessageVisibility'
+    occurredAt:
+      $ref: './common.yaml#/Timestamp'
+
+DisputeMessageCreate:
+  type: object
+  description: >-
+    A message from a party. Party messages are always visible to both parties and the platform
+    (`ALL`); a party cannot write a `PLATFORM_ONLY` message.
+  required:
+    - body
+  additionalProperties: false
+  properties:
+    body:
+      type: string
+      minLength: 1
+      maxLength: 4000
+
+DisputeEvidence:
+  type: object
+  description: >-
+    A file attached to a dispute as evidence (`dispute_evidence`, append-only). The file is
+    referenced by id; it is a `DISPUTE_EVIDENCE` file that passed the malware scan.
+  required:
+    - id
+    - fileId
+    - description
+    - submittedByMe
+    - createdAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    fileId:
+      $ref: './common.yaml#/Uuid'
+    description:
+      type:
+        - string
+        - 'null'
+      maxLength: 500
+    submittedByMe:
+      type: boolean
+      description: Whether the current user submitted the evidence.
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+
+DisputeEvidenceCreate:
+  type: object
+  description: Attaches an uploaded file as evidence.
+  required:
+    - fileId
+  additionalProperties: false
+  properties:
+    fileId:
+      description: >-
+        The `fileId` returned by `/disputes/{id}/evidence/upload-url`, after the upload to it has
+        finished.
+      $ref: './common.yaml#/Uuid'
+    description:
+      type: string
+      minLength: 1
+      maxLength: 500
+
+DisputeUploadUrlRequest:
+  type: object
+  description: >-
+    Declares the evidence file to be uploaded (FILES_AND_REPORTS §1, purpose
+    `DISPUTE_EVIDENCE`: PDF, JPEG or PNG, at most 10 MB each).
+  required:
+    - contentType
+    - sizeBytes
+  additionalProperties: false
+  properties:
+    contentType:
+      type: string
+      enum:
+        - application/pdf
+        - image/jpeg
+        - image/png
+    sizeBytes:
+      type: integer
+      minimum: 1
+      maximum: 10485760
+    fileName:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: The original file name. Stored sanitised.
+
+DisputeUploadUrl:
+  type: object
+  description: >-
+    A pre-signed PUT to the quarantine area, valid for 15 minutes (FILES_AND_REPORTS §1). Upload
+    the file with the declared `Content-Type` and exactly the declared size. The file can be
+    attached once its malware scan has passed.
+  required:
+    - fileId
+    - uploadUrl
+    - expiresAt
+  additionalProperties: false
+  properties:
+    fileId:
+      $ref: './common.yaml#/Uuid'
+    uploadUrl:
+      type: string
+      format: uri
+    expiresAt:
+      $ref: './common.yaml#/Timestamp'
+
+Dispute:
+  type: object
+  description: >-
+    A dispute on a booking (`dispute`, SCHEMA_SPECIFICATION §11.1), as the caller may see it.
+    Parties see every message with visibility `ALL`; platform users also see `PLATFORM_ONLY`
+    messages. The Ops assignee and the deciding user are not returned. Once decided, the outcome,
+    refund amount and rationale never change (BR-083).
+  required:
+    - id
+    - disputeNo
+    - booking
+    - type
+    - status
+    - raisedByParty
+    - raisedByMe
+    - description
+    - labResponseDueAt
+    - outcome
+    - refundAmount
+    - decisionRationale
+    - decidedAt
+    - messages
+    - evidence
+    - createdAt
+    - updatedAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    disputeNo:
+      type: string
+      maxLength: 20
+      description: Human-readable dispute number.
+    booking:
+      $ref: '#/DisputeBookingSummary'
+    type:
+      description: The `DISPUTE_TYPE` code and its display name.
+      $ref: './lab-sites.yaml#/PublicCodeName'
+    status:
+      $ref: './enums.yaml#/DisputeStatus'
+    raisedByParty:
+      $ref: './enums.yaml#/PartyType'
+    raisedByMe:
+      type: boolean
+      description: Whether the current user raised the dispute, and so may withdraw it.
+    description:
+      type: string
+      maxLength: 4000
+    labResponseDueAt:
+      description: When the lab's response is due (2 business days, BR-081), if set.
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    outcome:
+      description: Set when Ops decides.
+      oneOf:
+        - $ref: './enums.yaml#/DisputeOutcome'
+        - type: 'null'
+    refundAmount:
+      description: The refund decided by Ops, if any.
+      oneOf:
+        - $ref: './common.yaml#/Money'
+        - type: 'null'
+    decisionRationale:
+      type:
+        - string
+        - 'null'
+    decidedAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    messages:
+      type: array
+      description: Oldest first.
+      items:
+        $ref: '#/DisputeMessage'
+    evidence:
+      type: array
+      description: Oldest first.
+      items:
+        $ref: '#/DisputeEvidence'
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    updatedAt:
+      $ref: './common.yaml#/Timestamp'
