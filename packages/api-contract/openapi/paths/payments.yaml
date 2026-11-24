@@ -1,0 +1,352 @@
+# Payments and financial documents (API_CONTRACTS.md §5, PAYMENTS_AND_LEDGER.md,
+# ICICI_PAYMENT_INTEGRATION.md §4).
+#
+# The contract is adapter-level. The ICICI documentation is not available yet (OQ-01), so no
+# operation here names a gateway endpoint, field, header or signature scheme: the checkout object
+# and the webhook body are opaque. Who may pay follows the `Pay` row of ROLES_AND_PERMISSIONS §2.
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+booking-payments:
+  post:
+    operationId: createPaymentOrder
+    tags:
+      - Payments
+    summary: Start a payment
+    description: >-
+      Creates a payment order for the booking and returns the gateway checkout (FR-PAY-01/02,
+      PAYMENTS_AND_LEDGER §2). The request has no body: the amount is always the booking total,
+      set by the server and checked again by the database (C-06), and the gateway is the one
+      configured for the environment. The booking must be `ACCEPTED` and inside its payment
+      window (BR-030, BR-032). Each call with a new `Idempotency-Key` creates a new attempt; a
+      repeat with the same key returns the same order and checkout.
+
+
+      This call never marks the booking paid. Only a verified capture does that, through T-09
+      (`ConfirmPayment`, system), from the gateway webhook or the reconciliation job. Only one
+      capture per booking counts (BR-033); any further capture is refunded automatically.
+
+
+      Who: `CUSTOMER_ADMIN`, `CUSTOMER_FINANCE`, and `CUSTOMER_REQUESTER` on their own bookings
+      only when the organisation setting `requester_can_pay` is on (ROLES_AND_PERMISSIONS §2,
+      note 3). Ops cannot pay on a customer's behalf (note 1).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The booking.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '201':
+        description: The payment order, with the opaque checkout to open.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/payments.yaml#/PaymentCheckout'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the role may not pay, or the caller is a requester and
+          `requester_can_pay` is off or the booking is not theirs.
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such booking in the active organisation.'
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the booking is not `ACCEPTED` (for example already `PAID`,
+          or `EXPIRED_UNPAID`), or its payment window has closed; `meta.currentState` is set.
+          `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+      '503':
+        $ref: '../components/responses.yaml#/ServiceUnavailable'
+        description: '`GATEWAY_UNAVAILABLE`: the gateway did not create the order. Safe to retry.'
+  get:
+    operationId: listPaymentOrders
+    tags:
+      - Payments
+    summary: List payment attempts
+    description: >-
+      The booking's payment orders and their status, newest first (FR-PAY-03). A booking is paid
+      when its status is `PAID` or later, not when an order looks captured here.
+
+
+      Who: the booking's customer organisation (`CUSTOMER_ADMIN`, `CUSTOMER_FINANCE`, and
+      `CUSTOMER_REQUESTER` for their own bookings), the lab's `LAB_CHECKER` at the booking's site,
+      and `PLATFORM_OPS` and `PLATFORM_FINANCE`. The list holds no personal or gateway data.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The booking.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of payment orders.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/payments.yaml#/PaymentOrderList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the role may not see payments of this booking.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+payment-webhook:
+  post:
+    operationId: receivePaymentWebhook
+    tags:
+      - Payments
+    summary: Receive a gateway callback
+    description: >-
+      Server-to-server callback from the payment gateway (FR-PAY-07). Called by the gateway, not
+      by a user: there is no bearer token, membership or idempotency key. The callback is
+      authenticated by gateway signature verification, whose scheme (and any headers it uses) is
+      defined by the gateway's documentation, not yet available (OQ-01,
+      AUTHENTICATION_AND_AUTHORISATION §6). The body is opaque to the contract.
+
+
+      The API stores the raw body (encrypted, with its hash) as a `gateway_webhook_event` before
+      parsing it, then verifies the signature, deduplicates on the gateway's event id, and
+      processes the event in a transaction: a verified capture of exactly the booking total runs
+      T-09 (`ConfirmPayment`). A mismatch (`PAYMENT_AMOUNT_MISMATCH`), a duplicate capture
+      (BR-033) and a capture after `EXPIRED_UNPAID` (OQ-27) go to Finance and are refunded
+      automatically. It answers 2xx as soon as the event is persisted, whatever the outcome of
+      verification or processing, so that the gateway does not retry; failures go to the dead
+      letter queue and alerts (ERROR_HANDLING §3). The response body is empty and reveals
+      nothing about the event. No rate limit; an IP allow-list applies if the gateway publishes
+      its ranges (API_CONVENTIONS §7).
+    security: []
+    parameters:
+      - name: gateway
+        in: path
+        required: true
+        description: >-
+          The adapter that receives the callback. A gateway that is not enabled in the
+          environment (`FAKE` is never enabled in production) answers 404.
+        schema:
+          $ref: '../components/schemas/enums.yaml#/GatewayCode'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      description: The raw callback, in the gateway's own format (OQ-01).
+      content:
+        '*/*':
+          schema:
+            $ref: '../components/schemas/payments.yaml#/PaymentGatewayWebhookBody'
+    responses:
+      '2XX':
+        description: >-
+          Persisted. Sent whether or not the signature verifies and whether or not processing
+          succeeds. No body. The exact 2xx status and any acknowledgement the gateway expects
+          follow its documentation (OQ-01).
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: the gateway is not enabled in this environment.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+        description: >-
+          `INTERNAL_ERROR`: the event could not be persisted. The gateway's retry delivers it
+          again.
+
+payment-return:
+  get:
+    operationId: getPaymentReturnStatus
+    tags:
+      - Payments
+    summary: Get the status behind the payment return page
+    description: >-
+      Backs the page the browser lands on after the hosted checkout (FR-PAY-07). The return URL
+      itself is a web-app page, not this endpoint: a browser redirect carries no bearer token
+      (AUTHENTICATION_AND_AUTHORISATION §4). The page signs in as usual and calls this endpoint
+      with the `orderRef` from the return URL, then shows "pending" or "success" from the order
+      status and polls until it is final.
+
+
+      Read-only. It **never** marks the booking paid, never captures and never asks the gateway
+      for a status: only the webhook and the reconciliation job do (T-09). Anything the gateway
+      appends to the return URL is ignored.
+
+
+      Who: the booking's customer organisation (`CUSTOMER_ADMIN`, `CUSTOMER_FINANCE`, and
+      `CUSTOMER_REQUESTER` for their own bookings).
+    parameters:
+      - name: orderRef
+        in: query
+        required: true
+        description: >-
+          The payment order id (`PaymentOrder.id`), which the API puts in the return URL it gives
+          the gateway when it creates the order. A random server-side id, not personal data and
+          not a gateway reference.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The payment order, as it stands.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/payments.yaml#/PaymentOrder'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not on the customer side of the booking.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such payment order in the caller's scope."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`: `orderRef` is missing or not a UUID.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+booking-financial-documents:
+  get:
+    operationId: listFinancialDocuments
+    tags:
+      - Payments
+    summary: List financial documents
+    description: >-
+      The booking's issued payment receipts, tax invoices, credit notes and refund notes, newest
+      first (FR-FIN-02, PAYMENTS_AND_LEDGER §6). Each organisation sees only the documents
+      addressed to it or issued by it; platform users see all of them.
+
+
+      Who: the `View invoices / receipts` row of ROLES_AND_PERMISSIONS §2: `CUSTOMER_ADMIN`,
+      `CUSTOMER_FINANCE`, `LAB_CHECKER` at the booking's site, `PLATFORM_OPS`, `PLATFORM_FINANCE`.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The booking.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of financial documents.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/payments.yaml#/FinancialDocumentList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: >-
+          `FORBIDDEN`: the role may not view financial documents (for example
+          `CUSTOMER_REQUESTER` or `LAB_MAKER`).
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no such booking in the caller's scope."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+financial-document-download:
+  get:
+    operationId: getFinancialDocumentDownloadUrl
+    tags:
+      - Payments
+    summary: Get a download URL for a financial document
+    description: >-
+      Returns a short-lived signed URL for the document's PDF, never the file itself
+      (FR-FIN-02, FILES_AND_REPORTS §2). Same callers and the same rule as the list: the
+      document must be addressed to or issued by the caller's organisation, or the caller is a
+      platform user.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The financial document.
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A download URL.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/payments.yaml#/FinancialDocumentDownload'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the role may not view financial documents.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: >-
+          `NOT_FOUND`: no such document addressed to or issued by the caller's organisation, or
+          its PDF is not rendered yet (`fileAvailable` is false).
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

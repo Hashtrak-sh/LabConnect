@@ -26,6 +26,11 @@ tags:
       Public lab search, typeahead, filter values, lab site pages, slots and leads. No sign-in.
   - name: Verification
     description: Public report verification and share links. No sign-in.
+  - name: Payments
+    description: >-
+      Payment orders, the gateway callback, the payment return status and financial documents.
+  - name: Disputes
+    description: Raising, following and withdrawing disputes on a booking.
   - name: Lab onboarding
     description: >-
       Lab claim, onboarding checklist, KYC documents, bank accounts, and lab users and
@@ -95,6 +100,30 @@ paths:
     $ref: './paths/public-reports.yaml#/verify'
   /public/share/{token}:
     $ref: './paths/public-reports.yaml#/share'
+  # Payments (API_CONTRACTS.md §5)
+  /bookings/{id}/payments:
+    $ref: './paths/payments.yaml#/booking-payments'
+  /webhooks/payments/{gateway}:
+    $ref: './paths/payments.yaml#/payment-webhook'
+  /payments/return:
+    $ref: './paths/payments.yaml#/payment-return'
+  /bookings/{id}/financial-documents:
+    $ref: './paths/payments.yaml#/booking-financial-documents'
+  /financial-documents/{id}/download:
+    $ref: './paths/payments.yaml#/financial-document-download'
+  # Disputes (API_CONTRACTS.md §9)
+  /bookings/{id}/disputes:
+    $ref: './paths/disputes.yaml#/booking-disputes'
+  /disputes/{id}:
+    $ref: './paths/disputes.yaml#/dispute'
+  /disputes/{id}/messages:
+    $ref: './paths/disputes.yaml#/dispute-messages'
+  /disputes/{id}/evidence/upload-url:
+    $ref: './paths/disputes.yaml#/dispute-evidence-upload-url'
+  /disputes/{id}/evidence:
+    $ref: './paths/disputes.yaml#/dispute-evidence'
+  /disputes/{id}/withdraw:
+    $ref: './paths/disputes.yaml#/dispute-withdraw'
   # Lab (API_CONTRACTS.md §6)
   /lab/claims:
     $ref: './paths/lab-onboarding.yaml#/claims'
@@ -336,6 +365,54 @@ components:
       $ref: './components/schemas/verification.yaml#/ReportVerification'
     ShareLinkResolution:
       $ref: './components/schemas/verification.yaml#/ShareLinkResolution'
+    PartyType:
+      $ref: './components/schemas/enums.yaml#/PartyType'
+    GatewayCode:
+      $ref: './components/schemas/enums.yaml#/GatewayCode'
+    PaymentOrderStatus:
+      $ref: './components/schemas/enums.yaml#/PaymentOrderStatus'
+    FinDocType:
+      $ref: './components/schemas/enums.yaml#/FinDocType'
+    DisputeStatus:
+      $ref: './components/schemas/enums.yaml#/DisputeStatus'
+    DisputeOutcome:
+      $ref: './components/schemas/enums.yaml#/DisputeOutcome'
+    MessageVisibility:
+      $ref: './components/schemas/enums.yaml#/MessageVisibility'
+    PaymentOrder:
+      $ref: './components/schemas/payments.yaml#/PaymentOrder'
+    PaymentOrderList:
+      $ref: './components/schemas/payments.yaml#/PaymentOrderList'
+    PaymentGatewayCheckout:
+      $ref: './components/schemas/payments.yaml#/PaymentGatewayCheckout'
+    PaymentCheckout:
+      $ref: './components/schemas/payments.yaml#/PaymentCheckout'
+    PaymentGatewayWebhookBody:
+      $ref: './components/schemas/payments.yaml#/PaymentGatewayWebhookBody'
+    FinancialDocument:
+      $ref: './components/schemas/payments.yaml#/FinancialDocument'
+    FinancialDocumentList:
+      $ref: './components/schemas/payments.yaml#/FinancialDocumentList'
+    FinancialDocumentDownload:
+      $ref: './components/schemas/payments.yaml#/FinancialDocumentDownload'
+    DisputeBookingSummary:
+      $ref: './components/schemas/disputes.yaml#/DisputeBookingSummary'
+    DisputeCreate:
+      $ref: './components/schemas/disputes.yaml#/DisputeCreate'
+    DisputeMessage:
+      $ref: './components/schemas/disputes.yaml#/DisputeMessage'
+    DisputeMessageCreate:
+      $ref: './components/schemas/disputes.yaml#/DisputeMessageCreate'
+    DisputeEvidence:
+      $ref: './components/schemas/disputes.yaml#/DisputeEvidence'
+    DisputeEvidenceCreate:
+      $ref: './components/schemas/disputes.yaml#/DisputeEvidenceCreate'
+    DisputeUploadUrlRequest:
+      $ref: './components/schemas/disputes.yaml#/DisputeUploadUrlRequest'
+    DisputeUploadUrl:
+      $ref: './components/schemas/disputes.yaml#/DisputeUploadUrl'
+    Dispute:
+      $ref: './components/schemas/disputes.yaml#/Dispute'
     HealthStatus:
       $ref: './components/schemas/health.yaml#/HealthStatus'
     # Lab (P2-04)
