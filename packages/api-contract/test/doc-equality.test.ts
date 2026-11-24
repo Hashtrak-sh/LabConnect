@@ -25,6 +25,9 @@ import {
 const coveredSections: [heading: string, rows: number, operations: number][] = [
   ['## 1. Auth and identity', 10, 14],
   ['## 2. Public', 10, 10],
+  ['## 5. Payments', 6, 6],
+  ['## 9. Disputes', 4, 6],
+  ['## 6. Lab', 19, 41],
   ['## 7. Custody and receipt', 8, 9],
   ['## 8. Reports', 8, 11],
 ];

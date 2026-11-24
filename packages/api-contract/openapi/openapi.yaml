@@ -26,6 +26,23 @@ tags:
       Public lab search, typeahead, filter values, lab site pages, slots and leads. No sign-in.
   - name: Verification
     description: Public report verification and share links. No sign-in.
+  - name: Payments
+    description: >-
+      Payment orders, the gateway callback, the payment return status and financial documents.
+  - name: Disputes
+    description: Raising, following and withdrawing disputes on a booking.
+  - name: Lab onboarding
+    description: >-
+      Lab claim, onboarding checklist, KYC documents, bank accounts, and lab users and
+      invitations.
+  - name: Lab sites
+    description: >-
+      Site settings of the lab: profile, receiving hours, closures, slot templates, slots,
+      retention, scope-line availability and correction proposals.
+  - name: Lab price lists
+    description: Price-list drafts, bulk import with preview, and publication.
+  - name: Lab inbox
+    description: Bookings and approvals waiting for the lab's Makers and Checkers.
   - name: Custody
     description: >-
       QR and short-code scans at the lab counter, receipt records and their Checker decisions,
@@ -90,6 +107,99 @@ paths:
     $ref: './paths/public-reports.yaml#/verify'
   /public/share/{token}:
     $ref: './paths/public-reports.yaml#/share'
+  # Payments (API_CONTRACTS.md §5)
+  /bookings/{id}/payments:
+    $ref: './paths/payments.yaml#/booking-payments'
+  /webhooks/payments/{gateway}:
+    $ref: './paths/payments.yaml#/payment-webhook'
+  /payments/return:
+    $ref: './paths/payments.yaml#/payment-return'
+  /bookings/{id}/financial-documents:
+    $ref: './paths/payments.yaml#/booking-financial-documents'
+  /financial-documents/{id}/download:
+    $ref: './paths/payments.yaml#/financial-document-download'
+  # Disputes (API_CONTRACTS.md §9)
+  /bookings/{id}/disputes:
+    $ref: './paths/disputes.yaml#/booking-disputes'
+  /disputes/{id}:
+    $ref: './paths/disputes.yaml#/dispute'
+  /disputes/{id}/messages:
+    $ref: './paths/disputes.yaml#/dispute-messages'
+  /disputes/{id}/evidence/upload-url:
+    $ref: './paths/disputes.yaml#/dispute-evidence-upload-url'
+  /disputes/{id}/evidence:
+    $ref: './paths/disputes.yaml#/dispute-evidence'
+  /disputes/{id}/withdraw:
+    $ref: './paths/disputes.yaml#/dispute-withdraw'
+  # Lab (API_CONTRACTS.md §6)
+  /lab/claims:
+    $ref: './paths/lab-onboarding.yaml#/claims'
+  /lab/claims/{id}/verify-otp:
+    $ref: './paths/lab-onboarding.yaml#/claim-verify-otp'
+  /lab/claims/{id}/manual/upload-url:
+    $ref: './paths/lab-onboarding.yaml#/claim-manual-upload-url'
+  /lab/claims/{id}/manual:
+    $ref: './paths/lab-onboarding.yaml#/claim-manual'
+  /lab/onboarding:
+    $ref: './paths/lab-onboarding.yaml#/onboarding'
+  /lab/kyc-documents/upload-url:
+    $ref: './paths/lab-onboarding.yaml#/kyc-upload-url'
+  /lab/kyc-documents:
+    $ref: './paths/lab-onboarding.yaml#/kyc-documents'
+  /lab/bank-accounts:
+    $ref: './paths/lab-onboarding.yaml#/bank-accounts'
+  /lab/users:
+    $ref: './paths/lab-onboarding.yaml#/users'
+  /lab/users/{id}:
+    $ref: './paths/lab-onboarding.yaml#/user'
+  /lab/invitations:
+    $ref: './paths/lab-onboarding.yaml#/invitations'
+  /lab/invitations/{id}:
+    $ref: './paths/lab-onboarding.yaml#/invitation'
+  /lab/sites/{siteId}:
+    $ref: './paths/lab-site-settings.yaml#/site'
+  /lab/sites/{siteId}/receiving-hours:
+    $ref: './paths/lab-site-settings.yaml#/receiving-hours'
+  /lab/sites/{siteId}/closures:
+    $ref: './paths/lab-site-settings.yaml#/closures'
+  /lab/sites/{siteId}/closures/{closureId}:
+    $ref: './paths/lab-site-settings.yaml#/closure'
+  /lab/sites/{siteId}/slot-templates:
+    $ref: './paths/lab-site-settings.yaml#/slot-templates'
+  /lab/sites/{siteId}/slots:
+    $ref: './paths/lab-site-settings.yaml#/slots'
+  /lab/sites/{siteId}/slots/{slotId}:
+    $ref: './paths/lab-site-settings.yaml#/slot'
+  /lab/sites/{siteId}/retention-rules:
+    $ref: './paths/lab-site-settings.yaml#/retention-rules'
+  /lab/sites/{siteId}/scope-lines:
+    $ref: './paths/lab-site-settings.yaml#/scope-lines'
+  /lab/sites/{siteId}/scope-lines/{id}/availability:
+    $ref: './paths/lab-site-settings.yaml#/scope-line-availability'
+  /lab/sites/{siteId}/proposals:
+    $ref: './paths/lab-site-settings.yaml#/proposals'
+  /lab/sites/{siteId}/price-lists:
+    $ref: './paths/lab-price-lists.yaml#/site-price-lists'
+  /lab/sites/{siteId}/price-lists/imports/upload-url:
+    $ref: './paths/lab-price-lists.yaml#/import-upload-url'
+  /lab/sites/{siteId}/price-lists/imports:
+    $ref: './paths/lab-price-lists.yaml#/imports'
+  /lab/price-list-imports/{id}:
+    $ref: './paths/lab-price-lists.yaml#/import'
+  /lab/price-list-imports/{id}/rows:
+    $ref: './paths/lab-price-lists.yaml#/import-rows'
+  /lab/price-list-imports/{id}/commit:
+    $ref: './paths/lab-price-lists.yaml#/import-commit'
+  /lab/price-list-imports/{id}/discard:
+    $ref: './paths/lab-price-lists.yaml#/import-discard'
+  /lab/price-lists/{id}/items:
+    $ref: './paths/lab-price-lists.yaml#/price-list-items'
+  /lab/price-lists/{id}/publish:
+    $ref: './paths/lab-price-lists.yaml#/price-list-publish'
+  /lab/price-lists/{id}/discard:
+    $ref: './paths/lab-price-lists.yaml#/price-list-discard'
+  /lab/inbox:
+    $ref: './paths/lab-inbox.yaml#/inbox'
   # Custody and receipt (API_CONTRACTS.md §7)
   /custody/scan:
     $ref: './paths/custody.yaml#/scan'
@@ -300,6 +410,54 @@ components:
       $ref: './components/schemas/verification.yaml#/ReportVerification'
     ShareLinkResolution:
       $ref: './components/schemas/verification.yaml#/ShareLinkResolution'
+    PartyType:
+      $ref: './components/schemas/enums.yaml#/PartyType'
+    GatewayCode:
+      $ref: './components/schemas/enums.yaml#/GatewayCode'
+    PaymentOrderStatus:
+      $ref: './components/schemas/enums.yaml#/PaymentOrderStatus'
+    FinDocType:
+      $ref: './components/schemas/enums.yaml#/FinDocType'
+    DisputeStatus:
+      $ref: './components/schemas/enums.yaml#/DisputeStatus'
+    DisputeOutcome:
+      $ref: './components/schemas/enums.yaml#/DisputeOutcome'
+    MessageVisibility:
+      $ref: './components/schemas/enums.yaml#/MessageVisibility'
+    PaymentOrder:
+      $ref: './components/schemas/payments.yaml#/PaymentOrder'
+    PaymentOrderList:
+      $ref: './components/schemas/payments.yaml#/PaymentOrderList'
+    PaymentGatewayCheckout:
+      $ref: './components/schemas/payments.yaml#/PaymentGatewayCheckout'
+    PaymentCheckout:
+      $ref: './components/schemas/payments.yaml#/PaymentCheckout'
+    PaymentGatewayWebhookBody:
+      $ref: './components/schemas/payments.yaml#/PaymentGatewayWebhookBody'
+    FinancialDocument:
+      $ref: './components/schemas/payments.yaml#/FinancialDocument'
+    FinancialDocumentList:
+      $ref: './components/schemas/payments.yaml#/FinancialDocumentList'
+    FinancialDocumentDownload:
+      $ref: './components/schemas/payments.yaml#/FinancialDocumentDownload'
+    DisputeBookingSummary:
+      $ref: './components/schemas/disputes.yaml#/DisputeBookingSummary'
+    DisputeCreate:
+      $ref: './components/schemas/disputes.yaml#/DisputeCreate'
+    DisputeMessage:
+      $ref: './components/schemas/disputes.yaml#/DisputeMessage'
+    DisputeMessageCreate:
+      $ref: './components/schemas/disputes.yaml#/DisputeMessageCreate'
+    DisputeEvidence:
+      $ref: './components/schemas/disputes.yaml#/DisputeEvidence'
+    DisputeEvidenceCreate:
+      $ref: './components/schemas/disputes.yaml#/DisputeEvidenceCreate'
+    DisputeUploadUrlRequest:
+      $ref: './components/schemas/disputes.yaml#/DisputeUploadUrlRequest'
+    DisputeUploadUrl:
+      $ref: './components/schemas/disputes.yaml#/DisputeUploadUrl'
+    Dispute:
+      $ref: './components/schemas/disputes.yaml#/Dispute'
     BookingStatus:
       $ref: './components/schemas/enums.yaml#/BookingStatus'
     BookingLineStatus:
@@ -408,6 +566,175 @@ components:
       $ref: './components/schemas/reports.yaml#/ReportShareLinkCreated'
     HealthStatus:
       $ref: './components/schemas/health.yaml#/HealthStatus'
+    # Lab (P2-04)
+    ClaimStatus:
+      $ref: './components/schemas/enums.yaml#/ClaimStatus'
+    VerificationStatus:
+      $ref: './components/schemas/enums.yaml#/VerificationStatus'
+    MembershipStatus:
+      $ref: './components/schemas/enums.yaml#/MembershipStatus'
+    ClaimMethod:
+      $ref: './components/schemas/enums.yaml#/ClaimMethod'
+    ClaimRequestStatus:
+      $ref: './components/schemas/enums.yaml#/ClaimRequestStatus'
+    ListingStatus:
+      $ref: './components/schemas/enums.yaml#/ListingStatus'
+    GeocodeStatus:
+      $ref: './components/schemas/enums.yaml#/GeocodeStatus'
+    PriceListStatus:
+      $ref: './components/schemas/enums.yaml#/PriceListStatus'
+    SlotStatus:
+      $ref: './components/schemas/enums.yaml#/SlotStatus'
+    ImportStatus:
+      $ref: './components/schemas/enums.yaml#/ImportStatus'
+    ImportMatchResult:
+      $ref: './components/schemas/enums.yaml#/ImportMatchResult'
+    ImportRowAction:
+      $ref: './components/schemas/enums.yaml#/ImportRowAction'
+    ChangeSetStatus:
+      $ref: './components/schemas/enums.yaml#/ChangeSetStatus'
+    LabRoleCode:
+      $ref: './components/schemas/enums.yaml#/LabRoleCode'
+    LabMembershipSettableStatus:
+      $ref: './components/schemas/enums.yaml#/LabMembershipSettableStatus'
+    LabSlotSettableStatus:
+      $ref: './components/schemas/enums.yaml#/LabSlotSettableStatus'
+    LabScopeProposalOperation:
+      $ref: './components/schemas/enums.yaml#/LabScopeProposalOperation'
+    LabSiteRef:
+      $ref: './components/schemas/lab.yaml#/LabSiteRef'
+    CertificateNo:
+      $ref: './components/schemas/lab.yaml#/CertificateNo'
+    LockVersion:
+      $ref: './components/schemas/lab.yaml#/LockVersion'
+    LabKycUploadUrlRequest:
+      $ref: './components/schemas/lab.yaml#/LabKycUploadUrlRequest'
+    LabImportUploadUrlRequest:
+      $ref: './components/schemas/lab.yaml#/LabImportUploadUrlRequest'
+    LabUploadUrl:
+      $ref: './components/schemas/lab.yaml#/LabUploadUrl'
+    LabClaimCreate:
+      $ref: './components/schemas/lab.yaml#/LabClaimCreate'
+    LabClaimOtpVerify:
+      $ref: './components/schemas/lab.yaml#/LabClaimOtpVerify'
+    LabClaimManual:
+      $ref: './components/schemas/lab.yaml#/LabClaimManual'
+    LabClaim:
+      $ref: './components/schemas/lab.yaml#/LabClaim'
+    LabKycDocumentCreate:
+      $ref: './components/schemas/lab.yaml#/LabKycDocumentCreate'
+    LabKycDocument:
+      $ref: './components/schemas/lab.yaml#/LabKycDocument'
+    LabBankAccountCreate:
+      $ref: './components/schemas/lab.yaml#/LabBankAccountCreate'
+    LabBankAccount:
+      $ref: './components/schemas/lab.yaml#/LabBankAccount'
+    LabOnboardingChecklist:
+      $ref: './components/schemas/lab.yaml#/LabOnboardingChecklist'
+    LabOnboardingSite:
+      $ref: './components/schemas/lab.yaml#/LabOnboardingSite'
+    LabOnboarding:
+      $ref: './components/schemas/lab.yaml#/LabOnboarding'
+    LabUser:
+      $ref: './components/schemas/lab.yaml#/LabUser'
+    LabUserList:
+      $ref: './components/schemas/lab.yaml#/LabUserList'
+    LabUserUpdate:
+      $ref: './components/schemas/lab.yaml#/LabUserUpdate'
+    LabInvitationStatus:
+      $ref: './components/schemas/lab.yaml#/LabInvitationStatus'
+    LabInvitation:
+      $ref: './components/schemas/lab.yaml#/LabInvitation'
+    LabInvitationList:
+      $ref: './components/schemas/lab.yaml#/LabInvitationList'
+    LabInvitationCreate:
+      $ref: './components/schemas/lab.yaml#/LabInvitationCreate'
+    LabInvitationUpdate:
+      $ref: './components/schemas/lab.yaml#/LabInvitationUpdate'
+    LabPublicContact:
+      $ref: './components/schemas/lab-settings.yaml#/LabPublicContact'
+    LabSite:
+      $ref: './components/schemas/lab-settings.yaml#/LabSite'
+    LabSiteUpdate:
+      $ref: './components/schemas/lab-settings.yaml#/LabSiteUpdate'
+    LabReceivingHoursSet:
+      $ref: './components/schemas/lab-settings.yaml#/LabReceivingHoursSet'
+    LabSiteClosureCreate:
+      $ref: './components/schemas/lab-settings.yaml#/LabSiteClosureCreate'
+    LabSiteClosure:
+      $ref: './components/schemas/lab-settings.yaml#/LabSiteClosure'
+    LabSiteClosureResult:
+      $ref: './components/schemas/lab-settings.yaml#/LabSiteClosureResult'
+    LabSiteClosureList:
+      $ref: './components/schemas/lab-settings.yaml#/LabSiteClosureList'
+    LabSlotTemplate:
+      $ref: './components/schemas/lab-settings.yaml#/LabSlotTemplate'
+    LabSlotTemplateInput:
+      $ref: './components/schemas/lab-settings.yaml#/LabSlotTemplateInput'
+    LabSlotTemplateSet:
+      $ref: './components/schemas/lab-settings.yaml#/LabSlotTemplateSet'
+    LabSlotTemplateSetUpdate:
+      $ref: './components/schemas/lab-settings.yaml#/LabSlotTemplateSetUpdate'
+    LabSlot:
+      $ref: './components/schemas/lab-settings.yaml#/LabSlot'
+    LabSlotList:
+      $ref: './components/schemas/lab-settings.yaml#/LabSlotList'
+    LabSlotUpdate:
+      $ref: './components/schemas/lab-settings.yaml#/LabSlotUpdate'
+    LabRetentionRule:
+      $ref: './components/schemas/lab-settings.yaml#/LabRetentionRule'
+    LabRetentionRuleInput:
+      $ref: './components/schemas/lab-settings.yaml#/LabRetentionRuleInput'
+    LabRetentionRuleSet:
+      $ref: './components/schemas/lab-settings.yaml#/LabRetentionRuleSet'
+    LabRetentionRuleSetUpdate:
+      $ref: './components/schemas/lab-settings.yaml#/LabRetentionRuleSetUpdate'
+    LabScopeLine:
+      $ref: './components/schemas/lab-settings.yaml#/LabScopeLine'
+    LabScopeLineList:
+      $ref: './components/schemas/lab-settings.yaml#/LabScopeLineList'
+    LabScopeLineAvailabilityUpdate:
+      $ref: './components/schemas/lab-settings.yaml#/LabScopeLineAvailabilityUpdate'
+    LabPinProposalCreate:
+      $ref: './components/schemas/lab-settings.yaml#/LabPinProposalCreate'
+    LabScopeLineProposed:
+      $ref: './components/schemas/lab-settings.yaml#/LabScopeLineProposed'
+    LabScopeProposalItem:
+      $ref: './components/schemas/lab-settings.yaml#/LabScopeProposalItem'
+    LabScopeProposalCreate:
+      $ref: './components/schemas/lab-settings.yaml#/LabScopeProposalCreate'
+    LabProposalCreate:
+      $ref: './components/schemas/lab-settings.yaml#/LabProposalCreate'
+    LabProposal:
+      $ref: './components/schemas/lab-settings.yaml#/LabProposal'
+    LabPriceList:
+      $ref: './components/schemas/lab-price-lists.yaml#/LabPriceList'
+    LabPriceListList:
+      $ref: './components/schemas/lab-price-lists.yaml#/LabPriceListList'
+    LabPriceItemList:
+      $ref: './components/schemas/lab-price-lists.yaml#/LabPriceItemList'
+    LabPriceItemInput:
+      $ref: './components/schemas/lab-price-lists.yaml#/LabPriceItemInput'
+    LabPriceItemsUpdate:
+      $ref: './components/schemas/lab-price-lists.yaml#/LabPriceItemsUpdate'
+    LabPriceListImportCreate:
+      $ref: './components/schemas/lab-price-lists.yaml#/LabPriceListImportCreate'
+    LabPriceListImport:
+      $ref: './components/schemas/lab-price-lists.yaml#/LabPriceListImport'
+    LabImportMessage:
+      $ref: './components/schemas/lab-price-lists.yaml#/LabImportMessage'
+    LabPriceListImportRow:
+      $ref: './components/schemas/lab-price-lists.yaml#/LabPriceListImportRow'
+    LabPriceListImportRowList:
+      $ref: './components/schemas/lab-price-lists.yaml#/LabPriceListImportRowList'
+    LabInboxPendingApproval:
+      $ref: './components/schemas/lab-inbox.yaml#/LabInboxPendingApproval'
+    LabInboxBookingSummary:
+      $ref: './components/schemas/lab-inbox.yaml#/LabInboxBookingSummary'
+    LabInboxItem:
+      $ref: './components/schemas/lab-inbox.yaml#/LabInboxItem'
+    LabInboxList:
+      $ref: './components/schemas/lab-inbox.yaml#/LabInboxList'
   parameters:
     IdempotencyKey:
       $ref: './components/parameters.yaml#/IdempotencyKey'

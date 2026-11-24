@@ -1,0 +1,140 @@
+# Lab inbox (API_CONTRACTS.md §6, FR-LAB-01, LAB_USER_FLOWS L2 and dashboards). Bookings of the
+# caller's assigned sites (RR-3) as a minimal summary. Booking detail, TRF and the decisions
+# themselves are in the booking module (§4). About the customer the inbox shows only the
+# organisation's display name: no requester identity or contact details, no customer site
+# address, GSTIN, PAN or trust flags.
+
+LabInboxPendingApproval:
+  type: string
+  description: >-
+    What waits for a Checker on this booking: a receipt record without a decision (BR-048), or a
+    report version in review, including an amendment of a released report.
+  enum:
+    - RECEIPT
+    - REPORT
+
+LabInboxBookingSummary:
+  type: object
+  description: A booking as the lab inbox lists it.
+  required:
+    - id
+    - bookingNo
+    - status
+    - statusChangedAt
+    - labSite
+    - customerDisplayName
+    - itemName
+    - batchNo
+    - lineCount
+    - declaredPackageCount
+    - total
+    - slot
+    - preferredDropDate
+    - labDecisionDueAt
+    - paymentDueAt
+    - dropDeadlineAt
+    - expectedReportDate
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    bookingNo:
+      type: string
+      maxLength: 20
+      examples:
+        - LC-2611-0000001
+    status:
+      $ref: './enums.yaml#/BookingStatus'
+    statusChangedAt:
+      $ref: './common.yaml#/Timestamp'
+    labSite:
+      $ref: './lab.yaml#/LabSiteRef'
+    customerDisplayName:
+      type: string
+      description: >-
+        The customer organisation's display name. For an individual customer this is the
+        person's name.
+    itemName:
+      type: string
+      description: The item under test, from the TRF.
+    batchNo:
+      type:
+        - string
+        - 'null'
+    lineCount:
+      type: integer
+      minimum: 1
+    declaredPackageCount:
+      type: integer
+      minimum: 1
+      maximum: 50
+    total:
+      $ref: './common.yaml#/Money'
+    slot:
+      description: The drop-off slot. `null` when the booking has none.
+      oneOf:
+        - type: object
+          required:
+            - startsAt
+            - endsAt
+          additionalProperties: false
+          properties:
+            startsAt:
+              $ref: './common.yaml#/Timestamp'
+            endsAt:
+              $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    preferredDropDate:
+      $ref: './common.yaml#/Date'
+    labDecisionDueAt:
+      description: The lab decision deadline while the booking is `REQUESTED` (BR-012).
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    paymentDueAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    dropDeadlineAt:
+      description: The drop deadline (BR-040). A drop is overdue once it has passed.
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+    expectedReportDate:
+      oneOf:
+        - $ref: './common.yaml#/Date'
+        - type: 'null'
+
+LabInboxItem:
+  type: object
+  required:
+    - booking
+    - pendingApproval
+    - viewerWasMaker
+  additionalProperties: false
+  properties:
+    booking:
+      $ref: '#/LabInboxBookingSummary'
+    pendingApproval:
+      oneOf:
+        - $ref: '#/LabInboxPendingApproval'
+        - type: 'null'
+    viewerWasMaker:
+      type: boolean
+      description: >-
+        `true` when the caller is the Maker of the pending receipt or report version, so another
+        Checker must approve it (Maker/Checker separation, EC-54).
+
+LabInboxList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/LabInboxItem'
+    page:
+      $ref: './common.yaml#/Page'

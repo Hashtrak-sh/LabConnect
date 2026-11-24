@@ -5,8 +5,11 @@ import {
   listOperations,
   loadBundledDocument,
   markdownSection,
+  type MediaType,
+  type Operation,
   parametersOf,
   readRepoFile,
+  type Ref,
   resolve,
   type Response,
   type Schema,
@@ -25,7 +28,12 @@ const problemRef = '#/components/schemas/Problem';
  * POSTs that do not need `Idempotency-Key`. API_CONVENTIONS §4: "Required on every POST that
  * creates or changes something". Add an entry only with the reason the POST changes nothing.
  */
-const idempotencyExemptions: Record<string, string> = {};
+const idempotencyExemptions: Record<string, string> = {
+  'POST /webhooks/payments/{gateway}':
+    'Called by the payment gateway, not by a client of ours, so it cannot send the header. ' +
+    'Repeats are deduplicated on the gateway event id instead (gateway_webhook_event unique ' +
+    '(gateway, event_id), ICICI_PAYMENT_INTEGRATION §4).',
+};
 
 /**
  * PATCH/PUT operations that do not take `If-Match`. API_CONVENTIONS §4: "Required on PATCH/PUT
@@ -35,6 +43,18 @@ const ifMatchExemptions: Record<string, string> = {
   'PATCH /me/notification-preferences':
     'notification_preference has no lock_version, so there is no ETag to match. Each item sets ' +
     'an absolute value. Open question raised with P2-01.',
+  'PUT /lab/sites/{siteId}/receiving-hours':
+    'receiving_hours has no lock_version (SCHEMA_SPECIFICATION §5.10), so there is no ETag to ' +
+    'match. The PUT replaces the whole weekly set. Reported with P2-04.',
+  'PUT /lab/sites/{siteId}/slot-templates':
+    'Creates or updates several slot_template rows, each with its own lock_version: every ' +
+    'updated item carries its lockVersion in the body and a mismatch returns 412.',
+  'PUT /lab/sites/{siteId}/retention-rules':
+    'Sets several retention_rule rows, each with its own lock_version: every existing rule ' +
+    'carries its lockVersion in the body and a mismatch returns 412.',
+  'PATCH /lab/invitations/{id}':
+    'invitation has no lock_version (SCHEMA_SPECIFICATION §2.6). The only change is a one-way ' +
+    'revocation.',
 };
 
 /** Effective response description: a `$ref` may override the shared one. */
@@ -454,7 +474,32 @@ describe('enums shared with the database', () => {
     ['ScopeSiteType', 'ScopeSiteType', false],
     ['LeadKind', 'LeadKind', false],
     ['VerificationResult', 'VerificationResult', false],
+    ['PartyType', 'PartyType', false],
+    ['GatewayCode', 'GatewayCode', false],
+    ['PaymentOrderStatus', 'PaymentOrderStatus', false],
+    ['FinDocType', 'FinDocType', false],
+    ['DisputeStatus', 'DisputeStatus', false],
+    ['DisputeOutcome', 'DisputeOutcome', false],
+    ['MessageVisibility', 'MessageVisibility', false],
+    // P2-04 Lab
     ['BookingStatus', 'BookingStatus', false],
+    ['ClaimStatus', 'ClaimStatus', false],
+    ['VerificationStatus', 'VerificationStatus', false],
+    ['MembershipStatus', 'MembershipStatus', false],
+    ['ClaimMethod', 'ClaimMethod', false],
+    ['ClaimRequestStatus', 'ClaimRequestStatus', false],
+    ['ListingStatus', 'ListingStatus', false],
+    ['GeocodeStatus', 'GeocodeStatus', false],
+    ['PriceListStatus', 'PriceListStatus', false],
+    ['SlotStatus', 'SlotStatus', false],
+    ['ImportStatus', 'ImportStatus', false],
+    ['ImportMatchResult', 'ImportMatchResult', false],
+    ['ImportRowAction', 'ImportRowAction', false],
+    ['ChangeSetStatus', 'ChangeSetStatus', false],
+    ['LabRoleCode', 'RoleCode', true],
+    ['LabMembershipSettableStatus', 'MembershipStatus', true],
+    ['LabSlotSettableStatus', 'SlotStatus', true],
+    ['LabScopeProposalOperation', 'ChangeOperation', false],
     ['BookingLineStatus', 'BookingLineStatus', false],
     ['PackageStatus', 'PackageStatus', false],
     ['CustodyScanEventType', 'CustodyEventType', true],
@@ -483,5 +528,275 @@ describe('enums shared with the database', () => {
       .map(([name]) => name)
       .filter((name) => !covered.has(name));
     expect(unchecked).toEqual([]);
+  });
+});
+
+// Payments and disputes (P2-06a). CLAUDE.md §5 "Payments (ICICI)": the contract is
+// adapter-level until the ICICI documentation exists (OQ-01), and the amount of a payment is
+// never taken from the client (PAYMENTS_AND_LEDGER §2, SCHEMA_SPECIFICATION §10.1).
+
+interface SchemaNode {
+  /** The component name when the node was reached through `#/components/schemas/<name>`. */
+  name: string | undefined;
+  at: string;
+  node: Record<string, unknown>;
+}
+
+/** Every schema object reachable from `node`, following `$ref`s once each. */
+function schemaNodes(
+  node: unknown,
+  at: string,
+  name?: string,
+  seen = new Set<string>(),
+): SchemaNode[] {
+  if (typeof node !== 'object' || node === null) return [];
+  if (isRef(node)) {
+    if (seen.has(node.$ref)) return [];
+    seen.add(node.$ref);
+    const component = /^#\/components\/schemas\/([^/]+)$/.exec(node.$ref)?.[1];
+    return schemaNodes(resolve(doc, node), node.$ref, component, seen);
+  }
+  const record = node as Record<string, unknown>;
+  const found: SchemaNode[] = [{ name, at, node: record }];
+  for (const [key, value] of Object.entries(record)) {
+    if (key === 'examples' || key === 'example') continue;
+    found.push(...schemaNodes(value, `${at}/${key}`, undefined, seen));
+  }
+  return found;
+}
+
+/**
+ * Schemas of the request body, or of the success responses, of an operation. Error responses
+ * all use the shared `Problem` schema, which is checked above.
+ */
+function bodySchemas(
+  operation: (typeof operations)[number]['operation'],
+  part: 'request' | 'response',
+): unknown[] {
+  const media: unknown[] = [];
+  if (part === 'request') {
+    const body = operation.requestBody as
+      { content?: Record<string, { schema?: unknown }> } | undefined;
+    for (const m of Object.values(body?.content ?? {})) media.push(m.schema);
+  } else {
+    for (const [status, value] of Object.entries(operation.responses)) {
+      if (!status.startsWith('2')) continue;
+      for (const m of Object.values(resolve<Response>(doc, value).content ?? {}))
+        media.push(m.schema);
+    }
+  }
+  return media;
+}
+
+const moduleOperations = operations.filter(({ operation }) =>
+  (operation.tags ?? []).some((t) => t === 'Payments' || t === 'Disputes'),
+);
+const paymentOperations = moduleOperations.filter(({ operation }) =>
+  (operation.tags ?? []).includes('Payments'),
+);
+
+/** Property names reachable from the given schemas. */
+function reachableNames(schemas: unknown[], at: string): { name: string; at: string }[] {
+  return schemas.flatMap((schema) =>
+    schemaNodes(schema, at).flatMap(({ at: where, node }) =>
+      Object.keys((node.properties as Record<string, unknown> | undefined) ?? {}).map((n) => ({
+        name: n,
+        at: where,
+      })),
+    ),
+  );
+}
+
+describe('payments and disputes (P2-06a)', () => {
+  it('covers the module', () => {
+    expect(paymentOperations.length).toBeGreaterThan(0);
+    expect(moduleOperations.length).toBeGreaterThan(paymentOperations.length);
+  });
+
+  it('never take an amount from the client in a payment operation', () => {
+    const money = /amount|paise|total|price|money|currency|fee/i;
+    const found = paymentOperations.flatMap(({ key, operation }) => [
+      ...reachableNames(bodySchemas(operation, 'request'), key).filter((p) => money.test(p.name)),
+      ...parametersOf(doc, operation)
+        .filter((p) => money.test(p.name))
+        .map((p) => ({ name: p.name, at: `${key} (${p.in})` })),
+    ]);
+    expect(found).toEqual([]);
+  });
+
+  it('allow additional properties only on the opaque gateway checkout', () => {
+    const open = new Set<string>();
+    for (const { key, operation } of moduleOperations) {
+      for (const schema of [
+        ...bodySchemas(operation, 'request'),
+        ...bodySchemas(operation, 'response'),
+      ]) {
+        for (const { name, at, node } of schemaNodes(schema, key)) {
+          if (node.additionalProperties === true) open.add(name ?? at);
+        }
+      }
+    }
+    expect([...open]).toEqual(['PaymentGatewayCheckout']);
+  });
+
+  it('keep the gateway-facing objects opaque (OQ-01)', () => {
+    const checkout = doc.components.schemas.PaymentGatewayCheckout ?? {};
+    expect(checkout.properties ?? {}).toEqual({});
+    expect(checkout.required ?? []).toEqual([]);
+    const webhook = doc.components.schemas.PaymentGatewayWebhookBody ?? {};
+    expect(Object.keys(webhook).sort()).toEqual(['description']);
+  });
+
+  it('authenticate the webhook by the gateway only, naming no gateway header (OQ-01)', () => {
+    const webhook = operations.find((o) => o.key === 'POST /webhooks/payments/{gateway}');
+    expect(webhook).toBeDefined();
+    if (!webhook) return;
+    expect(webhook.operation.security).toEqual([]);
+    expect(
+      parametersOf(doc, webhook.operation)
+        .filter((p) => p.in === 'header' || p.in === 'cookie')
+        .map((p) => p.name),
+    ).toEqual(['X-Request-Id']);
+    expect(reachableNames(bodySchemas(webhook.operation, 'request'), webhook.key)).toEqual([]);
+    // The 2xx answer reveals nothing: no body.
+    for (const [status, value] of Object.entries(webhook.operation.responses)) {
+      if (status.startsWith('2'))
+        expect(resolve<Response>(doc, value).content, status).toBeUndefined();
+    }
+  });
+
+  it('name no gateway vendor in a property or parameter', () => {
+    const vendors = (doc.components.schemas.GatewayCode?.enum ?? []).filter((c) => c !== 'FAKE');
+    expect(vendors).not.toEqual([]);
+    const vendor = new RegExp(vendors.join('|'), 'i');
+    const found = moduleOperations.flatMap(({ key, operation }) => [
+      ...reachableNames(
+        [...bodySchemas(operation, 'request'), ...bodySchemas(operation, 'response')],
+        key,
+      ).filter((p) => vendor.test(p.name)),
+      ...parametersOf(doc, operation)
+        .filter((p) => vendor.test(p.name))
+        .map((p) => ({ name: p.name, at: key })),
+    ]);
+    expect(found).toEqual([]);
+  });
+
+  it('let no party request set the visibility of a dispute message (TENANT_ISOLATION §1)', () => {
+    const found = moduleOperations.flatMap(({ key, operation }) =>
+      reachableNames(bodySchemas(operation, 'request'), key).filter((p) =>
+        /visibility/i.test(p.name),
+      ),
+    );
+    expect(found).toEqual([]);
+  });
+});
+
+describe('lab operations (API_CONTRACTS §6)', () => {
+  const labOperations = operations.filter((o) => o.path.startsWith('/lab/'));
+
+  /** Every property reachable from a schema, following `$ref`s, with its own schema. */
+  function reachableProperties(
+    node: unknown,
+    seen = new Set<string>(),
+  ): { name: string; schema: Schema | Ref }[] {
+    if (typeof node !== 'object' || node === null) return [];
+    if (isRef(node)) {
+      if (seen.has(node.$ref)) return [];
+      seen.add(node.$ref);
+      return reachableProperties(resolve(doc, node), seen);
+    }
+    const found: { name: string; schema: Schema | Ref }[] = [];
+    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+      if (key === 'examples' || key === 'example') continue;
+      if (key === 'properties' && typeof value === 'object' && value !== null) {
+        for (const [name, schema] of Object.entries(value as Record<string, Schema | Ref>)) {
+          found.push({ name, schema });
+        }
+      }
+      found.push(...reachableProperties(value, seen));
+    }
+    return found;
+  }
+
+  /** Properties of the JSON request body of an operation. */
+  function requestProperties(operation: Operation): { name: string; schema: Schema | Ref }[] {
+    const body = operation.requestBody as { content?: Record<string, MediaType> } | undefined;
+    return Object.values(body?.content ?? {}).flatMap((m) => reachableProperties(m.schema));
+  }
+
+  /** Properties of the 2xx responses of an operation. */
+  function responseProperties(operation: Operation): string[] {
+    return Object.entries(operation.responses)
+      .filter(([status]) => status.startsWith('2'))
+      .flatMap(([, value]) => Object.values(resolve<Response>(doc, value).content ?? {}))
+      .flatMap((m) => reachableProperties(m.schema).map((p) => p.name));
+  }
+
+  // Secrets that no lab response may carry (SECURITY_AND_PRIVACY §2, CLAUDE.md §5): a full bank
+  // account number (only `accountNumberLast4` is returned), a PAN, an OTP, a token or a secret.
+  // (`code` alone is not listed: it is the code of a master-data value.)
+  const secret =
+    /^(accountNumber|accountNumberCiphertext|pan|panCiphertext|otp|otpCode|codeHash|token|tokenHash|secret|secretCiphertext)$/i;
+
+  it('cover the lab section', () => {
+    expect(labOperations.length).toBeGreaterThan(0);
+  });
+
+  it('all require authentication', () => {
+    const open = labOperations
+      .filter(({ operation }) => (operation.security ?? doc.security ?? []).length === 0)
+      .map((o) => o.key);
+    expect(open).toEqual([]);
+  });
+
+  it('return no full account number, PAN, OTP, token or secret', () => {
+    const leaks = labOperations.flatMap(({ key, operation }) =>
+      responseProperties(operation)
+        .filter((name) => secret.test(name))
+        .map((name) => `${key}: ${name}`),
+    );
+    expect(leaks).toEqual([]);
+  });
+
+  it('accept a bank account number only as a write-only field', () => {
+    const accountNumbers = labOperations.flatMap(({ key, operation }) =>
+      requestProperties(operation)
+        .filter((p) => p.name === 'accountNumber')
+        .map((p) => ({ key, writeOnly: resolve<Schema>(doc, p.schema).writeOnly })),
+    );
+    expect(accountNumbers).not.toEqual([]);
+    for (const { key, writeOnly } of accountNumbers) expect(writeOnly, key).toBe(true);
+  });
+
+  it('take no organisation id from the client (TENANT_ISOLATION §2)', () => {
+    const orgId = /^(organisationId|organizationId|orgId|labOrgId|customerOrgId)$/i;
+    const taken = labOperations.flatMap(({ key, operation }) => [
+      ...requestProperties(operation)
+        .filter((p) => orgId.test(p.name))
+        .map((p) => `${key}: body ${p.name}`),
+      ...parametersOf(doc, operation)
+        .filter((p) => orgId.test(p.name))
+        .map((p) => `${key}: ${p.in} ${p.name}`),
+    ]);
+    expect(taken).toEqual([]);
+  });
+
+  it('require a step-up MFA to add bank details (AUTHENTICATION §2)', () => {
+    const stepUp = ['POST /lab/bank-accounts'];
+    for (const key of stepUp) {
+      const op = labOperations.find((o) => o.key === key);
+      const unauthenticated = op?.operation.responses['401'];
+      expect(unauthenticated, key).toBeDefined();
+      if (!unauthenticated) continue;
+      expect(backticked(describeResponse(unauthenticated)), key).toContain('STEP_UP_REQUIRED');
+    }
+  });
+
+  it('act as the active lab membership, except a claim, which comes before one', () => {
+    for (const { key, path, operation } of labOperations) {
+      const names = parametersOf(doc, operation).map((p) => p.name);
+      if (path.startsWith('/lab/claims')) expect(names, key).not.toContain('X-Active-Membership');
+      else expect(names, key).toContain('X-Active-Membership');
+    }
   });
 });
