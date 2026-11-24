@@ -1,0 +1,658 @@
+# Lab price lists and price-list imports (API_CONTRACTS.md §6, FR-ONB-05, CD-06,
+# MASTER_DATA_MANAGEMENT.md §4). `LAB_CHECKER` only (permission `lab_profile.manage`). A
+# published price list is immutable: edits apply to a DRAFT only, and publishing supersedes the
+# previous version; bookings keep their price snapshot (VERSIONING_AND_SNAPSHOTS.md). Price
+# lists and imports of a site the caller is not assigned to are 404 (RR-3).
+# Each top-level key is one path item, referenced from openapi.yaml.
+
+site-price-lists:
+  get:
+    operationId: listLabPriceLists
+    tags:
+      - Lab price lists
+    summary: List a site's price lists
+    description: >-
+      The site's price-list versions, newest first: the draft, the published one and history.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '../components/schemas/enums.yaml#/PriceListStatus'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of price lists.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceListList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  post:
+    operationId: createLabPriceListDraft
+    tags:
+      - Lab price lists
+    summary: Start a new draft
+    description: >-
+      Creates a DRAFT with the next version number, as a copy of the effective published list
+      (empty when there is none). A site has at most one DRAFT at a time.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '201':
+        description: Draft created.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the site already has a DRAFT (`meta.currentState`).
+          `REQUEST_IN_PROGRESS`.
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+import-upload-url:
+  post:
+    operationId: createLabPriceListImportUploadUrl
+    tags:
+      - Lab price lists
+    summary: Get an upload URL for a price-list file
+    description: >-
+      A pre-signed upload for a CSV or XLSX price list (`IMPORT_SOURCE`, at most 50 MB;
+      FILES_AND_REPORTS §1). Start the import with the file id once the file is clean.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab.yaml#/LabImportUploadUrlRequest'
+    responses:
+      '201':
+        description: Upload URL created.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab.yaml#/LabUploadUrl'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: not one of the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (type or size not allowed), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+imports:
+  post:
+    operationId: createLabPriceListImport
+    tags:
+      - Lab price lists
+    summary: Import a price list
+    description: >-
+      Starts the bulk import of a clean file (FR-ONB-05): the file is parsed, mapped, validated
+      and matched against the site's scope lines and effective price list, as in
+      MASTER_DATA_MANAGEMENT §4. The job runs asynchronously; read it with
+      `GET /lab/price-list-imports/{id}` until it is `PREVIEW_READY` or `FAILED`.
+    parameters:
+      - name: siteId
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceListImportCreate'
+    responses:
+      '202':
+        description: Import started.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceListImport'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: >-
+          `NOT_FOUND`: not one of the caller's sites, or no import upload of this site with this
+          file id.
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `FILE_NOT_CLEAN` (scan pending, infected or invalid; retry once the scan is done),
+          `VALIDATION_FAILED`, `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+import:
+  get:
+    operationId: getLabPriceListImport
+    tags:
+      - Lab price lists
+    summary: Get a price-list import
+    description: The import's status and the counts of its preview.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The import.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceListImport'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no import with this id at one of the caller's sites."
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+import-rows:
+  get:
+    operationId: listLabPriceListImportRows
+    tags:
+      - Lab price lists
+    summary: List the rows of an import preview
+    description: >-
+      Row-level preview: each row as read and as mapped, what it matched and what committing
+      would do with it, with its errors and warnings. Ordered by row number.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - name: action
+        in: query
+        required: false
+        description: Only rows with this action, for example `ERROR`.
+        schema:
+          $ref: '../components/schemas/enums.yaml#/ImportRowAction'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of rows.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceListImportRowList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no import with this id at one of the caller's sites."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+import-commit:
+  post:
+    operationId: commitLabPriceListImport
+    tags:
+      - Lab price lists
+    summary: Commit an import to a draft
+    description: >-
+      Creates the site's DRAFT from a `PREVIEW_READY` import: a copy of the effective published
+      list with each `CREATE` and `UPDATE` row applied. Rows with `ERROR` or `SKIP` are not
+      imported. The import becomes `COMMITTED`. Nothing is public until the Checker publishes
+      the draft (CD-06).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '201':
+        description: Draft created.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no import with this id at one of the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the import is not `PREVIEW_READY`, or the site already has a
+          DRAFT (`meta.currentState`). `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`: no row can be imported. `IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+import-discard:
+  post:
+    operationId: discardLabPriceListImport
+    tags:
+      - Lab price lists
+    summary: Discard an import
+    description: Discards an import that has not been committed. Nothing is imported.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Discarded.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceListImport'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no import with this id at one of the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the import is `COMMITTED` or `DISCARDED`
+          (`meta.currentState`). `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+price-list-items:
+  get:
+    operationId: listLabPriceListItems
+    tags:
+      - Lab price lists
+    summary: List the items of a price list
+    description: >-
+      A page of the items of any version of the caller's price lists, draft or published,
+      ordered along the scope tree, with the list itself (its `lockVersion` is the `If-Match` for
+      editing a draft).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of items.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceItemList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no price list with this id at one of the caller's sites."
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+  patch:
+    operationId: updateLabPriceListItems
+    tags:
+      - Lab price lists
+    summary: Edit a draft's items
+    description: >-
+      Adds, changes or removes items of a DRAFT. A published, superseded or discarded list is
+      immutable (VERSIONING_AND_SNAPSHOTS B): to change prices, start a new draft. Every item
+      references an active scope line of the list's site.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceItemsUpdate'
+    responses:
+      '200':
+        description: Saved.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceList'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no price list with this id at one of the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`INVALID_STATE_TRANSITION`: the list is not a DRAFT (`meta.currentState`).'
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (`errors[]` names each item, for example a scope line that is not
+          active on this site, an unknown unit, or a line both upserted and removed).
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+price-list-publish:
+  post:
+    operationId: publishLabPriceList
+    tags:
+      - Lab price lists
+    summary: Publish a draft
+    description: >-
+      A Checker action with no platform review (CD-06). In one transaction the DRAFT becomes
+      `PUBLISHED` with `effectiveFrom` now and becomes immutable, the previous published list
+      becomes `SUPERSEDED`, and the site's bookability is recalculated (BR-001). Bookings keep
+      the prices they were made with (EC-56).
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Published.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no price list with this id at one of the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the list is not a DRAFT (`meta.currentState`).
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `VALIDATION_FAILED` (for example an empty draft, or an item whose scope line is no
+          longer active), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+price-list-discard:
+  post:
+    operationId: discardLabPriceList
+    tags:
+      - Lab price lists
+    summary: Discard a draft
+    description: The DRAFT becomes `DISCARDED`. Published versions cannot be discarded.
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '../components/schemas/common.yaml#/Uuid'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/IfMatch'
+      - $ref: '../components/parameters.yaml#/ActiveMembership'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: Discarded.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-price-lists.yaml#/LabPriceList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the active membership is not a lab `LAB_CHECKER`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: "`NOT_FOUND`: no price list with this id at one of the caller's sites."
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: >-
+          `INVALID_STATE_TRANSITION`: the list is not a DRAFT (`meta.currentState`).
+          `REQUEST_IN_PROGRESS`.
+      '412':
+        $ref: '../components/responses.yaml#/PreconditionFailed'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`IDEMPOTENCY_KEY_REUSED`.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'

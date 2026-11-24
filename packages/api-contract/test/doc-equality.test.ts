@@ -14,6 +14,7 @@ const coveredSections: [heading: string, rows: number, operations: number][] = [
   ['## 2. Public', 10, 10],
   ['## 5. Payments', 6, 6],
   ['## 9. Disputes', 4, 6],
+  ['## 6. Lab', 19, 41],
 ];
 
 const markdown = readRepoFile('docs/04-api/API_CONTRACTS.md');
