@@ -12,11 +12,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@labconnect/config": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "^5.1.1",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
