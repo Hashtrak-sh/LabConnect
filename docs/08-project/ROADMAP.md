@@ -5,7 +5,7 @@
 ## Gates
 | Gate | Name | Criteria | Approvers | Status |
 |---|---|---|---|---|
-| **G0** | Pack accepted | This documentation pack committed to `main`. Repository settings applied. | @Hashtrak-sh | ☐ |
+| **G0** | Pack accepted | This documentation pack committed to `main`. Repository settings applied. | @Hashtrak-sh | ☑ Passed 2026-11-24. Signed off by @Hashtrak-sh. One repository setting is still open: GitHub OIDC to AWS roles, which needs the AWS environment (P3-11). |
 | **G1** | Domain and database approved | `03-database/*`, `BOOKING_STATE_MACHINE.md`, `ROLES_AND_PERMISSIONS.md`, `TENANT_ISOLATION.md` reviewed. Review comments resolved. Prisma schema + migrations merged with all DB tests green. | both developers | ☑ Passed 2026-11-24. Signed off by @Hashtrak-sh alone (single-developer period; @akshit-anand to review when he starts). |
 | **G2** | Core API contracts stable | `openapi.yaml` for auth, search, booking, decision, payment (adapter-level), custody, receipt, report, dispute reviewed and merged. Contract tests green. | both developers | ☐ |
 | **G3** | UAT sign-off | All MVP ACs pass in UAT. Load and security tests done. ICICI sandbox flow passes. | product owner + operating authority | ☐ |
