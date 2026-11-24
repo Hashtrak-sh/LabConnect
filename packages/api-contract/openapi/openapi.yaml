@@ -1,0 +1,192 @@
+openapi: 3.1.0
+info:
+  title: LabConnect API
+  version: 0.1.0
+  description: >-
+    Contract-first REST API (ADR-003). Conventions: docs/04-api/API_CONVENTIONS.md. Errors:
+    docs/04-api/ERROR_HANDLING.md (`application/problem+json`). Authentication:
+    docs/04-api/AUTHENTICATION_AND_AUTHORISATION.md.
+
+
+    This file is the root of a split contract. Paths live in `paths/<module>.yaml` and shared
+    pieces in `components/`. `pnpm --filter @labconnect/api-contract generate` bundles them into
+    one document and generates TypeScript types.
+
+servers:
+  - url: /v1
+    description: Every route is under `/v1` on the API host.
+
+tags:
+  - name: Auth
+    description: Email OTP sign-in, MFA, session refresh and sign-out.
+  - name: Me
+    description: The current user, organisation switching and notifications.
+  - name: Health
+    description: Platform liveness.
+
+# Authenticated by default. Public operations override this with `security: []`.
+security:
+  - bearerAuth: []
+
+paths:
+  # Auth (API_CONTRACTS.md §1)
+  /auth/otp/request:
+    $ref: './paths/auth.yaml#/otp-request'
+  /auth/otp/verify:
+    $ref: './paths/auth.yaml#/otp-verify'
+  /auth/mfa/verify:
+    $ref: './paths/auth.yaml#/mfa-verify'
+  /auth/mfa/enrol:
+    $ref: './paths/auth.yaml#/mfa-enrol'
+  /auth/mfa/enrol/confirm:
+    $ref: './paths/auth.yaml#/mfa-enrol-confirm'
+  /auth/refresh:
+    $ref: './paths/auth.yaml#/refresh'
+  /auth/logout:
+    $ref: './paths/auth.yaml#/logout'
+  /auth/logout-all:
+    $ref: './paths/auth.yaml#/logout-all'
+  # Me (API_CONTRACTS.md §1)
+  /me:
+    $ref: './paths/me.yaml#/me'
+  /me/active-membership:
+    $ref: './paths/me.yaml#/active-membership'
+  /me/notification-preferences:
+    $ref: './paths/me.yaml#/notification-preferences'
+  /me/notifications:
+    $ref: './paths/me.yaml#/notifications'
+  /me/notifications/{id}/read:
+    $ref: './paths/me.yaml#/notification-read'
+  # Platform
+  /health:
+    $ref: './paths/health.yaml#/health'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Access JWT (EdDSA, 10 minutes; claims `sub`, `sid`, `amr`, `mfa_at`). A partial session
+        (MFA still pending) is accepted only by `/auth/mfa/*` and `/auth/logout`.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: lc_refresh
+      description: >-
+        Opaque rotating refresh token in an httpOnly, Secure, SameSite=Lax cookie scoped to the
+        API domain. Accepted only by `/auth/refresh`.
+
+  # Shared components are listed here so every module and the generated types can use them by
+  # name. Module files reference the component files directly.
+  schemas:
+    Uuid:
+      $ref: './components/schemas/common.yaml#/Uuid'
+    Date:
+      $ref: './components/schemas/common.yaml#/Date'
+    Timestamp:
+      $ref: './components/schemas/common.yaml#/Timestamp'
+    Money:
+      $ref: './components/schemas/common.yaml#/Money'
+    Page:
+      $ref: './components/schemas/common.yaml#/Page'
+    Problem:
+      $ref: './components/schemas/errors.yaml#/Problem'
+    ProblemIssue:
+      $ref: './components/schemas/errors.yaml#/ProblemIssue'
+    ErrorCode:
+      $ref: './components/schemas/errors.yaml#/ErrorCode'
+    RoleCode:
+      $ref: './components/schemas/enums.yaml#/RoleCode'
+    OrgType:
+      $ref: './components/schemas/enums.yaml#/OrgType'
+    NotifChannel:
+      $ref: './components/schemas/enums.yaml#/NotifChannel'
+    Email:
+      $ref: './components/schemas/auth.yaml#/Email'
+    OtpCode:
+      $ref: './components/schemas/auth.yaml#/OtpCode'
+    OtpRequestPurpose:
+      $ref: './components/schemas/auth.yaml#/OtpRequestPurpose'
+    OtpRequest:
+      $ref: './components/schemas/auth.yaml#/OtpRequest'
+    OtpVerifyRequest:
+      $ref: './components/schemas/auth.yaml#/OtpVerifyRequest'
+    MfaCodeRequest:
+      $ref: './components/schemas/auth.yaml#/MfaCodeRequest'
+    Session:
+      $ref: './components/schemas/auth.yaml#/Session'
+    MfaChallenge:
+      $ref: './components/schemas/auth.yaml#/MfaChallenge'
+    OtpVerifyResult:
+      $ref: './components/schemas/auth.yaml#/OtpVerifyResult'
+    MfaEnrolment:
+      $ref: './components/schemas/auth.yaml#/MfaEnrolment'
+    MfaRecoveryCodes:
+      $ref: './components/schemas/auth.yaml#/MfaRecoveryCodes'
+    UserProfile:
+      $ref: './components/schemas/me.yaml#/UserProfile'
+    OrganisationSummary:
+      $ref: './components/schemas/me.yaml#/OrganisationSummary'
+    MembershipSummary:
+      $ref: './components/schemas/me.yaml#/MembershipSummary'
+    Me:
+      $ref: './components/schemas/me.yaml#/Me'
+    ActiveMembershipRequest:
+      $ref: './components/schemas/me.yaml#/ActiveMembershipRequest'
+    NotificationPreference:
+      $ref: './components/schemas/me.yaml#/NotificationPreference'
+    NotificationPreferenceList:
+      $ref: './components/schemas/me.yaml#/NotificationPreferenceList'
+    NotificationPreferencesUpdate:
+      $ref: './components/schemas/me.yaml#/NotificationPreferencesUpdate'
+    Notification:
+      $ref: './components/schemas/me.yaml#/Notification'
+    NotificationList:
+      $ref: './components/schemas/me.yaml#/NotificationList'
+    HealthStatus:
+      $ref: './components/schemas/health.yaml#/HealthStatus'
+  parameters:
+    IdempotencyKey:
+      $ref: './components/parameters.yaml#/IdempotencyKey'
+    IfMatch:
+      $ref: './components/parameters.yaml#/IfMatch'
+    ActiveMembership:
+      $ref: './components/parameters.yaml#/ActiveMembership'
+    RequestId:
+      $ref: './components/parameters.yaml#/RequestId'
+    Cursor:
+      $ref: './components/parameters.yaml#/Cursor'
+    Limit:
+      $ref: './components/parameters.yaml#/Limit'
+  headers:
+    RequestId:
+      $ref: './components/headers.yaml#/RequestId'
+    ETag:
+      $ref: './components/headers.yaml#/ETag'
+    RetryAfter:
+      $ref: './components/headers.yaml#/RetryAfter'
+    SetRefreshCookie:
+      $ref: './components/headers.yaml#/SetRefreshCookie'
+  responses:
+    BadRequest:
+      $ref: './components/responses.yaml#/BadRequest'
+    Unauthenticated:
+      $ref: './components/responses.yaml#/Unauthenticated'
+    Forbidden:
+      $ref: './components/responses.yaml#/Forbidden'
+    NotFound:
+      $ref: './components/responses.yaml#/NotFound'
+    Conflict:
+      $ref: './components/responses.yaml#/Conflict'
+    PreconditionFailed:
+      $ref: './components/responses.yaml#/PreconditionFailed'
+    UnprocessableEntity:
+      $ref: './components/responses.yaml#/UnprocessableEntity'
+    TooManyRequests:
+      $ref: './components/responses.yaml#/TooManyRequests'
+    InternalError:
+      $ref: './components/responses.yaml#/InternalError'
+    ServiceUnavailable:
+      $ref: './components/responses.yaml#/ServiceUnavailable'

@@ -1,0 +1,180 @@
+# Sign-in, MFA and session schemas (AUTHENTICATION_AND_AUTHORISATION.md §1 and §2).
+# Examples use obviously fake values. Never put a real token, OTP or secret here.
+
+Email:
+  type: string
+  format: email
+  maxLength: 254
+  examples:
+    - user@example.com
+
+OtpCode:
+  type: string
+  pattern: ^[0-9]{6}$
+  description: A 6-digit one-time code.
+  examples:
+    - '000000'
+
+OtpRequestPurpose:
+  type: string
+  description: >-
+    The purposes this endpoint accepts. A subset of the database enum `OtpPurpose`: the lab-claim
+    OTP goes only to the NABL-registered address through the claim endpoints, and phone OTP waits
+    for an SMS provider (FR-IAM-02).
+  enum:
+    - LOGIN
+
+OtpRequest:
+  type: object
+  required:
+    - email
+    - purpose
+  additionalProperties: false
+  properties:
+    email:
+      $ref: '#/Email'
+    purpose:
+      $ref: '#/OtpRequestPurpose'
+
+OtpVerifyRequest:
+  type: object
+  required:
+    - email
+    - code
+  additionalProperties: false
+  properties:
+    email:
+      $ref: '#/Email'
+    code:
+      $ref: '#/OtpCode'
+
+MfaCodeRequest:
+  type: object
+  required:
+    - code
+  additionalProperties: false
+  properties:
+    code:
+      $ref: '#/OtpCode'
+      description: The current 6-digit TOTP code from the authenticator app.
+
+Session:
+  type: object
+  description: >-
+    A full session. The access token goes in `Authorization: Bearer`. The refresh token is never
+    in the body: it is set as an httpOnly cookie (`Set-Cookie`).
+  required:
+    - mfaRequired
+    - accessToken
+    - tokenType
+    - expiresIn
+  additionalProperties: false
+  properties:
+    mfaRequired:
+      type: boolean
+      const: false
+    accessToken:
+      type: string
+      description: Access JWT (EdDSA, 10 minutes).
+    tokenType:
+      type: string
+      const: Bearer
+    expiresIn:
+      type: integer
+      minimum: 1
+      description: Lifetime of the access token in seconds.
+  examples:
+    - mfaRequired: false
+      accessToken: FAKE-ACCESS-TOKEN
+      tokenType: Bearer
+      expiresIn: 600
+
+MfaChallenge:
+  type: object
+  description: >-
+    A partial session. One of the user's active memberships has a role that requires MFA. The
+    access token here is accepted only by `/auth/mfa/*` and `/auth/logout`. No refresh cookie is
+    set until MFA completes. If `mfaEnrolled` is false, the user must enrol first
+    (`/auth/mfa/enrol`, `/auth/mfa/enrol/confirm`) and then call `/auth/mfa/verify`.
+  required:
+    - mfaRequired
+    - mfaEnrolled
+    - accessToken
+    - tokenType
+    - expiresIn
+  additionalProperties: false
+  properties:
+    mfaRequired:
+      type: boolean
+      const: true
+    mfaEnrolled:
+      type: boolean
+    accessToken:
+      type: string
+      description: Partial-session access token.
+    tokenType:
+      type: string
+      const: Bearer
+    expiresIn:
+      type: integer
+      minimum: 1
+      description: Lifetime of the partial-session token in seconds.
+  examples:
+    - mfaRequired: true
+      mfaEnrolled: false
+      accessToken: FAKE-PARTIAL-SESSION-TOKEN
+      tokenType: Bearer
+      expiresIn: 600
+
+OtpVerifyResult:
+  description: A full session, or an `mfaRequired` challenge.
+  oneOf:
+    - $ref: '#/Session'
+    - $ref: '#/MfaChallenge'
+
+MfaEnrolment:
+  type: object
+  description: >-
+    A pending TOTP factor. Show `otpauthUri` as a QR code. The factor is active only after
+    `/auth/mfa/enrol/confirm`.
+  required:
+    - secret
+    - otpauthUri
+  additionalProperties: false
+  properties:
+    secret:
+      type: string
+      description: The TOTP secret, base32. Shown once, for manual entry.
+    otpauthUri:
+      type: string
+      format: uri
+      description: An `otpauth://totp/...` URI for authenticator apps.
+  examples:
+    - secret: FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE
+      otpauthUri: otpauth://totp/LabConnect:user%40example.com?secret=FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE&issuer=LabConnect
+
+MfaRecoveryCodes:
+  type: object
+  description: Single-use recovery codes. Shown once; only their hashes are stored.
+  required:
+    - recoveryCodes
+  additionalProperties: false
+  properties:
+    recoveryCodes:
+      type: array
+      minItems: 10
+      maxItems: 10
+      items:
+        type: string
+  examples:
+    - recoveryCodes:
+        - FAKE-CODE-0001
+        - FAKE-CODE-0002
+        - FAKE-CODE-0003
+        - FAKE-CODE-0004
+        - FAKE-CODE-0005
+        - FAKE-CODE-0006
+        - FAKE-CODE-0007
+        - FAKE-CODE-0008
+        - FAKE-CODE-0009
+        - FAKE-CODE-0010

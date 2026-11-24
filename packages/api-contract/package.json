@@ -7,16 +7,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./openapi.json": "./src/generated/openapi.json"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "generate": "redocly bundle openapi/openapi.yaml --output src/generated/openapi.json && openapi-typescript openapi/openapi.yaml --output src/generated/types.ts",
+    "build": "pnpm run generate && tsc -p tsconfig.build.json",
+    "typecheck": "pnpm run generate && tsc --noEmit",
+    "test": "pnpm run generate && vitest run",
+    "lint:openapi": "redocly lint openapi/openapi.yaml"
   },
   "devDependencies": {
     "@labconnect/config": "workspace:*",
+    "@redocly/cli": "^2.82.0",
+    "@redocly/openapi-core": "^2.82.0",
     "@types/node": "catalog:",
+    "openapi-typescript": "^7.13.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

@@ -9,4 +9,5 @@ dist/
 coverage/
 next-env.d.ts
 packages/database/src/generated/
+packages/api-contract/src/generated/
 packages/database/prisma/migrations/

@@ -1,6 +1,6 @@
 # Initial API contracts
 
-**Status:** DRAFT for gate G2. This catalogue drives `packages/api-contract/openapi.yaml`. Detailed schemas are written in the OpenAPI file during Phase 2 (tasks P2-01..P2-06). Role abbreviations are as in `01-product/ROLES_AND_PERMISSIONS.md`. T-xx refers to `02-architecture/BOOKING_STATE_MACHINE.md`.
+**Status:** DRAFT for gate G2. This catalogue drives the contract in `packages/api-contract/openapi/` (see `API_CONVENTIONS.md` §1). Detailed schemas are written in the OpenAPI file during Phase 2 (tasks P2-01..P2-06). Role abbreviations are as in `01-product/ROLES_AND_PERMISSIONS.md`. T-xx refers to `02-architecture/BOOKING_STATE_MACHINE.md`.
 
 ## 1. Auth and identity (`/v1/auth`, `/v1/me`)
 | Method | Path | Who | Purpose | FR |

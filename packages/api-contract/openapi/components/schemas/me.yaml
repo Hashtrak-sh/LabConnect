@@ -1,0 +1,202 @@
+# Current user: profile, memberships, notification inbox and preferences.
+
+UserProfile:
+  type: object
+  required:
+    - id
+    - email
+    - fullName
+    - designation
+    - locale
+    - mfaEnrolled
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    email:
+      $ref: './auth.yaml#/Email'
+    fullName:
+      type: string
+    designation:
+      type:
+        - string
+        - 'null'
+    locale:
+      type: string
+      description: BCP 47 locale, for example `en-IN`.
+      examples:
+        - en-IN
+    mfaEnrolled:
+      type: boolean
+      description: Whether the user has a verified TOTP factor.
+
+OrganisationSummary:
+  type: object
+  required:
+    - id
+    - orgType
+    - displayName
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    orgType:
+      $ref: './enums.yaml#/OrgType'
+    displayName:
+      type: string
+
+MembershipSummary:
+  type: object
+  description: An active membership of the current user.
+  required:
+    - id
+    - organisation
+    - roles
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    organisation:
+      $ref: '#/OrganisationSummary'
+    roles:
+      type: array
+      minItems: 1
+      description: Active roles. A lab membership holds exactly one of `LAB_MAKER` or `LAB_CHECKER`.
+      items:
+        $ref: './enums.yaml#/RoleCode'
+
+Me:
+  type: object
+  required:
+    - user
+    - memberships
+    - activeMembershipId
+    - permissions
+  additionalProperties: false
+  properties:
+    user:
+      $ref: '#/UserProfile'
+    memberships:
+      type: array
+      items:
+        $ref: '#/MembershipSummary'
+    activeMembershipId:
+      description: The membership this session acts as. `null` when the user has no membership yet.
+      oneOf:
+        - $ref: './common.yaml#/Uuid'
+        - type: 'null'
+    permissions:
+      type: array
+      description: >-
+        Permission codes granted by the active membership (for example `booking.accept`). For
+        display only; the API enforces every permission itself.
+      items:
+        type: string
+
+ActiveMembershipRequest:
+  type: object
+  required:
+    - membershipId
+  additionalProperties: false
+  properties:
+    membershipId:
+      $ref: './common.yaml#/Uuid'
+
+NotificationPreference:
+  type: object
+  description: >-
+    Mute state of one event on one channel. A pair without a stored preference is not muted.
+    Muting is ignored for action-required events (NOTIFICATIONS_MATRIX.md).
+  required:
+    - eventCode
+    - channel
+    - muted
+  additionalProperties: false
+  properties:
+    eventCode:
+      type: string
+      maxLength: 100
+      description: An event code from NOTIFICATIONS_MATRIX.md, for example `booking.accepted`.
+      examples:
+        - booking.accepted
+    channel:
+      $ref: './enums.yaml#/NotifChannel'
+    muted:
+      type: boolean
+
+NotificationPreferenceList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/NotificationPreference'
+    page:
+      $ref: './common.yaml#/Page'
+
+NotificationPreferencesUpdate:
+  type: object
+  description: Sets each listed event and channel pair. Pairs that are not listed are unchanged.
+  required:
+    - preferences
+  additionalProperties: false
+  properties:
+    preferences:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: '#/NotificationPreference'
+
+Notification:
+  type: object
+  description: An in-app notification. It never carries report content.
+  required:
+    - id
+    - organisationId
+    - eventCode
+    - isActionRequired
+    - payload
+    - createdAt
+    - readAt
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    organisationId:
+      $ref: './common.yaml#/Uuid'
+    eventCode:
+      type: string
+      maxLength: 100
+      examples:
+        - booking.accepted
+    isActionRequired:
+      type: boolean
+    payload:
+      type: object
+      description: Template variables for this event, for example the booking number.
+      additionalProperties: true
+    createdAt:
+      $ref: './common.yaml#/Timestamp'
+    readAt:
+      oneOf:
+        - $ref: './common.yaml#/Timestamp'
+        - type: 'null'
+
+NotificationList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/Notification'
+    page:
+      $ref: './common.yaml#/Page'

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/docs/04-api/API_CONTRACTS.md",
+        "$TURBO_ROOT$/docs/04-api/ERROR_HANDLING.md",
+        "$TURBO_ROOT$/packages/database/prisma/schema/enums.prisma"
+      ]
+    }
+  }
+}

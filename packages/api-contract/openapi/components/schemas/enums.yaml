@@ -1,0 +1,34 @@
+# Enumerations that also exist in the database (packages/database/prisma/schema/enums.prisma).
+# The names and values must match the Prisma enums exactly; the test suite checks this.
+
+RoleCode:
+  type: string
+  description: A role held through a membership (ROLES_AND_PERMISSIONS.md §1).
+  enum:
+    - CUSTOMER_ADMIN
+    - CUSTOMER_REQUESTER
+    - CUSTOMER_FINANCE
+    - LAB_MAKER
+    - LAB_CHECKER
+    - PLATFORM_OPS
+    - PLATFORM_DATA_STEWARD
+    - PLATFORM_FINANCE
+    - PLATFORM_ADMIN
+
+OrgType:
+  type: string
+  enum:
+    - CUSTOMER
+    - LAB
+    - PLATFORM
+
+NotifChannel:
+  type: string
+  description: >-
+    Notification channel. The MVP sends `EMAIL` and `IN_APP` only; `SMS` and `WHATSAPP` exist for
+    later channels (CD-35).
+  enum:
+    - EMAIL
+    - IN_APP
+    - SMS
+    - WHATSAPP
