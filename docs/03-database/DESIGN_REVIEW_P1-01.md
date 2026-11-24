@@ -1,6 +1,6 @@
 # Database design review (task P1-01)
 
-**Status:** OPEN. Input for the developers' review meeting (P1-02). No Prisma schema is written until the "Decide" items below are resolved (MASTER_PROMPT Step 2).
+**Status:** RESOLVED on 2026-11-24. @Hashtrak-sh accepted every proposal; the source documents are updated (see §10). @akshit-anand still reviews the result as a shared change.
 **Date:** 2026-11-24 · **Reviewer:** Claude Code, for @Hashtrak-sh
 
 ## 1. Scope and method
@@ -333,3 +333,38 @@ BR-074 and BR-079: lab penalties are "recorded for scoring". No table or column 
 
 ## 9. Next step
 Mark each finding **accept**, **change** or **reject** at the P1-02 meeting. I then update the source documents in one PR (docs only), and the Prisma schema work (P1-03 to P1-07) starts from the corrected spec.
+
+## 10. Resolution (2026-11-24)
+
+All 55 findings are **accepted as proposed**. The source documents were updated in one docs-only change: `SCHEMA_SPECIFICATION.md`, `INDEXES_AND_CONSTRAINTS.md` (now the full constraint register, C-01 to C-81), `BOOKING_STATE_MACHINE.md`, `TENANT_ISOLATION.md`, `AUDIT_AND_EVENT_ARCHITECTURE.md`, `VERSIONING_AND_SNAPSHOTS.md`, `DOMAIN_MODEL.md`, `MODULE_BOUNDARIES.md`, `MIGRATION_AND_SEED_STRATEGY.md`, `ERD.md`, `ROLES_AND_PERMISSIONS.md`, `API_CONTRACTS.md` and `RISKS_AND_OPEN_QUESTIONS.md`.
+
+Where a finding offered more than one way, this is what was applied:
+
+| Finding | Applied |
+|---|---|
+| A-02 | `report_version.is_amendment`; a resubmission after RETURNED is a new version and not an amendment |
+| A-03 | New transition **T-28** `RejectSample`. The state machine now has 28 transitions. |
+| A-05 | `system` added as an actor to T-25, T-26, T-27. `booking.frozen_at` and `frozen_reason` added. Ops override and late-stage Ops cancellation are **not** added: recorded as OQ-24. |
+| A-06 | One open dispute per booking; T-24 also covers withdrawal. Billing disputes outside REPORT_RELEASED are **not** added: OQ-25. |
+| A-08 | `booking_line.required_sample_qty` added. Whether a booking can exist without a slot: OQ-26. |
+| A-10 | New table `booking_transition`, read by the status guard trigger |
+| A-11 | Late capture after EXPIRED_UNPAID: OQ-27 |
+| B-01 | Report number and ULR live on `report` only |
+| B-04 | `financial_document` is fully append-only; the status column and `fin_doc_status` are removed; a `document_series_id` key is added |
+| B-07 | New tables `organisation_version` and `search_synonym_version` |
+| B-08 | The table × (STD, AO, +LV, +TK, +ORG) matrix is generated from the Prisma schema in P1-03 onwards, so it cannot drift |
+| B-11 | Draft columns nullable, with a CHECK from IN_REVIEW onwards |
+| B-12 | CHECK that the two flags agree; both kept |
+| C-10 | Unique on (`org_type`, `gstin`) |
+| C-11 | New tables `custody_event_photo` and `invitation_site` |
+| C-13 | New table `audit_log_chain`, sealed by the worker; `audit_log` has no hash columns |
+| C-15 | One generic trigger function, applied to reason-code columns and `scope_line` (C-77) |
+| E-01 | Option 1: both tenant keys on every child, guaranteed by composite foreign keys |
+| E-02 | `organisation_id` on the lab-owned site tables, by composite foreign key |
+| E-03 | Site scoping is enforced by repositories only, and the doc now says so |
+| E-04 | Side tables `organisation_private` and `lab_site_private` |
+| E-06 | New database role `app_worker` and session setting `app.is_system` |
+| E-08 | New table `break_glass_grant` |
+| E-11 | New table `lab_penalty` |
+
+Net effect on the schema: **91 → 101 tables**, 30 → 81 registered constraints, 27 → 28 transitions, one more database role.

@@ -67,12 +67,12 @@ Legend: ✔ allowed · ○ own records only · ◐ condition applies (see note) 
 
 Notes:
 1. On behalf of a customer, recorded with `on_behalf_of`. The customer must still pay.
-2. A Checker cancels after payment (EC-20, lab penalty). Ops can cancel at any non-terminal state, with a reason.
+2. A Checker cancels after payment (EC-20, lab penalty). Ops can cancel at any non-terminal state, with a reason. *The transition table covers Ops cancellation up to UNDER_TEST only; later states are open (OQ-24).*
 3. Only if the org setting `requester_can_pay` is true.
-4. Override in exceptional cases only, with a reason, and visible to the lab.
+4. Override in exceptional cases only, with a reason, and visible to the lab. *Not in the transition table yet (OQ-24); not built until decided.*
 5. Review and approve map-pin changes. No direct price edits.
 6. Never on items where the same user was the Maker. Needs step-up MFA for report publication.
-7. Metadata only by default. The file needs break-glass access (`PLATFORM_ADMIN` approval, logged, time-boxed).
+7. Metadata only by default. The file needs break-glass access: a `break_glass_grant` approved by a `PLATFORM_ADMIN` other than the requester, time-boxed, with each access logged.
 8. Ops can place a hold. `PLATFORM_FINANCE` releases payouts and approves refunds above a configurable threshold.
 9. A different steward or `PLATFORM_ADMIN` must approve (RR-6).
 10. Bank verification needs `PLATFORM_FINANCE`.

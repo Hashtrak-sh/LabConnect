@@ -1,6 +1,6 @@
 # Schema specification (table by table)
 
-**Status:** DRAFT. Review is gate **G1**. Target: PostgreSQL 16 + PostGIS 3, Prisma ORM. Anything Prisma can't express (CHECKs, partial unique indexes, triggers, RLS, PostGIS) goes in raw SQL migrations. See `INDEXES_AND_CONSTRAINTS.md`.
+**Status:** DRAFT, revised after the P1-01 design review (`DESIGN_REVIEW_P1-01.md`; finding IDs such as A-02 or E-01 below refer to it). Review is gate **G1**. Target: PostgreSQL 16 + PostGIS 3, Prisma ORM. Anything Prisma can't express (CHECKs, partial unique indexes, triggers, RLS, PostGIS) goes in raw SQL migrations. See `INDEXES_AND_CONSTRAINTS.md`.
 
 ## 0. Conventions
 
@@ -16,12 +16,17 @@
 
 Other conventions:
 - Table and column names are `snake_case`. Prisma models are PascalCase with `@@map`.
-- Money is `bigint` in **paise**, with the suffix `_paise`. Currency is assumed to be INR (`currency char(3) default 'INR'` on money-bearing headers).
+- Money is `bigint` in **paise**, with the suffix `_paise`. Every amount is INR. Only `booking` carries a `currency` column (`char(3) default 'INR'`); other tables take it from their booking.
 - Percentages are `int` basis points, with the suffix `_bp` (1800 = 18.00%).
 - Enumerations are PostgreSQL enums (listed in §13). Configurable lists such as reason codes are **taxonomy nodes**, not enums.
-- Every FK has `ON DELETE RESTRICT` unless stated. Domain rows are never hard-deleted. Use `status` or `deactivated_at`.
-- **AO** = append-only: no `updated_at`. `UPDATE` and `DELETE` are revoked from `app_rw`.
+- Every FK has `ON DELETE RESTRICT` unless stated. Domain rows are never hard-deleted. Use `status` or `deactivated_at`. The only tables rows are deleted from are `idempotency_record`, `otp_challenge` and `user_session` (expired rows, purged by `app_worker`).
+- **AO** = append-only: no `updated_at`. `UPDATE`, `DELETE` and `TRUNCATE` are revoked from `app_rw` and `app_worker`, and a trigger raises an error. AO tables keep `id`, `created_at` and `created_by_user_id`.
 - Geo: `geography(Point, 4326)`.
+- **+TK (tenant keys, E-01).** A table marked **+TK** is a child of a booking. It carries `customer_org_id` and `lab_org_id` (NOT NULL unless stated) and a composite foreign key (`booking_id`, `customer_org_id`, `lab_org_id`) to `booking`, which is `UNIQUE (id, customer_org_id, lab_org_id)`. A grandchild references its parent the same way. The two columns are not repeated in the column lists.
+- **+ORG (E-02).** A lab-owned table keyed by site carries `organisation_id` with a composite foreign key (`lab_site_id`, `organisation_id`) to `lab_site`, which is `UNIQUE (id, organisation_id)`.
+- **Same-booking references (C-06).** Where two children of one booking reference each other, the foreign key includes `booking_id`, so the database guarantees both belong to the same booking.
+- A unique key that includes a nullable column is declared `NULLS NOT DISTINCT` in raw SQL, so the "null means default" row is unique too (C-01).
+- Database roles: `app_owner` (migrations), `app_rw` (API), `app_worker` (worker and SYSTEM jobs), `app_ro` (reporting). See `TENANT_ISOLATION.md` §3.
 
 ---
 
@@ -38,7 +43,7 @@ Configurable settings (SLA durations, windows, fees, retention).
 | `effective_from` | `timestamptz` | no | |
 | `effective_to` | `timestamptz` | yes | |
 | `change_reason` | `text` | no | |
-Unique: (`key`, `scope_type`, `scope_id`, `effective_from`).
+Unique `NULLS NOT DISTINCT`: (`key`, `scope_type`, `scope_id`, `effective_from`). Exclusion constraint: no two rows for the same (`key`, `scope_type`, `scope_id`) may have overlapping [`effective_from`, `effective_to`) windows (C-12).
 
 ### 1.2 `holiday_calendar`
 | Column | Type | Null | Notes |
@@ -46,7 +51,7 @@ Unique: (`key`, `scope_type`, `scope_id`, `effective_from`).
 | `holiday_date` | `date` | no | |
 | `name` | `text` | no | |
 | `region_code` | `varchar(10)` | yes | Null = national. State code otherwise. |
-Unique: (`holiday_date`, `region_code`).
+Unique `NULLS NOT DISTINCT`: (`holiday_date`, `region_code`).
 
 ### 1.3 `audit_log` (AO, partitioned monthly by `occurred_at`)
 | Column | Type | Null | Notes |
@@ -66,8 +71,8 @@ Unique: (`holiday_date`, `region_code`).
 | `request_id` | `varchar(64)` | yes | |
 | `ip_address` | `inet` | yes | |
 | `user_agent` | `text` | yes | |
-| `prev_hash` | `bytea` | yes | |
-| `hash` | `bytea` | no | SHA-256 chain per partition |
+
+Primary key (`id`, `occurred_at`), because the table is partitioned. No table references it by foreign key. The hash chain is kept in `audit_log_chain` (§1.8), so inserts never wait on each other (C-13).
 
 ### 1.4 `outbox_event`
 | Column | Type | Null | Notes |
@@ -81,7 +86,7 @@ Unique: (`holiday_date`, `region_code`).
 | `published_at` | `timestamptz` | yes | Set by the relay |
 | `attempts` | `int` | no | default 0 |
 | `last_error` | `text` | yes | |
-No `updated_at` trigger. Only the relay may update `published_at`, `attempts` and `last_error`.
+No `updated_at` trigger. `app_rw` may only INSERT. `app_worker` (the relay) may SELECT and may UPDATE only `published_at`, `attempts` and `last_error` (E-06).
 
 ### 1.5 `processed_event` (AO)
 | Column | Type | Null | Notes |
@@ -115,7 +120,19 @@ PK (`consumer`, `event_id`). No STD `id`.
 | `response_status` | `int` | yes | |
 | `response_body` | `jsonb` | yes | |
 | `expires_at` | `timestamptz` | no | default `now() + 24h` |
-Unique: (`idempotency_key`, `actor_user_id`, `route`).
+Unique `NULLS NOT DISTINCT`: (`idempotency_key`, `actor_user_id`, `route`).
+
+### 1.8 `audit_log_chain` (AO)
+Written only by `app_worker`. A job seals new `audit_log` rows in (`occurred_at`, `id`) order, in batches.
+| Column | Type | Null | Notes |
+|---|---|---|---|
+| `chain_month` | `date` | no | First day of the month of the audit row's partition |
+| `seq` | `bigint` | no | Position in that month's chain, starting at 1 |
+| `audit_log_id` | `uuid` | no | Not a foreign key (partitioned target) |
+| `audit_occurred_at` | `timestamptz` | no | |
+| `prev_hash` | `bytea` | yes | Null for `seq = 1` |
+| `hash` | `bytea` | no | SHA-256(`prev_hash` || canonical JSON of the audit row) |
+Unique (`chain_month`, `seq`). Unique (`audit_log_id`).
 
 ---
 
@@ -128,16 +145,14 @@ Unique: (`idempotency_key`, `actor_user_id`, `route`).
 | `customer_segment` | `customer_segment` | yes | Required if CUSTOMER: `INDIVIDUAL`, `BUSINESS`, `INDUSTRY`, `GOVERNMENT` |
 | `legal_name` | `text` | no | |
 | `display_name` | `text` | no | |
-| `gstin` | `varchar(15)` | yes | Format CHECK. Unique where not null. |
-| `pan_ciphertext` | `bytea` | yes | KMS envelope-encrypted |
-| `pan_last4` | `varchar(4)` | yes | For masked display |
+| `gstin` | `varchar(15)` | yes | Format CHECK. Unique per (`org_type`, `gstin`) where not null (C-10). |
 | `registered_address` | `jsonb` | yes | `{line1, line2, city, district, state_code, pincode}` (Zod) |
 | `claim_status` | `claim_status` | no | LAB: `UNCLAIMED`, `CLAIM_PENDING`, `CLAIMED`. Others: `NOT_APPLICABLE`. |
 | `kyc_status` | `verification_status` | no | `NOT_STARTED`, `SUBMITTED`, `VERIFIED`, `REJECTED` |
 | `status` | `org_status` | no | `ACTIVE`, `SUSPENDED`, `CLOSED` |
 | `nabl_lab_ref` | `varchar(50)` | yes | Source identifier for labs |
-| `trust_flags` | `jsonb` | yes | e.g. `{no_pay_count: 2}` |
-CHECK: `org_type='CUSTOMER' ⇔ customer_segment IS NOT NULL`.
+| `current_version_no` | `int` | no | default 1. History in `organisation_version` (B-07). |
+CHECK: `org_type='CUSTOMER' ⇔ customer_segment IS NOT NULL`. PAN and trust flags are in `organisation_private` (§2.12), because the counterparty on a booking may read this table (E-04).
 
 ### 2.2 `app_user` (+LV)
 | Column | Type | Null | Notes |
@@ -163,7 +178,7 @@ CHECK: `org_type='CUSTOMER' ⇔ customer_segment IS NOT NULL`.
 | `activated_at` | `timestamptz` | yes | |
 | `deactivated_at` | `timestamptz` | yes | |
 | `deactivated_by_user_id` | `uuid` | yes | |
-Unique: (`user_id`, `organisation_id`).
+Unique: (`user_id`, `organisation_id`). Unique (`id`, `user_id`) for the session foreign key. Trigger `trg_membership_platform_staff` (RR-5, C-03): a user with `is_platform_staff` may join only a `PLATFORM` organisation, and no other user may join one.
 
 ### 2.4 `membership_role`
 | Column | Type | Null | Notes |
@@ -181,7 +196,7 @@ Unique (partial, active rows): (`membership_id`, `role`) where `revoked_at IS NU
 | `membership_id` | `uuid` | no | FK (lab membership) |
 | `lab_site_id` | `uuid` | no | FK |
 | `revoked_at` | `timestamptz` | yes | |
-Trigger: the site's `organisation_id` must equal the membership's organisation.
+Trigger: the site's `organisation_id` must equal the membership's organisation. Partial unique (`membership_id`, `lab_site_id`) where `revoked_at IS NULL` (C-07).
 
 ### 2.6 `invitation`
 | Column | Type | Null | Notes |
@@ -189,11 +204,11 @@ Trigger: the site's `organisation_id` must equal the membership's organisation.
 | `organisation_id` | `uuid` | no | |
 | `email` | `citext` | no | |
 | `roles` | `role_code[]` | no | |
-| `site_ids` | `uuid[]` | yes | Lab only |
 | `token_hash` | `bytea` | no | Unique |
 | `expires_at` | `timestamptz` | no | |
 | `accepted_at` | `timestamptz` | yes | |
 | `revoked_at` | `timestamptz` | yes | |
+Sites for a lab invitation are rows in `invitation_site` (§2.11), not an array (C-11).
 
 ### 2.7 `otp_challenge`
 | Column | Type | Null | Notes |
@@ -203,7 +218,7 @@ Trigger: the site's `organisation_id` must equal the membership's organisation.
 | `purpose` | `otp_purpose` | no | `LOGIN`, `LAB_CLAIM`, `VERIFY_EMAIL`, `VERIFY_PHONE` |
 | `code_hash` | `bytea` | no | Argon2id or HMAC. Never stored in plaintext. |
 | `expires_at` | `timestamptz` | no | 10 min |
-| `attempts` | `int` | no | max 5 |
+| `attempts` | `int` | no | default 0. CHECK 0–5. |
 | `consumed_at` | `timestamptz` | yes | |
 | `context_id` | `uuid` | yes | e.g. lab claim request id |
 | `ip_address` | `inet` | yes | |
@@ -216,6 +231,7 @@ Trigger: the site's `organisation_id` must equal the membership's organisation.
 | `secret_ciphertext` | `bytea` | no | KMS envelope-encrypted |
 | `verified_at` | `timestamptz` | yes | |
 | `revoked_at` | `timestamptz` | yes | |
+Partial unique (`user_id`, `factor_type`) where `verified_at IS NOT NULL AND revoked_at IS NULL` (C-07).
 
 ### 2.9 `mfa_recovery_code`
 `user_id`, `code_hash bytea`, `used_at timestamptz null`. 10 per enrolment.
@@ -234,6 +250,22 @@ Trigger: the site's `organisation_id` must equal the membership's organisation.
 | `expires_at` | `timestamptz` | no | |
 | `revoked_at` | `timestamptz` | yes | |
 | `revoked_reason` | `varchar(50)` | yes | |
+Unique (`refresh_token_hash`). Composite foreign key (`active_membership_id`, `user_id`) to `membership`, so a session can only activate its own user's membership (C-06).
+
+### 2.11 `invitation_site`
+`invitation_id`, `lab_site_id`. Unique (`invitation_id`, `lab_site_id`). Trigger: the site belongs to the invitation's organisation.
+
+### 2.12 `organisation_private` (+LV)
+Columns of an organisation that the counterparty on a booking must never read (E-04). One row per organisation, created with it.
+| Column | Type | Null | Notes |
+|---|---|---|---|
+| `organisation_id` | `uuid` | no | Unique. FK `organisation`. |
+| `pan_ciphertext` | `bytea` | yes | KMS envelope-encrypted |
+| `pan_last4` | `varchar(4)` | yes | For masked display |
+| `trust_flags` | `jsonb` | yes | e.g. `{no_pay_count: 2}`. Platform-only. |
+
+### 2.13 `organisation_version` (AO)
+`organisation_id`, `version_no`, `snapshot jsonb`, `change_set_id`, `published_at`. Unique (`organisation_id`, `version_no`). Written when a change set publishes a `LAB_ORG` item (B-07).
 
 ---
 
@@ -243,6 +275,7 @@ Trigger: the site's `organisation_id` must equal the membership's organisation.
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `owner_org_id` | `uuid` | yes | Null = platform |
+| `customer_org_id` / `lab_org_id` | `uuid` | yes | Set for booking-related purposes (reports, receipt photos, booking attachments, dispute evidence, labels, custody trail), so both parties can be scoped (E-07) |
 | `purpose` | `file_purpose` | no | `REPORT_ORIGINAL`, `REPORT_STAMPED`, `RECEIPT_PHOTO`, `BOOKING_ATTACHMENT`, `KYC_DOCUMENT`, `DISPUTE_EVIDENCE`, `IMPORT_SOURCE`, `FINANCIAL_DOCUMENT`, `LABEL_SHEET`, `CUSTODY_TRAIL` |
 | `bucket` | `varchar(63)` | no | |
 | `object_key` | `text` | no | `quarantine/…` then `clean/…` |
@@ -257,7 +290,7 @@ Trigger: the site's `organisation_id` must equal the membership's organisation.
 | `validation_errors` | `jsonb` | yes | e.g. encrypted PDF |
 | `uploaded_by_user_id` | `uuid` | yes | |
 | `retention_class` | `varchar(40)` | no | Maps to retention config |
-Unique: (`bucket`, `object_key`).
+Unique: (`bucket`, `object_key`). Access is never granted from this table alone: the API first resolves the entity the file is attached to and checks access to that (E-07).
 
 ### 3.2 `file_link`
 Generic attachment of files to entities that have no dedicated FK.
@@ -322,6 +355,7 @@ Unique (`taxonomy_id`, `code`). Rows change **only** through change-set publicat
 | `published_at` | `timestamptz` | yes | |
 | `rejection_reason` | `text` | yes | |
 | `impact_summary` | `jsonb` | yes | Counts plus affected open bookings |
+CHECK: status `APPROVED` or `PUBLISHED` ⇒ `approved_by_user_id` and `approved_at` set; `PUBLISHED` ⇒ `published_at` set (C-05). Index (`status`, `submitted_at`).
 
 ### 4.7 `md_change_item`
 | Column | Type | Null | Notes |
@@ -356,7 +390,7 @@ Unique (`taxonomy_id`, `code`). Rows change **only** through change-set publicat
 | `price_list_id` | `uuid` | yes | Created on commit (price import) |
 
 ### 4.10 `import_row`
-`import_job_id`, `row_number int`, `raw jsonb`, `mapped jsonb`, `match_result` (`NEW`, `MATCHED`, `DUPLICATE_IN_FILE`, `CONFLICT`), `matched_target_id uuid null`, `action` (`CREATE`, `UPDATE`, `NO_CHANGE`, `SKIP`, `ERROR`), `messages jsonb`. Unique (`import_job_id`, `row_number`).
+`import_job_id`, `row_number int`, `raw jsonb`, `mapped jsonb`, `match_result` (`NEW`, `MATCHED`, `DUPLICATE_IN_FILE`, `CONFLICT`), `matched_target_id uuid null`, `action` (`CREATE`, `UPDATE`, `NO_CHANGE`, `SKIP`, `ERROR`), `messages jsonb`, `organisation_id uuid null` (copied from the job, with a composite foreign key, for lab price imports; E-02). Unique (`import_job_id`, `row_number`).
 
 ### 4.11 `accreditation_body`
 `code` (`NABL`), `name`, `verification_url_template text null`, `status`.
@@ -365,7 +399,10 @@ Unique (`taxonomy_id`, `code`). Rows change **only** through change-set publicat
 `code` (e.g. `ISO_IEC_17025_TESTING`, `ISO_IEC_17025_CALIBRATION`, `ISO_15189`, `ISO_17043`), `name`, `lab_category lab_category` (`TESTING`, `CALIBRATION`, `MEDICAL`, `OTHER`), `is_supported boolean` (false for 15189), `is_bookable boolean` (true for testing only).
 
 ### 4.13 `search_synonym`
-`term citext`, `expands_to text[]`, `status`. Unique `term`. Published through change sets.
+`term citext`, `expands_to text[]`, `status`, `current_version_no int`. Unique `term`. Published through change sets, with history in `search_synonym_version`.
+
+### 4.14 `search_synonym_version` (AO)
+`search_synonym_id`, `version_no`, `snapshot jsonb`, `change_set_id`, `published_at`. Unique (`search_synonym_id`, `version_no`) (B-07).
 
 ---
 
@@ -383,9 +420,6 @@ Unique (`taxonomy_id`, `code`). Rows change **only** through change-set publicat
 | `geo_point` | `geography(Point,4326)` | yes | **Approved** pin only |
 | `geocode_confidence` | `numeric(4,3)` | yes | |
 | `geocode_status` | `geocode_status` | no | `PENDING`, `AUTO_OK`, `LOW_CONFIDENCE`, `MANUAL_APPROVED` |
-| `contact_email` | `citext` | yes | From NABL. Used for claim OTP. |
-| `contact_phone` | `varchar(20)` | yes | |
-| `public_contact` | `jsonb` | yes | Lab-set contact shown after payment |
 | `submission_instructions` | `text` | yes | |
 | `max_open_jobs` | `int` | yes | |
 | `listing_status` | `listing_status` | no | `LISTED`, `BOOKABLE`, `HIDDEN` (derived) |
@@ -395,12 +429,14 @@ Unique (`taxonomy_id`, `code`). Rows change **only** through change-set publicat
 | `responsiveness_score` | `numeric(5,2)` | yes | Derived |
 | `status` | `md_status` | no | |
 | `current_version_no` | `int` | no | |
+Unique (`id`, `organisation_id`). CHECK `(listing_status = 'BOOKABLE') = is_bookable` (B-12). Contact details are in `lab_site_private` (§5.17), because this table is public reference data (E-04).
+
 NABL-sourced columns (name, address, contact) change only through change sets. Operational columns (instructions, public contact, max jobs) are edited by the Checker, and audited.
 
 ### 5.2 `lab_site_version` (AO)
 `lab_site_id`, `version_no`, `snapshot jsonb`, `change_set_id`, `published_at`. Unique (`lab_site_id`, `version_no`).
 
-### 5.3 `accreditation` (+LV)
+### 5.3 `accreditation` (+LV) · **+ORG**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `lab_site_id` | `uuid` | no | |
@@ -419,7 +455,7 @@ Unique (`accreditation_body_id`, `certificate_no`). A nightly job sets `EXPIRED`
 ### 5.4 `accreditation_version` (AO)
 `accreditation_id`, `version_no`, `snapshot`, `change_set_id`, `published_at`.
 
-### 5.5 `scope_line` (+LV)
+### 5.5 `scope_line` (+LV) · **+ORG**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `lab_site_id` | `uuid` | no | |
@@ -446,7 +482,7 @@ Unique (`lab_site_id`, `natural_key_hash`) where `status='ACTIVE'`.
 `scope_line_id`, `version_no`, `snapshot jsonb` (including resolved node names and codes), `change_set_id`, `published_at`. Unique (`scope_line_id`, `version_no`). **Booking lines reference this table.**
 
 ### 5.7 `lab_claim_request` (+LV)
-`organisation_id`, `lab_site_id` (site used for verification), `requested_by_user_id`, `method claim_method` (`EMAIL_OTP`, `MANUAL`), `status claim_status_req` (`PENDING_OTP`, `PENDING_REVIEW`, `APPROVED`, `REJECTED`, `EXPIRED`), `authorisation_file_id uuid null` (letterhead), `reviewed_by_user_id`, `reviewed_at`, `decision_notes`.
+`organisation_id`, `lab_site_id` (site used for verification), `requested_by_user_id`, `method claim_method` (`EMAIL_OTP`, `MANUAL`), `status claim_request_status` (`PENDING_OTP`, `PENDING_REVIEW`, `APPROVED`, `REJECTED`, `EXPIRED`), `authorisation_file_id uuid null` (letterhead), `reviewed_by_user_id`, `reviewed_at`, `decision_notes`. Partial unique (`organisation_id`) where status is `PENDING_OTP` or `PENDING_REVIEW` (C-07).
 
 ### 5.8 `kyc_document`
 `organisation_id`, `document_type` (taxonomy node `KYC_DOCUMENT_TYPE`), `file_id`, `status verification_status`, `reviewed_by_user_id`, `reviewed_at`, `notes`.
@@ -463,19 +499,20 @@ Unique (`lab_site_id`, `natural_key_hash`) where `status='ACTIVE'`.
 | `status` | `verification_status` | no | |
 | `verified_by_user_id` | `uuid` | yes | PLATFORM_FINANCE |
 | `verified_at` | `timestamptz` | yes | |
-| `is_primary` | `boolean` | no | Partial unique per (`organisation_id`, `lab_site_id`) where primary and not retired |
+| `is_primary` | `boolean` | no | Partial unique `NULLS NOT DISTINCT` per (`organisation_id`, `lab_site_id`) where primary and not retired |
 | `retired_at` | `timestamptz` | yes | Changes create a new row. Needs step-up MFA. |
+Unique (`id`, `organisation_id`) for the payout foreign key.
 
-### 5.10 `receiving_hours`
-`lab_site_id`, `weekday smallint` (1=Mon…7=Sun), `opens_at time`, `closes_at time`, `cutoff_at time null`. CHECK `closes_at > opens_at`. Several rows per day are allowed (split shifts).
+### 5.10 `receiving_hours` · **+ORG**
+`lab_site_id`, `weekday smallint` (1=Mon…7=Sun), `opens_at time`, `closes_at time`, `cutoff_at time null`. CHECK `closes_at > opens_at`. CHECK `weekday` 1–7. Several rows per day are allowed (split shifts), but an exclusion constraint forbids overlapping rows for the same site and weekday (C-12).
 
-### 5.11 `site_closure`
-`lab_site_id`, `starts_on date`, `ends_on date`, `reason text`, `created_by_user_id`. Creating one triggers slot cancellation (EC-13).
+### 5.11 `site_closure` · **+ORG**
+`lab_site_id`, `starts_on date`, `ends_on date`, `reason text`, `created_by_user_id`. CHECK `ends_on >= starts_on`. Creating one triggers slot cancellation (EC-13).
 
-### 5.12 `retention_rule` (+LV)
-`lab_site_id`, `discipline_node_id uuid null` (null = default), `retention_days int CHECK > 0`, `max_sampling_to_receipt_hours int null` (EC-30). Unique (`lab_site_id`, `discipline_node_id`).
+### 5.12 `retention_rule` (+LV) · **+ORG**
+`lab_site_id`, `discipline_node_id uuid null` (null = default), `retention_days int CHECK > 0`, `max_sampling_to_receipt_hours int null` (EC-30). Unique `NULLS NOT DISTINCT` (`lab_site_id`, `discipline_node_id`).
 
-### 5.13 `price_list` (+LV until published, immutable afterwards)
+### 5.13 `price_list` (+LV until published, immutable afterwards) · **+ORG**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `lab_site_id` | `uuid` | no | |
@@ -486,9 +523,9 @@ Unique (`lab_site_id`, `natural_key_hash`) where `status='ACTIVE'`.
 | `published_by_user_id` | `uuid` | yes | LAB_CHECKER |
 | `published_at` | `timestamptz` | yes | |
 | `import_job_id` | `uuid` | yes | |
-Unique (`lab_site_id`, `version_no`). Partial unique (`lab_site_id`) where `status='PUBLISHED'`. A trigger forbids updates to PUBLISHED rows (except the transition to SUPERSEDED).
+Unique (`lab_site_id`, `version_no`). Partial unique (`lab_site_id`) where `status='PUBLISHED'`. Unique (`id`, `lab_site_id`). A trigger forbids updates to PUBLISHED rows (except the transition to SUPERSEDED, which also sets `effective_to`).
 
-### 5.14 `price_item`
+### 5.14 `price_item` · **+ORG**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `price_list_id` | `uuid` | no | |
@@ -503,10 +540,10 @@ Unique (`lab_site_id`, `version_no`). Partial unique (`lab_site_id`) where `stat
 | `is_available` | `boolean` | no | default true |
 Unique (`price_list_id`, `scope_line_id`). Immutable once the parent is published.
 
-### 5.15 `slot_template` (+LV)
-`lab_site_id`, `discipline_node_id null`, `weekday`, `start_time`, `end_time`, `capacity int CHECK > 0`, `active boolean`. Slots are generated 30 days ahead by a nightly job.
+### 5.15 `slot_template` (+LV) · **+ORG**
+`lab_site_id`, `discipline_node_id null`, `weekday`, `start_time`, `end_time`, `capacity int CHECK > 0`, `active boolean`. CHECK `end_time > start_time`, `weekday` 1–7. Slots are generated 30 days ahead by a nightly job.
 
-### 5.16 `slot` (+LV)
+### 5.16 `slot` (+LV) · **+ORG**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `lab_site_id` | `uuid` | no | |
@@ -517,14 +554,27 @@ Unique (`price_list_id`, `scope_line_id`). Immutable once the parent is publishe
 | `held_count` | `int` | no | default 0 |
 | `booked_count` | `int` | no | default 0 |
 | `status` | `slot_status` | no | `OPEN`, `CLOSED`, `CANCELLED` |
-CHECK `held_count + booked_count <= capacity`. Unique (`lab_site_id`, `discipline_node_id`, `starts_at`).
+CHECK `held_count + booked_count <= capacity`, both counts ≥ 0, `ends_at > starts_at`. Unique `NULLS NOT DISTINCT` (`lab_site_id`, `discipline_node_id`, `starts_at`). Unique (`id`, `lab_site_id`).
+
+### 5.17 `lab_site_private` (+LV) · **+ORG**
+Contact details of a site that are not public (E-04). One row per site.
+| Column | Type | Null | Notes |
+|---|---|---|---|
+| `lab_site_id` | `uuid` | no | Unique |
+| `contact_email` | `citext` | yes | From NABL. Used for the claim OTP. Platform-only until the lab is claimed. |
+| `contact_phone` | `varchar(20)` | yes | |
+| `public_contact` | `jsonb` | yes | Lab-set contact, shown to the customer of a booking after payment |
+
+### 5.18 `lab_penalty` (AO)
+Penalties recorded for scoring only (BR-074, BR-079; E-11). No money moves.
+`lab_org_id`, `lab_site_id`, `booking_id uuid null`, `rule varchar(10)` (e.g. `BR-074`), `reason text`, `occurred_at`, `recorded_by_user_id uuid null` (null = SYSTEM).
 
 ---
 
 ## 6. Customers
 
 ### 6.1 `customer_site` (+LV)
-`organisation_id`, `name`, `address jsonb`, `pincode`, `state_code`, `geo_point geography null`, `gstin varchar(15) null` (site GSTIN if different), `contact jsonb`, `is_default_billing boolean`, `status`.
+`organisation_id`, `name`, `address jsonb`, `pincode`, `state_code`, `geo_point geography null`, `gstin varchar(15) null` (site GSTIN if different), `contact jsonb`, `is_default_billing boolean`, `status`. Unique (`id`, `organisation_id`) for the booking foreign key.
 
 ### 6.2 `customer_settings` (+LV)
 `organisation_id` (unique), `requester_can_pay boolean default false`, `default_customer_site_id uuid null`, `report_recipients jsonb null`.
@@ -545,7 +595,7 @@ CHECK `held_count + booked_count <= capacity`. Unique (`lab_site_id`, `disciplin
 | `requester_user_id` | `uuid` | no | |
 | `on_behalf_by_user_id` | `uuid` | yes | Ops booking |
 | `lab_site_id` | `uuid` | no | |
-| `lab_org_id` | `uuid` | no | Denormalised tenant key (trigger keeps it equal to the site's org) |
+| `lab_org_id` | `uuid` | no | Denormalised tenant key. Composite foreign key (`lab_site_id`, `lab_org_id`) to `lab_site` keeps it equal to the site's organisation. |
 | `status` | `booking_status` | no | |
 | `status_changed_at` | `timestamptz` | no | |
 | `item_name` | `text` | no | Indexed copy from the TRF |
@@ -577,9 +627,17 @@ CHECK `held_count + booked_count <= capacity`. Unique (`lab_site_id`, `disciplin
 | `rejection_reason_node_id` | `uuid` | yes | |
 | `rejection_notes` | `text` | yes | |
 | `completed_at` | `timestamptz` | yes | |
-**Only `BookingEngine` writes `status`.** This is enforced by code review and a lint rule. The DB trigger `booking_status_guard` requires `app.transition_id` to be set in the session for any status change.
+| `frozen_at` | `timestamptz` | yes | Set by EC-01 for PAID or HANDOVER_SET bookings. While set, only cancellation and Ops actions are allowed (A-05). |
+| `frozen_reason` | `text` | yes | Required when `frozen_at` is set |
+**Only `BookingEngine` writes `status`.** This is enforced by code review and a lint rule. The DB trigger `trg_booking_status_guard` requires `app.transition_id` to be set in the session for any status change, and checks that (`transition_id`, old status, new status) is a row of `booking_transition` (§7.7, A-10).
 
-### 7.2 `booking_line` (+LV)
+Unique (`id`, `customer_org_id`, `lab_org_id`), the target of every **+TK** foreign key. Composite foreign keys: (`customer_site_id`, `customer_org_id`) to `customer_site`; (`slot_id`, `lab_site_id`) to `slot`; (`price_list_id`, `lab_site_id`) to `price_list` (C-06).
+
+CHECKs (C-05): every `_paise` column ≥ 0; `status = 'CANCELLED'` ⇒ `cancellation_code_node_id` and `cancelled_by_party` set; `status = 'REJECTED'` ⇒ `rejection_reason_node_id` set; `frozen_at` set ⇒ `frozen_reason` set.
+
+**Totals are frozen.** `subtotal_paise`, `gst_paise`, `platform_fee_paise` and `total_paise` do not change once the status is no longer REQUESTED, even when a line is cancelled later. The net amount is derived from refunds (A-09).
+
+### 7.2 `booking_line` (+LV) · **+TK**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `booking_id` | `uuid` | no | |
@@ -595,9 +653,10 @@ CHECK `held_count + booked_count <= capacity`. Unique (`lab_site_id`, `disciplin
 | `line_total_paise` | `bigint` | no | |
 | `status` | `booking_line_status` | no | `NOT_STARTED`, `IN_PROGRESS`, `DONE`, `CANCELLED` |
 | `cancelled_reason` | `text` | yes | |
-Unique (`booking_id`, `line_no`) and (`booking_id`, `scope_line_id`). Price columns are immutable after T-03 (trigger).
+| `required_sample_qty` | `numeric(12,3)` | yes | Set by T-07 when an accepted counter-offer changes the quantity. Null = the snapshot quantity applies (A-08). |
+Unique (`booking_id`, `line_no`) and (`booking_id`, `scope_line_id`). Unique (`id`, `booking_id`). Price columns are immutable once the booking status isn't REQUESTED (trigger, C-11). CHECK `line_total_paise = unit_price_paise + sample_prep_paise + gst_paise`, all ≥ 0. Composite foreign key (`scope_line_version_id`, `scope_line_id`) to `scope_line_version`. Trigger: the scope line belongs to the booking's site and the price item to the booking's price list (C-06).
 
-### 7.3 `trf` (AO)
+### 7.3 `trf` (AO) · **+TK**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `booking_id` | `uuid` | no | |
@@ -609,14 +668,23 @@ Unique (`booking_id`, `line_no`) and (`booking_id`, `scope_line_id`). Price colu
 | `submitted_by_user_id` | `uuid` | no | |
 Unique (`booking_id`, `version_no`).
 
-### 7.4 `booking_status_history` (AO)
+### 7.4 `booking_status_history` (AO) · **+TK**
 `booking_id`, `transition_id varchar(6)` (e.g. `T-14`), `from_status null`, `to_status`, `actor_user_id null`, `actor_role null`, `actor_party party_type`, `reason text null`, `occurred_at`, `metadata jsonb null`.
 
-### 7.5 `counter_offer` (+LV)
-`booking_id`, `proposed_slot_id uuid null`, `proposed_drop_date date null`, `extra_quantity_notes text null`, `per_line_quantity jsonb null`, `message text`, `status counter_status` (`PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `WITHDRAWN`), `expires_at`, `proposed_by_user_id` (Checker), `responded_by_user_id`, `responded_at`. CHECK: at least one of slot, date or quantity is present. **There's no price column, by design (CD-08).**
+### 7.5 `counter_offer` (+LV) · **+TK**
+`booking_id`, `proposed_slot_id uuid null`, `proposed_drop_date date null`, `extra_quantity_notes text null`, `per_line_quantity jsonb null`, `message text`, `status counter_status` (`PENDING`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `WITHDRAWN`), `expires_at`, `proposed_by_user_id` (Checker), `responded_by_user_id`, `responded_at`. CHECK: at least one of slot, date or quantity is present. Partial unique (`booking_id`) where `status = 'PENDING'` (C-07). **There's no price column, by design (CD-08).**
 
-### 7.6 `slot_hold`
-`slot_id`, `booking_id`, `kind hold_kind` (`SOFT`, `CONFIRMED`), `expires_at null`, `released_at null`. Partial unique (`booking_id`) where `released_at IS NULL`.
+### 7.6 `slot_hold` · **+TK**
+`slot_id`, `booking_id`, `kind hold_kind` (`SOFT`, `CONFIRMED`), `expires_at null`, `released_at null`. Partial unique (`booking_id`) where `released_at IS NULL`. CHECK `kind = 'SOFT'` ⇒ `expires_at` set (C-05).
+
+### 7.7 `booking_transition`
+The legal transitions, one row per (transition, from-state). Reference data written by migrations from `BOOKING_STATE_MACHINE.md` §3; a test asserts it equals `packages/shared/src/booking-state-machine.ts`. Read by `trg_booking_status_guard` (A-10). No STD columns.
+| Column | Type | Null | Notes |
+|---|---|---|---|
+| `transition_id` | `varchar(6)` | no | e.g. `T-14` |
+| `from_status` | `booking_status` | yes | Null for T-01 |
+| `to_status` | `booking_status` | no | |
+Unique `NULLS NOT DISTINCT` (`transition_id`, `from_status`).
 
 ---
 
@@ -632,23 +700,23 @@ Unique (`booking_id`, `version_no`).
 | `activated_at` / `verify_until` / `retired_at` | `timestamptz` | yes | |
 Partial unique (`purpose`) where `status='ACTIVE'`.
 
-### 8.2 `package` (+LV)
+### 8.2 `package` (+LV) · **+TK**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `booking_id` | `uuid` | no | |
 | `seq_no` | `int` | no | 1..N |
 | `total_packages` | `int` | no | N at issue time |
 | `is_top_up` | `boolean` | no | default false (EC-34) |
-| `short_code` | `char(6)` | no | Unique among non-voided packages. Crockford base32. |
+| `short_code` | `char(6)` | no | Globally unique and never reused, including after a label is voided (C-09). Crockford base32. |
 | `label_version` | `int` | no | default 1 |
 | `qr_payload` | `text` | no | See `05-integrations/QR_AND_VERIFICATION.md` |
-| `signing_key_id` | `varchar(8)` | no | |
+| `signing_key_id` | `varchar(8)` | no | FK `qr_signing_key.key_id` |
 | `status` | `package_status` | no | `ISSUED`, `RECEIVED`, `MISSING`, `VOIDED` |
 | `lab_sample_id` | `varchar(60)` | yes | Set on receipt approval |
 | `received_at` | `timestamptz` | yes | |
-Unique (`booking_id`, `seq_no`, `label_version`).
+Unique (`booking_id`, `seq_no`, `label_version`). Unique (`id`, `booking_id`).
 
-### 8.3 `custody_event` (AO)
+### 8.3 `custody_event` (AO) · **+TK**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `booking_id` | `uuid` | no | |
@@ -662,12 +730,10 @@ Unique (`booking_id`, `seq_no`, `label_version`).
 | `client_seq` | `bigint` | yes | Monotonic counter |
 | `server_received_at` | `timestamptz` | no | |
 | `clock_skew_flag` | `boolean` | no | Gap > 15 min (EC-50) |
-| `photo_file_ids` | `uuid[]` | no | default `{}` |
-| `photo_hashes` | `bytea[]` | no | default `{}` |
 | `details` | `jsonb` | yes | e.g. rejection reason, scanned payload hash |
-**No GPS fields** (FS A.5).
+**No GPS fields** (FS A.5). Photos are rows in `custody_event_photo` (§8.8). Partial unique (`device_id`, `client_seq`) where both are set, so a retried offline upload is recorded once (C-08).
 
-### 8.4 `receipt_record` (+LV until decided)
+### 8.4 `receipt_record` (+LV until decided) · **+TK**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `booking_id` | `uuid` | no | |
@@ -687,69 +753,93 @@ Unique (`booking_id`, `seq_no`, `label_version`).
 | `decision_notes` | `text` | yes | |
 | `decided_at` | `timestamptz` | yes | |
 | `lab_sample_id` | `varchar(60)` | yes | Required when APPROVED or HOLD_CONFIRMED |
-CHECK `checker_user_id IS NULL OR checker_user_id <> maker_user_id`. Unique (`booking_id`, `version_no`). Immutable after `decided_at` is set.
+CHECK `checker_user_id IS NULL OR checker_user_id <> maker_user_id`. Unique (`booking_id`, `version_no`). Unique (`id`, `booking_id`). Immutable after `decided_at` is set (trigger, B-10).
 
-### 8.5 `receipt_package`
-`receipt_record_id`, `package_id`, `scanned_at`, `scan_event_id` (FK `custody_event`), `condition_node_id null`, `notes`. Unique (`receipt_record_id`, `package_id`).
+CHECKs (C-05): `decision`, `checker_user_id` and `decided_at` are all set or all null; `decision IN ('APPROVED','HOLD_CONFIRMED')` ⇒ `lab_sample_id` set; `discrepancy_flag` ⇒ `discrepancy_notes` set; package counts ≥ 0.
 
-### 8.6 `hold_case` (+LV)
-`booking_id`, `receipt_record_id`, `reason_node_id`, `details text`, `due_at`, `customer_decision hold_decision null` (`PROCEED`, `REPLACE`, `CANCEL`), `decided_by_user_id`, `decided_at`, `escalated_at null`, `status hold_status` (`OPEN`, `DECIDED`, `ESCALATED`, `CLOSED`).
+### 8.5 `receipt_package` · **+TK**
+`booking_id`, `receipt_record_id`, `package_id`, `scanned_at`, `scan_event_id` (FK `custody_event`), `condition_node_id null`, `notes`. Unique (`receipt_record_id`, `package_id`). Composite foreign keys (`receipt_record_id`, `booking_id`) and (`package_id`, `booking_id`), so the package and the receipt belong to the same booking (C-06).
 
-### 8.7 `label_print` (AO)
-`booking_id`, `package_id null`, `label_version`, `printed_by_user_id`, `printed_by_party party_type`, `is_reprint boolean`, `reprint_reason text null`, `approved_by_user_id null` (Checker for lab reprints), `file_id null`. CHECK `approved_by_user_id <> printed_by_user_id`.
+### 8.6 `hold_case` (+LV) · **+TK**
+`booking_id`, `receipt_record_id`, `reason_node_id`, `details text`, `due_at`, `customer_decision hold_decision null` (`PROCEED`, `REPLACE`, `CANCEL`), `decided_by_user_id`, `decided_at`, `escalated_at null`, `status hold_status` (`OPEN`, `DECIDED`, `ESCALATED`, `CLOSED`). Partial unique (`booking_id`) where status is `OPEN` or `ESCALATED` (C-07).
+
+### 8.7 `label_print` (AO) · **+TK**
+`booking_id`, `package_id null`, `label_version`, `printed_by_user_id`, `printed_by_party party_type`, `is_reprint boolean`, `reprint_reason text null`, `approved_by_user_id null` (Checker for lab reprints), `file_id null`. CHECK `approved_by_user_id IS NULL OR approved_by_user_id <> printed_by_user_id`.
+
+### 8.8 `custody_event_photo` (AO) · **+TK**
+`custody_event_id`, `file_id` (FK `file_object`), `sha256 bytea`. Unique (`custody_event_id`, `file_id`). Replaces the two arrays on `custody_event` (C-11).
 
 ---
 
 ## 9. Reports
 
-### 9.1 `report` (+LV)
-`booking_id` (unique), `lab_site_id`, `customer_org_id`, `lab_org_id` (tenant keys), `report_no varchar(60)`, `ulr_no varchar(30) null`, `current_released_version_id uuid null`, `status report_status` (`IN_PROGRESS`, `RELEASED`, `AMENDMENT_IN_PROGRESS`).
+### 9.1 `report` (+LV) · **+TK**
+`booking_id` (unique), `lab_site_id`, `customer_org_id`, `lab_org_id` (tenant keys), `report_no varchar(60) null`, `ulr_no varchar(30) null`, `current_released_version_id uuid null`, `status report_status` (`IN_PROGRESS`, `RELEASED`, `AMENDMENT_IN_PROGRESS`).
 
-### 9.2 `report_version` (+LV until RELEASED, immutable afterwards)
+The report number and ULR live here only, not on the versions: an amendment keeps both (B-01). Both are null until the first submission (T-19 requires `report_no`). Partial unique (`ulr_no`) where not null. Unique (`lab_site_id`, `report_no`) where not null. Unique (`id`, `booking_id`).
+
+### 9.2 `report_version` (+LV until RELEASED, immutable afterwards) · **+TK**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `report_id` | `uuid` | no | |
 | `version_no` | `int` | no | |
 | `status` | `report_version_status` | no | `DRAFT`, `IN_REVIEW`, `RETURNED`, `RELEASED`, `SUPERSEDED` |
-| `report_no` | `varchar(60)` | no | |
-| `ulr_no` | `varchar(30)` | yes | |
-| `issue_date` | `date` | no | |
-| `original_file_id` | `uuid` | no | Must be CLEAN and a valid PDF |
-| `original_sha256` | `bytea` | no | |
-| `stamped_file_id` | `uuid` | yes | Set on release |
+| `booking_id` | `uuid` | no | Same booking as the report (composite foreign key) |
+| `is_amendment` | `boolean` | no | default false. True when the version is created while an earlier version of the report is RELEASED (A-02). A resubmission after RETURNED is not an amendment. |
+| `issue_date` | `date` | yes | Required from IN_REVIEW |
+| `original_file_id` | `uuid` | yes | Must be CLEAN and a valid PDF. Required from IN_REVIEW. |
+| `original_sha256` | `bytea` | yes | Required from IN_REVIEW |
+| `stamped_file_id` | `uuid` | yes | Set by the stamp job that runs at submission (ADR-014, A-01). Required for RELEASED. |
 | `stamped_sha256` | `bytea` | yes | |
-| `bound_package_id` | `uuid` | no | |
-| `bind_event_id` | `uuid` | no | FK `custody_event` (`REPORT_BOUND`) |
-| `amendment_reason` | `text` | yes | Required when `version_no > 1` |
+| `bound_package_id` | `uuid` | yes | Required from IN_REVIEW. Composite foreign key (`bound_package_id`, `booking_id`) to `package` (BR-063). |
+| `bind_event_id` | `uuid` | yes | FK `custody_event` (`REPORT_BOUND`). Required from IN_REVIEW. |
+| `amendment_reason` | `text` | yes | Required when `is_amendment` |
 | `maker_user_id` | `uuid` | no | |
 | `submitted_at` | `timestamptz` | yes | |
 | `checker_user_id` | `uuid` | yes | |
 | `checker_mfa_at` | `timestamptz` | yes | Step-up evidence |
 | `decided_at` | `timestamptz` | yes | |
 | `review_comments` | `text` | yes | Required on RETURNED |
-| `verification_code` | `varchar(16)` | yes | Unique. Non-guessable (≥ 80 bits, base32). Set on release. |
-| `signing_key_id` | `varchar(8)` | yes | |
+| `verification_code` | `varchar(16)` | yes | Unique. Non-guessable (≥ 80 bits, base32). Set at submission so it can be stamped (A-01). It resolves only once the version is RELEASED or SUPERSEDED. |
+| `signing_key_id` | `varchar(8)` | yes | FK `qr_signing_key.key_id`. Set at submission. |
 | `superseded_by_version_id` | `uuid` | yes | |
 | `released_at` | `timestamptz` | yes | |
-CHECK `checker_user_id IS NULL OR checker_user_id <> maker_user_id`. Unique (`report_id`, `version_no`). Partial unique (`ulr_no`) where `status IN ('RELEASED','SUPERSEDED') AND ulr_no IS NOT NULL` (an amendment keeps its ULR: the uniqueness check excludes rows of the same `report_id`, enforced in the service and by a trigger). Partial unique (`report_id`) where `status IN ('DRAFT','IN_REVIEW')`.
+CHECK `checker_user_id IS NULL OR checker_user_id <> maker_user_id`. Unique (`report_id`, `version_no`). Unique (`id`, `booking_id`). Partial unique (`report_id`) where `status IN ('DRAFT','IN_REVIEW')`. Partial unique (`report_id`) where `status = 'RELEASED'` (C-04).
 
-### 9.3 `report_parameter_result`
-`report_version_id`, `booking_line_id`, `conformity conformity_result` (`CONFORMS`, `DOES_NOT_CONFORM`, `NOT_STATED`, `NOT_APPLICABLE`). Unique (`report_version_id`, `booking_line_id`). The trigger checks that the line belongs to the same booking and isn't CANCELLED.
+CHECKs (B-11, C-05): `status <> 'DRAFT'` ⇒ `issue_date`, `original_file_id`, `original_sha256`, `bound_package_id`, `bind_event_id`, `submitted_at`, `verification_code` and `signing_key_id` set; `status = 'RETURNED'` ⇒ `review_comments` set; `status IN ('RELEASED','SUPERSEDED')` ⇒ `checker_user_id`, `checker_mfa_at`, `decided_at`, `released_at`, `stamped_file_id` and `stamped_sha256` set; `is_amendment` ⇒ `amendment_reason` set.
 
-### 9.4 `report_share_link` (+LV)
+Trigger (B-10): once RELEASED, a row can change only to SUPERSEDED, setting `superseded_by_version_id`. A SUPERSEDED row never changes.
+
+### 9.3 `report_parameter_result` · **+TK**
+`report_version_id`, `booking_line_id`, `conformity conformity_result` (`CONFORMS`, `DOES_NOT_CONFORM`, `NOT_STATED`, `NOT_APPLICABLE`). Also `booking_id`. Unique (`report_version_id`, `booking_line_id`). Composite foreign keys (`report_version_id`, `booking_id`) and (`booking_line_id`, `booking_id`) guarantee the same booking. A trigger checks that the line isn't CANCELLED (C-30).
+
+### 9.4 `report_share_link` (+LV) · **+TK**
 `report_version_id`, `token_hash bytea unique`, `created_by_user_id`, `expires_at` (≤ 30 days), `revoked_at null`, `revoked_by_user_id null`, `access_count int`, `last_accessed_at`, `recipient_note text null`.
 
-### 9.5 `report_access_log` (AO)
-`report_version_id`, `accessor_user_id null`, `access_type` (`DOWNLOAD`, `SHARE_LINK_DOWNLOAD`, `BREAK_GLASS`), `share_link_id null`, `reason text null`, `ip_address`, `occurred_at`.
+### 9.5 `report_access_log` (AO) · **+TK**
+`report_version_id`, `accessor_user_id null`, `access_type` (`DOWNLOAD`, `SHARE_LINK_DOWNLOAD`, `BREAK_GLASS`), `share_link_id null`, `grant_id uuid null` (FK `break_glass_grant`, required when `access_type = 'BREAK_GLASS'`), `reason text null`, `ip_address`, `occurred_at`.
 
 ### 9.6 `verification_event` (AO)
 `verification_code`, `result verification_result` (`GENUINE_CURRENT`, `GENUINE_SUPERSEDED`, `NOT_FOUND`, `REVOKED`), `ip_hash bytea`, `user_agent_family varchar(40)`, `occurred_at`. Used for rate-limiting analysis, and holds no personal data beyond the IP hash.
+
+### 9.7 `break_glass_grant` (+LV) · **+TK**
+A time-boxed permission for one platform user to open one report file (E-08).
+| Column | Type | Null | Notes |
+|---|---|---|---|
+| `report_version_id` | `uuid` | no | |
+| `requested_by_user_id` | `uuid` | no | Platform user |
+| `reason` | `text` | no | |
+| `approved_by_user_id` | `uuid` | yes | `PLATFORM_ADMIN`. CHECK ≠ `requested_by_user_id`. |
+| `approved_at` | `timestamptz` | yes | |
+| `expires_at` | `timestamptz` | yes | Required once approved |
+| `revoked_at` | `timestamptz` | yes | |
+| `rejected_at` | `timestamptz` | yes | |
 
 ---
 
 ## 10. Payments and finance
 
-### 10.1 `payment_order` (+LV)
+### 10.1 `payment_order` (+LV) · **+TK**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `booking_id` | `uuid` | no | |
@@ -763,43 +853,44 @@ CHECK `checker_user_id IS NULL OR checker_user_id <> maker_user_id`. Unique (`re
 | `initiated_by_user_id` | `uuid` | no | |
 | `checkout_expires_at` | `timestamptz` | yes | |
 | `reconcile_until` | `timestamptz` | yes | BR-032 |
-Unique (`booking_id`, `attempt_no`). Partial unique (`booking_id`) where `status='CAPTURED'`. A second capture becomes a `payment_transaction` with `is_duplicate=true` and is auto-refunded.
+Unique (`booking_id`, `attempt_no`). Unique (`gateway`, `gateway_order_ref`). Unique (`id`, `customer_org_id`, `lab_org_id`). CHECK `amount_paise > 0`. Trigger: `amount_paise = booking.total_paise` on insert (C-06). Partial unique (`booking_id`) where `status IN ('CAPTURED','REFUNDED_PARTIAL','REFUNDED_FULL')`, so the rule still holds after a refund (B-02). A second capture becomes a `payment_transaction` with `is_duplicate=true` and is auto-refunded.
 
-### 10.2 `payment_transaction` (AO)
-`payment_order_id`, `gateway_txn_ref varchar(100)`, `txn_type` (`CAPTURE`, `REFUND`, `CHARGEBACK`), `method varchar(30) null` (UPI, card, netbanking as reported), `amount_paise`, `status` (`SUCCESS`, `FAILED`, `PENDING`), `is_duplicate boolean`, `gateway_reported_at`, `webhook_event_id null`, `raw_summary jsonb` (non-sensitive fields only). Unique (`gateway_txn_ref`, `txn_type`).
+### 10.2 `payment_transaction` (AO) · **+TK**
+`payment_order_id`, `gateway gateway_code` (copied from the order), `gateway_txn_ref varchar(100)`, `txn_type` (`CAPTURE`, `REFUND`, `CHARGEBACK`), `method varchar(30) null` (UPI, card, netbanking as reported), `amount_paise`, `status` (`SUCCESS`, `FAILED`, `PENDING`), `is_duplicate boolean`, `gateway_reported_at`, `webhook_event_id null`, `raw_summary jsonb` (non-sensitive fields only). Unique (`gateway`, `gateway_txn_ref`, `txn_type`). CHECK `amount_paise > 0`.
 
 ### 10.3 `gateway_webhook_event` (AO, except processing fields)
 `gateway`, `event_id varchar(100)` (unique per gateway, used for replay protection), `event_type varchar(60)`, `signature_valid boolean`, `received_at`, `payload_ciphertext bytea` (encrypted raw body), `payload_sha256`, `processing_status` (`RECEIVED`, `PROCESSED`, `IGNORED`, `FAILED`), `processed_at`, `error`.
 
-### 10.4 `refund` (+LV)
-`booking_id`, `payment_order_id`, `amount_paise CHECK > 0`, `reason_code` (taxonomy `REFUND_REASON`), `policy_rule varchar(10)` (e.g. `BR-071`), `initiated_by_party`, `initiated_by_user_id null`, `approved_by_user_id null` (above threshold), `status refund_status` (`REQUESTED`, `APPROVED`, `SUBMITTED`, `SUCCEEDED`, `FAILED`), `gateway_refund_ref null`, `credit_note_id null`, `dispute_id null`. A trigger makes Σ succeeded refunds ≤ captured amount.
+### 10.4 `refund` (+LV) · **+TK**
+`booking_id`, `payment_order_id`, `amount_paise CHECK > 0`, `reason_code` (taxonomy `REFUND_REASON`), `policy_rule varchar(10)` (e.g. `BR-071`), `initiated_by_party`, `initiated_by_user_id null`, `approved_by_user_id null` (above threshold), `status refund_status` (`REQUESTED`, `APPROVED`, `SUBMITTED`, `SUCCEEDED`, `FAILED`), `gateway_refund_ref null`, `credit_note_id null`, `dispute_id null`. A trigger makes Σ refunds that are not `FAILED` ≤ the captured amount, taking a row lock on the payment order, so two refunds in flight cannot together exceed it (B-05).
 
 ### 10.5 `payout` (+LV)
-`lab_org_id`, `bank_account_id`, `amount_paise`, `status payout_status` (`PENDING`, `ON_HOLD`, `ELIGIBLE`, `RELEASED`, `FAILED`, `CANCELLED`), `mechanism payout_mechanism` (`GATEWAY_SETTLEMENT`, `BANK_TRANSFER_MANUAL`, `TBD`), `eligible_at`, `released_by_user_id null` (PLATFORM_FINANCE, step-up MFA), `released_at`, `external_ref null`, `failure_reason null`. The mechanism is decided after OQ-02.
+`lab_org_id`, `bank_account_id`, `amount_paise`, `status payout_status` (`PENDING`, `ON_HOLD`, `ELIGIBLE`, `RELEASED`, `FAILED`, `CANCELLED`), `mechanism payout_mechanism` (`GATEWAY_SETTLEMENT`, `BANK_TRANSFER_MANUAL`, `TBD`), `eligible_at`, `released_by_user_id null` (PLATFORM_FINANCE, step-up MFA), `released_at`, `external_ref null`, `failure_reason null`. The mechanism is decided after OQ-02. Composite foreign key (`bank_account_id`, `lab_org_id`) to `bank_account` (C-06). CHECK `amount_paise > 0`; `status = 'RELEASED'` ⇒ `released_by_user_id` and `released_at` set.
 
-### 10.6 `payout_item`
-`payout_id`, `booking_id`, `amount_paise`. Unique (`booking_id`) where the parent isn't CANCELLED, so a booking is never paid out twice.
+### 10.6 `payout_item` · **+TK**
+`payout_id`, `booking_id`, `amount_paise`, `voided_at timestamptz null`. `voided_at` is set in the same transaction that moves the parent payout to `CANCELLED` or `FAILED`. Partial unique (`booking_id`) where `voided_at IS NULL`, so a booking is never paid out twice (B-03).
 
-### 10.7 `payout_hold` (+LV)
+### 10.7 `payout_hold` (+LV) · **+TK**
 `booking_id`, `reason_type` (`DISPUTE`, `OPS_MANUAL`, `COMPLIANCE`), `dispute_id null`, `placed_by_user_id null`, `placed_at`, `released_by_user_id null`, `released_at null`, `notes`. Payout eligibility needs no open holds.
 
 ### 10.8 `ledger_account`
-`code varchar(40)` (`GATEWAY_CLEARING`, `CUSTOMER_PREPAYMENT`, `LAB_PAYABLE`, `REFUND_PAYABLE`, `GST_PAYABLE_ON_BEHALF`, `PLATFORM_FEE_REVENUE`, `CANCELLATION_FEE_PAYABLE_LAB`, `PAYOUT_CLEARING`, `SUSPENSE`), `party_org_id uuid null` (party-scoped accounts such as `LAB_PAYABLE` per lab), `normal_balance` (`DEBIT`, `CREDIT`), `status`. Unique (`code`, `party_org_id`). The chart of accounts needs review by Finance (OQ-08).
+`code varchar(40)` (`GATEWAY_CLEARING`, `CUSTOMER_PREPAYMENT`, `LAB_PAYABLE`, `REFUND_PAYABLE`, `GST_PAYABLE_ON_BEHALF`, `PLATFORM_FEE_REVENUE`, `CANCELLATION_FEE_PAYABLE_LAB`, `PAYOUT_CLEARING`, `SUSPENSE`), `party_org_id uuid null` (party-scoped accounts such as `LAB_PAYABLE` per lab), `normal_balance` (`DEBIT`, `CREDIT`), `status`. Unique `NULLS NOT DISTINCT` (`code`, `party_org_id`). The chart of accounts needs review by Finance (OQ-08).
 
-### 10.9 `ledger_journal` (AO)
+### 10.9 `ledger_journal` (AO) · **+TK (nullable, set when `booking_id` is set)**
 `journal_type` (`PAYMENT_CAPTURED`, `REFUND_ISSUED`, `CANCELLATION_FEE`, `NO_SHOW_FEE`, `PAYOUT_RELEASED`, `DUPLICATE_CAPTURE`, `ADJUSTMENT`), `booking_id null`, `payment_transaction_id null`, `refund_id null`, `payout_id null`, `description`, `occurred_at`, `posted_by_user_id null`, `reverses_journal_id null`.
 
 ### 10.10 `ledger_entry` (AO)
-`journal_id`, `account_id`, `debit_paise bigint default 0`, `credit_paise bigint default 0`. CHECK exactly one of debit or credit > 0. A deferred constraint trigger makes Σ debit = Σ credit per journal.
+`journal_id`, `account_id`, `debit_paise bigint default 0`, `credit_paise bigint default 0`. CHECK both ≥ 0 and exactly one of debit or credit > 0 (C-02). A deferred constraint trigger makes Σ debit = Σ credit per journal.
 
 ### 10.11 `document_series`
-`issuer_org_id`, `doc_type`, `financial_year char(7)` (e.g. `2026-27`), `prefix varchar(16)`, `next_number int`. Unique (`issuer_org_id`, `doc_type`, `financial_year`). Numbers are allocated with `SELECT … FOR UPDATE` inside the issuing transaction, which makes them gapless.
+`issuer_org_id`, `doc_type fin_doc_type`, `financial_year char(7)` (e.g. `2026-27`), `prefix varchar(16)`, `next_number int`. Unique (`issuer_org_id`, `doc_type`, `financial_year`). Numbers are allocated with `SELECT … FOR UPDATE` inside the issuing transaction, which makes them gapless.
 
-### 10.12 `financial_document` (AO once ISSUED)
+### 10.12 `financial_document` (AO) · **+TK**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `doc_type` | `fin_doc_type` | no | `TAX_INVOICE`, `PAYMENT_RECEIPT`, `CREDIT_NOTE`, `REFUND_NOTE` |
-| `doc_no` | `varchar(30)` | no | From the series. Unique per issuer. |
+| `document_series_id` | `uuid` | no | FK `document_series`. The series fixes issuer, type and financial year. |
+| `doc_no` | `varchar(30)` | no | From the series. Unique per (`document_series_id`, `doc_no`). |
 | `issuer_org_id` | `uuid` | no | Lab or platform (OQ-08) |
 | `issuer_gstin` | `varchar(15)` | yes | |
 | `recipient_org_id` | `uuid` | no | |
@@ -811,12 +902,12 @@ Unique (`booking_id`, `attempt_no`). Partial unique (`booking_id`) where `status
 | `sac_code` | `varchar(8)` | yes | Testing services. Tax review. |
 | `line_snapshot` | `jsonb` | no | |
 | `file_id` | `uuid` | yes | Rendered PDF |
-| `status` | `fin_doc_status` | no | `ISSUED`, `CANCELLED` (cancellation only via a credit note) |
 | `issued_at` | `timestamptz` | no | |
 | `e_invoice_irn` | `varchar(64)` | yes | Future |
+A row exists only once the document is issued, and never changes. A document is cancelled by issuing a `CREDIT_NOTE` whose `related_document_id` points at it; there is no status column (B-04). CHECK `total_paise = taxable_paise + cgst_paise + sgst_paise + igst_paise`, and `igst_paise = 0 OR (cgst_paise = 0 AND sgst_paise = 0)` (C-05).
 
 ### 10.13 `fee_rule` (+LV)
-`fee_type` (`PLATFORM_FEE`, `CANCELLATION_FEE`, `NO_SHOW_FEE`, `HANDLING_FEE`), `scope_type`, `scope_id null`, `calc` (`PERCENT_BP`, `FLAT_PAISE`), `value bigint`, `lab_share_bp int` (share of the fee owed to the lab), `effective_from`, `effective_to`. `PLATFORM_FEE` is seeded at 0 and the API refuses non-zero values while `feature.platform_fee_enabled=false`.
+`fee_type` (`PLATFORM_FEE`, `CANCELLATION_FEE`, `NO_SHOW_FEE`, `HANDLING_FEE`), `scope_type`, `scope_id null`, `calc` (`PERCENT_BP`, `FLAT_PAISE`), `value bigint`, `lab_share_bp int` (share of the fee owed to the lab), `effective_from`, `effective_to`. Exclusion constraint: no overlapping windows per (`fee_type`, `scope_type`, `scope_id`) (C-12). `PLATFORM_FEE` is seeded at 0 and the API refuses non-zero values while `feature.platform_fee_enabled=false`.
 
 ### 10.14 `settlement_report_line`
 Imported gateway settlement data, in whatever format ICICI provides (OQ-01): `gateway`, `settlement_date`, `gateway_txn_ref`, `gross_paise`, `fee_paise`, `tax_paise`, `net_paise`, `utr null`, `import_job_id`, `match_status` (`MATCHED`, `UNMATCHED`, `MISMATCH`), `matched_transaction_id null`.
@@ -825,7 +916,7 @@ Imported gateway settlement data, in whatever format ICICI provides (OQ-01): `ga
 
 ## 11. Disputes and ratings
 
-### 11.1 `dispute` (+LV)
+### 11.1 `dispute` (+LV) · **+TK**
 | Column | Type | Null | Notes |
 |---|---|---|---|
 | `booking_id` | `uuid` | no | |
@@ -842,16 +933,17 @@ Imported gateway settlement data, in whatever format ICICI provides (OQ-01): `ga
 | `refund_amount_paise` | `bigint` | yes | |
 | `decision_rationale` | `text` | yes | Required when DECIDED |
 | `decided_by_user_id` | `uuid` | yes | |
-| `decided_at` | `timestamptz` | yes | Immutable after this is set |
+| `decided_at` | `timestamptz` | yes | Immutable after this is set (trigger, B-10; only `status` may still move to `CLOSED`) |
+Unique (`dispute_no`). Unique (`id`, `customer_org_id`, `lab_org_id`). Partial unique (`booking_id`) where status is `OPEN`, `AWAITING_LAB`, `AWAITING_CUSTOMER` or `UNDER_REVIEW` (A-06). CHECK `status IN ('DECIDED','CLOSED')` and `decided_at` set ⇒ `outcome`, `decision_rationale` and `decided_by_user_id` set; `refund_amount_paise` ≥ 0.
 
-### 11.2 `dispute_message` (AO)
+### 11.2 `dispute_message` (AO) · **+TK**
 `dispute_id`, `author_user_id`, `author_party`, `body`, `visibility` (`ALL`, `PLATFORM_ONLY`), `occurred_at`.
 
-### 11.3 `dispute_evidence` (AO)
+### 11.3 `dispute_evidence` (AO) · **+TK**
 `dispute_id`, `file_id`, `submitted_by_user_id`, `description`.
 
-### 11.4 `rating`
-`booking_id`, `direction` (`CUSTOMER_TO_LAB`, `LAB_TO_CUSTOMER`), `rated_by_user_id`, `score_overall smallint` (1–5), `score_tat smallint null`, `score_communication smallint null`, `comment text null`, `is_public boolean` (false for lab→customer). Unique (`booking_id`, `direction`).
+### 11.4 `rating` · **+TK**
+`booking_id`, `direction` (`CUSTOMER_TO_LAB`, `LAB_TO_CUSTOMER`), `rated_by_user_id`, `score_overall smallint` (1–5), `score_tat smallint null`, `score_communication smallint null`, `comment text null`, `is_public boolean` (false for lab→customer). Unique (`booking_id`, `direction`). CHECK every score 1–5; `direction = 'LAB_TO_CUSTOMER'` ⇒ `is_public = false`.
 
 ---
 
@@ -870,6 +962,8 @@ Imported gateway settlement data, in whatever format ICICI provides (OQ-01): `ga
 
 ## 13. Enumerations
 
-`org_type`, `customer_segment`, `claim_status`, `verification_status`, `org_status`, `user_status`, `membership_status`, `role_code` (CUSTOMER_ADMIN, CUSTOMER_REQUESTER, CUSTOMER_FINANCE, LAB_MAKER, LAB_CHECKER, PLATFORM_OPS, PLATFORM_DATA_STEWARD, PLATFORM_FINANCE, PLATFORM_ADMIN), `otp_channel`, `otp_purpose`, `mfa_factor_type`, `file_purpose`, `scan_status`, `md_status`, `md_data_type`, `change_source`, `change_set_status`, `md_target_type`, `change_operation`, `validation_status`, `import_kind`, `import_status`, `lab_category`, `accreditation_status`, `scope_site_type`, `geocode_status`, `listing_status`, `claim_method`, `price_list_status`, `slot_status`, `lead_kind`, `lead_status`, `booking_status` (18 values, see the state machine), `booking_line_status`, `party_type`, `counter_status`, `hold_kind`, `qr_purpose`, `key_status`, `package_status`, `custody_event_type`, `receipt_decision`, `hold_decision`, `hold_status`, `report_status`, `report_version_status`, `conformity_result`, `verification_result`, `gateway_code`, `payment_order_status`, `refund_status`, `payout_status`, `payout_mechanism`, `fin_doc_type`, `fin_doc_status`, `dispute_status`, `dispute_outcome`, `notif_channel`, `notif_status`, `timer_type`, `timer_status`, `idempotency_status`, `config_scope`.
+`org_type`, `customer_segment`, `claim_status`, `verification_status`, `org_status`, `user_status`, `membership_status`, `role_code` (CUSTOMER_ADMIN, CUSTOMER_REQUESTER, CUSTOMER_FINANCE, LAB_MAKER, LAB_CHECKER, PLATFORM_OPS, PLATFORM_DATA_STEWARD, PLATFORM_FINANCE, PLATFORM_ADMIN), `otp_channel`, `otp_purpose`, `mfa_factor_type`, `file_purpose`, `scan_status`, `md_status`, `md_data_type`, `change_source`, `change_set_status`, `md_target_type`, `change_operation`, `validation_status`, `import_kind`, `import_status`, `lab_category`, `accreditation_status`, `scope_site_type`, `geocode_status`, `listing_status`, `claim_method`, `claim_request_status`, `price_list_status`, `slot_status`, `lead_kind`, `lead_status`, `booking_status` (18 values, see the state machine), `booking_line_status`, `party_type`, `counter_status`, `hold_kind`, `qr_purpose`, `key_status`, `package_status`, `custody_event_type`, `receipt_decision`, `hold_decision`, `hold_status`, `report_status`, `report_version_status`, `conformity_result`, `verification_result`, `gateway_code`, `payment_order_status`, `refund_status`, `payout_status`, `payout_mechanism`, `fin_doc_type`, `dispute_status`, `dispute_outcome`, `notif_channel`, `notif_status`, `timer_type`, `timer_status`, `idempotency_status`, `config_scope`.
+
+Value lists that were inline in earlier drafts are named enums too (B-06): `import_source_format` (§4.8), `import_match_result` and `import_row_action` (§4.10), `report_access_type` (§9.5), `payment_txn_type` and `payment_txn_status` (§10.2), `webhook_processing_status` (§10.3), `payout_hold_reason` (§10.7), `ledger_normal_balance` (§10.8), `ledger_journal_type` (§10.9), `fee_type` and `fee_calc` (§10.13), `settlement_match_status` (§10.14), `rating_direction` (§11.4), `message_visibility` (§11.2). `document_series.doc_type` uses `fin_doc_type`. `fee_rule.scope_type` uses `config_scope`. `fin_doc_status` is removed (B-04).
 
 Adding a value to an enum is a migration (`ALTER TYPE … ADD VALUE`) and a **shared change** that needs review by both developers.

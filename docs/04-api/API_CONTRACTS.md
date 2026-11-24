@@ -135,7 +135,7 @@ The `gatewayCheckout` shape is **adapter-defined** and stays opaque to the contr
 | POST | `/bookings/{id}/receipts` | L-Maker | T-13 / T-17 | RPT-02 |
 | POST | `/receipts/{id}/approve` | L-Checker | T-14 (`labSampleId`) | RPT-03 |
 | POST | `/receipts/{id}/confirm-discrepancy` | L-Checker | T-15 | RPT-03 |
-| POST | `/receipts/{id}/reject-unfit` | L-Checker | T-27 (CANCELLED, handling fee) | EC-35 |
+| POST | `/receipts/{id}/reject-unfit` | L-Checker | T-28 (CANCELLED, handling fee) | EC-35 |
 | POST | `/packages/{id}/reprint-requests` · `/reprint-requests/{id}/approve` | L-Maker / L-Checker | (none) Void and reissue | EC-26 |
 
 ### 7.1 `POST /v1/custody/scan`
