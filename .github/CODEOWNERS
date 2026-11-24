@@ -2,18 +2,18 @@
 # Default: both developers
 *                                   @Hashtrak-sh @akshit-anand
 
-# Customer module: @akshit-anand
-/apps/web/src/app/customer/         @akshit-anand
-/apps/web/src/features/customer-*   @akshit-anand
-/apps/api/src/modules/customers/    @akshit-anand
-/apps/api/src/modules/search/       @akshit-anand
+# Customer module: @akshit-anand (owner, listed first). The other developer is listed so they can approve the owner's PRs.
+/apps/web/src/app/customer/         @akshit-anand @Hashtrak-sh
+/apps/web/src/features/customer-*   @akshit-anand @Hashtrak-sh
+/apps/api/src/modules/customers/    @akshit-anand @Hashtrak-sh
+/apps/api/src/modules/search/       @akshit-anand @Hashtrak-sh
 
-# Laboratory module: @Hashtrak-sh
-/apps/web/src/app/lab/              @Hashtrak-sh
-/apps/web/src/features/lab-*        @Hashtrak-sh
-/apps/api/src/modules/labs/         @Hashtrak-sh
-/apps/api/src/modules/custody/      @Hashtrak-sh
-/apps/api/src/modules/reports/      @Hashtrak-sh
+# Laboratory module: @Hashtrak-sh (owner, listed first). The other developer is listed so they can approve the owner's PRs.
+/apps/web/src/app/lab/              @Hashtrak-sh @akshit-anand
+/apps/web/src/features/lab-*        @Hashtrak-sh @akshit-anand
+/apps/api/src/modules/labs/         @Hashtrak-sh @akshit-anand
+/apps/api/src/modules/custody/      @Hashtrak-sh @akshit-anand
+/apps/api/src/modules/reports/      @Hashtrak-sh @akshit-anand
 
 # Shared areas: changes need review from the other developer (shared change)
 /packages/database/                 @Hashtrak-sh @akshit-anand
@@ -22,7 +22,7 @@
 /apps/api/src/modules/booking/      @Hashtrak-sh @akshit-anand
 /apps/api/src/modules/payments/     @Hashtrak-sh @akshit-anand
 /apps/api/src/modules/identity/     @Hashtrak-sh @akshit-anand
-/infrastructure/                    @Hashtrak-sh
-/.github/                           @Hashtrak-sh
+/infrastructure/                    @Hashtrak-sh @akshit-anand
+/.github/                           @Hashtrak-sh @akshit-anand
 /docs/                              @Hashtrak-sh @akshit-anand
 /CLAUDE.md                          @Hashtrak-sh @akshit-anand
