@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import type { BookingStatus, Prisma } from '../generated/prisma/client.js';
 import { uuidv7 } from '../ids.js';
 import {
@@ -667,7 +667,7 @@ async function freeSlot(tx: Tx, labSiteId: string): Promise<string | null> {
 function randomBookingNo(now: Date): string {
   const date = istDate(now);
   const yymm = `${String(date.getUTCFullYear()).slice(2)}${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
-  const serial = String(randomBytes(4).readUInt32BE() % 10_000_000).padStart(7, '0');
+  const serial = String(randomInt(10_000_000)).padStart(7, '0');
   return `LC-${yymm}-${serial}`;
 }
 
