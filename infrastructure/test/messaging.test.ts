@@ -125,19 +125,23 @@ describe('GuardDuty scan results', () => {
     // source conditions are not supported on a key policy for EventBridge to an encrypted
     // topic. A condition that EventBridge does not satisfy would drop every scan result.
     const key = single(templates.messaging, 'AWS::KMS::Key');
-    const statements = (key.Properties.KeyPolicy as { Statement: Record<string, unknown>[] })
-      .Statement;
-    const forEvents = statements.filter((statement) =>
-      JSON.stringify(statement.Principal).includes('events.amazonaws.com'),
-    );
+    const statements = (
+      key.Properties.KeyPolicy as {
+        Statement: { Principal: { Service?: string }; Action: unknown; Condition?: unknown }[];
+      }
+    ).Statement;
+    const ofService = (service: string) =>
+      statements.filter((statement) => statement.Principal.Service === service);
+    const forEvents = ofService('events.amazonaws.com');
     expect(forEvents).toHaveLength(1);
     expect(forEvents[0]?.Action).toEqual(['kms:GenerateDataKey', 'kms:Decrypt']);
     expect(forEvents[0]?.Condition).toBeUndefined();
     // CloudWatch alarms (to the alarm topic) stay limited to this account.
-    const forAlarms = statements.find((statement) =>
-      JSON.stringify(statement.Principal).includes('cloudwatch.amazonaws.com'),
-    );
-    expect(JSON.stringify(forAlarms?.Condition)).toContain('aws:SourceAccount');
+    const forAlarms = ofService('cloudwatch.amazonaws.com');
+    expect(forAlarms).toHaveLength(1);
+    expect(forAlarms[0]?.Condition).toEqual({
+      StringEquals: { 'aws:SourceAccount': { Ref: 'AWS::AccountId' } },
+    });
   });
 
   it('turns on Malware Protection for the quarantine prefix of the files bucket only', () => {

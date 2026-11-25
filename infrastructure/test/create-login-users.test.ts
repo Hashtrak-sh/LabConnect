@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   LOGIN_SPECS,
+  LoginUserError,
   type QueryClient,
   createLoginUsers,
+  describeFailure,
   readLoginUsers,
 } from '../scripts/create-login-users.mjs';
 
@@ -48,6 +50,24 @@ describe('create-login-users', () => {
     } catch (error) {
       expect(String(error)).not.toContain('bad name');
     }
+  });
+
+  it('prints its own messages, and of any other error only a code', () => {
+    expect(describeFailure(new LoginUserError('API_DB_USER must be a plain identifier.'))).toBe(
+      'API_DB_USER must be a plain identifier.',
+    );
+    // A database error's text can quote part of a statement, and the statements carry passwords.
+    const database = Object.assign(new Error('syntax error at or near "api-password-1"'), {
+      code: '42601',
+    });
+    expect(describeFailure(database)).toBe('create-login-users failed (42601)');
+    expect(describeFailure(new Error('connect to postgresql://owner:secret@host failed'))).toBe(
+      'create-login-users failed',
+    );
+    expect(describeFailure({ code: 'not a code; api-password-1' })).toBe(
+      'create-login-users failed',
+    );
+    expect(describeFailure(undefined)).toBe('create-login-users failed');
   });
 
   it('creates missing users inside one transaction, quoting on the server', async () => {
