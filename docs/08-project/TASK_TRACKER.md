@@ -63,7 +63,7 @@ P2-07 is implemented on `feature/P2-07-shared-domain`: `packages/shared/src/` ho
 | ID | Task | Owner | Status |
 |---|---|---|---|
 | P3-01 | Platform: Clock, Config, Audit (hash chain), Outbox + relay, processed_event | H | ☑ |
-| P3-02 | Timers + BusinessCalendar + holiday seed | H | ☐ |
+| P3-02 | Timers + BusinessCalendar + holiday seed | H | ☑ |
 | P3-03 | Identity: email OTP, sessions, refresh rotation, MFA, step-up | A | ☑ |
 | P3-04 | Guards, CurrentActor, TenantScope, repositories, RLS wiring | H | ☐ |
 | P3-05 | Permission-matrix test generator + isolation test harness | A | ☐ |

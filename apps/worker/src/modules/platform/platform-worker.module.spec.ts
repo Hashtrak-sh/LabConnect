@@ -18,6 +18,8 @@ const config = (enabled: boolean): PlatformJobsConfig => ({
   sealIntervalMs: 20,
   sealBatchSize: 5,
   verifyIntervalMs: 30,
+  timerIntervalMs: 25,
+  timerBatchSize: 5,
 });
 
 describe('PlatformWorkerModule', () => {
@@ -40,7 +42,7 @@ describe('PlatformWorkerModule', () => {
     await app.close();
   });
 
-  it('starts the three jobs when enabled and stops them on shutdown', async () => {
+  it('starts the four jobs when enabled and stops them on shutdown', async () => {
     const scheduled: number[] = [];
     const cleared: unknown[] = [];
     const scheduler: Scheduler = {
@@ -56,8 +58,8 @@ describe('PlatformWorkerModule', () => {
     const app = moduleRef.createNestApplication();
     await app.init();
     expect(moduleRef.get(PlatformJobsService)).toBeDefined();
-    expect(scheduled).toEqual([10, 20, 30]);
+    expect(scheduled).toEqual([10, 20, 25, 30]);
     await app.close();
-    expect(cleared).toHaveLength(3);
+    expect(cleared).toHaveLength(4);
   });
 });

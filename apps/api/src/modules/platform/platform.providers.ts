@@ -1,12 +1,14 @@
 import { Injectable, type OnApplicationShutdown, type Provider } from '@nestjs/common';
 import {
   AuditService,
+  BusinessCalendarLoader,
   type Clock,
   ConfigParameters,
   createApiPrisma,
   type LazyPrisma,
   OutboxService,
   SystemClock,
+  TimerService,
 } from '@labconnect/core';
 import type { PrismaClient } from '@labconnect/database';
 
@@ -40,6 +42,16 @@ export const platformProviders: Provider[] = [
   {
     provide: OutboxService,
     useFactory: (clock: Clock) => new OutboxService(clock),
+    inject: [CLOCK],
+  },
+  {
+    provide: TimerService,
+    useFactory: (clock: Clock) => new TimerService(clock),
+    inject: [CLOCK],
+  },
+  {
+    provide: BusinessCalendarLoader,
+    useFactory: (clock: Clock) => new BusinessCalendarLoader(clock),
     inject: [CLOCK],
   },
   {

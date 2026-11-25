@@ -93,3 +93,4 @@ This pack is the reference for everyone working on LabConnect. Documents marked 
 
 ## 09: Design handoff (current phase; gate G2 passed on 2026-11-25)
 See [09-design-handoff/README.md](09-design-handoff/README.md).
+The D-03 review of the first design run: [09-design-handoff/DESIGN_REVIEW_D-03.md](09-design-handoff/DESIGN_REVIEW_D-03.md).
