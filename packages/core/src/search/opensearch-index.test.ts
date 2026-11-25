@@ -142,24 +142,21 @@ describe('buildSearchBody', () => {
     });
   });
 
-  it('continues from the sort values of the cursor, and a huge missing-value sort stays a valid long', () => {
-    const cursor = encodeCursor('opensearch', {
-      k: 2,
-      id: 's',
-      s: [2.5, 's', 'l', 9.223372036854776e18],
-    });
-    expect(dig(buildSearchBody(query({ cursor })), 'search_after')).toEqual([
-      2.5,
-      's',
-      'l',
-      '9223372036854775807',
-    ]);
-    expect(() =>
-      buildSearchBody(query({ cursor: encodeCursor('opensearch', { k: 1, id: 'x' }) })),
-    ).toThrow(SearchCursorError);
-    expect(() =>
-      buildSearchBody(query({ cursor: encodeCursor('postgres', { k: 1, id: 'x' }) })),
-    ).toThrow(SearchCursorError);
+  it('pages by offset: the cursor holds the offset of the next page, and a bad or too deep one is refused', () => {
+    const cursor = encodeCursor('opensearch', { k: 50, id: 'site' });
+    const body = buildSearchBody(query({ cursor, limit: 25 }));
+    expect(dig(body, 'from')).toBe(50);
+    expect(dig(body, 'size')).toBe(26);
+    expect(dig(buildSearchBody(query()), 'from')).toBeUndefined();
+    expect(dig(body, 'search_after')).toBeUndefined();
+    for (const bad of [
+      encodeCursor('opensearch', { k: -1, id: 'x' }),
+      encodeCursor('opensearch', { k: 1.5, id: 'x' }),
+      encodeCursor('opensearch', { k: 9_990, id: 'x' }),
+      encodeCursor('postgres', { k: 1, id: 'x' }),
+    ]) {
+      expect(() => buildSearchBody(query({ cursor: bad, limit: 25 }))).toThrow(SearchCursorError);
+    }
   });
 
   it('carries nothing about a user', () => {
@@ -343,7 +340,6 @@ describe('OpenSearchSearchIndex', () => {
             hits: [
               {
                 _source: toSource(tensile),
-                sort: [4.2, tensile.labSiteId, 'l-1'],
                 inner_hits: {
                   lines: {
                     hits: {
@@ -388,7 +384,6 @@ describe('OpenSearchSearchIndex', () => {
             hits: [
               {
                 _source: toSource(doc),
-                sort: [1, doc.labSiteId, doc.scopeLineId],
                 inner_hits: {
                   lines: { hits: { total: { value: 1 }, hits: [line(doc, ['site_name'])] } },
                   cheapest: {
@@ -415,7 +410,6 @@ describe('OpenSearchSearchIndex', () => {
           hits: [
             {
               _source: toSource(doc),
-              sort: [0, doc.labSiteId, doc.scopeLineId],
               inner_hits: {
                 lines: { hits: { total: { value: 1 }, hits: [{ _source: toSource(doc) }] } },
               },
@@ -438,14 +432,13 @@ describe('OpenSearchSearchIndex', () => {
         searchDocument({ labSiteId: 'site-a' }),
         searchDocument({ labSiteId: 'site-b' }),
       ];
-      const hit = (doc: typeof first, sort: (string | number)[]) => ({
+      const hit = (doc: typeof first) => ({
         _source: toSource(doc),
-        sort,
         inner_hits: { lines: { hits: { total: { value: 0 }, hits: [] } } },
       });
       const { index } = stubClient({
         search: {
-          hits: { hits: [hit(first, [3, 'site-a', 'l-1']), hit(second, [2, 'site-b', 'l-2'])] },
+          hits: { hits: [hit(first), hit(second)] },
         },
       });
       const page = await index.search(query({ limit: 1 }));
@@ -453,8 +446,8 @@ describe('OpenSearchSearchIndex', () => {
       expect(page.nextCursor).toMatch(/^os1\./);
       const decoded = JSON.parse(
         Buffer.from((page.nextCursor ?? '').slice(4), 'base64url').toString('utf8'),
-      ) as { s: unknown[] };
-      expect(decoded.s).toEqual([3, 'site-a', 'l-1']);
+      ) as { k: number; id: string };
+      expect(decoded).toEqual({ k: 1, id: 'site-a' });
     });
 
     it('lets a transport error reach the caller (the service answers from Postgres)', async () => {

@@ -1,4 +1,4 @@
-import { encodeCursor } from './cursor.js';
+import { decodeCursor, encodeCursor } from './cursor.js';
 import type { SearchIndex, UpsertResult } from './index-port.js';
 import {
   type LabSearchDocument,
@@ -10,7 +10,12 @@ import {
   type SiteSearchResult,
 } from './model.js';
 import { type OpenSearchConfig, indexName } from './opensearch-config.js';
-import { LINE_TEXT_QUERY, buildSearchBody, hasLineFilters } from './opensearch-dsl.js';
+import {
+  LINE_TEXT_QUERY,
+  MAX_RESULT_WINDOW,
+  buildSearchBody,
+  hasLineFilters,
+} from './opensearch-dsl.js';
 import {
   INDEX_MAPPINGS,
   INDEX_SETTINGS,
@@ -78,7 +83,6 @@ interface InnerHits {
 }
 interface SearchHit {
   _source: IndexedSource;
-  sort?: (string | number)[];
   inner_hits?: Record<string, InnerHits | undefined>;
 }
 interface SearchResponse {
@@ -254,14 +258,11 @@ export class OpenSearchSearchIndex implements SearchIndex {
     const pageHits = hasMore ? hits.slice(0, query.limit) : hits;
     const items = pageHits.map((hit) => this.toResult(query, hit));
     const last = pageHits.at(-1);
-    const sortValues = last?.sort;
+    const offset =
+      (query.cursor === null ? 0 : decodeCursor('opensearch', query.cursor).k) + query.limit;
     const nextCursor =
-      hasMore && last !== undefined && sortValues !== undefined
-        ? encodeCursor('opensearch', {
-            k: typeof sortValues[0] === 'number' ? sortValues[0] : 0,
-            id: last._source.lab_site_id,
-            s: sortValues,
-          })
+      hasMore && last !== undefined && offset + query.limit + 1 <= MAX_RESULT_WINDOW
+        ? encodeCursor('opensearch', { k: offset, id: last._source.lab_site_id })
         : null;
     return {
       items,

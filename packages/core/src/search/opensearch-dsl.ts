@@ -20,9 +20,8 @@ const LINE_TEXT_FIELDS = [
 ];
 const SITE_FIELDS = ['site_name^2', 'site_code'];
 
-const LONG_MAX = '9223372036854775807';
-/** Largest sort value a JSON number can carry exactly enough; above it is `missing: _last`. */
-const LONG_LIMIT = 9.2e18;
+/** `index.max_result_window` of OpenSearch: `from + size` may not exceed it. */
+export const MAX_RESULT_WINDOW = 10_000;
 
 type Json = Record<string, unknown>;
 
@@ -84,11 +83,6 @@ function sortClause(query: SearchQuery): Json[] {
   }
 }
 
-/** A sort value that came back from OpenSearch, ready to be sent as `search_after`. */
-function searchAfterValue(value: string | number): string | number {
-  return typeof value === 'number' && Math.abs(value) >= LONG_LIMIT ? LONG_MAX : value;
-}
-
 /**
  * The query DSL of a search (SEARCH.md section 1): documents are scope lines, the request
  * collapses on `lab_site_id`, so each hit is a site, and `inner_hits` bring back the lines that
@@ -102,6 +96,9 @@ function searchAfterValue(value: string | number): string | number {
  *   (named `line_text`), a site by its name or code (`site_name`), each with `fuzziness: AUTO`
  *   over every term (the text and its synonym expansions).
  * - One extra group is requested (`size = limit + 1`) to know whether another page follows.
+ * - Paging is by offset (`from`): OpenSearch refuses `search_after` together with `collapse` unless
+ *   the sort is the collapse field itself, which would lose the ranking. The offset is bounded by
+ *   `MAX_RESULT_WINDOW` (10 000 sites), far above the year-1 scale (OQ-157).
  */
 export function buildSearchBody(query: SearchQuery): Json {
   const today = istDateString(query.asOf);
@@ -179,10 +176,11 @@ export function buildSearchBody(query: SearchQuery): Json {
     aggs: { sites: { cardinality: { field: 'lab_site_id', precision_threshold: 3000 } } },
   };
   if (query.cursor !== null) {
-    const position = decodeCursor('opensearch', query.cursor);
-    // A cursor without sort values was not issued by this adapter.
-    if (position.s === undefined) throw new SearchCursorError();
-    body.search_after = position.s.map(searchAfterValue);
+    const offset = decodeCursor('opensearch', query.cursor).k;
+    if (!Number.isInteger(offset) || offset < 0 || offset + query.limit + 1 > MAX_RESULT_WINDOW) {
+      throw new SearchCursorError();
+    }
+    body.from = offset;
   }
   return body;
 }

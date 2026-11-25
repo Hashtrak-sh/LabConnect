@@ -44,8 +44,9 @@ export class LazySearchService {
 
   constructor(private readonly deps: SearchRuntimeDeps) {}
 
-  search(request: SearchRequest): Promise<SearchResult> {
-    return this.get().search(request);
+  async search(request: SearchRequest): Promise<SearchResult> {
+    // `get` may throw (a bad OPENSEARCH_* setting): that must be a rejection, like any search error.
+    return await this.get().search(request);
   }
 
   circuit(): CircuitState {

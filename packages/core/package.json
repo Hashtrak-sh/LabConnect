@@ -13,6 +13,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:opensearch": "pnpm --filter \"@labconnect/core^...\" build && vitest run --config vitest.opensearch.config.ts",
     "test:db": "pnpm --filter \"@labconnect/core^...\" build && vitest run --config vitest.db.config.ts"
   },
   "dependencies": {

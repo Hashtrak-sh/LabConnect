@@ -154,7 +154,7 @@ describe('SearchService', () => {
     const { service, primary, fallback } = setup();
     const pg = encodeCursor('postgres', { k: 0, id: 'a' });
     expect((await service.search({ cursor: pg })).backend).toBe('postgres');
-    const os = encodeCursor('opensearch', { k: 0, id: 'a', s: [0, 'a', 'b'] });
+    const os = encodeCursor('opensearch', { k: 0, id: 'a' });
     expect((await service.search({ cursor: os })).backend).toBe('opensearch');
     expect(primary?.queries).toHaveLength(1);
     expect(fallback.queries).toHaveLength(1);
@@ -167,7 +167,7 @@ describe('SearchService', () => {
   it('refuses an OpenSearch cursor when OpenSearch cannot be asked, instead of repeating a page', async () => {
     const { service, primary } = setup();
     if (!primary) throw new Error('primary expected');
-    const os = encodeCursor('opensearch', { k: 0, id: 'a', s: [0, 'a', 'b'] });
+    const os = encodeCursor('opensearch', { k: 0, id: 'a' });
     primary.behaviour = fail;
     await expect(service.search({ cursor: os })).rejects.toBeInstanceOf(SearchUnavailableError);
     await expect(service.search({ cursor: os })).rejects.toBeInstanceOf(SearchUnavailableError);

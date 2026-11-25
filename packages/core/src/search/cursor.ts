@@ -9,12 +9,10 @@ import type { SearchBackend } from './model.js';
  * site id): no search text, no location and no user data (OQ-40).
  */
 export interface PositionCursor {
-  /** Sort key of the last site of the previous page. */
+  /** Sort key of the last site of the previous page; for OpenSearch, the offset of the next page. */
   k: number;
   /** Its site id. */
   id: string;
-  /** OpenSearch only: the full sort values for `search_after`. */
-  s?: (string | number)[];
 }
 
 const PREFIX: Record<SearchBackend, string> = {
@@ -42,12 +40,9 @@ export function decodeCursor(backend: SearchBackend, cursor: string): PositionCu
       Buffer.from(cursor.slice(PREFIX[backend].length), 'base64url').toString('utf8'),
     );
     if (typeof parsed === 'object' && parsed !== null) {
-      const { k, id, s } = parsed as Record<string, unknown>;
+      const { k, id } = parsed as Record<string, unknown>;
       if (typeof k === 'number' && Number.isFinite(k) && typeof id === 'string' && id.length > 0) {
-        if (s === undefined) return { k, id };
-        if (Array.isArray(s) && s.every((v) => typeof v === 'string' || typeof v === 'number')) {
-          return { k, id, s };
-        }
+        return { k, id };
       }
     }
   } catch {
