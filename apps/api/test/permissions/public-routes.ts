@@ -22,4 +22,9 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
     reason:
       'Authenticated by the refresh cookie alone (contract security: refreshCookie), not a bearer token.',
   },
+  {
+    route: 'POST /v1/webhooks/payments/:gateway',
+    reason:
+      "The payment gateway's server-to-server callback: no user. The adapter authenticates it by its signature, and the answer never says whether a reference exists.",
+  },
 ];

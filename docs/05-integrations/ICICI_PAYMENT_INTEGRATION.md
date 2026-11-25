@@ -72,3 +72,15 @@ export interface PaymentGateway {
 | C. Platform collects, Finance pays out by bank transfer (manual, from the exported payout file) | Manual release after eligibility | No dependency on G-8 to G-10 | Operational load, slower |
 
 Until this is decided, `payout.mechanism = 'TBD'`, and the system computes eligibility and produces payout files (Option C works as an interim).
+
+## 6. What a gateway adapter must implement (checklist)
+
+No adapter for a real gateway exists, and this checklist holds no facts about any gateway. When the documentation in section 3 is filled in, the adapter is a class that implements `PaymentGateway` (`packages/core/src/payments/gateway.ts`) and is added to `createPaymentGateway` (`gateway-factory.ts`); the platform code does not change. The interface's comments say which document requires each member.
+
+- [ ] `code` and `capabilities`: set a flag to `true` only where section 3 confirms it (the defaults are all `false`).
+- [ ] `createOrder`: our `paymentOrderId` as the reference, the amount in paise, hosted checkout only; `GatewayUnavailableError` when the gateway cannot create the order.
+- [ ] `verifyAndParseWebhook`: authenticate over the exact bytes, never throw for a notification that is merely not authentic, return neutral `GatewayEvent`s with the gateway's unique event id.
+- [ ] `parseVerifiedWebhookBody`: the same parsing for a stored body, no authentication (OQ-125).
+- [ ] `fetchStatus` (if `supportsStatusEnquiry`) and `refund` (if `supportsRefundApi`; partial only if `supportsPartialRefund`).
+- [ ] `payouts` and `parseSettlementReport` only if section 3 and ADR-009 settle them; otherwise leave them `null` or absent.
+- [ ] Tests: the adapter passes the same scenarios as the fake in `packages/core/src/payments/fake-gateway.test.ts` (valid, tampered, wrong key, replay, duplicate, wrong amount, unknown reference), and `packages/core/test/db/payments-*.test.ts` run unchanged with it.
