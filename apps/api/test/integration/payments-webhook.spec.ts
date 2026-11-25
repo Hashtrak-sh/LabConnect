@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { FAKE_SIGNATURE_HEADER, type FakeNotification } from '@labconnect/core';
+import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { usePaymentsApp } from '../support/payments-app.js';
 
@@ -177,12 +178,13 @@ describe('POST /v1/webhooks/payments/{gateway}', () => {
     expect(response.status).toBe(404);
   });
 
-  it('refuses a body over the limit before reading it all, with a problem body', async () => {
-    const response = await t.http().post('/v1/webhooks/payments/FAKE', {
-      headers: { 'Content-Type': 'application/octet-stream' },
-      body: 'x'.repeat(300 * 1024),
-      invalidRequest: 'an oversized callback body',
-    });
+  it('refuses a body over the limit with a problem body (a transport error the contract does not list)', async () => {
+    // Plain supertest on purpose: the contract lists no 413 for this operation (ERROR_HANDLING §3
+    // answers transport errors generically), so contractRequest() would call it a violation.
+    const response = await request(t.server())
+      .post('/v1/webhooks/payments/FAKE')
+      .set('Content-Type', 'application/octet-stream')
+      .send('x'.repeat(300 * 1024));
     expect(response.status).toBe(413);
     expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED' });
   });

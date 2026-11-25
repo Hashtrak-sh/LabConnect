@@ -60,5 +60,12 @@ export function usePaymentsApp() {
     return gw;
   };
 
-  return { ...h, env, http: () => contractRequest(need()), runtime, gateway };
+  return {
+    ...h,
+    env,
+    http: () => contractRequest(need()),
+    server: () => need().getHttpServer(),
+    runtime,
+    gateway,
+  };
 }
