@@ -49,6 +49,8 @@ describe('who may open the system database context', () => {
       // Before a user is known: OTP request, OTP verification and sign-in, refresh by token, and
       // the session lookup of AuthGuard. Each call states its reason.
       'apps/api/src/modules/identity/identity.service.ts': 4,
+      // The gateway's server-to-server callback: no user, and no tenant until it is matched.
+      'apps/api/src/modules/payments/payment-webhook.controller.ts': 1,
     });
   });
 
@@ -66,6 +68,8 @@ describe('who may open the system database context', () => {
       // scan job finds pending uploads; it refuses to run outside development and test.
       'packages/core/src/files/scan-processor.ts': 3,
       'packages/core/src/files/dev-scan.ts': 1,
+      // The worker's job that processes stored gateway notifications (P3-09).
+      'packages/core/src/payments/service.ts': 1,
     });
   });
 
@@ -83,6 +87,8 @@ describe('who may open the system database context', () => {
       'packages/core/src/platform/timers.ts': 2,
       'packages/core/src/files/scan-processor.ts': 3,
       'packages/core/src/files/dev-scan.ts': 1,
+      // The worker's job that processes stored gateway notifications (P3-09).
+      'packages/core/src/payments/service.ts': 1,
     });
   });
 });

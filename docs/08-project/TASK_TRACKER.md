@@ -70,7 +70,7 @@ P2-07 is implemented on `feature/P2-07-shared-domain`: `packages/shared/src/` ho
 | P3-06 | Files: upload URL, quarantine, scan adapter (fake + GuardDuty), validation, download URL | H | ☐ |
 | P3-07 | BookingEngine skeleton (transition function, history, guard trigger integration) | H | ☑ |
 | P3-08 | Notifications: consumer, templates, email (SES/Mailpit), in-app | A | ☐ |
-| P3-09 | PaymentGateway interface + FakePaymentGateway + webhook intake | H | ☐ |
+| P3-09 | PaymentGateway interface + FakePaymentGateway + webhook intake | H | ☑ |
 | P3-10 | Search service: Postgres fallback + OpenSearch index + sync consumer | A | ☐ |
 | P3-11 | IaC: UAT environment | H | ☐ |
 | P3-12 | `deploy-uat.yml` | H | ☐ |
