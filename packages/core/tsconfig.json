@@ -3,5 +3,11 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src", "test", "vitest.config.ts", "vitest.db.config.ts", "vitest.opensearch.config.ts"]
+  "include": [
+    "src",
+    "test",
+    "vitest.config.ts",
+    "vitest.db.config.ts",
+    "vitest.opensearch.config.ts"
+  ]
 }
