@@ -53,7 +53,7 @@ export function useNotifications(): NotificationTest {
     occurredAt: t.clock.now().toISOString(),
     aggregate: { type: 'booking', id: aggregateId },
     actor: 'SYSTEM',
-    data: { bookingId: aggregateId, ...data } as EventEnvelope['data'],
+    data: { bookingId: aggregateId, ...data },
   });
 
   /**
