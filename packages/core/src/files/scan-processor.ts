@@ -4,7 +4,28 @@ import type { FileService, ScanDecision, ScanSubject } from './file-service.js';
 import { cleanKey, type FilesConfig, quarantineKey } from './keys.js';
 import type { ScanResultMessage } from './scanner.js';
 import { ObjectNotFoundError, type ObjectStorage, ObjectTooLargeError } from './storage.js';
-import { validateContent } from './validation.js';
+import { isImageContentType, sanitiseImage } from './images.js';
+import { normaliseEtag } from './guardduty.js';
+import { sha256Of, validateContent } from './validation.js';
+
+/** Whether the object now in quarantine is the one the scanner reported on. */
+function sameObject(
+  scanned: NonNullable<ScanResultMessage['scanned']>,
+  subject: ScanSubject,
+  head: { etag: string; versionId: string | undefined },
+): boolean {
+  if (scanned.bucket !== subject.bucket || scanned.key !== subject.objectKey) return false;
+  if (normaliseEtag(scanned.etag) !== normaliseEtag(head.etag)) return false;
+  // A versioned bucket reports a version on both sides; a mismatch means another version.
+  if (
+    scanned.versionId !== undefined &&
+    head.versionId !== undefined &&
+    scanned.versionId !== head.versionId
+  ) {
+    return false;
+  }
+  return true;
+}
 
 /** The consumer name `processOnce` records scan results under. */
 export const SCAN_CONSUMER = 'files.scan-result';
@@ -64,7 +85,7 @@ export class FileScanProcessor {
       return { outcome: 'already_final' };
     }
 
-    const decision = await this.decide(subject, message.verdict, config);
+    const decision = await this.decide(subject, message, config);
 
     const outcome = await withDbContext(prisma, { kind: 'system' }, (tx) =>
       processOnce(tx, SCAN_CONSUMER, message.eventId, (inner) =>
@@ -85,9 +106,10 @@ export class FileScanProcessor {
 
   private async decide(
     subject: ScanSubject,
-    verdict: ScanResultMessage['verdict'],
+    message: ScanResultMessage,
     config: FilesConfig,
   ): Promise<ScanDecision> {
+    const { verdict } = message;
     if (verdict === 'INFECTED') return { status: 'INFECTED' };
     if (verdict === 'ERROR') return { status: 'ERROR' };
 
@@ -95,6 +117,14 @@ export class FileScanProcessor {
     const head = await storage.head(subject.bucket, subject.objectKey);
     if (!head)
       return { status: 'REJECTED', reasons: ['OBJECT_MISSING'], detectedContentType: undefined };
+    // A verdict belongs to the object that was scanned. If the scanner says which one (its
+    // bucket, key, ETag, version) and that is not the object here now, the object was replaced
+    // after the scan: the verdict does not apply, so this is a scan error (the replacement
+    // gets scanned on its own and its result decides). Checked before the size, because a
+    // replacement of another size is not the user's fault yet.
+    if (message.scanned && !sameObject(message.scanned, subject, head)) {
+      return { status: 'ERROR' };
+    }
     if (head.sizeBytes !== subject.declaredSizeBytes) {
       return { status: 'REJECTED', reasons: ['SIZE_MISMATCH'], detectedContentType: undefined };
     }
@@ -130,6 +160,35 @@ export class FileScanProcessor {
     }
 
     const target = cleanKey(config, subject.purpose, subject.id);
+
+    if (isImageContentType(validation.detectedContentType)) {
+      // Images are never promoted as uploaded: the clean object is the re-encoded one (no
+      // EXIF, no GPS), and its size and hash are those of the stored bytes. The bytes were
+      // read pinned to the etag, so the re-encoded image is made from the scanned object.
+      const image = await sanitiseImage(bytes, validation.detectedContentType);
+      if (!image.ok) {
+        return {
+          status: 'REJECTED',
+          reasons: [image.reason],
+          detectedContentType: validation.detectedContentType,
+        };
+      }
+      const stored = await storage.putObject({
+        bucket: subject.bucket,
+        key: target,
+        bytes: image.bytes,
+        contentType: image.contentType,
+      });
+      return {
+        status: 'CLEAN',
+        sha256: sha256Of(image.bytes),
+        detectedContentType: image.contentType,
+        cleanKey: target,
+        versionId: stored.versionId,
+        reencoded: { sizeBytes: image.bytes.byteLength, originalSizeBytes: bytes.byteLength },
+      };
+    }
+
     const copied = await storage.copy({
       bucket: subject.bucket,
       fromKey: subject.objectKey,

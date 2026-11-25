@@ -3,6 +3,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { describe, expect, it, vi } from 'vitest';
@@ -202,6 +203,28 @@ describe('S3ObjectStorage operations (stubbed client)', () => {
       Key: 'clean/REPORT_ORIGINAL/x',
       CopySource: `b/${key}`,
       CopySourceIfMatch: '"abc"',
+      ServerSideEncryption: 'aws:kms',
+      SSEKMSKeyId: 'kms-1',
+    });
+  });
+
+  it('puts a platform-made object with the same SSE-KMS as a copy, and returns the version', async () => {
+    const { storage, send } = stubbed(() => ({ VersionId: 'v-img' }));
+    const bytes = Uint8Array.from([1, 2, 3]);
+    const result = await storage.putObject({
+      bucket: 'b',
+      key: 'clean/KYC_DOCUMENT/x',
+      bytes,
+      contentType: 'image/jpeg',
+    });
+    expect(result).toEqual({ versionId: 'v-img' });
+    const command = send.mock.calls[0]?.[0] as PutObjectCommand;
+    expect(command).toBeInstanceOf(PutObjectCommand);
+    expect(command.input).toMatchObject({
+      Bucket: 'b',
+      Key: 'clean/KYC_DOCUMENT/x',
+      ContentType: 'image/jpeg',
+      ContentLength: 3,
       ServerSideEncryption: 'aws:kms',
       SSEKMSKeyId: 'kms-1',
     });

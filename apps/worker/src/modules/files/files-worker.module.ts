@@ -6,6 +6,7 @@ import {
   DevScanRunner,
   FakeMalwareScanner,
   FileScanProcessor,
+  GuardDutyMalwareScanner,
   FileService,
   LazyObjectStorage,
   type ObjectStorage,
@@ -80,12 +81,20 @@ export class FilesJobsService implements OnApplicationBootstrap, OnApplicationSh
       config: () => readFilesConfig(),
     });
 
+    const guardDuty = new GuardDutyMalwareScanner(() => readFilesConfig());
     const jobs = [];
     if (this.config.consumeQueue) {
       jobs.push(
         createFilesConsumerJob({
           consume: () =>
-            consumeFilesQueue(this.consumer, processor, { maxMessages: this.config.batchSize }),
+            consumeFilesQueue(
+              this.consumer,
+              processor,
+              { maxMessages: this.config.batchSize },
+              // GuardDuty's result is always understood. The platform's own envelope (anyone
+              // who can send to the queue could claim "clean") only with the fake scanner.
+              { guardDuty, acceptPlatformEnvelope: this.config.scanner === 'fake' },
+            ),
           intervalMs: this.config.intervalMs,
           logger,
         }),

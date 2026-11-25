@@ -64,32 +64,6 @@ export class FakeMalwareScanner implements MalwareScanner {
   }
 }
 
-// --------------------------------------------------------------------------- GuardDuty
-
-/**
- * STUB. GuardDuty Malware Protection for S3 on the quarantine prefix is the chosen scanner
- * (ADR-010, FILES_AND_REPORTS.md section 1 step 3), but no document gives the shape of its
- * result event or says how it reaches the `lc-files` queue (only "The result event →
- * `lc-files` queue"). Inventing the event's fields from memory could mark an infected file
- * clean, so this adapter does nothing and says so. OQ-116 records the gap. Until it is
- * built, files become available only through the dev-only scan job (`createDevScanJob`,
- * refused in production), which means that no file can become available in production yet.
- */
-export class GuardDutyMalwareScanner implements MalwareScanner {
-  scan(): Promise<ScanResult> {
-    return Promise.reject(new Error(GUARDDUTY_NOT_CONFIGURED));
-  }
-}
-
-export const GUARDDUTY_NOT_CONFIGURED =
-  'GuardDuty Malware Protection for S3 is not configured: the result event is not specified yet (OQ-116).';
-
-/** STUB. See `GuardDutyMalwareScanner`. Throws for every input. */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- the stub keeps the shape of the parser it stands for
-export function parseGuardDutyScanResultEvent(_event: unknown): ScanResult {
-  throw new Error(GUARDDUTY_NOT_CONFIGURED);
-}
-
 // --------------------------------------------------------------------------- queue message
 
 /** Event type of a scan result on the `lc-files` queue. */
@@ -100,6 +74,13 @@ export interface ScanResultMessage {
   eventId: string;
   fileId: string;
   verdict: ScanVerdict;
+  /**
+   * The object the scanner scanned, when the scanner says (GuardDuty does). The processor
+   * applies a verdict only to that very object: another bucket, key, ETag or version means
+   * the object was replaced after the scan, and the verdict does not apply. The platform's
+   * own `file.scan_result` envelope (dev path) does not carry it.
+   */
+  scanned?: { bucket: string; key: string; etag: string; versionId?: string };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -168,9 +149,9 @@ export function parseScanResultMessage(body: string): ScanResultMessage | undefi
  * made from the file id and the verdict, so the same result always has the same id and
  * `processOnce` records it once.
  */
-export function deterministicScanEventId(fileId: string, verdict: ScanVerdict): string {
+export function deterministicScanEventId(fileId: string, verdict: ScanVerdict, salt = ''): string {
   const hex = createHash('sha256')
-    .update(`${FILE_SCAN_RESULT_EVENT}:${fileId}:${verdict}`)
+    .update(`${FILE_SCAN_RESULT_EVENT}:${fileId}:${verdict}${salt === '' ? '' : `:${salt}`}`)
     .digest('hex');
   const variant = ((Number.parseInt(hex.slice(16, 17), 16) & 0x3) | 0x8).toString(16);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;

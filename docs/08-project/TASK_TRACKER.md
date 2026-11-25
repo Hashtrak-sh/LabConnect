@@ -67,7 +67,7 @@ P2-07 is implemented on `feature/P2-07-shared-domain`: `packages/shared/src/` ho
 | P3-03 | Identity: email OTP, sessions, refresh rotation, MFA, step-up | A | ☑ |
 | P3-04 | Guards, CurrentActor, TenantScope, repositories, RLS wiring | H | ☑ |
 | P3-05 | Permission-matrix test generator + isolation test harness | A | ☑ |
-| P3-06 | Files: upload URL, quarantine, scan adapter (fake + GuardDuty), validation, download URL | H | ☐ |
+| P3-06 | Files: upload URL, quarantine, scan adapter (fake + GuardDuty), validation, download URL | H | ☑ |
 | P3-07 | BookingEngine skeleton (transition function, history, guard trigger integration) | H | ☑ |
 | P3-08 | Notifications: consumer, templates, email (SES/Mailpit), in-app | A | ☑ |
 | P3-09 | PaymentGateway interface + FakePaymentGateway + webhook intake | H | ☑ |
@@ -77,7 +77,7 @@ P2-07 is implemented on `feature/P2-07-shared-domain`: `packages/shared/src/` ho
 
 P3-10 is built, with these left out on purpose or by decision: the HTTP endpoints (the customer search increment), typeahead, AWS SigV4 signing (OQ-156), pincode to point (OQ-153), the nightly rebuild with an alias swap (OQ-157), and the emitters of the events the sync consumes (OQ-158). The OpenSearch suite runs by hand (`pnpm --filter @labconnect/core test:opensearch`), not in CI. See "As built (P3-10)" in `docs/05-integrations/SEARCH.md`.
 
-P3-06 is built except what its text calls for and the documents leave open, so it stays ☐: the GuardDuty adapter is a stub (OQ-116), image re-encoding is not done (OQ-118), a PDF library is not used (OQ-117), and the HTTP endpoints belong to the feature modules (P3-04 guards). See "As built (P3-06)" in `docs/05-integrations/FILES_AND_REPORTS.md`.
+P3-06 is ☑: the file service, quarantine and clean prefixes, the fake and the GuardDuty scan result adapters (documented event shape, verdict bound to the scanned object's ETag), validation, image EXIF stripping and re-encoding (JPEG and PNG), and download URLs. Not part of it: the HTTP upload and download endpoints (they come with the feature increments, behind the P3-04 guards), the PDF library (OQ-117, deferred to report stamping), HEIC to JPEG (OQ-167), and the EventBridge rule, queue policy and staging check of GuardDuty (P3-11, OQ-168, OQ-169). See "As built (P3-06)" in `docs/05-integrations/FILES_AND_REPORTS.md`.
 
 P3-08 is ☑ for what its text lists: the consumer, the recipient rules of the matrix, code and stored templates, the SES, SMTP and in-memory senders, the delivery pass, the worker jobs and the four `/me` endpoints. The booking adapter of the context port is now wired (the worker consumes the queue when `NOTIFICATIONS_CONTEXT_SOURCE=booking` and the queue URL are set, OQ-140, OQ-160 to OQ-164), as are the booking timer handlers and the worker's single booking engine. Not part of it, and still to do: the adapters for disputes, refunds, payouts, accreditation, invitations and label reprints, the admin template endpoints, bounce handling and Hindi. See "As built (P3-08)" in `docs/05-integrations/NOTIFICATIONS.md`.
 

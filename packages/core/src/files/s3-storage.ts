@@ -17,6 +17,7 @@ import {
   type ObjectStorage,
   ObjectTooLargeError,
   type PresignedGet,
+  type PutObjectRequest,
   type PresignedPut,
   type PresignGetRequest,
   type PresignPutRequest,
@@ -184,6 +185,27 @@ export class S3ObjectStorage implements ObjectStorage {
       if (isNamed(error, 'PreconditionFailed') || isStatus(error, 412)) {
         throw new ObjectChangedError();
       }
+      throw storageFailure(error);
+    }
+  }
+
+  async putObject(request: PutObjectRequest): Promise<{ versionId: string | undefined }> {
+    try {
+      const out = await this.client.send(
+        new PutObjectCommand({
+          Bucket: request.bucket,
+          Key: request.key,
+          Body: request.bytes,
+          ContentType: request.contentType,
+          ContentLength: request.bytes.byteLength,
+          ...(this.options.serverSideEncryption === undefined
+            ? {}
+            : { ServerSideEncryption: this.options.serverSideEncryption }),
+          ...(this.options.kmsKeyId === undefined ? {} : { SSEKMSKeyId: this.options.kmsKeyId }),
+        }),
+      );
+      return { versionId: out.VersionId };
+    } catch (error) {
       throw storageFailure(error);
     }
   }

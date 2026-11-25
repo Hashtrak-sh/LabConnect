@@ -4,6 +4,7 @@ import {
   DevScanForbiddenError,
   DevScanRunner,
   isDevScanEnabled,
+  readFilesScannerMode,
 } from './dev-scan.js';
 
 const deps = {} as ConstructorParameters<typeof DevScanRunner>[0];
@@ -43,5 +44,49 @@ describe('the dev-only scan cannot be enabled in production', () => {
     expect(() => {
       assertDevScanAllowed({ NODE_ENV: 'production' });
     }).toThrow('NODE_ENV');
+  });
+});
+
+describe('FILES_SCANNER selects the scanner and fails fast', () => {
+  it('defaults to guardduty, in every environment', () => {
+    for (const NODE_ENV of ['production', 'development', 'test', undefined]) {
+      expect(readFilesScannerMode({ NODE_ENV })).toBe('guardduty');
+    }
+    expect(readFilesScannerMode({ NODE_ENV: 'production', FILES_SCANNER: 'guardduty' })).toBe(
+      'guardduty',
+    );
+  });
+
+  it('allows the fake scanner only in development and test', () => {
+    expect(readFilesScannerMode({ NODE_ENV: 'development', FILES_SCANNER: 'fake' })).toBe('fake');
+    expect(readFilesScannerMode({ NODE_ENV: 'test', FILES_SCANNER: 'fake' })).toBe('fake');
+  });
+
+  it('refuses the fake scanner in production, unset or unknown NODE_ENV: production never runs it silently', () => {
+    for (const NODE_ENV of ['production', 'staging', undefined]) {
+      expect(() => readFilesScannerMode({ NODE_ENV, FILES_SCANNER: 'fake' })).toThrow(
+        DevScanForbiddenError,
+      );
+    }
+    // The auto-scan switch alone selects the fake scanner, and is refused the same way.
+    expect(() =>
+      readFilesScannerMode({ NODE_ENV: 'production', FILES_DEV_AUTO_SCAN: 'true' }),
+    ).toThrow(DevScanForbiddenError);
+  });
+
+  it('rejects an unknown value and a contradiction with the auto-scan switch', () => {
+    expect(() =>
+      readFilesScannerMode({ NODE_ENV: 'development', FILES_SCANNER: 'clamav' }),
+    ).toThrow(RangeError);
+    expect(() =>
+      readFilesScannerMode({
+        NODE_ENV: 'development',
+        FILES_SCANNER: 'guardduty',
+        FILES_DEV_AUTO_SCAN: 'true',
+      }),
+    ).toThrow(RangeError);
+    expect(readFilesScannerMode({ NODE_ENV: 'development', FILES_DEV_AUTO_SCAN: 'true' })).toBe(
+      'fake',
+    );
   });
 });

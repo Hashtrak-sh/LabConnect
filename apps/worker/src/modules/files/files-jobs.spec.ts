@@ -85,6 +85,17 @@ describe('readFilesWorkerConfig', () => {
     ).toThrow('NODE_ENV');
   });
 
+  it('uses the GuardDuty scanner by default and refuses the fake one in production', () => {
+    expect(readFilesWorkerConfig({ NODE_ENV: 'production' }).scanner).toBe('guardduty');
+    expect(readFilesWorkerConfig({ NODE_ENV: 'development', FILES_SCANNER: 'fake' }).scanner).toBe(
+      'fake',
+    );
+    expect(() => readFilesWorkerConfig({ NODE_ENV: 'production', FILES_SCANNER: 'fake' })).toThrow(
+      'NODE_ENV',
+    );
+    expect(() => readFilesWorkerConfig({ FILES_SCANNER: 'fake' })).toThrow('NODE_ENV');
+  });
+
   it('rejects a bad interval', () => {
     expect(() => readFilesWorkerConfig({ FILES_POLL_INTERVAL_MS: '0' })).toThrow(RangeError);
     expect(readFilesWorkerConfig({ FILES_POLL_INTERVAL_MS: '500' }).intervalMs).toBe(500);
