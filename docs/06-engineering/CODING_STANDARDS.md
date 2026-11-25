@@ -13,6 +13,13 @@
 - Module layout: `controller` (HTTP only) → `application service` (use cases, transactions) → `domain` (pure rules, entities, errors) → `repository` (Prisma, tenant-scoped).
 - **Transactions**: one use case = one DB transaction. Outbox, audit and history are written inside it.
 - **Never** call another module's repository. Use its exported service or react to its events.
+- **Protecting an endpoint** (details: `04-api/AUTHENTICATION_AND_AUTHORISATION.md` section 8, `02-architecture/TENANT_ISOLATION.md` section 5):
+  1. Import `IdentityModule` in your module. Name the operation's roles and its `401`/`403`/`404` in the contract first.
+  2. Put `@Authorised({ permission: 'booking.decide' })` on the handler (`stepUp: true` for the step-up list of AUTHENTICATION section 2). Never stack `AuthGuard` and the other guards by hand. A route with no declaration is refused.
+  3. Take `@CurrentActor() actor`. Never use an organisation id from the path, query, body or headers as authority.
+  4. In the service: `scope.run(actor, async (tx) => { ... })` (one transaction per use case, nothing slow inside it), and call Prisma on tenant tables only through a repository that extends `TenantRepository`.
+  5. Load the resource through the repository (`assertVisible` turns `null` into 404), then `assertSiteInScope`, `assertNotSameUser` and the ○ or ◐ conditions from `grantsFor(actor.roles, code)`. Out of scope is 404; in scope but not permitted is 403.
+  6. Test 401 without a token, 403 without the permission, 404 for another tenant's id, and add the isolation test for the new data.
 - **Booking status** changes only through `BookingEngine.transition(bookingId, transitionId, actor, input)`.
 - DTO validation through generated OpenAPI types + Zod (or class-validator) at the controller boundary. Domain inputs are typed, already-validated objects.
 - Time: inject `Clock`. Never call `new Date()` in domain code.

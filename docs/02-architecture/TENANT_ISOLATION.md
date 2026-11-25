@@ -57,3 +57,24 @@
 - **Tenant-isolation suite:** for every endpoint that returns or changes tenant data, seed orgs A and B and assert that A can't read, list, count or change B's data (404 or empty).
 - **RLS suite:** run raw SQL as `app_rw` with A's settings and assert that B's rows are invisible. The same through Prisma, a shared pool and PgBouncer.
 - **Search:** the OpenSearch index contains only public reference data. A test asserts that no customer, booking or price-draft fields are indexed.
+
+## 5. As built (P3-04)
+
+**`TenantScope`** (`packages/core/src/identity/tenant-scope.ts`, provided by `IdentityModule`) is the only way request-level code reaches the database. Each method opens **one** interactive transaction through `withDbContext` and hands the work the `tx`:
+
+| Method | Context | Use |
+|---|---|---|
+| `run(actor, work)` | `tenant` with the actor's organisation, or `platform` for platform staff | Every service that touches tenant data. A user with no membership is `403 FORBIDDEN` before any query. |
+| `runAsUser(userId, work)` | `tenant`, no organisation | The flows that come before an organisation is chosen: sessions, MFA, `/me`, loading the actor itself. The policies show the user only their own rows. |
+| `runOnBehalfOf(actor, { organisationId, reason }, work)` | `platform` with that organisation | OQ-53, the one place an organisation id comes from the client. Only a `PLATFORM_OPS` actor (`403` otherwise); the organisation must be an `ACTIVE` customer (`404` otherwise); an audit row `platform.act_on_behalf` is written first in the same transaction (OQ-113). |
+| `runAsSystem(reason, work)` | `system` | No user yet (session by token, sign-in) or a job. `reason` is required. Feature code does not use it. |
+
+Rules for `work` (also stated in the source): use only its `tx`; keep it short, because it holds a pooled connection and Prisma's default timeout is 5 s; never make a slow or external call inside it (payment gateway, mail, file or HTTP call: do it before or after the transaction, and write an outbox event inside it instead); one request-level unit of work is one `run`, never nested.
+
+**`runAsSystem` is greppable and reviewed (OQ-30).** `apps/api/src/modules/identity/system-context.sources.spec.ts` lists every call of `runAsSystem`, every use of `withDbContext` and every spelling of `kind: 'system'` in `apps/` and `packages/`, with counts. The API must not build a system context by hand. A new caller fails the test and appears in the diff, where its reason is reviewed. Today the API's callers are the four pre-user flows of `IdentityService`; the worker-side platform services (`audit-chain`, `relay`, `timers`) run as SYSTEM jobs with an explicit scope (rule 7).
+
+**Repositories.** `TenantRepository` (`repository.ts`) is the base: it is built from the `tx` of a scope and the actor, takes the organisation from the actor (never from a parameter), and exposes `labSiteScope()` for site-bound data. A repository adds the organisation predicate itself in every method **in addition to** RLS (defence in depth), and answers `null` for a row that is not in scope, so the caller raises `404` and existence does not leak. `MembershipRepository` (`membership-repository.ts`) is the worked example on `membership`: `list()`, `find(id)`, `get(id)`. Its tests show that it returns nothing for another tenant's membership asked for by id, also when run under `system` or `platform` (where RLS would let the row through) and for the user's own membership in another organisation (which `membership_visibility` lets a user see). The lint rule of rule 3 does not exist yet (OQ-114).
+
+**Platform staff** run in the `platform` context, which RLS lets read every tenant; the narrowing by role (report metadata only, break-glass for files) is done by the services and is not provided by the policies (OQ-111).
+
+**Tests.** `packages/core/test/db/{actor,tenant-scope,membership-repository}.test.ts` (real tables, `app_rw`, RLS; `pnpm test:db`), `apps/api/test/integration/authorisation.spec.ts` (real tokens and memberships over HTTP; `pnpm test:contract`), `apps/api/test/guards.spec.ts` (faked identity), unit tests next to the sources.
