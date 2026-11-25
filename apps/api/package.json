@@ -8,8 +8,9 @@
     "dev": "nest start --watch",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:contract": "vitest run --project http --project contract-final",
+    "test": "vitest run --project unit --project http",
+    "test:integration": "vitest run --project http-db",
+    "test:contract": "vitest run --project http --project http-db --project contract-final",
     "contract:update-not-implemented": "vitest run --mode update-not-implemented --project http test/contract/endpoints.spec.ts"
   },
   "dependencies": {

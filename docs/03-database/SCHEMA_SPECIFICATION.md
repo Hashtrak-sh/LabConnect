@@ -232,6 +232,9 @@ Sites for a lab invitation are rows in `invitation_site` (§2.11), not an array 
 | `secret_ciphertext` | `bytea` | no | KMS envelope-encrypted |
 | `verified_at` | `timestamptz` | yes | |
 | `revoked_at` | `timestamptz` | yes | |
+| `last_used_step` | `bigint` | yes | TOTP replay protection: the last time step accepted. Added in P3-03. |
+| `failed_attempts` | `int` | no | default 0. Consecutive wrong codes. Added in P3-03. |
+| `locked_until` | `timestamptz` | yes | Set after 5 wrong codes in a row. Added in P3-03. |
 Partial unique (`user_id`, `factor_type`) where `verified_at IS NOT NULL AND revoked_at IS NULL` (C-07).
 
 ### 2.9 `mfa_recovery_code`

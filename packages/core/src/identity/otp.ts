@@ -75,6 +75,12 @@ export async function requestLoginOtp(
     }
   }
 
+  // A new code replaces the old one: open challenges of this destination are closed, so
+  // exactly one can be checked and a tie in `created_at` cannot pick the wrong one.
+  await tx.otpChallenge.updateMany({
+    where: { destinationHash, purpose: 'LOGIN', consumedAt: null },
+    data: { consumedAt: now },
+  });
   const id = uuidv7(now.getTime());
   const code = generateDigits(IDENTITY_POLICY.otpLength);
   const expiresAt = new Date(now.getTime() + IDENTITY_POLICY.otpTtlSeconds * 1000);

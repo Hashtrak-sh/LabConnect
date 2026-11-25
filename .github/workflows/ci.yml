@@ -88,7 +88,9 @@ jobs:
       - run: pnpm test:db
 
   # Contract suite (P2-08): the API in-process, every call held to the OpenAPI contract, plus the
-  # staged "every documented endpoint exists" check. See TESTING_STRATEGY.md §8.
+  # staged "every documented endpoint exists" check. See TESTING_STRATEGY.md §8. Since P3-03 it
+  # also runs the database-backed API tests (project http-db, Testcontainers), so this job needs
+  # Docker, which ubuntu-latest has. `pnpm test` (job unit) leaves them out and needs no Docker.
   contract:
     name: contract
     runs-on: ubuntu-latest
