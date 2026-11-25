@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { FilePurpose } from '@labconnect/database';
+import type { ImageIssue } from './images.js';
 import { type PdfIssue, validatePdf } from './pdf.js';
 import { detectContentType, MAX_ZIP_UNCOMPRESSED_BYTES, summariseZip } from './sniff.js';
 
@@ -10,7 +11,8 @@ export type RejectionReason =
   | 'CONTENT_TYPE_MISMATCH'
   | 'OFFICE_MACROS'
   | 'ARCHIVE_TOO_LARGE'
-  | PdfIssue;
+  | PdfIssue
+  | ImageIssue;
 
 export interface ValidationInput {
   purpose: FilePurpose;

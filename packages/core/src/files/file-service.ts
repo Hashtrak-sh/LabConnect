@@ -102,6 +102,12 @@ export type ScanDecision =
       detectedContentType: string;
       cleanKey: string;
       versionId: string | undefined;
+      /**
+       * Set only for an image, whose stored object is the re-encoded one: `sizeBytes` and
+       * `sha256` are those of the stored bytes, and `originalSizeBytes` is what the user
+       * uploaded. Unset for every other type (stored size = declared size = uploaded size).
+       */
+      reencoded?: { sizeBytes: number; originalSizeBytes: number };
     }
   | { status: 'INFECTED' }
   | { status: 'ERROR' }
@@ -395,6 +401,9 @@ export class FileService {
         data.detectedContentType = decision.detectedContentType;
         data.objectKey = decision.cleanKey;
         data.objectVersionId = decision.versionId ?? null;
+        // A re-encoded image: the column holds the size of the stored object (written once,
+        // here, with the hash and the key; the frozen-columns trigger forbids a later change).
+        if (decision.reencoded) data.sizeBytes = BigInt(decision.reencoded.sizeBytes);
         break;
       case 'REJECTED':
         data.validationErrors = { reasons: decision.reasons };
@@ -429,6 +438,13 @@ export class FileService {
         purpose: subject.purpose,
         status: decision.status,
         ...(decision.status === 'REJECTED' ? { reasons: decision.reasons } : {}),
+        ...(decision.status === 'CLEAN' && decision.reencoded
+          ? {
+              reencoded: true,
+              storedSizeBytes: decision.reencoded.sizeBytes,
+              uploadedSizeBytes: decision.reencoded.originalSizeBytes,
+            }
+          : {}),
       },
     });
     if (
@@ -445,6 +461,9 @@ export class FileService {
           purpose: subject.purpose,
           status: decision.status,
           ...(decision.status === 'REJECTED' ? { reasons: decision.reasons } : {}),
+          ...(decision.status === 'CLEAN' && decision.reencoded
+            ? { reencoded: true, storedSizeBytes: decision.reencoded.sizeBytes }
+            : {}),
         },
       });
     }

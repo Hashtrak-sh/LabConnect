@@ -53,6 +53,13 @@ export interface CopyRequest {
   ifMatchEtag?: string;
 }
 
+export interface PutObjectRequest {
+  bucket: string;
+  key: string;
+  bytes: Uint8Array;
+  contentType: string;
+}
+
 export interface ReadOptions {
   /** The read fails (`ObjectTooLargeError`) if the object is larger, before the body is read. */
   maxBytes: number;
@@ -95,6 +102,11 @@ export interface ObjectStorage {
   read(bucket: string, key: string, options: ReadOptions): Promise<Uint8Array>;
   /** Returns the version id of the new object when the bucket is versioned. */
   copy(request: CopyRequest): Promise<{ versionId: string | undefined }>;
+  /**
+   * Writes an object the platform made itself (a re-encoded image), with the same
+   * server-side encryption as `copy`. Returns the version id when the bucket is versioned.
+   */
+  putObject(request: PutObjectRequest): Promise<{ versionId: string | undefined }>;
   /** Idempotent: deleting a missing object is not an error. */
   delete(bucket: string, key: string): Promise<void>;
 }
@@ -127,6 +139,9 @@ export class LazyObjectStorage implements ObjectStorage {
   }
   copy(request: CopyRequest): Promise<{ versionId: string | undefined }> {
     return this.real.copy(request);
+  }
+  putObject(request: PutObjectRequest): Promise<{ versionId: string | undefined }> {
+    return this.real.putObject(request);
   }
   delete(bucket: string, key: string): Promise<void> {
     return this.real.delete(bucket, key);
@@ -234,6 +249,12 @@ export class InMemoryObjectStorage implements ObjectStorage {
       return Promise.reject(new ObjectChangedError());
     }
     this.put(request.bucket, request.toKey, found.bytes, found.contentType);
+    return Promise.resolve({ versionId: undefined });
+  }
+
+  putObject(request: PutObjectRequest): Promise<{ versionId: string | undefined }> {
+    this.calls.push('putObject');
+    this.put(request.bucket, request.key, request.bytes, request.contentType);
     return Promise.resolve({ versionId: undefined });
   }
 
