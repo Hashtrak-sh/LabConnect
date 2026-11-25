@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { FilesWorkerModule } from './modules/files/files-worker.module.js';
 import { NotificationsWorkerModule } from './modules/notifications/notifications-worker.module.js';
 import { PaymentsWorkerModule } from './modules/payments/payments-worker.module.js';
+import { SearchWorkerModule } from './modules/search/search-worker.module.js';
 import { PlatformWorkerModule } from './modules/platform/platform-worker.module.js';
 
 // Worker modules for later phases (notifications, search, reports consumers and
@@ -12,6 +13,7 @@ import { PlatformWorkerModule } from './modules/platform/platform-worker.module.
     FilesWorkerModule,
     PaymentsWorkerModule,
     NotificationsWorkerModule,
+    SearchWorkerModule,
   ],
 })
 export class WorkerModule {}

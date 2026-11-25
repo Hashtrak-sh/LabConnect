@@ -10,11 +10,15 @@ import type { Prisma, PrismaClient } from './generated/prisma/client.js';
  * - `system`: a background job, or the API before a user is known (finding a session
  *   by its token). It sees every tenant's rows, so its use is limited to named
  *   modules (OQ-30).
+ * - `public`: an anonymous visitor (public search, lab pages). Nothing is set, so no tenant,
+ *   platform or system row is visible: only public reference data, which has no policy or a
+ *   permissive one.
  */
 export type DbContext =
   | { kind: 'tenant'; orgId: string; userId: string }
   | { kind: 'platform'; userId: string; orgId?: string }
-  | { kind: 'system' };
+  | { kind: 'system' }
+  | { kind: 'public' };
 
 export interface DbContextOptions {
   /** How long to wait for a free pooled connection, in ms. Prisma's default is 2000. */
@@ -40,8 +44,9 @@ export function withDbContext<T>(
   work: (tx: Prisma.TransactionClient) => Promise<T>,
   options?: DbContextOptions,
 ): Promise<T> {
-  const orgId = context.kind === 'system' ? '' : (context.orgId ?? '');
-  const userId = context.kind === 'system' ? '' : context.userId;
+  const anonymous = context.kind === 'system' || context.kind === 'public';
+  const orgId = anonymous ? '' : (context.orgId ?? '');
+  const userId = anonymous ? '' : context.userId;
   const isPlatform = context.kind === 'platform' ? 'true' : '';
   const isSystem = context.kind === 'system' ? 'true' : '';
 

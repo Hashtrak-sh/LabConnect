@@ -13,6 +13,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:opensearch": "pnpm --filter \"@labconnect/core^...\" build && vitest run --config vitest.opensearch.config.ts",
     "test:db": "pnpm --filter \"@labconnect/core^...\" build && vitest run --config vitest.db.config.ts"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1100.0",
     "@labconnect/database": "workspace:*",
     "@labconnect/shared": "workspace:*",
+    "@opensearch-project/opensearch": "^3.9.0",
     "@prisma/adapter-pg": "^7.10.1",
     "jose": "^6.2.18",
     "nodemailer": "^10.6.1"

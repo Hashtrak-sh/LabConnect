@@ -71,9 +71,11 @@ P2-07 is implemented on `feature/P2-07-shared-domain`: `packages/shared/src/` ho
 | P3-07 | BookingEngine skeleton (transition function, history, guard trigger integration) | H | ☑ |
 | P3-08 | Notifications: consumer, templates, email (SES/Mailpit), in-app | A | ☑ |
 | P3-09 | PaymentGateway interface + FakePaymentGateway + webhook intake | H | ☑ |
-| P3-10 | Search service: Postgres fallback + OpenSearch index + sync consumer | A | ☐ |
+| P3-10 | Search service: Postgres fallback + OpenSearch index + sync consumer | A | ☑ |
 | P3-11 | IaC: UAT environment | H | ☐ |
 | P3-12 | `deploy-uat.yml` | H | ☐ |
+
+P3-10 is built, with these left out on purpose or by decision: the HTTP endpoints (the customer search increment), typeahead, AWS SigV4 signing (OQ-156), pincode to point (OQ-153), the nightly rebuild with an alias swap (OQ-157), and the emitters of the events the sync consumes (OQ-158). The OpenSearch suite runs by hand (`pnpm --filter @labconnect/core test:opensearch`), not in CI. See "As built (P3-10)" in `docs/05-integrations/SEARCH.md`.
 
 P3-06 is built except what its text calls for and the documents leave open, so it stays ☐: the GuardDuty adapter is a stub (OQ-116), image re-encoding is not done (OQ-118), a PDF library is not used (OQ-117), and the HTTP endpoints belong to the feature modules (P3-04 guards). See "As built (P3-06)" in `docs/05-integrations/FILES_AND_REPORTS.md`.
 
