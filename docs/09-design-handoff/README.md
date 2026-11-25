@@ -1,6 +1,6 @@
 # Design handoff (LATER PHASE)
 
-> ⛔ **Don't start until gate G2 has passed** (`08-project/ROADMAP.md`). The screens depend on the approved data model and API contracts.
+> ✅ **Gate G2 passed on 2026-11-25** (`08-project/ROADMAP.md`), so this phase may start. The screens depend on the approved data model and API contracts.
 
 Workflow (CD-58): **Claude Design** creates the initial visual design → **Claude Code** implements and refines it in `packages/ui` and `apps/web`.
 

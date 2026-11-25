@@ -8,12 +8,12 @@ LabConnect is a government-operated marketplace for discovering and booking accr
 
 ## 2. Current phase
 
-**Phase 2: API contracts and state machine.** Gate G1 (domain and database) passed on 2026-11-24.
+**Phase 3 (backend foundations) and Phase 4 (design).** Gates G1 (domain and database, 2026-11-24) and G2 (core API contracts, 2026-11-25) have passed.
 
-While Phase 2 is open:
-- **Do not** build UI screens, visual design or styling.
-- **Do not** start the design phase (`docs/09-design-handoff/`) until gate **G2** is recorded as passed in `docs/08-project/ROADMAP.md`.
-- **Do** work on the domain model, Prisma schema, migrations, seed data, API contracts (OpenAPI), the state machine, and backend foundations, in the order given in the roadmap.
+While Phases 3 and 4 are open:
+- **Backend:** build the platform services in the order of `docs/08-project/TASK_TRACKER.md` (Phase 3). The API contract in `packages/api-contract/` is the source of truth: change the contract first, then the implementation.
+- **Design:** the design phase follows `docs/09-design-handoff/`, starting with D-01 (brand guidelines) and D-02 (the Claude Design run). Screens are implemented in `packages/ui` and `apps/web` only from approved designs (D-03).
+- **Do not** build feature screens ahead of the designs, and do not start the breadth-first increments (Phase 5) before the Phase 3 foundations they depend on.
 
 Check `docs/08-project/ROADMAP.md` at the start of every session to confirm which phase is current.
 

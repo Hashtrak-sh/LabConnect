@@ -1,6 +1,6 @@
 # QR codes and public verification
 
-**Status:** DRAFT for gate G1/G2.
+**Status:** Approved at gates G1 and G2 (2026-11-25).
 
 ## 1. Payload formats
 QR payloads carry **IDs and a signature only**. No names, batches or results (FS §8.1).

@@ -26,7 +26,7 @@ Template:
 - Status: **Accepted** (HS) · Context: Shared types, contract and state machine between web and API. Decision: as stated. Consequences: one CI pipeline, CODEOWNERS per path.
 
 ## ADR-003: Contract-first OpenAPI
-- Status: **Proposed** (G2)
+- Status: **Accepted** (G2, 2026-11-25)
 - Context: Two developers building opposite sides of the same workflows in parallel.
 - Decision: `packages/api-contract/openapi.yaml` (split per module) is the source. Types and the client are generated. Contract tests validate the implementation.
 - Alternatives: Code-first (Nest Swagger decorators). It's easier for one developer but makes parallel work riskier.
@@ -46,13 +46,13 @@ Template:
 - Consequences: Every request uses an interactive transaction, which holds one pooled connection for its whole length, so no slow external call (payment gateway, S3, email) is made inside one. Prisma's defaults (2 s to get a connection, 5 s per transaction) are set deliberately per use. The application connects as login users that inherit `app_rw` or `app_worker`, never as the owner. RDS Proxy is not verified.
 
 ## ADR-006: In-house passwordless authentication
-- Status: **Proposed** (G2)
+- Status: **Accepted** (G2, 2026-11-25)
 - Decision: NestJS-implemented email OTP, TOTP MFA, rotating refresh tokens, sessions in Postgres, throttles in Redis.
 - Alternatives: Amazon Cognito (custom auth flows for OTP are complex, and role-based MFA and step-up are awkward), a third-party IdP (data residency and cost questions for a government operator).
 - Consequences: A security-critical code path, so it needs thorough tests and a pen-test focus.
 
 ## ADR-007: OpenSearch for discovery, behind a SearchService interface
-- Status: **Proposed** (G2). Postgres fallback implementation retained. Revisit if benchmarks show Postgres meets NFR-03.
+- Status: **Accepted** (G2, 2026-11-25). Postgres fallback implementation retained. Revisit if benchmarks show Postgres meets NFR-03.
 
 ## ADR-008: Database-backed timers processed by the worker
 - Status: **Accepted** (G1, 2026-11-24)
@@ -67,7 +67,7 @@ Template:
 - Status: **Proposed**. Verify availability and pricing in ap-south-1. Alternative: ClamAV in a Lambda or ECS task. The `MalwareScanner` interface allows either.
 
 ## ADR-011: One endpoint per state transition
-- Status: **Proposed** (G2)
+- Status: **Accepted** (G2, 2026-11-25)
 - Decision: `/accept`, `/reject` and `/counter` replace the FS's single `/decision` endpoint. Likewise for receipts and reports.
 - Consequences: Precise permissions, simpler validation, clearer audit.
 
@@ -78,7 +78,7 @@ Template:
 - Status: **Proposed**, pending OQ-17. Provider interfaces allow switching (CD-34).
 
 ## ADR-014: Stamp the verification QR at report submission
-- Status: **Proposed** (G2)
+- Status: **Accepted** (G2, 2026-11-25)
 - Decision: The worker stamps the copy when the Maker submits. The Checker reviews the stamped copy. Publishing is a synchronous transaction. The code resolves to Not found until release.
 - Consequences: No asynchronous gap between approval and release. Stamping failures surface before approval.
 

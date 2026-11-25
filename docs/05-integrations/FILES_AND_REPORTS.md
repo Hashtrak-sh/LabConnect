@@ -1,6 +1,6 @@
 # Files and report management
 
-**Status:** DRAFT for gate G1/G2.
+**Status:** Approved at gates G1 and G2 (2026-11-25).
 
 ## 1. Upload pipeline (all file types)
 1. The client requests an upload URL (`purpose`, declared type, size). The API checks the role, size limit and type allow-list, creates `file_object` (`PENDING`), and returns a **pre-signed S3 PUT** to `quarantine/<purpose>/<uuid>` (15 min, content-length and content-type conditions).

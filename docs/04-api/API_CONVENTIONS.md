@@ -1,6 +1,6 @@
 # API conventions
 
-**Status:** DRAFT for gate G2.
+**Status:** Approved at gate G2 (2026-11-25).
 
 ## 1. Contract-first
 - The source of truth is the OpenAPI 3.1 contract in `packages/api-contract/openapi/`, split per module so that tasks add files rather than edit one big one:

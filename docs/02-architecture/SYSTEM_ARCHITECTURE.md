@@ -1,6 +1,6 @@
 # System architecture
 
-**Status:** DRAFT for gate G1/G2.
+**Status:** Approved at gates G1 and G2 (2026-11-25).
 
 ## 1. Style
 A **modular monolith**, deployed as two runtime services that share one codebase and one database:
