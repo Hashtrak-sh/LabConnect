@@ -135,14 +135,24 @@ describe('the API task definition', () => {
       'WORKER_DATABASE_URL',
       'DATABASE_URL',
       'FILES_SCANNER',
-      'EMAIL_TRANSPORT',
-      'SES_FROM_ADDRESS',
       'NOTIFICATIONS_CONTEXT_SOURCE',
       'WEB_BASE_URL',
       ...Object.values(QUEUE_NAMES).map(queueUrlVariable),
     ]) {
       expect(api.names.has(name), name).toBe(false);
     }
+  });
+
+  it('sends the sign-in code through SES, with the same sender and configuration set as the worker, and no SMTP', () => {
+    const worker = taskDefinition({}, 'labconnect-uat-worker');
+    expect(api.env.get('EMAIL_TRANSPORT')).toBe('ses');
+    expect(api.env.get('SES_CONFIGURATION_SET')).toBe('labconnect-uat');
+    expect(api.env.has('SES_FROM_ADDRESS')).toBe(true);
+    expect(api.env.get('SES_FROM_ADDRESS')).toEqual(worker.env.get('SES_FROM_ADDRESS'));
+    expect(api.env.get('SES_CONFIGURATION_SET')).toEqual(worker.env.get('SES_CONFIGURATION_SET'));
+    expect(api.env.get('AWS_REGION')).toBeDefined();
+    expect(api.env.has('SMTP_HOST')).toBe(false);
+    expect(api.env.has('SMTP_PORT')).toBe(false);
   });
 
   it('puts no secret into a plain environment variable', () => {

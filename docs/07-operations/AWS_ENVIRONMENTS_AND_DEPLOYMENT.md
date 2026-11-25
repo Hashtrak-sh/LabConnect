@@ -81,7 +81,7 @@ AWS Budgets with alerts per environment. UAT scales to zero at night (web, api, 
 | `FILES_SCANNER=guardduty` | worker | constant |
 | `QUEUE_URL_LC_NOTIFICATIONS_FIFO`, `QUEUE_URL_LC_SEARCH_SYNC`, `QUEUE_URL_LC_FILES`, `QUEUE_URL_LC_TIMERS`, `QUEUE_URL_LC_ANALYTICS` | worker | the queues' URLs (resource attributes) |
 | `WORKER_DATABASE_URL` | worker | secret `labconnect/uat/worker-database-url` (login `labconnect_worker`) |
-| `EMAIL_TRANSPORT=ses`, `SES_FROM_ADDRESS`, `SES_CONFIGURATION_SET=labconnect-uat` | worker | constants; parameter `sesFromAddress` |
+| `EMAIL_TRANSPORT=ses`, `SES_FROM_ADDRESS`, `SES_CONFIGURATION_SET=labconnect-uat` | api (sign-in code), worker (notifications) | constants; parameter `sesFromAddress`. The API fails at start-up without them (OQ-172). |
 | `WEB_BASE_URL` | worker | the web origin, as above |
 | `NOTIFICATIONS_CONTEXT_SOURCE=booking` | worker | constant (the queue is consumed) |
 | `OPENSEARCH_URL`, `OPENSEARCH_AUTH_MODE=basic`, `OPENSEARCH_USERNAME`, `OPENSEARCH_PASSWORD`, `SEARCH_REINDEX_ON_START` | api and worker (the last, worker only) | only with `-c enableOpenSearch=true`: the domain's endpoint and a secret |
@@ -89,7 +89,7 @@ AWS Budgets with alerts per environment. UAT scales to zero at night (web, api, 
 | `API_DB_USER`, `API_DB_PASSWORD`, `WORKER_DB_USER`, `WORKER_DB_PASSWORD` | migrate | secrets `labconnect/uat/db-login-api` and `db-login-worker` (read by `create-login-users.mjs`) |
 | `QR_KMS_KEY_ARN_BOOKING`, `_PACKAGE`, `_REPORT` | migrate | the three HMAC keys' ARNs (read by the reference seed; not in `.env.example`) |
 
-**Roles.** The API's task role can put objects under `quarantine/*` and get them under `clean/*` (to presign), and use the files key through S3: nothing on queues, mail, secrets or the quarantine contents. The worker's task role can send to the five queues, receive from three (`lc-files`, `lc-notifications.fifo`, `lc-search-sync`), read and delete `quarantine/*`, write `clean/*`, list the bucket (so a missing object answers 404, not 403), use the files key through S3, and send mail from the configured sender with the configuration set. Each execution role reads exactly the secrets of its own task definition. No role has a wildcard action; tests assert it, and that the API role cannot reach the worker's resources.
+**Roles.** The API's task role can put objects under `quarantine/*` and get them under `clean/*` (to presign), and use the files key through S3: nothing on queues, secrets or the quarantine contents, and mail only as `ses:SendEmail` on the same three resources as the worker (sender address, sender domain, configuration set), for the sign-in code (OQ-172). The worker's task role can send to the five queues, receive from three (`lc-files`, `lc-notifications.fifo`, `lc-search-sync`), read and delete `quarantine/*`, write `clean/*`, list the bucket (so a missing object answers 404, not 403), use the files key through S3, and send mail from the configured sender with the configuration set. Each execution role reads exactly the secrets of its own task definition. No role has a wildcard action; tests assert it, and that the API role cannot reach the worker's resources.
 
 **Differs from, or not built compared with, the text above.**
 - *No CloudFront and no `web` service* (section 2 lists both): `apps/web` is a skeleton. The firewall is regional on the load balancer. No security headers (they belong to the web app).

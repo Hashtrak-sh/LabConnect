@@ -2,12 +2,12 @@ import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
 import { AuthGuard } from './auth.guard.js';
 import { IdentityService } from './identity.service.js';
-import { IDENTITY_ENV, IdentityRuntime } from './identity.runtime.js';
+import { IDENTITY_ENV, type IdentityEnv, IdentityRuntime } from './identity.runtime.js';
 import { MeController } from './me.controller.js';
 import { MembershipGuard } from './membership.guard.js';
 import { MfaGuard } from './mfa.guard.js';
 import { PermissionGuard } from './permission.guard.js';
-import { OTP_MAILER, SmtpOtpMailer } from './smtp-otp-mailer.js';
+import { createOtpMailer, OTP_MAILER } from './otp-mailer.js';
 import { AuditService, TenantScope } from '@labconnect/core';
 import type { PrismaClient } from '@labconnect/database';
 import { PlatformModule } from '../platform/platform.module.js';
@@ -28,7 +28,12 @@ import { PRISMA_CLIENT } from '../platform/platform.providers.js';
   providers: [
     { provide: IDENTITY_ENV, useFactory: (): NodeJS.ProcessEnv => process.env },
     IdentityRuntime,
-    { provide: OTP_MAILER, useClass: SmtpOtpMailer },
+    {
+      // Built when the API starts: in a deployed environment without a real sender it throws.
+      provide: OTP_MAILER,
+      useFactory: (env: IdentityEnv) => createOtpMailer(env),
+      inject: [IDENTITY_ENV],
+    },
     {
       provide: TenantScope,
       useFactory: (prisma: PrismaClient, audit: AuditService) => new TenantScope(prisma, audit),

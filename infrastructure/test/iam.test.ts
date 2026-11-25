@@ -64,7 +64,6 @@ describe('task roles', () => {
   it('keeps everything that only the worker needs away from the API role', () => {
     const everything = text(api);
     expect(everything).not.toMatch(/sqs:/);
-    expect(everything).not.toMatch(/ses:/);
     expect(everything).not.toMatch(/s3:DeleteObject/);
     expect(everything).not.toMatch(/s3:ListBucket/);
     expect(everything).not.toMatch(/secretsmanager:/);
@@ -102,6 +101,22 @@ describe('task roles', () => {
     const resources = text(mail?.Resource);
     expect(resources).toContain('identity/no-reply@labconnect.invalid');
     expect(resources).toContain('configuration-set/labconnect-uat');
+  });
+
+  it("lets the API send mail (the sign-in code) with ses:SendEmail on the worker's three resources, and nothing else of SES", () => {
+    const sesActions = api.flatMap(actionsOf).filter((action) => action.startsWith('ses'));
+    expect(sesActions).toEqual(['ses:SendEmail']);
+    const mail = api.filter((s) => actionsOf(s).some((a) => a.startsWith('ses')));
+    expect(mail).toHaveLength(1);
+    const resources = resourcesOf(mail[0] as Statement);
+    expect(resources).toHaveLength(3);
+    expect(text(resources)).toContain('identity/no-reply@labconnect.invalid');
+    expect(text(resources)).toContain('identity/labconnect.invalid');
+    expect(text(resources)).toContain('configuration-set/labconnect-uat');
+    expect(text(resources)).not.toContain('*');
+    // The very same resources as the worker's statement: the API gets no wider sender.
+    const workerMail = worker.find((s) => actionsOf(s).includes('ses:SendEmail'));
+    expect(text(resources)).toBe(text(resourcesOf(workerMail as Statement)));
   });
 
   const keyStatements = (statements: Statement[]): Statement[] =>
