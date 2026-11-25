@@ -18,7 +18,9 @@
   "dependencies": {
     "@aws-sdk/client-sqs": "^3.1100.0",
     "@labconnect/database": "workspace:*",
-    "@prisma/adapter-pg": "^7.10.1"
+    "@labconnect/shared": "workspace:*",
+    "@prisma/adapter-pg": "^7.10.1",
+    "jose": "^6.2.18"
   },
   "devDependencies": {
     "@labconnect/config": "workspace:*",
