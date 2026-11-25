@@ -1,6 +1,8 @@
 // Module rules from docs/02-architecture/MODULE_BOUNDARIES.md, enforced in CI.
-// Paths match both apps/api/src/modules/<module> and apps/worker/src/modules/<module>.
-const moduleDir = (names) => `^apps/(api|worker)/src/modules/(${names})/`;
+// Paths match the module folders of apps/api, apps/worker and packages/core (ADR-020):
+// apps/<app>/src/modules/<module>/ and packages/core/src/<module>/.
+const roots = '(?:apps/(?:api|worker)/src/modules|packages/core/src)';
+const moduleDir = (names) => `^${roots}/(${names})/`;
 
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
@@ -26,7 +28,7 @@ module.exports = {
       from: { path: moduleDir('identity|files') },
       to: {
         path: moduleDir('[^/]+'),
-        pathNot: [moduleDir('platform'), '^apps/(api|worker)/src/modules/$2/'],
+        pathNot: [moduleDir('platform'), `^${roots}/$1/`],
       },
     },
     {
@@ -50,6 +52,21 @@ module.exports = {
       comment: 'Shared packages are consumed by apps, never the other way round.',
       from: { path: '^packages/' },
       to: { path: '^apps/' },
+    },
+    {
+      name: 'core-is-framework-free',
+      severity: 'error',
+      comment: 'ADR-020: packages/core is Nest-free; the apps wrap it in providers.',
+      from: { path: '^packages/core/' },
+      to: { path: '(^|/)@nestjs/' },
+    },
+    {
+      name: 'core-depends-on-database-and-shared-only',
+      severity: 'error',
+      comment:
+        'ADR-020: packages/core may use packages/database and packages/shared, no other workspace package.',
+      from: { path: '^packages/core/' },
+      to: { path: '^packages/(api-contract|validation|ui|config)/' },
     },
     {
       name: 'apps-never-import-each-other',

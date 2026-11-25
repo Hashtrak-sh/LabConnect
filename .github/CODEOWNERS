@@ -17,6 +17,7 @@
 
 # Shared areas: changes need review from the other developer (shared change)
 /packages/database/                 @Hashtrak-sh @akshit-anand
+/packages/core/                     @Hashtrak-sh @akshit-anand
 /packages/api-contract/             @Hashtrak-sh @akshit-anand
 /packages/shared/                   @Hashtrak-sh @akshit-anand
 /apps/api/src/modules/booking/      @Hashtrak-sh @akshit-anand
