@@ -62,22 +62,21 @@ export class MessagingStack extends cdk.Stack {
       pendingWindow: cdk.Duration.days(30),
     });
     const stack = cdk.Stack.of(this);
-    const ruleArn = stack.formatArn({
-      service: 'events',
-      resource: 'rule',
-      resourceName: names.guardDutyRuleName,
-    });
-    // EventBridge writes to the encrypted `lc-files` queue; CloudWatch alarms publish to the
-    // encrypted alarm topic. Both are limited to this account (and the rule, for EventBridge).
+    // EventBridge writes to the encrypted `lc-files` queue. The statement is the one the
+    // EventBridge User Guide gives ("My events are not delivered to the target Amazon SQS
+    // queue"), which has no condition. Do not add aws:SourceArn or aws:SourceAccount here
+    // without testing a delivery: the AWS documentation does not show them for EventBridge and
+    // says they are not supported on a key policy for EventBridge to an encrypted SNS topic.
+    // What EventBridge may send, and for which rule, is limited by the queue policy below.
     this.messagingKey.addToResourcePolicy(
       new iam.PolicyStatement({
-        sid: 'EventBridgeRuleToQueue',
+        sid: 'EventBridgeToQueue',
         principals: [new iam.ServicePrincipal('events.amazonaws.com')],
         actions: ['kms:GenerateDataKey', 'kms:Decrypt'],
         resources: ['*'],
-        conditions: { ArnEquals: { 'aws:SourceArn': ruleArn } },
       }),
     );
+    // CloudWatch alarms publish to the encrypted alarm topic, for this account only.
     this.messagingKey.addToResourcePolicy(
       new iam.PolicyStatement({
         sid: 'CloudWatchAlarmsToTopic',
@@ -147,16 +146,17 @@ export class MessagingStack extends cdk.Stack {
       }),
     );
 
-    // The role GuardDuty assumes to scan the bucket. The statements follow the AWS
-    // documentation for Malware Protection for S3 ("Prerequisites: creating or updating an
-    // IAM PassRole policy"); object tagging is switched off below, so its statement is left out.
+    // The role GuardDuty assumes to scan the bucket. The statements and the trust policy follow
+    // the GuardDuty User Guide, "Create or update IAM role policy" (read on 2026-11-25):
+    // https://docs.aws.amazon.com/guardduty/latest/ug/malware-protection-s3-iam-policy-prerequisite.html
+    // Differences from that template, both narrower: object tagging is switched off below, so
+    // its statement is left out, and objects are readable under the quarantine prefix only.
+    // The documented trust policy has no condition, so none is added here untested.
     const bucketArn = data.filesBucket.bucketArn;
     const plansRole = new iam.Role(this, 'MalwareProtectionRole', {
       roleName: names.roleName('guardduty-malware-protection'),
       description: 'Assumed by GuardDuty Malware Protection for S3 to scan the quarantine prefix',
-      assumedBy: new iam.ServicePrincipal('malware-protection-plan.guardduty.amazonaws.com', {
-        conditions: { StringEquals: { 'aws:SourceAccount': stack.account } },
-      }),
+      assumedBy: new iam.ServicePrincipal('malware-protection-plan.guardduty.amazonaws.com'),
     });
     const managedRule = stack.formatArn({
       service: 'events',

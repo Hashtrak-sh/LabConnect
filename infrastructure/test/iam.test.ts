@@ -104,15 +104,37 @@ describe('task roles', () => {
     expect(resources).toContain('configuration-set/labconnect-uat');
   });
 
+  const keyStatements = (statements: Statement[]): Statement[] =>
+    statements.filter((s) => actionsOf(s).some((a) => a.startsWith('kms:')));
+  const viaService = (statement: Statement | undefined): string =>
+    text(
+      (statement?.Condition as { StringEquals?: Record<string, unknown> } | undefined)
+        ?.StringEquals?.['kms:ViaService'],
+    );
+
   it('allows the files key only through S3', () => {
     for (const statements of [api, worker]) {
-      const key = statements.find((s) => actionsOf(s).includes('kms:Decrypt'));
-      expect(text(key?.Condition)).toContain('kms:ViaService');
-      expect(key?.Condition).toMatchObject({
-        StringEquals: { 'kms:ViaService': expect.stringMatching(/^s3./) as string },
-      });
+      const key = keyStatements(statements).find((s) => viaService(s).includes('"s3.'));
+      expect(key).toBeDefined();
+      expect(text(key?.Resource)).toContain('FilesKey');
       expect(actionsOf(key as Statement).sort()).toEqual(['kms:Decrypt', 'kms:GenerateDataKey']);
     }
+  });
+
+  it('lets the worker use the key of the encrypted queues, through SQS only', () => {
+    // Every queue is encrypted with the messaging key. A role that may send and receive but
+    // may not use that key is refused by SQS on every call.
+    const queueKeyId = resourcesOfType(templates.messaging, 'AWS::SQS::Queue')[0]?.[1].Properties
+      .KmsMasterKeyId;
+    expect(queueKeyId).toBeDefined();
+    const key = keyStatements(worker).find((s) => viaService(s).includes('"sqs.'));
+    expect(key).toBeDefined();
+    expect(actionsOf(key as Statement).sort()).toEqual(['kms:Decrypt', 'kms:GenerateDataKey']);
+    expect(text(key?.Resource)).toContain('MessagingKey');
+    // Two key statements for the worker (files through S3, queues through SQS), one for the API.
+    expect(keyStatements(worker)).toHaveLength(2);
+    expect(keyStatements(api)).toHaveLength(1);
+    expect(text(api)).not.toContain('MessagingKey');
   });
 
   it('can be assumed by ECS tasks of this account only', () => {

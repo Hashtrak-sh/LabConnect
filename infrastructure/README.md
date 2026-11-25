@@ -125,8 +125,10 @@ You need an AWS account for UAT (OQ-18, OQ-170), credentials with enough rights 
 
 AWS account and its CDK bootstrap; the first image push; the JWT signing key; SES sender verification and leaving the
 sandbox; DNS when there is no hosted zone; the alarm e-mail confirmation; the platform administrator seed; the GitHub
-environment; GuardDuty (the Malware Protection plan is created by the stack, but its IAM statements follow the AWS
-documentation and have not been exercised: check the plan's status in the console after the first deploy);
+environment; GuardDuty (the Malware Protection plan is created by the stack; its role is the template of the AWS
+documentation, compared with the page on 2026-11-25, but it has not been exercised: check the plan's status in the
+console after the first deploy, and that a scan result reaches `lc-files`, whose key policy and queue policy are
+also the documented ones, OQ-178);
 SES-to-bounce handling (no destination is configured); the weekly restore drill and the dashboards of OBSERVABILITY.md
 (not built, see "As built" in the AWS document).
 

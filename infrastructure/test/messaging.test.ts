@@ -105,12 +105,39 @@ describe('GuardDuty scan results', () => {
     );
     expect(text).toContain('events.amazonaws.com');
     expect(text).toContain('sqs:SendMessage');
-    expect(text).toContain('aws:SourceArn');
-    // And the key policy allows the same rule to use the key.
-    const keys = JSON.stringify(
-      resourcesOfType(templates.messaging, 'AWS::KMS::Key').map(([, k]) => k.Properties),
+    // The condition names the rule itself, not a pattern.
+    const rule = resourcesOfType(templates.messaging, 'AWS::Events::Rule')[0]?.[0] ?? 'missing';
+    templates.messaging.hasResourceProperties('AWS::SQS::QueuePolicy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'sqs:SendMessage',
+            Principal: { Service: 'events.amazonaws.com' },
+            Condition: { ArnEquals: { 'aws:SourceArn': { 'Fn::GetAtt': [rule, 'Arn'] } } },
+          }),
+        ]),
+      },
+    });
+  });
+
+  it('lets EventBridge use the queue key with the documented statement, which has no condition', () => {
+    // The EventBridge User Guide gives this statement without a condition, and AWS says the
+    // source conditions are not supported on a key policy for EventBridge to an encrypted
+    // topic. A condition that EventBridge does not satisfy would drop every scan result.
+    const key = single(templates.messaging, 'AWS::KMS::Key');
+    const statements = (key.Properties.KeyPolicy as { Statement: Record<string, unknown>[] })
+      .Statement;
+    const forEvents = statements.filter((statement) =>
+      JSON.stringify(statement.Principal).includes('events.amazonaws.com'),
     );
-    expect(keys).toContain('rule/lc-guardduty-scan-results');
+    expect(forEvents).toHaveLength(1);
+    expect(forEvents[0]?.Action).toEqual(['kms:GenerateDataKey', 'kms:Decrypt']);
+    expect(forEvents[0]?.Condition).toBeUndefined();
+    // CloudWatch alarms (to the alarm topic) stay limited to this account.
+    const forAlarms = statements.find((statement) =>
+      JSON.stringify(statement.Principal).includes('cloudwatch.amazonaws.com'),
+    );
+    expect(JSON.stringify(forAlarms?.Condition)).toContain('aws:SourceAccount');
   });
 
   it('turns on Malware Protection for the quarantine prefix of the files bucket only', () => {
@@ -129,15 +156,46 @@ describe('GuardDuty scan results', () => {
     );
     expect(text).toContain('/quarantine/*');
     expect(text).not.toMatch(/"Action":"s3:\*"|"Action":"\*"/);
+    // The trust policy is the documented one: that service principal, no condition.
     templates.messaging.hasResourceProperties('AWS::IAM::Role', {
       AssumeRolePolicyDocument: {
         Statement: [
-          Match.objectLike({
+          {
+            Action: 'sts:AssumeRole',
+            Effect: 'Allow',
             Principal: { Service: 'malware-protection-plan.guardduty.amazonaws.com' },
-          }),
+          },
         ],
       },
     });
+  });
+
+  it('gives GuardDuty the documented statements, minus object tagging', () => {
+    const actions = resourcesOfType(templates.messaging, 'AWS::IAM::Policy')
+      .flatMap(
+        ([, p]) =>
+          (p.Properties.PolicyDocument as { Statement: { Action: string | string[] }[] }).Statement,
+      )
+      .flatMap((statement) => statement.Action)
+      .sort();
+    expect(actions).toEqual(
+      [
+        'events:DeleteRule',
+        'events:DescribeRule',
+        'events:ListTargetsByRule',
+        'events:PutRule',
+        'events:PutTargets',
+        'events:RemoveTargets',
+        'kms:Decrypt',
+        'kms:GenerateDataKey',
+        's3:GetBucketNotification',
+        's3:GetObject',
+        's3:GetObjectVersion',
+        's3:ListBucket',
+        's3:PutBucketNotification',
+        's3:PutObject',
+      ].sort(),
+    );
   });
 });
 

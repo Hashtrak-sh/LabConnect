@@ -288,6 +288,17 @@ export class ComputeStack extends cdk.Stack {
     );
     this.workerTaskRole.addToPolicy(
       new iam.PolicyStatement({
+        // The queues are encrypted with the messaging key. SQS uses it on the caller's behalf:
+        // a sender needs both actions, a receiver needs Decrypt (SQS Developer Guide, "Key
+        // management"). Without this statement every send and receive is refused.
+        sid: 'QueueKey',
+        actions: ['kms:GenerateDataKey', 'kms:Decrypt'],
+        resources: [messaging.messagingKey.keyArn],
+        conditions: { StringEquals: { 'kms:ViaService': `sqs.${stack.region}.amazonaws.com` } },
+      }),
+    );
+    this.workerTaskRole.addToPolicy(
+      new iam.PolicyStatement({
         sid: 'ReadAndRemoveQuarantine',
         actions: ['s3:GetObject', 's3:DeleteObject'],
         resources: [`${bucketArn}/${FILES_QUARANTINE_PREFIX}/*`],
