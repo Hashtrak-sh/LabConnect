@@ -1,37 +1,13 @@
-import { type ErrorCode, httpStatusOf } from '@labconnect/shared';
+import { CoreError, type CoreErrorOptions } from '../platform/errors.js';
 
-export interface BookingErrorOptions {
-  /** Safe for end users. Never put SQL, stack traces or other tenants' data here. */
-  detail?: string;
-  /** Code-specific details, for example `{ currentState }` (ERROR_HANDLING.md section 3). */
-  meta?: Record<string, unknown>;
-  cause?: unknown;
-}
+export type BookingErrorOptions = CoreErrorOptions;
 
 /**
- * The typed error of the booking module. `packages/core` cannot import `DomainError` from
- * `apps/api` (and has no Nest), so it throws this framework-free twin: the same `code`
- * from the catalogue in `@labconnect/shared`, the same `meta`. The API's exception filter
- * turns it into the problem body exactly as it does a `DomainError`: see `isBookingError`.
+ * The typed error of the booking module: a `CoreError`, so the API's exception filter
+ * turns it into the problem body with the same `code` and `meta`.
  */
-export class BookingError extends Error {
+export class BookingError extends CoreError {
   override name = 'BookingError';
-  readonly status: number;
-  readonly detail: string | undefined;
-  readonly meta: Record<string, unknown> | undefined;
-
-  constructor(
-    readonly code: ErrorCode,
-    options: BookingErrorOptions = {},
-  ) {
-    super(
-      options.detail ?? code,
-      options.cause === undefined ? undefined : { cause: options.cause },
-    );
-    this.status = httpStatusOf(code);
-    this.detail = options.detail;
-    this.meta = options.meta;
-  }
 }
 
 /** True for a `BookingError`, also when it comes from another copy of the package. */

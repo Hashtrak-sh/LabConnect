@@ -24,7 +24,6 @@ cancelBooking
 checkBookingDuplicates
 commitAdminImport
 commitLabPriceListImport
-confirmMfaEnrolment
 confirmReceiptDiscrepancy
 counterBooking
 createAdminChangeSet
@@ -96,7 +95,6 @@ getLabPriceListImport
 getLabRetentionRules
 getLabSite
 getLabSlotTemplates
-getMe
 getPaymentReturnStatus
 getPublicLabSite
 getPublicPriceList
@@ -140,8 +138,6 @@ listPaymentOrders
 listPublicScopeLines
 listPublicSlots
 listTaxonomyNodes
-logout
-logoutAll
 markNotificationRead
 placeAdminPayoutHold
 publishAdminChangeSet
@@ -150,7 +146,6 @@ publishReportVersion
 raiseDispute
 rateBooking
 receivePaymentWebhook
-refreshSession
 rejectAdminChangeSet
 rejectAdminLabClaim
 rejectBooking
@@ -160,7 +155,6 @@ releaseAdminPayout
 releaseAdminPayoutHold
 requestBreakGlassAccess
 requestLabelReprint
-requestOtp
 resolveShareLink
 returnReportVersion
 revokeBreakGlassGrant
@@ -171,7 +165,6 @@ scanCustodyCode
 searchAdminAuditLog
 searchLabs
 sendBackAdminChangeSet
-setActiveMembership
 setAdminConfigValue
 setAdminPlatformUserRoles
 setBookingLineStatus
@@ -181,7 +174,6 @@ setLabScopeLineAvailability
 setLabSlotTemplates
 startBookingTesting
 startLabClaim
-startMfaEnrolment
 submitAdminChangeSet
 submitLabClaimLetterhead
 submitReceipt
@@ -205,7 +197,5 @@ updateNotificationPreferences
 verifyAdminBankAccount
 verifyAdminKycDocument
 verifyLabClaimOtp
-verifyMfa
-verifyOtp
 verifyReport
 withdrawDispute
