@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { randomBytes, generateKeyPairSync, randomUUID } from 'node:crypto';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, ModuleMetadata } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { Server } from 'node:http';
 import { base32Decode, FixedClock, InMemoryOtpMailer, totpAt } from '@labconnect/core';
@@ -14,7 +14,11 @@ import { AppModule } from '../../src/app.module.js';
 import { IDENTITY_ENV, type IdentityEnv } from '../../src/modules/identity/identity.runtime.js';
 import { OTP_MAILER } from '../../src/modules/identity/smtp-otp-mailer.js';
 import { CLOCK, PRISMA_CLIENT } from '../../src/modules/platform/platform.providers.js';
-import { contractRequest, type ContractRequestOptions } from './contract/index.js';
+import {
+  contractRequest,
+  type ContractRequestOptions,
+  undocumentedRequest,
+} from './contract/index.js';
 
 export const START = '2026-11-25T10:00:00Z';
 export const ORIGIN = 'https://app.labconnect.test';
@@ -74,7 +78,7 @@ let ipCounter = 0;
  * Every request comes from its own address (`X-Forwarded-For`, one trusted proxy hop), so
  * the per-IP OTP limit does not couple unrelated tests.
  */
-export function useIdentityApp() {
+export function useIdentityApp(setup: { imports?: ModuleMetadata['imports'] } = {}) {
   const platform = usePlatform();
   const clock = new FixedClock(START);
   const mailer = new InMemoryOtpMailer();
@@ -84,7 +88,9 @@ export function useIdentityApp() {
 
   beforeAll(async () => {
     process.env.API_TRUST_PROXY_HOPS = '1';
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule, ...(setup.imports ?? [])],
+    })
       .overrideProvider(PRISMA_CLIENT)
       .useValue(platform.api())
       .overrideProvider(CLOCK)
@@ -143,6 +149,18 @@ export function useIdentityApp() {
       http().get(path, options(extra)),
     post: (path: string, extra: Parameters<typeof options>[0] = {}) =>
       http().post(path, options({ post: true, ...extra })),
+  };
+
+  /** Calls a route that is not in the contract (test-only controllers added through `setup.imports`). */
+  const probe = {
+    get: (path: string, extra: Parameters<typeof options>[0] = {}) => {
+      if (!app) throw new Error('the app is not ready');
+      return undocumentedRequest(app).get(path, options(extra));
+    },
+    post: (path: string, extra: Parameters<typeof options>[0] = {}) => {
+      if (!app) throw new Error('the app is not ready');
+      return undocumentedRequest(app).post(path, options({ post: true, ...extra }));
+    },
   };
 
   /** Asks for a code, reads it from the mailer. */
@@ -262,6 +280,7 @@ export function useIdentityApp() {
     mailer,
     env,
     api,
+    probe,
     owner,
     fixtures,
     newEmail,

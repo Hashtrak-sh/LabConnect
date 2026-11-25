@@ -38,7 +38,7 @@ function bearerToken(request: Request): string | undefined {
  * out. Every failure is the same `401 UNAUTHENTICATED`: it does not say which check failed.
  *
  * It stores the session on the request; read it with `@CurrentSession()`. The guards that
- * come after it (membership, permission, step-up) belong to task P3-04.
+ * come after it (membership, permission, step-up) are in this module too: use `@Authorised()`.
  */
 @Injectable()
 export class AuthGuard implements CanActivate {

@@ -1,14 +1,17 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
+  assertStepUp,
   AuditService,
   authenticateSession,
   type Clock,
+  type CurrentActor,
   completeMfaSignIn,
   confirmTotpEnrolment,
   consumeLoginOtp,
   IDENTITY_POLICY,
   IdentityError,
   type IdentityDeps,
+  loadCurrentActor,
   loadMe,
   type MeView,
   type OtpMailer,
@@ -22,11 +25,12 @@ import {
   setActiveMembership,
   signInWithVerifiedEmail,
   startTotpEnrolment,
+  TenantScope,
   verifyUserTotp,
   type TotpEnrolment,
 } from '@labconnect/core';
-import { type Prisma, type PrismaClient, withDbContext } from '@labconnect/database';
-import { CLOCK, PRISMA_CLIENT } from '../platform/platform.providers.js';
+import type { Prisma } from '@labconnect/database';
+import { CLOCK } from '../platform/platform.providers.js';
 import { IdentityRuntime } from './identity.runtime.js';
 import { OTP_MAILER } from './smtp-otp-mailer.js';
 
@@ -87,7 +91,7 @@ export class IdentityService {
   private readonly logger = new Logger(IdentityService.name);
 
   constructor(
-    @Inject(PRISMA_CLIENT) private readonly prisma: PrismaClient,
+    private readonly scope: TenantScope,
     @Inject(CLOCK) private readonly clock: Clock,
     private readonly audit: AuditService,
     private readonly runtime: IdentityRuntime,
@@ -103,22 +107,22 @@ export class IdentityService {
     };
   }
 
-  private asSystem<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
-    return withDbContext(this.prisma, { kind: 'system' }, work);
-  }
-
+  /**
+   * The user alone, no organisation (see `TenantScope.runAsUser`). Before a user is known there
+   * is no actor, and the flows below use the named `runAsSystem` with a reason each.
+   */
   private asUser<T>(
     userId: string,
     work: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
-    return withDbContext(this.prisma, { kind: 'tenant', orgId: '', userId }, work);
+    return this.scope.runAsUser(userId, work);
   }
 
   // ---------------------------------------------------------------- sign-in
 
   /** `requestOtp`. The answer never depends on whether the address has an account. */
   async requestOtp(input: { email: string }, meta: RequestMeta): Promise<void> {
-    const outcome = await this.asSystem((tx) =>
+    const outcome = await this.scope.runAsSystem('OTP request: no user is known yet', (tx) =>
       requestLoginOtp(tx, this.deps(), {
         email: input.email,
         ...(meta.ipAddress !== undefined && { ipAddress: meta.ipAddress }),
@@ -147,14 +151,17 @@ export class IdentityService {
     meta: RequestMeta,
   ): Promise<VerifyOtpResult> {
     const deps = this.deps();
-    const outcome = await this.asSystem(async (tx) => {
-      const consumed = await consumeLoginOtp(tx, deps, input);
-      if (!consumed.ok) return { signedIn: false as const, reason: consumed.reason };
-      const signIn = await signInWithVerifiedEmail(tx, deps, { email: input.email, meta });
-      // A disabled user is answered exactly like a wrong code (OQ-35).
-      if (!signIn.ok) return { signedIn: false as const, reason: 'INVALID' as const };
-      return { signedIn: true as const, signIn };
-    });
+    const outcome = await this.scope.runAsSystem(
+      'OTP verification and sign-in: no user is known yet',
+      async (tx) => {
+        const consumed = await consumeLoginOtp(tx, deps, input);
+        if (!consumed.ok) return { signedIn: false as const, reason: consumed.reason };
+        const signIn = await signInWithVerifiedEmail(tx, deps, { email: input.email, meta });
+        // A disabled user is answered exactly like a wrong code (OQ-35).
+        if (!signIn.ok) return { signedIn: false as const, reason: 'INVALID' as const };
+        return { signedIn: true as const, signIn };
+      },
+    );
     if (!outcome.signedIn) throw otpFailure(outcome.reason);
 
     const { signIn } = outcome;
@@ -245,7 +252,7 @@ export class IdentityService {
 
   /** `refreshSession`: rotates the refresh token. Any failure is `UNAUTHENTICATED`. */
   async refresh(refreshToken: string, meta: RequestMeta): Promise<SessionResult> {
-    const outcome = await this.asSystem((tx) =>
+    const outcome = await this.scope.runAsSystem('Refresh: finding a session by its token', (tx) =>
       rotateRefreshToken(tx, this.deps(), { refreshToken, meta }),
     );
     if (!outcome.ok) throw new IdentityError('UNAUTHENTICATED');
@@ -276,11 +283,30 @@ export class IdentityService {
    */
   async authenticate(accessToken: string): Promise<AuthenticatedSession> {
     const claims = await this.runtime.tokens.verify(accessToken);
-    const record = await this.asSystem((tx) =>
+    const record = await this.scope.runAsSystem('AuthGuard: finding a session by its id', (tx) =>
       authenticateSession(tx, { clock: this.clock }, claims),
     );
     if (!record) throw new IdentityError('UNAUTHENTICATED');
     return { ...record, partial: claims.partial };
+  }
+
+  /**
+   * The actor of an authenticated session (`MembershipGuard`): its organisation, roles and lab
+   * sites, read from the database as the user alone. `requestedMembershipId` is
+   * `X-Active-Membership`, a choice among the user's own active memberships.
+   */
+  resolveActor(
+    session: AuthenticatedSession,
+    requestedMembershipId?: string,
+  ): Promise<CurrentActor> {
+    return this.asUser(session.userId, (tx) =>
+      loadCurrentActor(tx, session, requestedMembershipId),
+    );
+  }
+
+  /** Step-up (`MfaGuard`): `STEP_UP_REQUIRED` unless MFA succeeded within `maxAgeSeconds`. */
+  assertStepUp(session: AuthenticatedSession, maxAgeSeconds?: number): void {
+    assertStepUp(session, this.clock, maxAgeSeconds);
   }
 
   // ---------------------------------------------------------------- /me
