@@ -145,7 +145,6 @@ publishLabPriceList
 publishReportVersion
 raiseDispute
 rateBooking
-receivePaymentWebhook
 rejectAdminChangeSet
 rejectAdminLabClaim
 rejectBooking
