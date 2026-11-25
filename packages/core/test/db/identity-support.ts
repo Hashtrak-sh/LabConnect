@@ -52,8 +52,10 @@ export function useIdentity() {
     return withDbContext(platform.api(), context, work);
   };
 
-  const owner = <T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> =>
-    platform.owner().$transaction(work);
+  const owner = <T>(
+    work: (tx: Prisma.TransactionClient) => Promise<T>,
+    options?: { maxWait?: number; timeout?: number },
+  ): Promise<T> => platform.owner().$transaction(work, options);
 
   return { ...platform, clock, deps, asSystem, asUser, owner };
 }
