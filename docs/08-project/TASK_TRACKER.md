@@ -72,8 +72,10 @@ P2-07 is implemented on `feature/P2-07-shared-domain`: `packages/shared/src/` ho
 | P3-08 | Notifications: consumer, templates, email (SES/Mailpit), in-app | A | ☑ |
 | P3-09 | PaymentGateway interface + FakePaymentGateway + webhook intake | H | ☑ |
 | P3-10 | Search service: Postgres fallback + OpenSearch index + sync consumer | A | ☑ |
-| P3-11 | IaC: UAT environment | H | ☐ |
+| P3-11 | IaC: UAT environment | H | ☑ code and tests; not deployed |
 | P3-12 | `deploy-uat.yml` | H | ☐ |
+
+P3-11 is ☑ as code and tests only; **nothing is deployed and no AWS account was used.** `infrastructure/` is a CDK v2 app with seven stacks (delivery, network, data, messaging, edge, compute, observability) and 150+ offline assertion tests, plus the root `Dockerfile` (targets `api`, `worker`, `migrate`) and `.dockerignore`. Left for people: the AWS account and its bootstrap, the first image push, the signing key, SES sender verification, DNS, the GitHub environment, and the staging check of the GuardDuty path (OQ-168, OQ-169). Not built: CloudFront and the web service (the web app is a skeleton), the dashboards, and alarms for signals the application does not emit yet. One application gap blocks sign-in on UAT: the API's e-mail code goes over SMTP only (OQ-172). Details: `infrastructure/README.md` and `AWS_ENVIRONMENTS_AND_DEPLOYMENT.md` "As built (P3-11)". P3-12 (`deploy-uat.yml`) is still open.
 
 P3-10 is built, with these left out on purpose or by decision: the HTTP endpoints (the customer search increment), typeahead, AWS SigV4 signing (OQ-156), pincode to point (OQ-153), the nightly rebuild with an alias swap (OQ-157), and the emitters of the events the sync consumes (OQ-158). The OpenSearch suite runs by hand (`pnpm --filter @labconnect/core test:opensearch`), not in CI. See "As built (P3-10)" in `docs/05-integrations/SEARCH.md`.
 
