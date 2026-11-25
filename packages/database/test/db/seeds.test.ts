@@ -31,10 +31,40 @@ describe('seed:reference', () => {
     expect(first.config_parameter).toBe(CONFIG_DEFAULTS.length);
     expect(first.ledger_account).toBe(LEDGER_ACCOUNTS.length);
     expect(first.qr_signing_key).toBe(3);
-    expect(first.holiday_calendar).toBe(6);
+    expect(first.holiday_calendar).toBe(8);
 
     const second = await prisma().$transaction((tx) => seedReference(tx, { now: NOW }), PATIENT);
     expect(second).toEqual({});
+  });
+
+  it('seeds the fixed-date national holidays for this year and the next, and no regional ones', async () => {
+    await prisma().$transaction((tx) => seedReference(tx, { now: NOW }), PATIENT);
+    const rows = await prisma().holidayCalendar.findMany({ orderBy: { holidayDate: 'asc' } });
+    expect(rows.map((row) => `${row.holidayDate.toISOString().slice(0, 10)} ${row.name}`)).toEqual([
+      '2026-01-26 Republic Day',
+      '2026-08-15 Independence Day',
+      '2026-10-02 Mahatma Gandhi Jayanti',
+      '2026-12-25 Christmas Day',
+      '2027-01-26 Republic Day',
+      '2027-08-15 Independence Day',
+      '2027-10-02 Mahatma Gandhi Jayanti',
+      '2027-12-25 Christmas Day',
+    ]);
+    expect(rows.every((row) => row.regionCode === null)).toBe(true);
+  });
+
+  it('adds only a missing holiday and keeps one that Ops renamed', async () => {
+    await prisma().holidayCalendar.updateMany({
+      where: { holidayDate: new Date('2026-12-25') },
+      data: { name: 'Christmas (renamed by Ops)' },
+    });
+    await prisma().holidayCalendar.deleteMany({ where: { holidayDate: new Date('2027-01-26') } });
+    const added = await prisma().$transaction((tx) => seedReference(tx, { now: NOW }), PATIENT);
+    expect(added).toEqual({ holiday_calendar: 1 });
+    const christmas = await prisma().holidayCalendar.findFirst({
+      where: { holidayDate: new Date('2026-12-25') },
+    });
+    expect(christmas?.name).toBe('Christmas (renamed by Ops)');
   });
 
   it('keeps a value an administrator changed', async () => {
