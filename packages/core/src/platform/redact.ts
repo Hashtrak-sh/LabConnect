@@ -105,7 +105,7 @@ function walk(value: unknown, depth: number, path: Set<object>): unknown {
     default:
       return null;
   }
-  const object = value as object;
+  const object = value;
   if (object instanceof Date) {
     return Number.isNaN(object.getTime()) ? null : object.toISOString();
   }

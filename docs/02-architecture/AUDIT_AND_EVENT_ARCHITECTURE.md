@@ -14,6 +14,7 @@
 - Written by `AuditService.record()` inside the same transaction as the change.
 - Fields: actor (user, membership, role), action code, entity type and id, `before`/`after` JSON diff (with sensitive fields redacted), request id, IP, user agent, `occurred_at`.
 - **Hash chain.** The insert carries no hash, so transactions never wait on each other. A worker job seals new rows in (`occurred_at`, `id`) order, in batches, by appending to `audit_log_chain` (one chain per month): `hash = SHA-256(prev_hash || canonical_json(row))`. A nightly job verifies each chain against the audit rows and alerts on a break or on a row that stays unsealed for more than an hour.
+- **As built (P3-01, `packages/core/src/platform/`).** The month of a chain is the UTC month of `occurred_at`. The sealer takes only rows older than a safety lag (default 30 s) and holds an advisory lock, so two workers cannot fork a chain. A row that commits after the lag is appended later with the next `seq`: the chain order is `seq`, not `occurred_at`, and the verifier follows `seq` (OQ-61). The verifier reports the first break (`SEQ_GAP`, `BROKEN_LINK`, `MISSING_ROW`, `HASH_MISMATCH`) and the rows unsealed for more than an hour. `canonical_json` sorts keys, writes a bigint as digits and a Date as an ISO UTC string. `before` and `after` are redacted by key name before the insert (OQ-68).
 - The DB roles `app_rw` and `app_worker` have `INSERT, SELECT` only. `UPDATE`, `DELETE` and `TRUNCATE` are revoked, and a trigger raises an error on them. Only `app_worker` can insert into `audit_log_chain`.
 - Mandatory audited actions include: every booking transition, Maker submission, Checker approval, role change, user (de)activation, price-list publish, change-set approve and publish, KYC and bank verification, refund, payout hold and release, dispute decision, break-glass access, config change, share-link create and revoke, label reprint.
 
@@ -32,6 +33,7 @@
 
 - Event envelope: `{ id, type, version, occurredAt, aggregate: {type, id}, actor: {userId, role, orgId} | 'SYSTEM', data }`.
 - Event names follow `NOTIFICATIONS_MATRIX.md` codes plus the analytics events in FS §14.1.
+- **As built (P3-01).** `outbox_event.payload` holds `{ actor, data }`; the relay builds the envelope from the columns and the payload (OQ-63). The routing table is `packages/core/src/platform/routes.ts` (OQ-64): matrix codes go to `lc-notifications.fifo` and every event to `lc-analytics`. FIFO messages carry `MessageGroupId` = aggregate id and `MessageDeduplicationId` = event id. A failing event does not stop the batch, but later events of the same aggregate wait for the next pass so their order is kept. After 50 failed attempts a row is parked (OQ-66). Consumers call `processOnce(tx, consumer, eventId, work)`.
 
 ## 4. Timers (ADR-008)
 - `timer(id, timer_type, aggregate_type, aggregate_id, due_at, status PENDING|FIRED|CANCELLED|FAILED, payload, attempts, fired_at, last_error)`.

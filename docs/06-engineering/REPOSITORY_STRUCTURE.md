@@ -34,6 +34,7 @@ LabConnect/
 │   └── worker/               NestJS standalone: outbox relay, consumers, timers, jobs
 ├── packages/
 │   ├── database/             prisma/schema/*, prisma/migrations/*, src/seed/*, src/factories/* (test-utils), src/db-context.ts
+│   ├── core/                 server-side code shared by api and worker, by module: src/platform/ (clock, config, audit, outbox, relay); test/db/ (Testcontainers) (ADR-020)
 │   ├── api-contract/         openapi/ (openapi.yaml, paths/, components/), src/generated/ (bundle, types; git-ignored), test/,
 │   │                         src/client.ts (typed client), src/examples.ts (contract examples as mocks)
 │   ├── shared/               enums, booking-state-machine.ts, permissions.ts, error-codes.ts, money, time
@@ -52,6 +53,8 @@ LabConnect/
 ├── CLAUDE.md · MASTER_PROMPT.md · README.md
 ```
 
+**`packages/core` and the apps.** `apps/api/src/modules/<module>` and `apps/worker/src/modules/<module>` hold wiring only: Nest providers, controllers, queue consumers and the polling runner. The logic they call is in `packages/core/src/<module>/`. The package is built (`dist/`) before the apps that use it, like the other packages. Its database tests (`packages/core/test/db/`) reuse the container, template database and helpers of `packages/database/test/db/` and run in `pnpm test:db`.
+
 **API contract tests are not in `tests/contract/`** (the original plan). They live in `apps/api/test/` (harness in `test/support/contract/`, its tests in `test/contract/`) because the pnpm workspace covers only `apps/*` and `packages/*`, and the harness boots the API in-process with the API's own dependencies and lint rules. See TESTING_STRATEGY §8.
 
 ## Ownership map (CODEOWNERS)
@@ -59,4 +62,4 @@ LabConnect/
 |---|---|
 | `apps/web/src/app/customer/`, `apps/web/src/features/customer-*`, `apps/api/src/modules/customers`, `.../search` | @akshit-anand |
 | `apps/web/src/app/lab/`, `apps/web/src/features/lab-*`, `apps/api/src/modules/{labs,custody,reports}` | @Hashtrak-sh |
-| `packages/database/`, `packages/api-contract/`, `packages/shared/`, `apps/api/src/modules/{booking,payments,identity,platform,masterdata}`, `infrastructure/`, `.github/` | both |
+| `packages/database/`, `packages/core/`, `packages/api-contract/`, `packages/shared/`, `apps/api/src/modules/{booking,payments,identity,platform,masterdata}`, `infrastructure/`, `.github/` | both |

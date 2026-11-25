@@ -58,32 +58,40 @@ export class ConfigChangeError extends Error {
 }
 
 /** Parsers for the usual value shapes. Each throws on anything else. */
-export const configParsers = {
-  integer(raw: unknown): number {
-    if (typeof raw !== 'number' || !Number.isSafeInteger(raw)) {
-      throw new TypeError('expected an integer');
-    }
-    return raw;
-  },
-  nonNegativeInteger(raw: unknown): number {
-    const value = configParsers.integer(raw);
+function parseInteger(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isSafeInteger(raw)) {
+    throw new TypeError('expected an integer');
+  }
+  return raw;
+}
+
+export const configParsers: {
+  integer: (raw: unknown) => number;
+  nonNegativeInteger: (raw: unknown) => number;
+  positiveInteger: (raw: unknown) => number;
+  boolean: (raw: unknown) => boolean;
+  string: (raw: unknown) => string;
+} = {
+  integer: parseInteger,
+  nonNegativeInteger: (raw) => {
+    const value = parseInteger(raw);
     if (value < 0) throw new RangeError('expected a non-negative integer');
     return value;
   },
-  positiveInteger(raw: unknown): number {
-    const value = configParsers.integer(raw);
+  positiveInteger: (raw) => {
+    const value = parseInteger(raw);
     if (value < 1) throw new RangeError('expected a positive integer');
     return value;
   },
-  boolean(raw: unknown): boolean {
+  boolean: (raw) => {
     if (typeof raw !== 'boolean') throw new TypeError('expected true or false');
     return raw;
   },
-  string(raw: unknown): string {
+  string: (raw) => {
     if (typeof raw !== 'string') throw new TypeError('expected a string');
     return raw;
   },
-} as const;
+};
 
 export interface ConfigChange {
   key: string;

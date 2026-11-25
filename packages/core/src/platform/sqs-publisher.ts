@@ -1,4 +1,4 @@
-import { SendMessageCommand } from '@aws-sdk/client-sqs';
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import type { EventEnvelope } from './events.js';
 import type { QueuePublisher } from './queue.js';
 import { QUEUES, type QueueName } from './routes.js';
@@ -54,4 +54,11 @@ export class SqsQueuePublisher implements QueuePublisher {
       }),
     );
   }
+}
+
+/** The SQS publisher the worker uses: region, credentials and endpoint come from the environment when the first message is sent. */
+export function createSqsPublisherFromEnv(
+  env: Record<string, string | undefined> = process.env,
+): SqsQueuePublisher {
+  return new SqsQueuePublisher(new SQSClient({}), queueUrlsFromEnv(env));
 }

@@ -1,5 +1,10 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@labconnect/database';
+import { Prisma, PrismaClient } from '@labconnect/database';
+
+/** The names of the model delegates (`auditLog`, `outboxEvent`, ...) the client exposes. */
+const DELEGATES: ReadonlySet<string> = new Set(
+  Object.values(Prisma.ModelName).map((name) => name.charAt(0).toLowerCase() + name.slice(1)),
+);
 
 export interface LazyPrisma {
   /** A client that connects on first use. Safe to create when no database is configured. */
@@ -30,6 +35,10 @@ export function createLazyPrisma(
   };
   const client = new Proxy({} as PrismaClient, {
     get(_target, property) {
+      // Only the client's own members connect. Anything else (a Promise check for `then`, a
+      // Nest lifecycle-hook probe, a symbol) is answered without touching the database.
+      if (typeof property === 'symbol') return undefined;
+      if (!property.startsWith('$') && !DELEGATES.has(property)) return undefined;
       const target = real();
       const value: unknown = Reflect.get(target, property, target);
       return typeof value === 'function'
