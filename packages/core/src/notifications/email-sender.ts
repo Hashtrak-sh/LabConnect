@@ -10,8 +10,11 @@ export interface EmailMessage {
   subject: string;
   text: string;
   html?: string;
-  /** The notification row. Sent as a header so a message can be traced back; not a secret. */
-  notificationId: string;
+  /**
+   * The notification row. Sent as a header so a message can be traced back; not a secret. Absent
+   * for mail that has no notification row (the sign-in code): then no header is sent.
+   */
+  notificationId?: string;
 }
 
 export interface EmailSendResult {
@@ -101,7 +104,9 @@ export class SmtpEmailSender implements EmailSender {
         subject: message.subject,
         text: message.text,
         ...(message.html === undefined ? {} : { html: message.html }),
-        headers: { [NOTIFICATION_HEADER]: message.notificationId },
+        ...(message.notificationId === undefined
+          ? {}
+          : { headers: { [NOTIFICATION_HEADER]: message.notificationId } }),
       })) as { messageId?: string };
       return { providerMessageId: info.messageId?.slice(0, 200) ?? null };
     } catch (error) {
@@ -151,7 +156,9 @@ export class SesEmailSender implements EmailSender {
               ? {}
               : { Html: { Data: message.html, Charset: 'UTF-8' } }),
           },
-          Headers: [{ Name: NOTIFICATION_HEADER, Value: message.notificationId }],
+          ...(message.notificationId === undefined
+            ? {}
+            : { Headers: [{ Name: NOTIFICATION_HEADER, Value: message.notificationId }] }),
         },
       },
       ...(this.settings.configurationSet === undefined
