@@ -54,6 +54,13 @@ function describeFailure(error: unknown): string {
   return `${kind}: ${detail}`.slice(0, MAX_ERROR_LENGTH);
 }
 
+/** `https://app.example/` becomes `https://app.example`. A loop, not a regular expression (no backtracking). */
+function withoutTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charAt(end - 1) === '/') end -= 1;
+  return value.slice(0, end);
+}
+
 /** Reads the stored payload as template data: only known variable names, only strings. */
 export function templateDataFromPayload(payload: unknown, webBaseUrl: string): TemplateData {
   const source =
@@ -65,7 +72,7 @@ export function templateDataFromPayload(payload: unknown, webBaseUrl: string): T
   }
   if (data.actionUrl !== undefined) {
     data.actionUrl = data.actionUrl.startsWith('/')
-      ? `${webBaseUrl.replace(/\/+$/, '')}${data.actionUrl}`
+      ? `${withoutTrailingSlashes(webBaseUrl)}${data.actionUrl}`
       : data.actionUrl;
   }
   return data;
