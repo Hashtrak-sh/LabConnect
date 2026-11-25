@@ -184,7 +184,9 @@ describe('the booking flow through the worker pieces', () => {
   const eventTypes = async (bookingId: string) =>
     (
       await h.rows<{ event_type: string }>(
-        'SELECT event_type FROM outbox_event WHERE aggregate_id = $1 ORDER BY occurred_at, id',
+        // By insertion time: two timers fired in one pass share the test clock's instant, so
+        // `occurred_at` ties and the random part of the id would decide.
+        'SELECT event_type FROM outbox_event WHERE aggregate_id = $1 ORDER BY created_at, occurred_at, id',
         [bookingId],
       )
     ).map((row) => row.event_type);
