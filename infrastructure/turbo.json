@@ -8,6 +8,7 @@
         "$TURBO_ROOT$/.env.example",
         "$TURBO_ROOT$/Dockerfile",
         "$TURBO_ROOT$/.dockerignore",
+        "$TURBO_ROOT$/.github/workflows/deploy-uat.yml",
         "$TURBO_ROOT$/apps/worker/src/modules/platform/platform-jobs.ts",
         "$TURBO_ROOT$/apps/worker/src/modules/platform/polling-runner.ts"
       ]

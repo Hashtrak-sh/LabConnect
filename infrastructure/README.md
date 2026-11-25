@@ -50,7 +50,6 @@ Nothing organisational is in the code. Parameters are CDK context: `-c key=value
 | `budgetMonthlyUsd` | none | Creates an AWS Budgets alert at 80 and 100 percent (needs `alarmEmail`). |
 | `githubRepository` | `Hashtrak-sh/LabConnect` | Repository whose workflows may assume the deploy role. |
 | `githubOidcProviderArn` | none | Reuse an existing GitHub OIDC provider (the account may have only one). |
-| `cdkQualifier` | `hnb659fds` | The qualifier of the CDK bootstrap stack. |
 
 ## Commands
 
@@ -74,14 +73,16 @@ lint or tsconfig rules was needed.
 You need an AWS account for UAT (OQ-18, OQ-170), credentials with enough rights to bootstrap, and Docker.
 
 1. **Bootstrap CDK once** per account and region: `cdk bootstrap aws://<account>/<region>`. The bootstrap creates the
-   roles `cdk deploy` uses. By default its CloudFormation execution role is `AdministratorAccess`: that is the real reach
-   of the `uat-deployer` role (it can only hand over to the bootstrap roles), so the GitHub environment `uat` should
-   have required reviewers. To narrow it, bootstrap with `--cloudformation-execution-policies` (a decision for P3-12).
+   roles `cdk deploy` uses. By default its CloudFormation execution role is `AdministratorAccess`. Only the people who run
+   `cdk deploy` with their own credentials reach it: the `uat-deployer` role of GitHub Actions cannot assume the bootstrap
+   roles (see "The deploy role" below). To narrow the execution role, bootstrap with
+   `--cloudformation-execution-policies` (OQ-179).
 2. **Deploy the repositories and the GitHub role:** `cdk deploy Delivery -c account=<account>`. Note the outputs
    (`DeployRoleArn`, repository URIs).
 3. **Build and push the images** (tag = the commit SHA; the repositories are immutable, so a tag is pushed once):
    `aws ecr get-login-password | docker login ...`, then `docker build --target api|worker|migrate -t <repository-uri>:<tag> .`
-   from the repository root and `docker push`. (P3-12 automates this.)
+   from the repository root and `docker push`. This first push is manual: `Compute` needs an image to exist. Later images are
+   built and pushed by `deploy-uat.yml`.
 4. **Deploy everything else with no tasks running:**
    `cdk deploy Network Data Messaging Edge Compute Observability -c imageTag=<tag> -c apiDesiredCount=0 -c workerDesiredCount=0 [other context]`.
    With a domain and no hosted zone, the certificate stays `Pending validation` until you add the CNAME shown in the
@@ -118,8 +119,63 @@ You need an AWS account for UAT (OQ-18, OQ-170), credentials with enough rights 
 11. **Staging check of the scan path** (OQ-168, OQ-169): upload a harmless file and the standard EICAR test string under
     `quarantine/` of the files bucket and watch `lc-files` and the worker log: the first should arrive as a
     `NO_THREATS_FOUND` result, the second as `THREATS_FOUND`. Nothing in this package has proved the real events yet.
-12. **GitHub (P3-12):** create the GitHub environment `uat` (the role trusts only that environment of
-    `Hashtrak-sh/LabConnect`), add required reviewers, and give the workflow the role ARN as a variable.
+12. **GitHub:** enable the deployment workflow only once the services run (step 8): see "Enabling the UAT deployment
+    workflow" below.
+
+## The deploy role (`uat-deployer`) and the deployment workflow
+
+`.github/workflows/deploy-uat.yml` (P3-12) deploys the **application** to UAT: it builds and pushes the three images, runs
+the migration task and rolls the `api` and `worker` services. It **never changes infrastructure**: it runs no `cdk` and no
+CloudFormation deployment. You apply infrastructure changes yourself (the steps above), with your own credentials. The reason
+is OQ-179: `cdk deploy` works through the CDK bootstrap roles, whose CloudFormation role is an administrator by default, and
+a compromised workflow must not get that.
+
+The role is assumed through GitHub's OIDC provider by exactly `repo:Hashtrak-sh/LabConnect:environment:uat`, for one hour at
+most, and has these statements and no others (a test lists them):
+
+| Statement | Allows | On |
+|---|---|---|
+| `ReadComputeStackOutputs` | `cloudformation:DescribeStacks` | stack `LabConnect-uat-compute` (the ARN ends in the stack id, hence `/*`) |
+| `EcrLogin` | `ecr:GetAuthorizationToken` | `*` (cannot be narrowed) |
+| `EcrPush` | the layer upload, `PutImage`, `BatchGetImage`, `DescribeImages` actions | the three repositories |
+| `EcsTaskDefinitions` | register and describe a task definition | `*` (cannot be narrowed) |
+| `EcsServices` | `ecs:UpdateService`, `ecs:DescribeServices` | the `api` and `worker` services |
+| `EcsRunMigration` | `ecs:RunTask` | revisions of `labconnect-uat-migrate`, in the UAT cluster only |
+| `EcsWatchTasks` | `ecs:DescribeTasks` | tasks of the UAT cluster |
+| `PassTaskRoles` | `iam:PassRole` | the six task and execution roles, only to `ecs-tasks.amazonaws.com` |
+
+Each statement is something the workflow calls; a test compares the two. It cannot assume any role, create IAM objects,
+deregister task definitions, stop or list tasks, read the log groups, or touch the database, the secrets, the queues or
+the bucket. Logs are left out on purpose: application logs can hold personal data and this repository's workflow logs are
+public, so a person reads the log groups in AWS. Its reach
+through `iam:PassRole` is the six container roles: a task definition it registers can run any command with those roles'
+permissions, so registering one is as powerful as the task roles are. That is why the `uat` environment and who may start
+the workflow matter (OQ-185).
+
+### Enabling the UAT deployment workflow
+
+The workflow does nothing (its job is skipped) until you set the gate variable. Prerequisites: steps 1 to 8 above are done
+(the `Compute` stack exists and the services run: a service with desired count 0 fails the rollout check).
+
+1. In the repository settings create the GitHub **environment** `uat`. Required reviewers are optional on UAT
+   (CI_CD.md section 3); restricting the environment's deployment branches to `main` is recommended.
+2. Create these **variables** (Settings, Secrets and variables, Actions, Variables). None is a secret and there are no GitHub
+   secrets:
+
+   | Variable | Where | Value |
+   |---|---|---|
+   | `UAT_DEPLOY_ENABLED` | **repository** variable (a job's `if` cannot see environment variables) | `true` to enable; delete it or set anything else to disable |
+   | `AWS_UAT_DEPLOY_ROLE_ARN` | repository or the `uat` environment | the `DeployRoleArn` output of the `Delivery` stack |
+   | `AWS_REGION` | optional, **repository** variable (it is read before the job enters the environment) | default `ap-south-1` |
+   | `UAT_API_BASE_URL` | optional, either | origin of the API, for example `https://api.<domainName>`. Unset: the smoke test is skipped |
+
+3. Run it once by hand (Actions, deploy-uat, Run workflow, on `main`) and read the job summary before relying on pushes.
+
+**Drift.** The workflow registers new task definition revisions outside CloudFormation, so the `Compute` stack still records
+the image tags it was last deployed with. Before the next `cdk deploy Compute`, read the tag now running
+(`aws ecs describe-task-definition --task-definition labconnect-uat-api --query 'taskDefinition.containerDefinitions[0].image'`,
+or the job summary of the last run) and pass it: `-c apiImageTag=<sha> -c workerImageTag=<sha> -c migrateImageTag=<sha>`
+(`-c imageTag=<sha>` sets all three). Without it the services roll back to the old image. Details: CI_CD.md "As built (P3-12)".
 
 ## What is manual or outside the code
 
