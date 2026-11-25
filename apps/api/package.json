@@ -15,6 +15,7 @@
   "dependencies": {
     "@labconnect/core": "workspace:*",
     "@labconnect/database": "workspace:*",
+    "@labconnect/shared": "workspace:*",
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "^12.6.0",

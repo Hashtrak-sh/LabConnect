@@ -13,7 +13,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:contract": "turbo run test:contract",
-    "lint": "pnpm db:generate && pnpm contract:generate && eslint .",
+    "lint": "pnpm db:generate && pnpm contract:generate && turbo run build --filter=\"./packages/*\" && eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "depcruise": "depcruise apps packages --config .dependency-cruiser.cjs",
