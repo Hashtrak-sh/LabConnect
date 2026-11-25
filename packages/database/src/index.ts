@@ -2,3 +2,4 @@
 // Seeds and test factories are added in later Phase 1 tasks.
 export * from './generated/prisma/client.js';
 export { type DbContext, type DbContextOptions, withDbContext } from './db-context.js';
+export { uuidv7 } from './ids.js';

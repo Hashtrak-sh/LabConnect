@@ -1,0 +1,31 @@
+{
+  "name": "@labconnect/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:db": "pnpm --filter \"@labconnect/core^...\" build && vitest run --config vitest.db.config.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1100.0",
+    "@labconnect/database": "workspace:*",
+    "@prisma/adapter-pg": "^7.10.1"
+  },
+  "devDependencies": {
+    "@labconnect/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
