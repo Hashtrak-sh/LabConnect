@@ -17,4 +17,5 @@ Workflow (CD-58): **Claude Design** creates the initial visual design → **Clau
 | [ADMIN_USER_FLOWS.md](ADMIN_USER_FLOWS.md) | Platform staff journeys and screens |
 | [RESPONSIVE_DESIGN_GUIDELINES.md](RESPONSIVE_DESIGN_GUIDELINES.md) | Breakpoints, mobile scanner, tables on small screens |
 | [designs/](designs/) | **D-02 output (draft, awaiting D-03 review).** Token sheet in code (`lc.css`), one HTML file per board, and the canvas index with API-field annotations. Provisional brand values. |
+| [DESIGN_REVIEW_D-03.md](DESIGN_REVIEW_D-03.md) | **D-03 review of the D-02 run** against the flows, the rules and accessibility: findings, flow coverage matrix, contrast results, brand-dependent tokens. Awaiting human approval. |
 | [reference/](reference/) | Put the QCI Brand & Communication Guidelines PDF here (don't commit it if it's confidential) |
