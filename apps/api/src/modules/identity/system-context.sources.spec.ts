@@ -62,6 +62,10 @@ describe('who may open the system database context', () => {
       'packages/core/src/platform/audit-chain.ts': 3,
       'packages/core/src/platform/relay.ts': 1,
       'packages/core/src/platform/timers.ts': 2,
+      // The worker's scan processor: decides a file from its scan result (P3-06). The dev-only
+      // scan job finds pending uploads; it refuses to run outside development and test.
+      'packages/core/src/files/scan-processor.ts': 3,
+      'packages/core/src/files/dev-scan.ts': 1,
     });
   });
 
@@ -77,6 +81,8 @@ describe('who may open the system database context', () => {
       'packages/core/src/platform/audit-chain.ts': 3,
       'packages/core/src/platform/relay.ts': 1,
       'packages/core/src/platform/timers.ts': 2,
+      'packages/core/src/files/scan-processor.ts': 3,
+      'packages/core/src/files/dev-scan.ts': 1,
     });
   });
 });
