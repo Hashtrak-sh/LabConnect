@@ -9,6 +9,7 @@ export * from './outbox.js';
 export * from './prisma.js';
 export * from './process-once.js';
 export * from './queue.js';
+export * from './queue-consumer.js';
 export * from './redact.js';
 export * from './relay.js';
 export * from './routes.js';

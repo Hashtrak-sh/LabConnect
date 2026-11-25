@@ -8,12 +8,10 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import { PaymentsRuntime } from '@labconnect/core';
-import { type PrismaClient, withDbContext } from '@labconnect/database';
+import { PaymentsRuntime, TenantScope } from '@labconnect/core';
 import type { Request } from 'express';
 import { DomainError } from '../../common/domain-error.js';
 import { getRequestContext } from '../../common/request-context.js';
-import { PRISMA_CLIENT } from '../platform/platform.providers.js';
 
 /** The most a gateway notification may weigh. Bigger is refused before it is read in full. */
 export const MAX_WEBHOOK_BODY_BYTES = 256 * 1024;
@@ -37,7 +35,7 @@ export class PaymentWebhookController {
 
   constructor(
     @Inject(PaymentsRuntime) private readonly payments: PaymentsRuntime,
-    @Inject(PRISMA_CLIENT) private readonly prisma: PrismaClient,
+    @Inject(TenantScope) private readonly scope: TenantScope,
   ) {}
 
   @Post(':gateway')
@@ -51,7 +49,8 @@ export class PaymentWebhookController {
     const body = await readBody(request);
     const requestId = getRequestContext()?.requestId;
     try {
-      await withDbContext(this.prisma, { kind: 'system' }, (tx) =>
+      // No user and no tenant yet: the notification is stored before anything is matched.
+      await this.scope.runAsSystem('payment gateway notification intake', (tx) =>
         this.payments.service.recordGatewayEvent(tx, {
           gateway: configured,
           headers: lowerCaseHeaders(request),

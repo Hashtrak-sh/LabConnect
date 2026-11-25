@@ -65,7 +65,7 @@ P2-07 is implemented on `feature/P2-07-shared-domain`: `packages/shared/src/` ho
 | P3-01 | Platform: Clock, Config, Audit (hash chain), Outbox + relay, processed_event | H | ☑ |
 | P3-02 | Timers + BusinessCalendar + holiday seed | H | ☑ |
 | P3-03 | Identity: email OTP, sessions, refresh rotation, MFA, step-up | A | ☑ |
-| P3-04 | Guards, CurrentActor, TenantScope, repositories, RLS wiring | H | ☐ |
+| P3-04 | Guards, CurrentActor, TenantScope, repositories, RLS wiring | H | ☑ |
 | P3-05 | Permission-matrix test generator + isolation test harness | A | ☐ |
 | P3-06 | Files: upload URL, quarantine, scan adapter (fake + GuardDuty), validation, download URL | H | ☐ |
 | P3-07 | BookingEngine skeleton (transition function, history, guard trigger integration) | H | ☑ |
@@ -74,6 +74,8 @@ P2-07 is implemented on `feature/P2-07-shared-domain`: `packages/shared/src/` ho
 | P3-10 | Search service: Postgres fallback + OpenSearch index + sync consumer | A | ☐ |
 | P3-11 | IaC: UAT environment | H | ☐ |
 | P3-12 | `deploy-uat.yml` | H | ☐ |
+
+P3-06 is built except what its text calls for and the documents leave open, so it stays ☐: the GuardDuty adapter is a stub (OQ-116), image re-encoding is not done (OQ-118), a PDF library is not used (OQ-117), and the HTTP endpoints belong to the feature modules (P3-04 guards). See "As built (P3-06)" in `docs/05-integrations/FILES_AND_REPORTS.md`.
 
 P3-01 also adds the global exception filter (every error in the shared problem shape) and the `X-Request-Id` middleware. Three expected-failure tests in `apps/api/test/generic-responses.spec.ts` mark these gaps; they become normal tests when P3-01 closes them.
 

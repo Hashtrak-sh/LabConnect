@@ -7,6 +7,7 @@ import {
   TimerService,
   type Clock,
 } from '@labconnect/core';
+import { IdentityModule } from '../identity/identity.module.js';
 import { CLOCK } from '../platform/platform.providers.js';
 import { PlatformModule } from '../platform/platform.module.js';
 import { PaymentWebhookController } from './payment-webhook.controller.js';
@@ -25,7 +26,8 @@ export type PaymentsEnv = Record<string, string | undefined>;
  * production), and reads its secrets only when first used.
  */
 @Module({
-  imports: [PlatformModule],
+  // IdentityModule exports TenantScope, the API's only door to the database (P3-04).
+  imports: [PlatformModule, IdentityModule],
   controllers: [PaymentWebhookController],
   providers: [
     { provide: PAYMENTS_ENV, useFactory: (): PaymentsEnv => process.env },
