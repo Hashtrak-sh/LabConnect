@@ -1,14 +1,20 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { LabDirectoryService, type PublicSiteProfile } from '@labconnect/core';
+import {
+  LabDirectoryQueryError,
+  LabDirectoryService,
+  type PublicScopePage,
+  type PublicScopeQuery,
+  type PublicSiteProfile,
+} from '@labconnect/core';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { configureApp } from '../src/app.config.js';
 import { AppModule } from '../src/app.module.js';
 import { contractRequest } from './support/contract/index.js';
 
-// I1-CUS-02: `GET /v1/public/lab-sites/{siteId}` over the HTTP stack, every exchange held to the
+// I1-CUS-02 and I1-CUS-03: `GET /v1/public/lab-sites/{siteId}` and `.../scope` over the HTTP stack, every exchange held to the
 // contract by contractRequest(). The directory is a stub here; its SQL is tested on the real
 // schema in packages/core/test/db/labs-public-directory.test.ts.
 
@@ -52,11 +58,38 @@ const PROFILE: PublicSiteProfile = {
   ],
 };
 
+const SCOPE_PAGE: PublicScopePage = {
+  lines: [
+    {
+      scopeLineId: '0190d6a2-7c4e-7a1b-9c3d-0123456789d1',
+      certificateNo: 'TC 0001',
+      discipline: { code: 'MECH', name: 'Mechanical' },
+      group: { code: 'METALS', name: 'Metals' },
+      product: { code: 'TMT', name: 'TMT bar' },
+      parameter: { code: 'TENSILE', name: 'Tensile strength' },
+      method: { code: 'IS_1608', name: 'IS 1608' },
+      methodText: null,
+      rangeText: '10-600 kN',
+      siteType: 'PERMANENT',
+      temporarilyUnavailable: false,
+    },
+  ],
+  nextCursor: 'sc1.next',
+};
+
 class StubDirectory {
   readonly asked: string[] = [];
+  readonly scopeQueries: PublicScopeQuery[] = [];
   getPublicSite(siteId: string): Promise<PublicSiteProfile | null> {
     this.asked.push(siteId);
     return Promise.resolve(siteId === SITE ? PROFILE : null);
+  }
+  listPublicScope(siteId: string, query: PublicScopeQuery): Promise<PublicScopePage | null> {
+    this.asked.push(siteId);
+    this.scopeQueries.push(query);
+    if (query.cursor === 'bad')
+      return Promise.reject(new LabDirectoryQueryError('The cursor is not valid.'));
+    return Promise.resolve(siteId === SITE ? SCOPE_PAGE : null);
   }
 }
 
@@ -80,6 +113,7 @@ describe('GET /v1/public/lab-sites/{siteId}', () => {
 
   beforeEach(() => {
     directory.asked.length = 0;
+    directory.scopeQueries.length = 0;
   });
 
   it('returns the public profile, anonymously', async () => {
@@ -115,6 +149,53 @@ describe('GET /v1/public/lab-sites/{siteId}', () => {
       code: 'VALIDATION_FAILED',
       errors: [{ path: 'siteId' }],
     });
+    expect(directory.asked).toEqual([]);
+  });
+
+  // ---------------------------------------------------------------- scope (I1-CUS-03)
+
+  it('lists the scope lines with a page cursor', async () => {
+    const response = await contractRequest(app).get(`/v1/public/lab-sites/${SITE}/scope`);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      data: [{ id: SCOPE_PAGE.lines[0]?.scopeLineId, parameter: { code: 'TENSILE' } }],
+      page: { nextCursor: 'sc1.next', limit: 25 },
+    });
+    expect(directory.scopeQueries).toEqual([{ text: null, cursor: null, limit: 25 }]);
+  });
+
+  it('cleans the search text and passes cursor and limit through', async () => {
+    const response = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/scope?q=%20Tensile%20%20strength%20&cursor=sc1.x&limit=10`,
+    );
+    expect(response.status).toBe(200);
+    expect(directory.scopeQueries).toEqual([
+      { text: 'Tensile strength', cursor: 'sc1.x', limit: 10 },
+    ]);
+    expect(response.body).toMatchObject({ page: { limit: 10 } });
+  });
+
+  it('answers the scope of a site that is not public with 404', async () => {
+    const response = await contractRequest(app).get(`/v1/public/lab-sites/${MISSING}/scope`);
+    expect(response.status).toBe(404);
+  });
+
+  it('answers a cursor the directory refuses with 422', async () => {
+    const response = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/scope?cursor=bad`,
+    );
+    expect(response.status).toBe(422);
+    expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
+
+  it('refuses unknown or repeated parameters and a limit out of range, before asking', async () => {
+    const response = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/scope?sort=name&q=a&q=b&limit=0`,
+      { invalidRequest: 'unknown, repeated and out-of-range parameters must give 422' },
+    );
+    expect(response.status).toBe(422);
+    const paths = (response.body as { errors: { path: string }[] }).errors.map((e) => e.path);
+    expect(paths.sort()).toEqual(['limit', 'q', 'sort']);
     expect(directory.asked).toEqual([]);
   });
 });

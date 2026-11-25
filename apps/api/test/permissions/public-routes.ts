@@ -37,4 +37,9 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
     reason:
       'Public lab site profile (FR-DIS-06, contract security: []). LabDirectoryService reads only public reference data as an anonymous visitor; hidden and missing sites give the same 404.',
   },
+  {
+    route: 'GET /v1/public/lab-sites/:siteId/scope',
+    reason:
+      "A lab site's public scope of accreditation (FR-DIS-06, contract security: []). Public reference data only, read as an anonymous visitor; same 404 rule as the profile.",
+  },
 ];

@@ -60,3 +60,38 @@ export interface PublicSiteProfile {
   /** Ordered by weekday, then opening time. */
   receivingHours: PublicSiteReceivingHours[];
 }
+
+export interface PublicCodeName {
+  code: string;
+  name: string;
+}
+
+/** One public line of a site's scope of accreditation (`PublicScopeLine`, FR-DAT-02). */
+export interface PublicScopeLineItem {
+  /** What a booking line references. */
+  scopeLineId: string;
+  certificateNo: string;
+  discipline: PublicCodeName;
+  group: PublicCodeName | null;
+  product: PublicCodeName | null;
+  parameter: PublicCodeName;
+  method: PublicCodeName | null;
+  methodText: string | null;
+  rangeText: string | null;
+  siteType: string;
+  temporarilyUnavailable: boolean;
+}
+
+export interface PublicScopeQuery {
+  /** Text to search inside the scope, already cleaned by the caller; `null` for the whole scope. */
+  text: string | null;
+  /** The `nextCursor` of the previous page. */
+  cursor: string | null;
+  /** 1 to 100. */
+  limit: number;
+}
+
+export interface PublicScopePage {
+  lines: PublicScopeLineItem[];
+  nextCursor: string | null;
+}

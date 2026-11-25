@@ -132,7 +132,6 @@ listLabSiteClosures
 listLabSlots
 listLabUsers
 listPaymentOrders
-listPublicScopeLines
 listPublicSlots
 listTaxonomyNodes
 placeAdminPayoutHold

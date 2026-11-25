@@ -1,9 +1,17 @@
 import type { components } from '@labconnect/api-contract';
-import type { PublicSiteAccreditation, PublicSiteProfile } from '@labconnect/core';
+import type {
+  PublicScopeLineItem,
+  PublicScopePage,
+  PublicSiteAccreditation,
+  PublicSiteProfile,
+} from '@labconnect/core';
 
 type Schemas = components['schemas'];
 export type PublicLabSite = Schemas['PublicLabSite'];
 type PublicAccreditation = Schemas['PublicAccreditation'];
+export type PublicScopeLineList = Schemas['PublicScopeLineList'];
+type PublicScopeLine = Schemas['PublicScopeLine'];
+type ScopeSiteType = PublicScopeLine['siteType'];
 
 function accreditation(source: PublicSiteAccreditation): PublicAccreditation {
   return {
@@ -36,4 +44,26 @@ export function toPublicLabSite(profile: PublicSiteProfile): PublicLabSite {
     accreditations: profile.accreditations.map(accreditation),
     receivingHours: profile.receivingHours,
   };
+}
+
+function scopeLine(line: PublicScopeLineItem): PublicScopeLine {
+  return {
+    id: line.scopeLineId,
+    certificateNo: line.certificateNo,
+    discipline: line.discipline,
+    group: line.group,
+    product: line.product,
+    parameter: line.parameter,
+    method: line.method,
+    methodText: line.methodText,
+    rangeText: line.rangeText,
+    // The column is the `scope_site_type` enum, which the contract mirrors (test/enums.test.ts).
+    siteType: line.siteType as ScopeSiteType,
+    temporarilyUnavailable: line.temporarilyUnavailable,
+  };
+}
+
+/** The directory's scope page as the `listPublicScopeLines` response. `limit` is the request's. */
+export function toPublicScopeLineList(page: PublicScopePage, limit: number): PublicScopeLineList {
+  return { data: page.lines.map(scopeLine), page: { nextCursor: page.nextCursor, limit } };
 }

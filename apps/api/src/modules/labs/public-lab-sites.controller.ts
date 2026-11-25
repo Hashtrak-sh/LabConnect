@@ -1,7 +1,13 @@
-import { Controller, Get, Inject, Param } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
 import { LabDirectoryService } from '@labconnect/core';
 import { DomainError } from '../../common/domain-error.js';
-import { type PublicLabSite, toPublicLabSite } from './public-lab-site-response.js';
+import { parseScopeQuery } from './public-lab-sites.dto.js';
+import {
+  type PublicLabSite,
+  type PublicScopeLineList,
+  toPublicLabSite,
+  toPublicScopeLineList,
+} from './public-lab-site-response.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -32,5 +38,23 @@ export class PublicLabSitesController {
       throw new DomainError('NOT_FOUND', { detail: 'No listed lab site has this id.' });
     }
     return toPublicLabSite(profile);
+  }
+
+  /**
+   * `listPublicScopeLines` (FR-DIS-06, I1-CUS-03): the site's public scope lines in tree order,
+   * optionally narrowed by `q` with the lab search's text rule (no synonyms yet, OQ-198).
+   */
+  @Get(':siteId/scope')
+  async listPublicScopeLines(
+    @Param('siteId') siteId: string,
+    @Query() query: Record<string, unknown>,
+  ): Promise<PublicScopeLineList> {
+    const id = requireSiteId(siteId);
+    const scopeQuery = parseScopeQuery(query);
+    const page = await this.directory.listPublicScope(id, scopeQuery);
+    if (page === null) {
+      throw new DomainError('NOT_FOUND', { detail: 'No listed lab site has this id.' });
+    }
+    return toPublicScopeLineList(page, scopeQuery.limit);
   }
 }
