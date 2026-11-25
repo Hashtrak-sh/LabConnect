@@ -21,7 +21,7 @@
     "dev:setup": "node scripts/dev-setup.mjs",
     "dev:up": "docker compose up -d --wait",
     "dev:down": "docker compose down",
-    "test:db": "pnpm --filter @labconnect/database test:db",
+    "test:db": "pnpm --filter @labconnect/database --filter @labconnect/core test:db",
     "db:generate": "pnpm --filter @labconnect/database generate",
     "contract:generate": "pnpm --filter @labconnect/api-contract generate",
     "db:migrate": "pnpm --filter @labconnect/database db:migrate:deploy",

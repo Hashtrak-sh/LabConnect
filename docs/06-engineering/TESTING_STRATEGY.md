@@ -38,7 +38,7 @@
 | UI screen | component test | — | — | — | ✔ |
 
 ## 4. Database tests
-- Apply all migrations to an empty DB, then: every table in `SCHEMA_SPECIFICATION.md` exists; every constraint in `INDEXES_AND_CONSTRAINTS.md` (C-01 to C-81) has a test that tries to violate it, and a test fails if one has none; `app_rw` can't UPDATE or DELETE AO tables; RLS hides other tenants' rows; `prisma migrate diff` shows no drift. Run with `pnpm test:db` (needs Docker: the suite starts a PostGIS container, applies the migrations to a template database and gives each test file its own copy).
+- Apply all migrations to an empty DB, then: every table in `SCHEMA_SPECIFICATION.md` exists; every constraint in `INDEXES_AND_CONSTRAINTS.md` (C-01 to C-81) has a test that tries to violate it, and a test fails if one has none; `app_rw` can't UPDATE or DELETE AO tables; RLS hides other tenants' rows; `prisma migrate diff` shows no drift. `pnpm test:db` also runs the database tests of `packages/core` (platform services connected as the real `app_rw` and `app_worker` roles: grants, audit chain, outbox relay, `processOnce`). Run with `pnpm test:db` (needs Docker: the suite starts a PostGIS container, applies the migrations to a template database and gives each test file its own copy).
 
 ## 5. Coverage gates
 - `packages/shared`, domain layers of `booking`, `payments`, `custody`, `reports`: **≥ 90% line, ≥ 85% branch**.

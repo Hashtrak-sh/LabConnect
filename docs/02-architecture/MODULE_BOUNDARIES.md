@@ -2,7 +2,7 @@
 
 **Status:** Approved at gate G1 (2026-11-24).
 
-Backend modules live in `apps/api/src/modules/<module>` (with worker handlers in `apps/worker/src/modules/<module>`). Each module owns its tables. Other modules **must not** read or write those tables directly. They call the owning module's exported service interface or react to its events. `dependency-cruiser` enforces this in CI.
+Backend modules live in `apps/api/src/modules/<module>` (with worker handlers in `apps/worker/src/modules/<module>`). Domain logic that both the API and the worker need lives in `packages/core/src/<module>/` (ADR-020): framework-free TypeScript that the apps wrap in thin Nest providers. The `platform` services are the first to live there. Each module owns its tables. Other modules **must not** read or write those tables directly. They call the owning module's exported service interface or react to its events. `dependency-cruiser` enforces this in CI.
 
 | Module | Owns (tables) | Exposes | Primary owner |
 |---|---|---|---|
@@ -30,7 +30,10 @@ Backend modules live in `apps/api/src/modules/<module>` (with worker handlers in
 6. `admin` is read-only, except where it calls another module's public command (e.g. `DisputeService.decide`).
 7. Cross-module reads for UI composition go through query services. Reporting views (SQL views prefixed `rv_`) are allowed for the admin board.
 
+The dependency rules apply to the module folders of `apps/*/src/modules/` and of `packages/core/src/` alike. Beyond them, `packages/core` imports only `packages/database` and `packages/shared`, never an app and never a Nest package.
+
 ## Shared packages
+- `packages/core`: server-side code shared by the API and the worker, by module folder (`platform/` first). Nest-free; takes time from an injected `Clock`. Depends on `packages/database` and `packages/shared` only (ADR-020).
 - `packages/shared`: enums (roles, states, event codes), the state machine transition table (pure data), money and time helpers, permission codes. **Single source** for both the API and the web app.
 - `packages/validation`: Zod schemas for the TRF, import rows and query params, shared between web and API.
 - `packages/api-contract`: OpenAPI 3.1 YAML plus generated TS types/clients (`openapi-typescript`).
