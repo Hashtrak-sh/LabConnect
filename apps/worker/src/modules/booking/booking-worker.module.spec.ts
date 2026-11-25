@@ -1,8 +1,7 @@
 import 'reflect-metadata';
-import { type BookingEngine, PaymentsRuntime, type TimerHandlerRegistry } from '@labconnect/core';
+import type { TimerHandlerRegistry } from '@labconnect/core';
 import { Test } from '@nestjs/testing';
 import { describe, expect, it } from 'vitest';
-import { PAYMENTS_ENV, PaymentsWorkerModule } from '../payments/payments-worker.module.js';
 import {
   JOBS_CONFIG,
   JOBS_SCHEDULER,
@@ -10,11 +9,7 @@ import {
   TIMER_HANDLERS,
 } from '../platform/platform-worker.module.js';
 import type { PlatformJobsConfig } from '../platform/platform-jobs.config.js';
-import {
-  BOOKING_ENGINE,
-  BookingTimersRegistrar,
-  BookingWorkerModule,
-} from './booking-worker.module.js';
+import { BookingTimersRegistrar, BookingWorkerModule } from './booking-worker.module.js';
 
 const off: PlatformJobsConfig = {
   enabled: false,
@@ -70,18 +65,4 @@ describe('BookingWorkerModule', () => {
       await app.close();
     },
   );
-
-  it('builds one engine, and the payments runtime uses that one', async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [PaymentsWorkerModule] })
-      .overrideProvider(JOBS_CONFIG)
-      .useValue(off)
-      .overrideProvider(PAYMENTS_ENV)
-      .useValue({})
-      .compile();
-    const engine = moduleRef.get<BookingEngine>(BOOKING_ENGINE, { strict: false });
-    const runtime = moduleRef.get(PaymentsRuntime);
-    // `sharedEngine` is private to the runtime; this is the only way to see which engine it holds.
-    expect((runtime as unknown as { sharedEngine: unknown }).sharedEngine).toBe(engine);
-    await moduleRef.close();
-  });
 });

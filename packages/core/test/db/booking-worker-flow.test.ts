@@ -189,13 +189,13 @@ describe('the booking flow through the worker pieces', () => {
       )
     ).map((row) => row.event_type);
 
-  interface Notified {
+  type Notified = {
     event_type: string;
     recipient_user_id: string;
     organisation_id: string;
     channel: string;
     status: string;
-  }
+  };
   const notified = (bookingId: string, type?: string) =>
     h.rows<Notified>(
       `SELECT o.event_type, n.recipient_user_id::text AS recipient_user_id,
