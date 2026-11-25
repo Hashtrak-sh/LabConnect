@@ -111,8 +111,9 @@ You need an AWS account for UAT (OQ-18, OQ-170), credentials with enough rights 
    for each). After any later change to a secret, force a new deployment (`aws ecs update-service --force-new-deployment`):
    ECS reads secrets when a task starts.
 9. **Mail (SES):** verify the sender identity (domain with DKIM, or one address) and leave the sandbox if real recipients
-   need mail. The stack creates the configuration set `labconnect-uat` and lets the worker send as the address in
-   `sesFromAddress`; it does not create the identity (that needs DNS you control).
+   need mail (the sign-in code too: in the sandbox only verified addresses can sign in). The stack creates the
+   configuration set `labconnect-uat` and lets the worker and the API send as the address in `sesFromAddress`; it does
+   not create the identity (that needs DNS you control).
 10. **DNS** (if no hosted zone was given): the alias record `api.<domainName>` to the load balancer (`LoadBalancerDnsName` output),
     and the certificate validation record. Confirm the alarm e-mail subscription.
 11. **Staging check of the scan path** (OQ-168, OQ-169): upload a harmless file and the standard EICAR test string under
@@ -134,10 +135,12 @@ SES-to-bounce handling (no destination is configured); the weekly restore drill 
 
 ## Known gaps a person should know about before relying on UAT
 
-- **Sign-in codes cannot be sent.** The API sends the e-mail OTP with an SMTP adapter that has no TLS and no login
-  (`apps/api/src/modules/identity/smtp-otp-mailer.ts`); UAT has no SMTP server and the API's role does not (and should not
-  need to) send through SES. Until the API's OTP mailer uses the SES sender the worker already has, nobody can sign in on UAT.
-  This is an application change outside this task (OQ-172).
+- **Sign-in codes reach only verified addresses until SES leaves the sandbox.** The API now sends the sign-in code through
+  SES (the worker's sender and configuration set; the API role may `ses:SendEmail` on the same three resources), but nothing
+  is deployed and no mail was sent. It still needs a verified SES identity (the sender address or its domain) and, to reach
+  real users, the account must leave the SES sandbox: in the sandbox SES delivers only to verified addresses, so only a
+  verified address can receive a sign-in code (OQ-172, OQ-175). The API refuses to start without `EMAIL_TRANSPORT=ses`
+  and a from-address, which the task definition sets.
 - **Database TLS verification is untested against RDS.** The images trust the RDS CA bundle (downloaded at image build) and
   the URLs say `sslmode=require`. `pg` and Prisma should both verify; confirm on the first migration run.
 - **No web application** is deployed: `apps/web` is a skeleton. No CloudFront either (OQ-173).

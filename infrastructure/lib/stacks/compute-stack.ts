@@ -162,8 +162,16 @@ export class ComputeStack extends cdk.Stack {
             OPENSEARCH_PASSWORD: ecs.Secret.fromSecretsManager(secrets.openSearchLogin, 'password'),
           };
 
+    // Mail goes through SES from both processes: the worker's notifications and the API's
+    // sign-in code (the same sender and configuration set, OQ-172).
+    const mailEnvironment: Record<string, string> = {
+      EMAIL_TRANSPORT: 'ses',
+      SES_FROM_ADDRESS: config.sesFromAddress,
+      SES_CONFIGURATION_SET: names.sesConfigurationSet,
+    };
     const apiEnvironment: Record<string, string> = {
       ...sharedEnvironment,
+      ...mailEnvironment,
       PORT: String(API_PORT),
       // The load balancer is the only proxy in front of the API (OQ-89). Behind CloudFront too: 2.
       API_TRUST_PROXY_HOPS: '1',
@@ -191,9 +199,7 @@ export class ComputeStack extends cdk.Stack {
       FILES_KMS_KEY_ID: data.filesKey.keyArn,
       // Scan results come from GuardDuty only; "fake" is refused outside development and test.
       FILES_SCANNER: 'guardduty',
-      EMAIL_TRANSPORT: 'ses',
-      SES_FROM_ADDRESS: config.sesFromAddress,
-      SES_CONFIGURATION_SET: names.sesConfigurationSet,
+      ...mailEnvironment,
       WEB_BASE_URL: webOrigin,
       NOTIFICATIONS_CONTEXT_SOURCE: 'booking',
       ...(data.openSearchUrl === undefined ? {} : { SEARCH_REINDEX_ON_START: 'true' }),
@@ -243,9 +249,21 @@ export class ComputeStack extends cdk.Stack {
       return created;
     };
 
+    // The one mail permission both roles hold: send from the configured sender address, its
+    // domain and the configuration set, and nothing else (no wildcard, no other identity).
+    const sendMailResources = [
+      stack.formatArn({ service: 'ses', resource: 'identity', resourceName: sender.address }),
+      stack.formatArn({ service: 'ses', resource: 'identity', resourceName: sender.domain }),
+      stack.formatArn({
+        service: 'ses',
+        resource: 'configuration-set',
+        resourceName: names.sesConfigurationSet,
+      }),
+    ];
+
     // API: presigns uploads into quarantine/ and downloads from clean/. It signs; S3 checks
-    // the signer's permissions when the URL is used. It never touches a queue, reads
-    // quarantined objects or sends mail (the sign-in code's SMTP gap is in the README).
+    // the signer's permissions when the URL is used. It never touches a queue or reads
+    // quarantined objects. Its only mail is the sign-in code (SES, the worker's resources).
     this.apiTaskRole = role('api', 'LabConnect API container');
     this.apiTaskRole.addToPolicy(
       new iam.PolicyStatement({
@@ -262,6 +280,13 @@ export class ComputeStack extends cdk.Stack {
       }),
     );
     this.apiTaskRole.addToPolicy(filesKeyViaS3);
+    this.apiTaskRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'SendSignInMail',
+        actions: ['ses:SendEmail'],
+        resources: sendMailResources,
+      }),
+    );
 
     // Worker: outbox relay (sends to every queue), consumers (files, notifications, search),
     // the scan result processor (reads and deletes quarantined objects, writes clean ones),
@@ -325,15 +350,7 @@ export class ComputeStack extends cdk.Stack {
       new iam.PolicyStatement({
         sid: 'SendMail',
         actions: ['ses:SendEmail'],
-        resources: [
-          stack.formatArn({ service: 'ses', resource: 'identity', resourceName: sender.address }),
-          stack.formatArn({ service: 'ses', resource: 'identity', resourceName: sender.domain }),
-          stack.formatArn({
-            service: 'ses',
-            resource: 'configuration-set',
-            resourceName: names.sesConfigurationSet,
-          }),
-        ],
+        resources: sendMailResources,
       }),
     );
 
