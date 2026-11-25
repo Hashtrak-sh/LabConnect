@@ -3,3 +3,4 @@
 export * from './booking/index.js';
 export * from './platform/index.js';
 export * from './identity/index.js';
+export * from './payments/index.js';
