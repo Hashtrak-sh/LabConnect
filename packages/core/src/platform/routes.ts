@@ -11,9 +11,13 @@
  *   from one stream"), which is also the default for an event type no route mentions, so
  *   an event is never dropped for want of a route.
  *
- * Not routed yet, because no document names the events: `lc-search-sync` (site and scope
- * documents), `lc-files` (scan results, PDF validation, stamping) and `lc-timers`. Add a
- * route here when the consuming task defines the event (OQ-64).
+ * - the events SEARCH.md section 2 names, and the two notification events that also change what
+ *   search shows, go to `lc-search-sync` (P3-10, `SEARCH_SYNC_EVENT_TYPES`). Most of them are not
+ *   emitted yet: the modules that emit them are not built (OQ-158).
+ *
+ * Not routed yet, because no document names the events: `lc-files` (scan results, PDF
+ * validation, stamping) and `lc-timers`. Add a route here when the consuming task defines the
+ * event (OQ-64).
  */
 export const QUEUES = {
   notifications: 'lc-notifications.fifo',
@@ -68,10 +72,26 @@ export const NOTIFICATION_EVENT_TYPES: ReadonlySet<string> = new Set([
   'user.invited',
 ]);
 
+/**
+ * Events that make the search index re-read a site (SEARCH.md section 2). The consumer is
+ * `handleSearchSyncEvent` in `search/sync.ts`; it keeps its own list of the same codes (the
+ * platform module cannot import it), and `routes.test.ts` checks that the two agree.
+ */
+export const SEARCH_SYNC_EVENT_TYPES: ReadonlySet<string> = new Set([
+  'masterdata.published',
+  'pricelist.published',
+  'lab_site.bookability_changed',
+  'slot.capacity_changed',
+  'rating.updated',
+  'accreditation.changed',
+  'lab.became_bookable',
+]);
+
 /** The queues an event type is published to, in order. Never empty. */
 export function queuesFor(eventType: string): QueueName[] {
   const queues: QueueName[] = [];
   if (NOTIFICATION_EVENT_TYPES.has(eventType)) queues.push(QUEUES.notifications);
+  if (SEARCH_SYNC_EVENT_TYPES.has(eventType)) queues.push(QUEUES.searchSync);
   queues.push(QUEUES.analytics);
   return queues;
 }
