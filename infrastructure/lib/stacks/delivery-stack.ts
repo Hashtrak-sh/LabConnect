@@ -3,7 +3,7 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import type { Construct } from 'constructs';
 import type { InfraConfig } from '../config.js';
-import { namesFor } from '../names.js';
+import { namesFor, stackName } from '../names.js';
 
 export interface DeliveryStackProps extends cdk.StackProps {
   config: InfraConfig;
@@ -26,7 +26,7 @@ export function taskRoleNames(config: InfraConfig): string[] {
  * Delivery: the image repositories and the way GitHub Actions gets into the account
  * (CI_CD.md, `deploy-uat.yml`): an OIDC identity provider and a role (`uat-deployer`) that only
  * this repository's workflows, running in the `uat` GitHub environment, can assume. No
- * access keys exist anywhere.
+ * access keys exist anywhere. The role deploys the application, never the infrastructure.
  */
 export class DeliveryStack extends cdk.Stack {
   readonly repositories: Record<ImageService, ecr.Repository>;
@@ -82,22 +82,19 @@ export class DeliveryStack extends cdk.Stack {
         arnFormat: cdk.ArnFormat.SLASH_RESOURCE_NAME,
       });
 
-    // `cdk deploy`: the CDK bootstrap stack's roles do the CloudFormation work. This role can
-    // only hand over to them. Their reach is the CloudFormation execution role chosen at
-    // bootstrap (infrastructure/README.md).
-    const q = config.cdkQualifier;
-    const bootstrapRole = (kind: string): string =>
-      stack.formatArn({
-        service: 'iam',
-        region: '',
-        resource: 'role',
-        resourceName: `cdk-${q}-${kind}-role-${stack.account}-${stack.region}`,
-      });
+    // Not here, on purpose: no `sts:AssumeRole` on the CDK bootstrap roles. The workflow changes
+    // the application only (images, task definitions, services); infrastructure is applied by a
+    // person with their own credentials, because the bootstrap's CloudFormation role is an
+    // administrator by default (OQ-179). What this role can do is exactly what is listed below.
+
+    // Find the targets: the outputs of the compute stack (cluster, migration task family,
+    // subnets, security group). One stack, read only. The ARN ends in the stack's id, which
+    // is only known once the stack exists, hence the final `*`.
     this.deployRole.addToPolicy(
       new iam.PolicyStatement({
-        sid: 'CdkBootstrapRoles',
-        actions: ['sts:AssumeRole'],
-        resources: ['deploy', 'file-publishing', 'image-publishing', 'lookup'].map(bootstrapRole),
+        sid: 'ReadComputeStackOutputs',
+        actions: ['cloudformation:DescribeStacks'],
+        resources: [arn('cloudformation', 'stack', `${stackName(config, 'compute')}/*`)],
       }),
     );
 
@@ -128,17 +125,16 @@ export class DeliveryStack extends cdk.Stack {
     );
 
     // Services: register a task definition per image tag, roll the services, run the
-    // migration task, read what it logged.
+    // migration task and see how it ended. Only what `deploy-uat.yml` calls is granted
+    // (test/deploy-workflow.test.ts compares the two): the role cannot deregister task
+    // definitions, stop or list tasks, or read the log groups. Application logs can hold
+    // personal data and the workflow's own log is public, so a person reads them in AWS.
     const cluster = names.clusterName;
     this.deployRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'EcsTaskDefinitions',
         // These actions do not support resource-level permissions.
-        actions: [
-          'ecs:RegisterTaskDefinition',
-          'ecs:DescribeTaskDefinition',
-          'ecs:DeregisterTaskDefinition',
-        ],
+        actions: ['ecs:RegisterTaskDefinition', 'ecs:DescribeTaskDefinition'],
         resources: ['*'],
       }),
     );
@@ -162,16 +158,8 @@ export class DeliveryStack extends cdk.Stack {
     this.deployRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'EcsWatchTasks',
-        actions: ['ecs:DescribeTasks', 'ecs:StopTask'],
+        actions: ['ecs:DescribeTasks'],
         resources: [arn('ecs', 'task', `${cluster}/*`)],
-      }),
-    );
-    this.deployRole.addToPolicy(
-      new iam.PolicyStatement({
-        sid: 'EcsListTasks',
-        actions: ['ecs:ListTasks'],
-        resources: ['*'],
-        conditions: { ArnEquals: { 'ecs:cluster': arn('ecs', 'cluster', cluster) } },
       }),
     );
     this.deployRole.addToPolicy(
@@ -184,27 +172,6 @@ export class DeliveryStack extends cdk.Stack {
         conditions: { StringEquals: { 'iam:PassedToService': 'ecs-tasks.amazonaws.com' } },
       }),
     );
-    this.deployRole.addToPolicy(
-      new iam.PolicyStatement({
-        sid: 'ReadTaskLogs',
-        actions: ['logs:GetLogEvents', 'logs:FilterLogEvents', 'logs:DescribeLogStreams'],
-        resources: [
-          stack.formatArn({
-            service: 'logs',
-            resource: 'log-group',
-            resourceName: `/labconnect/${config.stage}/*`,
-            arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
-          }),
-          stack.formatArn({
-            service: 'logs',
-            resource: 'log-group',
-            resourceName: `/labconnect/${config.stage}/*:log-stream:*`,
-            arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
-          }),
-        ],
-      }),
-    );
-
     new cdk.CfnOutput(this, 'DeployRoleArn', { value: this.deployRole.roleArn });
     for (const service of IMAGE_SERVICES) {
       new cdk.CfnOutput(this, `${service}RepositoryUri`, {
