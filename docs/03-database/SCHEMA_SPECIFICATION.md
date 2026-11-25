@@ -110,6 +110,8 @@ PK (`consumer`, `event_id`). No STD `id`.
 | `fired_at` | `timestamptz` | yes | |
 | `last_error` | `text` | yes | |
 
+**Cancelling (P3-02).** Requests may insert timers but only the system context may read or update them. The API cancels through two `SECURITY DEFINER` functions, `cancel_timer(id)` and `cancel_timers(aggregate_type, aggregate_id, types)`, which can only move `PENDING` to `CANCELLED` (migration `20261125090000_timer_cancel_functions`, OQ-84).
+
 ### 1.7 `idempotency_record`
 | Column | Type | Null | Notes |
 |---|---|---|---|
