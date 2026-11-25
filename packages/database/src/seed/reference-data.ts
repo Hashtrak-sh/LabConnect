@@ -213,13 +213,16 @@ export const CONFIG_DEFAULTS: ConfigDefault[] = [
 // ---------------------------------------------------------------- holidays
 
 /**
- * The three national holidays that fall on the same date every year. The other
- * gazetted holidays move each year and must come from the official list (OQ-32).
+ * The national holidays that fall on the same date every year. The other gazetted
+ * holidays (Holi, Eid, Diwali, Good Friday and so on) move each year with lunar or
+ * religious calendars and are notified officially. They are not entered from memory and
+ * must come from the official list (OQ-32).
  */
 export const FIXED_NATIONAL_HOLIDAYS = [
   { month: 1, day: 26, name: 'Republic Day' },
   { month: 8, day: 15, name: 'Independence Day' },
   { month: 10, day: 2, name: 'Mahatma Gandhi Jayanti' },
+  { month: 12, day: 25, name: 'Christmas Day' },
 ];
 
 // ---------------------------------------------------------------- QR signing keys
