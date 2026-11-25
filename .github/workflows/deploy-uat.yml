@@ -6,7 +6,7 @@
 # Variables it reads (none is a secret; there are no GitHub secrets, only OIDC):
 #   UAT_DEPLOY_ENABLED       repository variable, must be 'true' (job gate; environment variables are not visible to it)
 #   AWS_UAT_DEPLOY_ROLE_ARN  the DeployRoleArn output of the Delivery stack
-#   AWS_REGION               optional, default ap-south-1
+#   AWS_REGION               optional repository variable, default ap-south-1
 #   UAT_API_BASE_URL         optional, origin of the API for the smoke test; without it the smoke test is skipped
 name: deploy-uat
 
@@ -61,7 +61,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_UAT_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION || 'ap-south-1' }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Find the deployment targets
         run: |

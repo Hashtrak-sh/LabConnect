@@ -7,7 +7,9 @@ import { DeployCheckError } from './errors.mjs';
 
 /**
  * Fields that `describe-task-definition` returns and `register-task-definition` refuses
- * (they describe a registered revision, they are not part of its definition). Everything
+ * (they describe a registered revision, they are not part of its definition). The list is the
+ * members of the API's TaskDefinition type that are not request parameters of
+ * RegisterTaskDefinition, compared on the two API reference pages on 2026-11-25. Everything
  * else is passed through untouched, so a field this list does not know stays as it is: if
  * AWS ever adds a read-only one, registration fails loudly instead of the script dropping
  * a setting silently.
@@ -21,6 +23,7 @@ export const READ_ONLY_FIELDS = [
   'registeredAt',
   'registeredBy',
   'deregisteredAt',
+  'deleteRequestedAt',
 ];
 
 // Docker's rule for a tag: up to 128 of letters, digits, underscore, period and dash, not

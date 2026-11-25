@@ -280,8 +280,6 @@ describe('GitHub OIDC deploy role', () => {
       'ecr:GetAuthorizationToken',
       'ecs:RegisterTaskDefinition',
       'ecs:DescribeTaskDefinition',
-      'ecs:DeregisterTaskDefinition',
-      'ecs:ListTasks',
     ]);
     for (const statement of wildcardResources(deploy)) {
       for (const action of actionsOf(statement))
@@ -318,15 +316,20 @@ describe('GitHub OIDC deploy role', () => {
     expect(deploy.map((s) => s.Sid).sort()).toEqual([
       'EcrLogin',
       'EcrPush',
-      'EcsListTasks',
       'EcsRunMigration',
       'EcsServices',
       'EcsTaskDefinitions',
       'EcsWatchTasks',
       'PassTaskRoles',
       'ReadComputeStackOutputs',
-      'ReadTaskLogs',
     ]);
+    // Nothing the workflow does not call: it cannot deregister task definitions, stop or list
+    // tasks, or read application logs (they can hold personal data; the workflow log is public).
+    const actions = deploy.flatMap(actionsOf);
+    for (const unused of ['ecs:DeregisterTaskDefinition', 'ecs:StopTask', 'ecs:ListTasks']) {
+      expect(actions).not.toContain(unused);
+    }
+    expect(actions.filter((action) => action.startsWith('logs:'))).toEqual([]);
   });
 
   it('may pass only the six task and execution roles, and only to ECS tasks', () => {

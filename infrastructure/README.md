@@ -138,15 +138,16 @@ most, and has these statements and no others (a test lists them):
 | `ReadComputeStackOutputs` | `cloudformation:DescribeStacks` | stack `LabConnect-uat-compute` (the ARN ends in the stack id, hence `/*`) |
 | `EcrLogin` | `ecr:GetAuthorizationToken` | `*` (cannot be narrowed) |
 | `EcrPush` | the layer upload, `PutImage`, `BatchGetImage`, `DescribeImages` actions | the three repositories |
-| `EcsTaskDefinitions` | register, describe, deregister a task definition | `*` (cannot be narrowed) |
+| `EcsTaskDefinitions` | register and describe a task definition | `*` (cannot be narrowed) |
 | `EcsServices` | `ecs:UpdateService`, `ecs:DescribeServices` | the `api` and `worker` services |
 | `EcsRunMigration` | `ecs:RunTask` | revisions of `labconnect-uat-migrate`, in the UAT cluster only |
-| `EcsWatchTasks` | `ecs:DescribeTasks`, `ecs:StopTask` | tasks of the UAT cluster |
-| `EcsListTasks` | `ecs:ListTasks` | `*`, only with the UAT cluster as condition |
+| `EcsWatchTasks` | `ecs:DescribeTasks` | tasks of the UAT cluster |
 | `PassTaskRoles` | `iam:PassRole` | the six task and execution roles, only to `ecs-tasks.amazonaws.com` |
-| `ReadTaskLogs` | read log events | the log groups under `/labconnect/uat/` |
 
-It cannot assume any role, create IAM objects, or touch the database, the secrets, the queues or the bucket. Its reach
+Each statement is something the workflow calls; a test compares the two. It cannot assume any role, create IAM objects,
+deregister task definitions, stop or list tasks, read the log groups, or touch the database, the secrets, the queues or
+the bucket. Logs are left out on purpose: application logs can hold personal data and this repository's workflow logs are
+public, so a person reads the log groups in AWS. Its reach
 through `iam:PassRole` is the six container roles: a task definition it registers can run any command with those roles'
 permissions, so registering one is as powerful as the task roles are. That is why the `uat` environment and who may start
 the workflow matter (OQ-185).
@@ -165,7 +166,7 @@ The workflow does nothing (its job is skipped) until you set the gate variable. 
    |---|---|---|
    | `UAT_DEPLOY_ENABLED` | **repository** variable (a job's `if` cannot see environment variables) | `true` to enable; delete it or set anything else to disable |
    | `AWS_UAT_DEPLOY_ROLE_ARN` | repository or the `uat` environment | the `DeployRoleArn` output of the `Delivery` stack |
-   | `AWS_REGION` | optional, either | default `ap-south-1` |
+   | `AWS_REGION` | optional, **repository** variable (it is read before the job enters the environment) | default `ap-south-1` |
    | `UAT_API_BASE_URL` | optional, either | origin of the API, for example `https://api.<domainName>`. Unset: the smoke test is skipped |
 
 3. Run it once by hand (Actions, deploy-uat, Run workflow, on `main`) and read the job summary before relying on pushes.

@@ -119,9 +119,21 @@ describe('buildRegisterInput', () => {
   it('drops the read-only fields', () => {
     const input = buildRegisterInput(described(), options);
     for (const field of READ_ONLY_FIELDS) expect(input).not.toHaveProperty(field);
-    expect(READ_ONLY_FIELDS).toEqual(
-      expect.arrayContaining(['taskDefinitionArn', 'revision', 'status', 'requiresAttributes']),
-    );
+    // The members of the API's TaskDefinition type that RegisterTaskDefinition does not take.
+    expect([...READ_ONLY_FIELDS].sort()).toEqual([
+      'compatibilities',
+      'deleteRequestedAt',
+      'deregisteredAt',
+      'registeredAt',
+      'registeredBy',
+      'requiresAttributes',
+      'revision',
+      'status',
+      'taskDefinitionArn',
+    ]);
+    const deleting = described();
+    deleting.taskDefinition.deleteRequestedAt = '2026-01-01T00:00:00Z';
+    expect(buildRegisterInput(deleting, options)).not.toHaveProperty('deleteRequestedAt');
     expect(Object.keys(input).sort()).toEqual(
       [
         'containerDefinitions',

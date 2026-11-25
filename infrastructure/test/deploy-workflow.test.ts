@@ -170,6 +170,7 @@ describe('deploy-uat.yml shape', () => {
     expect(new Set([...text.matchAll(/\$\{\{\s*([\w.]+)/g)].map((m) => m[1]))).toEqual(
       new Set([
         'github.sha',
+        'env.AWS_REGION',
         'vars.AWS_REGION',
         'vars.AWS_UAT_DEPLOY_ROLE_ARN',
         'vars.UAT_API_BASE_URL',

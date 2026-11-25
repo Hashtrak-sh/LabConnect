@@ -125,17 +125,16 @@ export class DeliveryStack extends cdk.Stack {
     );
 
     // Services: register a task definition per image tag, roll the services, run the
-    // migration task, read what it logged.
+    // migration task and see how it ended. Only what `deploy-uat.yml` calls is granted
+    // (test/deploy-workflow.test.ts compares the two): the role cannot deregister task
+    // definitions, stop or list tasks, or read the log groups. Application logs can hold
+    // personal data and the workflow's own log is public, so a person reads them in AWS.
     const cluster = names.clusterName;
     this.deployRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'EcsTaskDefinitions',
         // These actions do not support resource-level permissions.
-        actions: [
-          'ecs:RegisterTaskDefinition',
-          'ecs:DescribeTaskDefinition',
-          'ecs:DeregisterTaskDefinition',
-        ],
+        actions: ['ecs:RegisterTaskDefinition', 'ecs:DescribeTaskDefinition'],
         resources: ['*'],
       }),
     );
@@ -159,16 +158,8 @@ export class DeliveryStack extends cdk.Stack {
     this.deployRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'EcsWatchTasks',
-        actions: ['ecs:DescribeTasks', 'ecs:StopTask'],
+        actions: ['ecs:DescribeTasks'],
         resources: [arn('ecs', 'task', `${cluster}/*`)],
-      }),
-    );
-    this.deployRole.addToPolicy(
-      new iam.PolicyStatement({
-        sid: 'EcsListTasks',
-        actions: ['ecs:ListTasks'],
-        resources: ['*'],
-        conditions: { ArnEquals: { 'ecs:cluster': arn('ecs', 'cluster', cluster) } },
       }),
     );
     this.deployRole.addToPolicy(
@@ -181,27 +172,6 @@ export class DeliveryStack extends cdk.Stack {
         conditions: { StringEquals: { 'iam:PassedToService': 'ecs-tasks.amazonaws.com' } },
       }),
     );
-    this.deployRole.addToPolicy(
-      new iam.PolicyStatement({
-        sid: 'ReadTaskLogs',
-        actions: ['logs:GetLogEvents', 'logs:FilterLogEvents', 'logs:DescribeLogStreams'],
-        resources: [
-          stack.formatArn({
-            service: 'logs',
-            resource: 'log-group',
-            resourceName: `/labconnect/${config.stage}/*`,
-            arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
-          }),
-          stack.formatArn({
-            service: 'logs',
-            resource: 'log-group',
-            resourceName: `/labconnect/${config.stage}/*:log-stream:*`,
-            arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
-          }),
-        ],
-      }),
-    );
-
     new cdk.CfnOutput(this, 'DeployRoleArn', { value: this.deployRole.roleArn });
     for (const service of IMAGE_SERVICES) {
       new cdk.CfnOutput(this, `${service}RepositoryUri`, {
