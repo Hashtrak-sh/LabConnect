@@ -13,6 +13,8 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:contract": "turbo run test:contract",
+    "test:permissions": "turbo run test:permissions",
+    "test:isolation": "turbo run test:isolation",
     "lint": "pnpm db:generate && pnpm contract:generate && turbo run build --filter=\"./packages/*\" && eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

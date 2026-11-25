@@ -104,6 +104,37 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:contract
 
+  # Permission matrix (P3-05): every implemented route that declares permissions, as every role of
+  # the shared permission map, plus the declaration rules (public-route allow-list, guards, x-roles,
+  # step-up). Needs Docker (Testcontainers), which ubuntu-latest has. See TESTING_STRATEGY.md section 9.
+  permissions:
+    name: permissions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:permissions
+
+  # Tenant isolation (P3-05): two tenants of each kind against every tenant-scoped route with an id,
+  # and the registry coverage rule. Needs Docker (Testcontainers).
+  isolation:
+    name: isolation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:isolation
+
   audit:
     name: audit
     runs-on: ubuntu-latest
@@ -140,10 +171,6 @@ jobs:
         include:
           - check: integration
             task: Phase 3
-          - check: permissions
-            task: P3-05
-          - check: isolation
-            task: P3-05
           - check: workflow
             task: Phase 5
           - check: e2e-smoke

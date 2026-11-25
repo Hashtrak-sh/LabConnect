@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { randomBytes, generateKeyPairSync, randomUUID } from 'node:crypto';
 import type { INestApplication, ModuleMetadata } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import type { Server } from 'node:http';
 import { base32Decode, FixedClock, InMemoryOtpMailer, totpAt } from '@labconnect/core';
 import type { Prisma } from '@labconnect/database';
@@ -78,7 +78,13 @@ let ipCounter = 0;
  * Every request comes from its own address (`X-Forwarded-For`, one trusted proxy hop), so
  * the per-IP OTP limit does not couple unrelated tests.
  */
-export function useIdentityApp(setup: { imports?: ModuleMetadata['imports'] } = {}) {
+export function useIdentityApp(
+  setup: {
+    imports?: ModuleMetadata['imports'];
+    /** Replaces providers or guards before the module is compiled (negative controls). */
+    configure?: (builder: TestingModuleBuilder) => TestingModuleBuilder;
+  } = {},
+) {
   const platform = usePlatform();
   const clock = new FixedClock(START);
   const mailer = new InMemoryOtpMailer();
@@ -88,7 +94,7 @@ export function useIdentityApp(setup: { imports?: ModuleMetadata['imports'] } = 
 
   beforeAll(async () => {
     process.env.API_TRUST_PROXY_HOPS = '1';
-    const moduleRef = await Test.createTestingModule({
+    const builder = Test.createTestingModule({
       imports: [AppModule, ...(setup.imports ?? [])],
     })
       .overrideProvider(PRISMA_CLIENT)
@@ -98,8 +104,8 @@ export function useIdentityApp(setup: { imports?: ModuleMetadata['imports'] } = 
       .overrideProvider(OTP_MAILER)
       .useValue(mailer)
       .overrideProvider(IDENTITY_ENV)
-      .useValue(env)
-      .compile();
+      .useValue(env);
+    const moduleRef = await (setup.configure?.(builder) ?? builder).compile();
     app = moduleRef.createNestApplication<INestApplication<Server>>();
     configureApp(app);
     await app.init();
@@ -231,8 +237,16 @@ export function useIdentityApp(setup: { imports?: ModuleMetadata['imports'] } = 
     };
   };
 
-  const owner = <T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> =>
-    platform.owner().$transaction(work);
+  const owner = <T>(
+    work: (tx: Prisma.TransactionClient) => Promise<T>,
+    options?: { maxWait?: number; timeout?: number },
+  ): Promise<T> => platform.owner().$transaction(work, options);
+
+  /** The running app, for tests that call routes with their own request builder. */
+  const appOf = (): INestApplication<Server> => {
+    if (!app) throw new Error('the app is not ready');
+    return app;
+  };
 
   const personOf = async (id: string): Promise<Person> => {
     const row = await platform
@@ -281,6 +295,7 @@ export function useIdentityApp(setup: { imports?: ModuleMetadata['imports'] } = 
     env,
     api,
     probe,
+    app: appOf,
     owner,
     fixtures,
     newEmail,

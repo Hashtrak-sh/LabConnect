@@ -38,6 +38,22 @@ function requirement(
 }
 
 /**
+ * What a route (a handler and its controller) declares, read the way `PermissionGuard` reads it:
+ * the method's declaration replaces its controller's. `undefined` is a route with no declaration,
+ * which the guard refuses. Read-only: the coverage tests (P3-05) use it to see every route's
+ * requirement without repeating the metadata key.
+ */
+export function permissionRequirementOf(
+  handler: object,
+  controller: object,
+): PermissionRequirement | undefined {
+  return (
+    (Reflect.getMetadata(PERMISSION_REQUIREMENT, handler) as PermissionRequirement | undefined) ??
+    (Reflect.getMetadata(PERMISSION_REQUIREMENT, controller) as PermissionRequirement | undefined)
+  );
+}
+
+/**
  * The actor must hold **every** listed permission (AND). `@RequirePermission('booking.decide')`.
  * Role level only (ROLES_AND_PERMISSIONS section 3): a permission the role holds as `OWN` or
  * `CONDITIONAL` passes here and is enforced again by the domain service.

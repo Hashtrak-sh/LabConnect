@@ -11,6 +11,8 @@
     "test": "vitest run --project unit --project http",
     "test:integration": "vitest run --project http-db",
     "test:contract": "vitest run --project http --project http-db --project contract-final",
+    "test:permissions": "vitest run --project http --project permissions-db test/permissions/ test/integration/permissions/ test/admin-roles-permissions",
+    "test:isolation": "vitest run --project http --project isolation-db test/isolation/ test/integration/isolation/",
     "contract:update-not-implemented": "vitest run --mode update-not-implemented --project http test/contract/endpoints.spec.ts"
   },
   "dependencies": {

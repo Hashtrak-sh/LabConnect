@@ -43,3 +43,6 @@ Full E2E on UAT, axe accessibility, OWASP ZAP baseline on UAT, dependency audit,
 | `dev-lab`, `dev-customer`, `feature/*` | none (CI only) | push / PR | — |
 | `main` | UAT | merge | PR review |
 | `production` | Production | merge of release PR | **Manual environment approval** |
+
+## 4. As built (P3-05)
+`ci.yml` has real jobs `permissions` (`pnpm test:permissions`) and `isolation` (`pnpm test:isolation`), shaped like `contract`: checkout, pnpm, install, one command. Both start a PostGIS container through Testcontainers, so they need Docker (ubuntu-latest has it). The job names are the required status checks of section 1 and must not change. `pnpm test:contract` does not run them again. The declaration and coverage rules (no database) also run in `pnpm test`, job `unit`.

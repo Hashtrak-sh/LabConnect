@@ -9,7 +9,7 @@ import { IdentityService } from './identity.service.js';
 const STEP_UP = 'identity:stepUp';
 
 /** `maxAgeSeconds: undefined` is the default of 5 minutes (`IDENTITY_POLICY.stepUpMaxAgeSeconds`). */
-interface StepUpRequirement {
+export interface StepUpRequirement {
   readonly maxAgeSeconds: number | undefined;
 }
 
@@ -26,6 +26,17 @@ export const RequireStepUp = (maxAgeSeconds?: number): MethodDecorator & ClassDe
   }
   return SetMetadata<string, StepUpRequirement>(STEP_UP, { maxAgeSeconds });
 };
+
+/**
+ * The step-up a route (a handler and its controller) declares, read the way `MfaGuard` reads it:
+ * the method's declaration replaces its controller's. Read-only, for the coverage tests (P3-05).
+ */
+export function stepUpOf(handler: object, controller: object): StepUpRequirement | undefined {
+  return (
+    (Reflect.getMetadata(STEP_UP, handler) as StepUpRequirement | undefined) ??
+    (Reflect.getMetadata(STEP_UP, controller) as StepUpRequirement | undefined)
+  );
+}
 
 /**
  * The last guard of AUTHENTICATION_AND_AUTHORISATION.md section 3: step-up MFA, for routes that
