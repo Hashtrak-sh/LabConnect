@@ -36,7 +36,7 @@ The OTP is sent to `lab_site.contact_email` from **NABL-imported data only** (ne
 
 ## 7. As built (P3-03)
 
-Code: the logic is in `packages/core/src/identity/` (framework-free; functions take a `Prisma.TransactionClient` and a `Clock`, the caller owns the transaction). The HTTP layer is `apps/api/src/modules/identity/` (controllers, `AuthGuard`, `@CurrentSession()`, `@AllowPartialSession()`, the SMTP mailer). Where this document and the OpenAPI contract disagree, the contract wins; the differences are listed at the end of this section.
+Code: the logic is in `packages/core/src/identity/` (framework-free; functions take a `Prisma.TransactionClient` and a `Clock`, the caller owns the transaction). The HTTP layer is `apps/api/src/modules/identity/` (controllers, `AuthGuard`, `@CurrentSession()`, `@AllowPartialSession()`, the e-mail `OtpMailer` adapter). Where this document and the OpenAPI contract disagree, the contract wins; the differences are listed at the end of this section.
 
 **Sign-in.**
 - `requestOtp` stores `HMAC-SHA256(AUTH_HASH_SECRET, code | challenge id)` and `HMAC` of the normalised email (`destination_hash`); the code is 6 digits from `crypto.randomInt`. A new request closes the open challenges of that address, so only the newest code works. The code is sent by the `OtpMailer` port after the transaction commits; it is never written to the outbox, the audit log or a log (OQ-65). No user is read, so the answer does not depend on whether the address has an account. Limits: 5 per 15 minutes per address, 20 per hour per IP, counted in `otp_challenge` (OQ-88); a request over a limit stores nothing and gets `429 RATE_LIMITED` with `Retry-After`.
@@ -62,7 +62,7 @@ Code: the logic is in `packages/core/src/identity/` (framework-free; functions t
 **Tests.** Unit: `packages/core/src/identity/*.test.ts`, `apps/api/src/modules/identity/*.spec.ts`. Database (real tables, grants, RLS, `app_rw`): `packages/core/test/db/identity-*.test.ts` (`pnpm test:db`). HTTP (`contractRequest`, real database): `apps/api/test/integration/` (project `http-db`, run by `pnpm test:contract`; see TESTING_STRATEGY section 8).
 
 **Contract and document differences.**
-- This document says the OTP is emailed via SES; until P3-08 it goes over SMTP (Mailpit locally, `SMTP_HOST`).
+- The OTP is emailed through the `EmailSender` the notifications worker uses (`EMAIL_TRANSPORT`): SES when deployed, Mailpit over SMTP on a developer machine (`SMTP_HOST`). The API refuses to start in production or UAT without a real sender. The message is sent directly after the commit, never through the outbox, the `notification` table or the templates; a failed send gives a bare 500 with no detail, and the code and the address are never logged or kept in the error (OQ-172).
 - ADR-006 and this document put throttles in Redis; the OTP limits are counted in the database (OQ-88).
 - The contract requires `Idempotency-Key` on every identity POST; it is accepted and ignored (OQ-87).
 - The contract's `refresh` says only "cookie scoped to the API domain"; the path is limited to `/v1/auth` as well.

@@ -6,7 +6,8 @@ import type { IdentityHasher } from './hasher.js';
 /**
  * Sends the sign-in code by email. It is a port of its own, outside the outbox, because an
  * event payload is stored and queued and an OTP must be neither (OQ-65, CLAUDE.md section 5).
- * Adapters: SMTP to Mailpit for local work (apps/api); SES with task P3-08.
+ * Adapter: `EmailOtpMailer` in apps/api, on the `EmailSender` of the notifications module (Mailpit locally, SES when
+ * deployed). It lives in the app because identity may not import notifications (MODULE_BOUNDARIES rules 2 and 5).
  */
 export interface OtpMailer {
   sendLoginOtp(message: OtpMessage): Promise<void>;

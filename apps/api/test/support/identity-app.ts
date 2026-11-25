@@ -12,7 +12,7 @@ import { usePlatform } from '../../../../packages/core/test/db/support.js';
 import { configureApp } from '../../src/app.config.js';
 import { AppModule } from '../../src/app.module.js';
 import { IDENTITY_ENV, type IdentityEnv } from '../../src/modules/identity/identity.runtime.js';
-import { OTP_MAILER } from '../../src/modules/identity/smtp-otp-mailer.js';
+import { OTP_MAILER } from '../../src/modules/identity/otp-mailer.js';
 import { CLOCK, PRISMA_CLIENT } from '../../src/modules/platform/platform.providers.js';
 import {
   contractRequest,

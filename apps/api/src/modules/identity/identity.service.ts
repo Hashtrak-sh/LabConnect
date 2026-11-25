@@ -32,7 +32,7 @@ import {
 import type { Prisma } from '@labconnect/database';
 import { CLOCK } from '../platform/platform.providers.js';
 import { IdentityRuntime } from './identity.runtime.js';
-import { OTP_MAILER } from './smtp-otp-mailer.js';
+import { OTP_MAILER } from './otp-mailer.js';
 
 /** The session behind a verified access token. */
 export interface AuthenticatedSession extends SessionRecord {

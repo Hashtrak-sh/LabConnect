@@ -27,9 +27,9 @@ export const NOT_SET_IN_UAT: Record<string, string> = {
   FILES_S3_FORCE_PATH_STYLE: 'LocalStack only',
   FILES_S3_SSE_KMS: 'local emulators only: SSE-KMS stays on (the default)',
   FILES_DEV_AUTO_SCAN: 'development and test only: the worker refuses it when deployed',
-  // mail: the worker uses SES; the API's sign-in code still uses SMTP (README: known gap)
-  SMTP_HOST: 'Mailpit only; no SMTP server exists in UAT (README: sign-in code gap)',
-  SMTP_PORT: 'Mailpit only; no SMTP server exists in UAT (README: sign-in code gap)',
+  // mail: the worker and the API (sign-in code) both send through SES
+  SMTP_HOST: 'Mailpit only; no SMTP server exists in UAT (the API and the worker use SES)',
+  SMTP_PORT: 'Mailpit only; no SMTP server exists in UAT (the API and the worker use SES)',
   // set by hand when the platform administrator is seeded, never in a task definition
   PLATFORM_ADMIN_EMAIL: 'given when seed:platform-admin is run (README: One-time setup)',
   PLATFORM_ADMIN_NAME: 'given when seed:platform-admin is run (README: One-time setup)',
