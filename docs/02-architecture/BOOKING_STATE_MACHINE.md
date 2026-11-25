@@ -1,6 +1,6 @@
 # Booking state machine
 
-**Status:** DRAFT for gate G1/G2. This document is authoritative. `packages/shared/src/booking-state-machine.ts` must match it exactly, and a test asserts that equality.
+**Status:** Approved at gates G1 and G2 (2026-11-25). This document is authoritative. `packages/shared/src/booking-state-machine.ts` must match it exactly, and a test asserts that equality.
 
 ## 1. States
 

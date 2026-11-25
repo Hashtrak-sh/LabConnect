@@ -1,6 +1,6 @@
 # Error handling
 
-**Status:** DRAFT for gate G2.
+**Status:** Approved at gate G2 (2026-11-25).
 
 ## 1. Error envelope (RFC 9457 problem+json compatible)
 ```json

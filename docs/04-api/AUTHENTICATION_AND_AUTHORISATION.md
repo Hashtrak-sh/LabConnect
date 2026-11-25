@@ -1,6 +1,6 @@
 # Authentication and authorisation
 
-**Status:** DRAFT for gate G2. Decision: ADR-006 (in-house passwordless auth on NestJS, with Amazon Cognito recorded as an alternative).
+**Status:** Approved at gate G2 (2026-11-25). Decision: ADR-006 (in-house passwordless auth on NestJS, with Amazon Cognito recorded as an alternative).
 
 ## 1. Sign-in (MVP)
 1. `POST /auth/otp/request {email}` → 6-digit OTP, 10-minute expiry, emailed via SES. The response is always 202.

@@ -51,7 +51,7 @@ Single-developer period (from 2026-11-24): A is not working on the project for n
 | P2-06 | Payments (adapter-level), disputes, admin | S (H) | P2-01 | ☑ |
 | P2-07 | `packages/shared`: state machine table + doc-equality test, permissions map, error codes | S (H) | P2-01 | ☑ |
 | P2-08 | Contract test harness | S (A) | P2-01 | ☑ |
-| P2-09 | **G2 review and sign-off** | S | P2-02..08 | ☐ |
+| P2-09 | **G2 review and sign-off** | S | P2-02..08 | ☑ |
 
 P2-01 is implemented on `feature/P2-01-openapi-skeleton`: the split contract in `packages/api-contract/openapi/` (shared components, API_CONTRACTS §1 and `/health`), generation, Redocly lint and the contract convention tests; done when that PR merges.
 

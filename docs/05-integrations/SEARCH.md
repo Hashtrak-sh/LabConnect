@@ -1,6 +1,6 @@
 # Search
 
-**Status:** DRAFT for gate G2.
+**Status:** Approved at gate G2 (2026-11-25).
 
 ## 1. Index design (OpenSearch)
 Index `lab_scope_v{n}` (alias `lab_scope`). **One document per active scope line** at a listed site, denormalised:

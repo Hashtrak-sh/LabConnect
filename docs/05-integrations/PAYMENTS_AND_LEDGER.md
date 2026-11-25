@@ -1,6 +1,6 @@
 # Payments, refunds, payouts and ledger
 
-**Status:** DRAFT for gate G1/G2. The ledger chart of accounts needs Finance review (OQ-08).
+**Status:** Approved at gates G1 and G2 (2026-11-25). The ledger chart of accounts needs Finance review (OQ-08).
 
 ## 1. Money rules
 - Integer paise everywhere: `bigint` in the database and in TypeScript domain code. JSON carries `amountPaise` as a number, because realistic values are far below 2^53. A lint rule forbids floating-point arithmetic on money.
