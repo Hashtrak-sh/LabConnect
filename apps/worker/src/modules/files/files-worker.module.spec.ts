@@ -15,6 +15,7 @@ const config = (overrides: Partial<FilesWorkerConfig>): FilesWorkerConfig => ({
   enabled: false,
   consumeQueue: false,
   devScan: false,
+  scanner: 'guardduty',
   intervalMs: 10,
   batchSize: 5,
   ...overrides,

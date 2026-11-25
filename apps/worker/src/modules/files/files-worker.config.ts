@@ -1,4 +1,10 @@
-import { isDevScanEnabled, QUEUES, queueUrlsFromEnv } from '@labconnect/core';
+import {
+  type FilesScannerMode,
+  isDevScanEnabled,
+  QUEUES,
+  queueUrlsFromEnv,
+  readFilesScannerMode,
+} from '@labconnect/core';
 
 export interface FilesWorkerConfig {
   /** Both a worker database and a bucket are configured. Otherwise no files job starts. */
@@ -7,6 +13,8 @@ export interface FilesWorkerConfig {
   consumeQueue: boolean;
   /** `FILES_DEV_AUTO_SCAN=true` in development or test: uploads are scanned by the fake scanner. */
   devScan: boolean;
+  /** `FILES_SCANNER`: whose scan results are trusted. `guardduty` by default; `fake` only in development and test. */
+  scanner: FilesScannerMode;
   intervalMs: number;
   batchSize: number;
 }
@@ -26,16 +34,19 @@ function positiveInteger(
 }
 
 /**
- * Throws `DevScanForbiddenError` when `FILES_DEV_AUTO_SCAN=true` is set outside development
+
+ * Throws `DevScanForbiddenError` when `FILES_SCANNER=fake` or `FILES_DEV_AUTO_SCAN=true` is set outside development
  * and test, so a misconfigured deployment refuses to start instead of running a fake scanner.
  */
 export function readFilesWorkerConfig(
   env: Record<string, string | undefined> = process.env,
 ): FilesWorkerConfig {
+  const scanner = readFilesScannerMode(env);
   return {
     enabled: Boolean(env.WORKER_DATABASE_URL) && Boolean(env.FILES_BUCKET),
     consumeQueue: queueUrlsFromEnv(env)[QUEUES.files] !== undefined,
     devScan: isDevScanEnabled(env),
+    scanner,
     intervalMs: positiveInteger(env, 'FILES_POLL_INTERVAL_MS', 2_000),
     batchSize: positiveInteger(env, 'FILES_POLL_BATCH_SIZE', 10),
   };

@@ -36,6 +36,44 @@ export function isDevScanEnabled(env: Record<string, string | undefined> = proce
   return true;
 }
 
+export const FILES_SCANNER_VARIABLE = 'FILES_SCANNER';
+export type FilesScannerMode = 'guardduty' | 'fake';
+
+/**
+ * Which scanner the worker trusts: `guardduty` (the default, and the only one that may run
+ * in production: results come from GuardDuty Malware Protection for S3 through the queue) or
+ * `fake` (development and test only). Fails fast, so a worker does not start in a state
+ * that would be unsafe:
+ *   - `fake` outside `NODE_ENV` development or test (production, unset or unknown) throws
+ *     `DevScanForbiddenError`; production never runs with the fake scanner, not even by a
+ *     forgotten variable;
+ *   - an unknown value throws;
+ *   - `FILES_DEV_AUTO_SCAN=true` with an explicit `FILES_SCANNER=guardduty` is a contradiction
+ *     and throws; with `FILES_SCANNER` unset it selects `fake` (and is itself refused outside
+ *     development and test).
+ */
+export function readFilesScannerMode(
+  env: Record<string, string | undefined> = process.env,
+): FilesScannerMode {
+  const raw = env[FILES_SCANNER_VARIABLE];
+  const devScan = env[DEV_AUTO_SCAN_VARIABLE] === 'true';
+  let mode: FilesScannerMode;
+  if (raw === undefined || raw === '') {
+    mode = devScan ? 'fake' : 'guardduty';
+  } else if (raw === 'guardduty' || raw === 'fake') {
+    mode = raw;
+  } else {
+    throw new RangeError(`${FILES_SCANNER_VARIABLE} must be "guardduty" or "fake".`);
+  }
+  if (mode === 'fake') assertDevScanAllowed(env);
+  if (devScan && mode !== 'fake') {
+    throw new RangeError(
+      `${DEV_AUTO_SCAN_VARIABLE}=true needs ${FILES_SCANNER_VARIABLE}=fake (or leave it unset).`,
+    );
+  }
+  return mode;
+}
+
 export interface DevScanDeps {
   prisma: Pick<PrismaClient, '$transaction'>;
   storage: ObjectStorage;

@@ -7,10 +7,7 @@ import {
   FAKE_INFECTED_MARKER,
   FakeMalwareScanner,
   fileIdFromQuarantineKey,
-  GUARDDUTY_NOT_CONFIGURED,
-  GuardDutyMalwareScanner,
   MalformedScanMessageError,
-  parseGuardDutyScanResultEvent,
   parseScanResultMessage,
 } from './scanner.js';
 import { InMemoryObjectStorage } from './storage.js';
@@ -38,13 +35,6 @@ describe('FakeMalwareScanner', () => {
     expect(await verdict('quarantine/X/broken')).toBe('ERROR');
     expect(await verdict('quarantine/X/absent')).toBe('ERROR');
     expect(scanner.scanned).toHaveLength(5);
-  });
-});
-
-describe('the GuardDuty adapter is a stub', () => {
-  it('throws "not configured" rather than guess an event shape', async () => {
-    await expect(new GuardDutyMalwareScanner().scan()).rejects.toThrow(GUARDDUTY_NOT_CONFIGURED);
-    expect(() => parseGuardDutyScanResultEvent({ any: 'event' })).toThrow('not configured');
   });
 });
 

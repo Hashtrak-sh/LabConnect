@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createHash } from 'node:crypto';
 import { type DbContext, type FilePurpose, type Prisma, withDbContext } from '@labconnect/database';
 import { createCustomer } from '@labconnect/database/test-utils';
+import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import {
   AuditService,
@@ -15,6 +16,7 @@ import {
   type FilesConfig,
   FilesError,
   FixedClock,
+  GuardDutyMalwareScanner,
   InMemoryObjectStorage,
   InMemoryQueueConsumer,
   ObjectChangedError,
@@ -51,6 +53,10 @@ describe('files', () => {
     override head(bucket: string, key: string) {
       this.check('head');
       return super.head(bucket, key);
+    }
+    override putObject(request: Parameters<ObjectStorage['putObject']>[0]) {
+      this.check('putObject');
+      return super.putObject(request);
     }
     override copy(request: Parameters<ObjectStorage['copy']>[0]) {
       this.check('copy');
@@ -800,6 +806,342 @@ describe('files', () => {
       const result = await consumeFilesQueue(queue, s.processor);
       expect(result).toEqual({ received: 2, acknowledged: 0, failed: 1, left: 1 });
       expect(queue.pending(QUEUES.files)).toBe(2);
+    });
+  });
+
+  describe('GuardDuty results, end to end', () => {
+    // Event structure as documented at
+    // https://docs.aws.amazon.com/guardduty/latest/ug/monitor-with-eventbridge-s3-malware-protection.html
+    const guardDutyEvent = (
+      ticket: UploadTicket,
+      options: {
+        etag: string;
+        scanStatus?: string;
+        resultStatus?: string;
+        id?: string;
+        bucket?: string;
+        key?: string;
+        threats?: unknown;
+      },
+    ) => ({
+      version: '0',
+      id: options.id ?? randomUUID(),
+      'detail-type': 'GuardDuty Malware Protection Object Scan Result',
+      source: 'aws.guardduty',
+      account: '111122223333',
+      time: '2026-11-25T10:00:00Z',
+      region: 'ap-south-1',
+      resources: ['arn:aws:guardduty:ap-south-1:111122223333:malware-protection-plan/b4c7f464'],
+      detail: {
+        schemaVersion: '1.0',
+        scanStatus: options.scanStatus ?? 'COMPLETED',
+        resourceType: 'S3_OBJECT',
+        s3ObjectDetails: {
+          bucketName: options.bucket ?? config.bucket,
+          objectKey: options.key ?? ticket.key,
+          eTag: options.etag,
+          versionId: 'v1',
+          s3Throttled: false,
+        },
+        scanResultDetails: {
+          scanResultStatus: options.resultStatus ?? 'NO_THREATS_FOUND',
+          threats: options.threats ?? null,
+          statusReasons: null,
+        },
+      },
+    });
+
+    const etagOf = async (s: ReturnType<typeof setup>, ticket: UploadTicket) =>
+      (await s.storage.head(ticket.bucket, ticket.key))?.etag.replaceAll('"', '') ?? '';
+
+    async function deliver(s: ReturnType<typeof setup>, events: unknown[]) {
+      const queue = new InMemoryQueueConsumer();
+      for (const event of events) queue.send(QUEUES.files, JSON.stringify(event));
+      const guardDuty = new GuardDutyMalwareScanner(() => config);
+      const result = await consumeFilesQueue(
+        queue,
+        s.processor,
+        { maxMessages: 10 },
+        { guardDuty, acceptPlatformEnvelope: false },
+      );
+      return { result, guardDuty, queue };
+    }
+
+    it('NO_THREATS_FOUND makes the file CLEAN, with the right hash', async () => {
+      const s = setup();
+      const t = await tenants();
+      const bytes = minimalPdf();
+      const ticket = await upload(s, t, { bytes });
+      const event = guardDutyEvent(ticket, { etag: await etagOf(s, ticket) });
+      const { result, queue } = await deliver(s, [event]);
+      expect(result).toEqual({ received: 1, acknowledged: 1, failed: 0, left: 0 });
+      expect(queue.pending(QUEUES.files)).toBe(0);
+      const stored = await row(ticket.fileId);
+      expect(stored).toMatchObject({
+        scan_status: 'CLEAN',
+        object_key: `clean/REPORT_ORIGINAL/${ticket.fileId}`,
+      });
+      expect(stored?.sha256?.toString('hex')).toBe(
+        createHash('sha256').update(bytes).digest('hex'),
+      );
+      expect(s.storage.violations).toEqual([]);
+    });
+
+    it('THREATS_FOUND makes the file INFECTED and keeps it out of the clean prefix', async () => {
+      const s = setup();
+      const t = await tenants();
+      const ticket = await upload(s, t, { bytes: minimalPdf() });
+      const event = guardDutyEvent(ticket, {
+        etag: await etagOf(s, ticket),
+        resultStatus: 'THREATS_FOUND',
+        threats: [{ name: 'EICAR-Test-File (not a virus)', source: 'AMAZON' }],
+      });
+      await deliver(s, [event]);
+      expect((await row(ticket.fileId))?.scan_status).toBe('INFECTED');
+      expect(s.storage.keys(config.bucket).filter((key) => key.startsWith('clean/'))).toEqual([]);
+      expect(s.storage.has(config.bucket, ticket.key)).toBe(true);
+    });
+
+    it.each([
+      ['UNSUPPORTED', 'SKIPPED'],
+      ['ACCESS_DENIED', 'SKIPPED'],
+      ['FAILED', 'FAILED'],
+    ])(
+      '%s is a scan error: not clean, and a later result can still decide the file',
+      async (resultStatus, scanStatus) => {
+        const s = setup();
+        const t = await tenants();
+        const ticket = await upload(s, t, { bytes: minimalPdf() });
+        const etag = await etagOf(s, ticket);
+        await deliver(s, [guardDutyEvent(ticket, { etag, resultStatus, scanStatus })]);
+        expect((await row(ticket.fileId))?.scan_status).toBe('ERROR');
+        expect(s.storage.keys(config.bucket).filter((key) => key.startsWith('clean/'))).toEqual([]);
+
+        await deliver(s, [guardDutyEvent(ticket, { etag })]);
+        expect((await row(ticket.fileId))?.scan_status).toBe('CLEAN');
+      },
+    );
+
+    it('does not promote an object that was replaced between the scan and the processing', async () => {
+      const s = setup();
+      const t = await tenants();
+      const ticket = await upload(s, t, { bytes: minimalPdf() });
+      const scannedEtag = await etagOf(s, ticket);
+      // The client re-uploads through its still-valid URL after GuardDuty scanned the first object.
+      const replacement = minimalPdf({ bodyExtra: '<< /S /JavaScript /JS (x) >>' });
+      s.storage.put(ticket.bucket, ticket.key, replacement, 'application/pdf');
+
+      await deliver(s, [guardDutyEvent(ticket, { etag: scannedEtag })]);
+      expect((await row(ticket.fileId))?.scan_status).toBe('ERROR');
+      expect(s.storage.keys(config.bucket).filter((key) => key.startsWith('clean/'))).toEqual([]);
+
+      // GuardDuty scans the replacement too; that result, with its own ETag, decides.
+      await deliver(s, [guardDutyEvent(ticket, { etag: await etagOf(s, ticket) })]);
+      const stored = await row(ticket.fileId);
+      expect(stored?.scan_status).toBe('REJECTED'); // the replacement is not the declared size
+      expect(stored?.validation_errors?.reasons).toContain('SIZE_MISMATCH');
+    });
+
+    it('does not apply a verdict that names another key (another purpose) than the file', async () => {
+      const s = setup();
+      const t = await tenants();
+      const ticket = await upload(s, t, { bytes: minimalPdf() });
+      const otherKey = `quarantine/KYC_DOCUMENT/${ticket.fileId}`;
+      await deliver(s, [guardDutyEvent(ticket, { etag: await etagOf(s, ticket), key: otherKey })]);
+      expect((await row(ticket.fileId))?.scan_status).toBe('ERROR');
+    });
+
+    it('processes a duplicate event once', async () => {
+      const s = setup();
+      const t = await tenants();
+      const ticket = await upload(s, t, { bytes: minimalPdf() });
+      const event = guardDutyEvent(ticket, { etag: await etagOf(s, ticket) });
+      const { result } = await deliver(s, [event, event]);
+      expect(result).toMatchObject({ received: 2, acknowledged: 2, failed: 0 });
+      expect((await row(ticket.fileId))?.scan_status).toBe('CLEAN');
+      const events = await db().query(`SELECT 1 FROM outbox_event WHERE aggregate_id = $1`, [
+        ticket.fileId,
+      ]);
+      expect(events.rowCount).toBe(1);
+      const processed = await db().query(
+        `SELECT 1 FROM processed_event WHERE consumer = 'files.scan-result' AND event_id = $1::uuid`,
+        [event.id],
+      );
+      expect(processed.rowCount).toBe(1); // the EventBridge event id is the idempotency key
+    });
+
+    it('ignores, and counts, events for another bucket or the clean prefix, leaving the file PENDING', async () => {
+      const s = setup();
+      const t = await tenants();
+      const ticket = await upload(s, t, { bytes: minimalPdf() });
+      const etag = await etagOf(s, ticket);
+      const { result, guardDuty } = await deliver(s, [
+        guardDutyEvent(ticket, { etag, bucket: 'another-bucket' }),
+        guardDutyEvent(ticket, { etag, key: `clean/REPORT_ORIGINAL/${ticket.fileId}` }),
+      ]);
+      expect(result).toEqual({ received: 2, acknowledged: 2, failed: 0, left: 0 });
+      expect(guardDuty.ignored).toMatchObject({ WRONG_BUCKET: 1, WRONG_PREFIX: 1 });
+      expect((await row(ticket.fileId))?.scan_status).toBe('PENDING');
+    });
+
+    it('refuses the platform envelope when only GuardDuty may decide (production wiring)', async () => {
+      const s = setup();
+      const t = await tenants();
+      const ticket = await upload(s, t, { bytes: minimalPdf() });
+      const envelope = buildScanResultEnvelope(scanMessage(ticket.fileId), clock.now());
+      const { result } = await deliver(s, [envelope]);
+      expect(result).toMatchObject({ acknowledged: 0, left: 1 });
+      expect((await row(ticket.fileId))?.scan_status).toBe('PENDING');
+    });
+  });
+
+  describe('images: EXIF stripped and re-encoded before promotion', () => {
+    const exifJpeg = async () =>
+      sharp({ create: { width: 64, height: 32, channels: 3, background: '#3366aa' } })
+        .withExif({
+          IFD0: { Make: 'LabConnectTestCamera' },
+          IFD3: {
+            GPSLatitudeRef: 'N',
+            GPSLatitude: '12/1 58/1 0/1',
+            GPSLongitudeRef: 'E',
+            GPSLongitude: '77/1 35/1 0/1',
+          },
+        })
+        .withMetadata({ orientation: 6 })
+        .jpeg()
+        .toBuffer();
+
+    it('stores the re-encoded bytes, with their hash and size, and no EXIF or GPS', async () => {
+      const s = setup();
+      const t = await tenants();
+      const original = await exifJpeg();
+      const ticket = await upload(s, t, {
+        bytes: original,
+        purpose: 'KYC_DOCUMENT',
+        contentType: 'image/jpeg',
+      });
+      s.storage.calls.length = 0;
+      expect(await s.processor.handle(scanMessage(ticket.fileId))).toEqual({
+        outcome: 'applied',
+        status: 'CLEAN',
+      });
+      expect(s.storage.calls).toEqual(['head', 'read', 'putObject', 'delete']);
+
+      const stored = await row(ticket.fileId);
+      const cleanKey = `clean/KYC_DOCUMENT/${ticket.fileId}`;
+      expect(stored).toMatchObject({
+        scan_status: 'CLEAN',
+        object_key: cleanKey,
+        detected_content_type: 'image/jpeg',
+      });
+      const out = s.storage.bytesOf(config.bucket, cleanKey);
+      if (!out) throw new Error('no clean object');
+      const meta = await sharp(out).metadata();
+      expect(meta.exif).toBeUndefined();
+      expect(Buffer.from(out).toString('latin1')).not.toContain('LabConnectTestCamera');
+      expect([meta.width, meta.height]).toEqual([32, 64]); // orientation applied to the pixels
+
+      // The hash and the size are those of the stored object, not of what was uploaded.
+      expect(stored?.sha256?.toString('hex')).toBe(createHash('sha256').update(out).digest('hex'));
+      expect(stored?.sha256?.toString('hex')).not.toBe(
+        createHash('sha256').update(original).digest('hex'),
+      );
+      const size = await db().query<{ size_bytes: string }>(
+        `SELECT size_bytes::text FROM file_object WHERE id = $1`,
+        [ticket.fileId],
+      );
+      expect(Number(size.rows[0]?.size_bytes)).toBe(out.byteLength);
+      expect(out.byteLength).not.toBe(original.byteLength);
+
+      // Audit and outbox say which size is which.
+      const audit = await db().query<{ after: Record<string, unknown> }>(
+        `SELECT after FROM audit_log WHERE entity_id = $1`,
+        [ticket.fileId],
+      );
+      expect(audit.rows[0]?.after).toMatchObject({
+        status: 'CLEAN',
+        reencoded: true,
+        storedSizeBytes: out.byteLength,
+        uploadedSizeBytes: original.byteLength,
+      });
+      const events = await db().query<{ payload: Record<string, unknown> }>(
+        `SELECT payload FROM outbox_event WHERE aggregate_id = $1`,
+        [ticket.fileId],
+      );
+      expect(JSON.stringify(events.rows[0]?.payload)).toContain('"reencoded":true');
+      // The quarantine original is deleted, exactly as for other types.
+      expect(s.storage.has(config.bucket, ticket.key)).toBe(false);
+      expect(s.storage.violations).toEqual([]);
+    });
+
+    it('rejects a decompression bomb with a reason code and promotes nothing', async () => {
+      const s = setup();
+      const t = await tenants();
+      // A tiny, valid PNG header that declares 60000 x 60000 pixels.
+      const header = Buffer.alloc(13);
+      header.writeUInt32BE(60_000, 0);
+      header.writeUInt32BE(60_000, 4);
+      header[8] = 8;
+      const chunk = (type: string, data: Buffer) => {
+        const length = Buffer.alloc(4);
+        length.writeUInt32BE(data.length);
+        return Buffer.concat([length, Buffer.from(type, 'latin1'), data, Buffer.alloc(4)]);
+      };
+      const bomb = Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        chunk('IHDR', header),
+        chunk('IDAT', Buffer.alloc(8)),
+        chunk('IEND', Buffer.alloc(0)),
+      ]);
+      const ticket = await upload(s, t, {
+        bytes: bomb,
+        purpose: 'KYC_DOCUMENT',
+        contentType: 'image/png',
+      });
+      await s.processor.handle(scanMessage(ticket.fileId));
+      const stored = await row(ticket.fileId);
+      expect(stored?.scan_status).toBe('REJECTED');
+      expect(stored?.validation_errors?.reasons).toEqual(['IMAGE_TOO_LARGE']);
+      expect(s.storage.keys(config.bucket).filter((key) => key.startsWith('clean/'))).toEqual([]);
+    });
+
+    it('rejects a corrupt image, a PDF sent as a JPEG, and a HEIC (not decodable here)', async () => {
+      const s = setup();
+      const t = await tenants();
+      const good = await exifJpeg();
+      const corrupt = await upload(s, t, {
+        bytes: good.subarray(0, good.length / 2),
+        purpose: 'KYC_DOCUMENT',
+        contentType: 'image/jpeg',
+      });
+      const renamed = await upload(s, t, {
+        bytes: minimalPdf(),
+        purpose: 'KYC_DOCUMENT',
+        contentType: 'image/jpeg',
+      });
+      const heic = await upload(s, t, {
+        bytes: Buffer.concat([
+          Buffer.from([0, 0, 0, 24]),
+          Buffer.from('ftypheic', 'latin1'),
+          Buffer.alloc(12),
+        ]),
+        purpose: 'RECEIPT_PHOTO',
+        contentType: 'image/heic',
+      });
+      for (const ticket of [corrupt, renamed, heic]) {
+        await s.processor.handle(scanMessage(ticket.fileId));
+      }
+      expect((await row(corrupt.fileId))?.validation_errors?.reasons).toEqual(['IMAGE_INVALID']);
+      expect((await row(renamed.fileId))?.validation_errors?.reasons).toContain(
+        'CONTENT_TYPE_MISMATCH',
+      );
+      expect((await row(heic.fileId))?.validation_errors?.reasons).toEqual([
+        'IMAGE_FORMAT_UNSUPPORTED',
+      ]);
+      for (const ticket of [corrupt, renamed, heic]) {
+        expect((await row(ticket.fileId))?.scan_status).toBe('REJECTED');
+      }
+      expect(s.storage.keys(config.bucket).filter((key) => key.startsWith('clean/'))).toEqual([]);
     });
   });
 
