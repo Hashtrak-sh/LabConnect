@@ -96,7 +96,6 @@ getLabRetentionRules
 getLabSite
 getLabSlotTemplates
 getPaymentReturnStatus
-getPublicLabSite
 getPublicPriceList
 importAdminSettlementReport
 listAdminAttributeDefinitions

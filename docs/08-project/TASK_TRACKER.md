@@ -102,7 +102,7 @@ Kicked off 2026-11-25 by A. Backend first: screens (`apps/web`) wait for the D-0
 | ID | Task | Refs | Depends | Status |
 |---|---|---|---|---|
 | I1-CUS-01 | `GET /public/search/labs` (`searchLabs`): query parsing, pincode port, controller over `LazySearchService` | FR-DIS-01..05, AC-DIS-01/02/05, EC-05 | P3-10, OQ-153 (pincode) | ☑ |
-| I1-CUS-02 | `GET /public/lab-sites/{siteId}` profile (`getPublicLabSite`) | FR-DIS-06, AC-DIS-03/04, EC-06 | P3-04 | ☐ |
+| I1-CUS-02 | `GET /public/lab-sites/{siteId}` profile (`getPublicLabSite`) | FR-DIS-06, AC-DIS-03/04, EC-06 | P3-04 | ☑ |
 | I1-CUS-03 | `GET /public/lab-sites/{siteId}/scope` with search inside the scope | FR-DIS-06 | I1-CUS-02 | ☐ |
 | I1-CUS-04 | `GET /public/lab-sites/{siteId}/prices` (bookable sites only) | FR-DIS-06, FR-BKG-03 | I1-CUS-02 | ☐ |
 | I1-CUS-05 | `GET /public/lab-sites/{siteId}/slots` (no capacity counts) | FR-BKG-04, EC-13 | I1-CUS-02 | ☐ |
@@ -111,6 +111,8 @@ Kicked off 2026-11-25 by A. Backend first: screens (`apps/web`) wait for the D-0
 | I1-CUS-08 | `GET /public/search/suggest` (typeahead) | FR-DIS-01 | I1-CUS-01 | ☐ |
 | I1-CUS-09 | Public rate limits (60/min search, leads per OQ-194) | API_CONVENTIONS §7 | OQ-88 (Redis limiter, shared with H) | ☐ |
 | I1-CUS-10 | Search, lab page and request-a-lab screens | FR-DIS-01..07 | D-03, D-04 | ☐ |
+
+I1-CUS-02 builds the first piece of the `labs` module, which @Hashtrak-sh owns: the public read side of `LabDirectoryService` (`packages/core/src/labs/`, `apps/api/src/modules/labs/`). A built it at the owner's agreement to review, so it is a shared change. It also moves `withPublicReadContext` from `search` to `platform` and the accreditation verification URL helper into `labs`, because MODULE_BOUNDARIES rule 5 forbids importing `search`. The rule for which sites are public repeats search's `visibleLinesSql` until search reads through this service (OQ-152); the database test checks both give the same answer for every site of the search world.
 
 ## Phase 6–7
 | ID | Task | Owner | Status |

@@ -2,7 +2,7 @@ import { Prisma, type PrismaClient } from '@labconnect/database';
 import type { Clock } from '../platform/clock.js';
 import type { SearchIndex } from './index-port.js';
 import type { LabSearchDocument, SiteDocuments } from './model.js';
-import { withPublicReadContext } from './public-context.js';
+import { withPublicReadContext } from '../platform/public-context.js';
 import { type VisibleLineRow, rowToDocument, visibleLinesSql } from './visible-lines.js';
 
 export type ProjectionScope =

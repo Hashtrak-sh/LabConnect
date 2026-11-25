@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@labconnect/database';
 import type { Clock } from '../platform/clock.js';
-import { withPublicReadContext } from './public-context.js';
+import { withPublicReadContext } from '../platform/public-context.js';
 import type { SynonymMap } from './query.js';
 
 export interface SynonymSource {
