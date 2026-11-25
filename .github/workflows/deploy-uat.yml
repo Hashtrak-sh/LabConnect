@@ -1,0 +1,171 @@
+# Deploys the application to UAT (task P3-12). See docs/06-engineering/CI_CD.md, "As built (P3-12)".
+#
+# It changes the application only: images, the migration task and the api and worker services.
+# It never runs CDK and never changes infrastructure; a person does that (infrastructure/README.md).
+# It does nothing until a person sets the repository variable UAT_DEPLOY_ENABLED to 'true'.
+# Variables it reads (none is a secret; there are no GitHub secrets, only OIDC):
+#   UAT_DEPLOY_ENABLED       repository variable, must be 'true' (job gate; environment variables are not visible to it)
+#   AWS_UAT_DEPLOY_ROLE_ARN  the DeployRoleArn output of the Delivery stack
+#   AWS_REGION               optional, default ap-south-1
+#   UAT_API_BASE_URL         optional, origin of the API for the smoke test; without it the smoke test is skipped
+name: deploy-uat
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-uat
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NAME_PREFIX: labconnect-uat
+  COMPUTE_STACK: LabConnect-uat-compute
+  IMAGE_TAG: ${{ github.sha }}
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  DEPLOY_SCRIPT: infrastructure/scripts/deploy/cli.mjs
+
+jobs:
+  deploy:
+    name: deploy-uat
+    # Skipped (not failed) unless a person enabled it. A manual run must be started on main.
+    if: vars.UAT_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: uat
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the configuration
+        env:
+          ROLE_ARN: ${{ vars.AWS_UAT_DEPLOY_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ROLE_ARN" ]; then
+            echo "The variable AWS_UAT_DEPLOY_ROLE_ARN is not set (see infrastructure/README.md)." >&2
+            exit 1
+          fi
+          node --version
+
+      - name: Assume the UAT deploy role (OIDC)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_UAT_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-south-1' }}
+
+      - name: Find the deployment targets
+        run: |
+          set -euo pipefail
+          aws cloudformation describe-stacks --stack-name "$COMPUTE_STACK" --output json > "$RUNNER_TEMP/stack.json"
+          node "$DEPLOY_SCRIPT" stack-outputs < "$RUNNER_TEMP/stack.json" >> "$GITHUB_ENV"
+          account_id="$(aws sts get-caller-identity --query Account --output text)"
+          echo "::add-mask::$account_id"
+          echo "REGISTRY=${account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com" >> "$GITHUB_ENV"
+          {
+            echo "## Deploy UAT"
+            echo ""
+            echo "- Commit: \`${IMAGE_TAG}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build and push the images
+        run: |
+          set -euo pipefail
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
+          for service in api worker migrate; do
+            repository="labconnect/${service}"
+            aws ecr batch-get-image --repository-name "$repository" --image-ids "imageTag=${IMAGE_TAG}" \
+              --query '{images: images[].imageId, failures: failures}' --output json > "$RUNNER_TEMP/image-${service}.json"
+            exists="$(node "$DEPLOY_SCRIPT" image-exists < "$RUNNER_TEMP/image-${service}.json")"
+            if [ "$exists" = "true" ]; then
+              # Tags are immutable: a re-run of the same commit finds its image already there.
+              echo "Image ${repository}:${IMAGE_TAG} already exists: not pushed again."
+              state="already in the registry"
+            else
+              docker build --target "$service" --tag "${REGISTRY}/${repository}:${IMAGE_TAG}" .
+              docker push "${REGISTRY}/${repository}:${IMAGE_TAG}"
+              state="built and pushed"
+            fi
+            echo "- Image \`${repository}:${IMAGE_TAG}\`: ${state}" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Run the database migration
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition --task-definition "$MIGRATE_FAMILY" --output json > "$RUNNER_TEMP/migrate-current.json"
+          node "$DEPLOY_SCRIPT" task-definition-input --container migrate --tag "$IMAGE_TAG" --repository labconnect/migrate \
+            < "$RUNNER_TEMP/migrate-current.json" > "$RUNNER_TEMP/migrate-new.json"
+          migrate_arn="$(aws ecs register-task-definition --cli-input-json "file://${RUNNER_TEMP}/migrate-new.json" \
+            --query taskDefinition.taskDefinitionArn --output text)"
+          echo "- Migration task definition: \`${migrate_arn##*/}\`" >> "$GITHUB_STEP_SUMMARY"
+          aws ecs run-task --cluster "$CLUSTER_NAME" --launch-type FARGATE --count 1 --task-definition "$migrate_arn" \
+            --network-configuration "awsvpcConfiguration={subnets=[${PRIVATE_SUBNET_IDS}],securityGroups=[${MIGRATE_SECURITY_GROUP_ID}],assignPublicIp=DISABLED}" \
+            --output json > "$RUNNER_TEMP/migrate-run.json"
+          task_arn="$(node "$DEPLOY_SCRIPT" run-task-arn < "$RUNNER_TEMP/migrate-run.json")"
+          aws ecs wait tasks-stopped --cluster "$CLUSTER_NAME" --tasks "$task_arn"
+          aws ecs describe-tasks --cluster "$CLUSTER_NAME" --tasks "$task_arn" --output json > "$RUNNER_TEMP/migrate-done.json"
+          node "$DEPLOY_SCRIPT" migration-result < "$RUNNER_TEMP/migrate-done.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy the api and worker services
+        run: |
+          set -euo pipefail
+          for service in api worker; do
+            family="${NAME_PREFIX}-${service}"
+            aws ecs describe-task-definition --task-definition "$family" --output json > "$RUNNER_TEMP/${service}-current.json"
+            node "$DEPLOY_SCRIPT" task-definition-input --container "$service" --tag "$IMAGE_TAG" --repository "labconnect/${service}" \
+              < "$RUNNER_TEMP/${service}-current.json" > "$RUNNER_TEMP/${service}-new.json"
+            new_arn="$(aws ecs register-task-definition --cli-input-json "file://${RUNNER_TEMP}/${service}-new.json" \
+              --query taskDefinition.taskDefinitionArn --output text)"
+            echo "- Task definition of ${service}: \`${new_arn##*/}\`" >> "$GITHUB_STEP_SUMMARY"
+            aws ecs update-service --cluster "$CLUSTER_NAME" --service "$family" --task-definition "$new_arn" --output json > /dev/null
+            aws ecs wait services-stable --cluster "$CLUSTER_NAME" --services "$family"
+            # "Stable" can also mean "rolled back to the old version": check what really runs.
+            aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$family" --output json > "$RUNNER_TEMP/${service}-service.json"
+            node "$DEPLOY_SCRIPT" rollout-result --service "$family" --task-definition "$new_arn" \
+              < "$RUNNER_TEMP/${service}-service.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Smoke test
+        env:
+          API_BASE_URL: ${{ vars.UAT_API_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$API_BASE_URL" ]; then
+            echo "UAT_API_BASE_URL is not set: smoke test skipped."
+            echo "- Smoke test: skipped (UAT_API_BASE_URL is not set)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          url="$(node "$DEPLOY_SCRIPT" health-url --base "$API_BASE_URL")"
+          passed=false
+          for attempt in 1 2 3 4 5 6; do
+            : > "$RUNNER_TEMP/health.txt"
+            status="$(curl --silent --show-error --max-time 10 --output "$RUNNER_TEMP/health.txt" --write-out '%{http_code}' "$url" || true)"
+            if node "$DEPLOY_SCRIPT" health-check --status "${status:-0}" < "$RUNNER_TEMP/health.txt"; then
+              passed=true
+              break
+            fi
+            echo "Attempt ${attempt} failed."
+            sleep 10
+          done
+          if [ "$passed" != "true" ]; then
+            echo "- Smoke test: failed" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "- Smoke test: passed" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Result
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          echo "- Result: ${JOB_STATUS}" >> "$GITHUB_STEP_SUMMARY"
