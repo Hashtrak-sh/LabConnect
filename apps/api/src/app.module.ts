@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { FilesModule } from './modules/files/files.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
+import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { PaymentsModule } from './modules/payments/payments.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
 
@@ -8,6 +9,6 @@ import { PlatformModule } from './modules/platform/platform.module.js';
 // custody, reports, payments, disputes, notifications, admin) are added from
 // Phase 3 onwards. See docs/02-architecture/MODULE_BOUNDARIES.md.
 @Module({
-  imports: [PlatformModule, IdentityModule, FilesModule, PaymentsModule],
+  imports: [PlatformModule, IdentityModule, FilesModule, PaymentsModule, NotificationsModule],
 })
 export class AppModule {}
