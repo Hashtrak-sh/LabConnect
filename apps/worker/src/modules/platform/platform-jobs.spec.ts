@@ -22,12 +22,12 @@ const ok = (month: string): AuditChainVerification => ({
 describe('relay job', () => {
   it('goes again while batches come back full, and stops at the first short one', async () => {
     const results = [
-      { published: 5, failed: 0, deferred: 0 },
-      { published: 5, failed: 0, deferred: 0 },
-      { published: 2, failed: 1, deferred: 0 },
+      { published: 5, failed: 0, deferred: 0, busy: false },
+      { published: 5, failed: 0, deferred: 0, busy: false },
+      { published: 2, failed: 1, deferred: 0, busy: false },
     ];
     const relay = vi.fn(() =>
-      Promise.resolve(results.shift() ?? { published: 0, failed: 0, deferred: 0 }),
+      Promise.resolve(results.shift() ?? { published: 0, failed: 0, deferred: 0, busy: false }),
     );
     const log = logger();
     await createRelayJob({ relay, batchSize: 5, intervalMs: 1000, logger: log }).run();
@@ -36,7 +36,9 @@ describe('relay job', () => {
   });
 
   it('does not hammer failing rows: a pass that publishes nothing ends the run', async () => {
-    const relay = vi.fn(() => Promise.resolve({ published: 0, failed: 5, deferred: 0 }));
+    const relay = vi.fn(() =>
+      Promise.resolve({ published: 0, failed: 5, deferred: 0, busy: false }),
+    );
     await createRelayJob({ relay, batchSize: 5, intervalMs: 1000, logger: logger() }).run();
     expect(relay).toHaveBeenCalledTimes(1);
   });
@@ -44,7 +46,7 @@ describe('relay job', () => {
   it('stays quiet when there is nothing to do', async () => {
     const log = logger();
     await createRelayJob({
-      relay: () => Promise.resolve({ published: 0, failed: 0, deferred: 0 }),
+      relay: () => Promise.resolve({ published: 0, failed: 0, deferred: 0, busy: false }),
       batchSize: 5,
       intervalMs: 1000,
       logger: log,
@@ -53,7 +55,9 @@ describe('relay job', () => {
   });
 
   it('is capped, so one run cannot loop forever on a busy outbox', async () => {
-    const relay = vi.fn(() => Promise.resolve({ published: 5, failed: 0, deferred: 0 }));
+    const relay = vi.fn(() =>
+      Promise.resolve({ published: 5, failed: 0, deferred: 0, busy: false }),
+    );
     await createRelayJob({ relay, batchSize: 5, intervalMs: 1000, logger: logger() }).run();
     expect(relay).toHaveBeenCalledTimes(10);
   });

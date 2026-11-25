@@ -33,7 +33,7 @@
 
 - Event envelope: `{ id, type, version, occurredAt, aggregate: {type, id}, actor: {userId, role, orgId} | 'SYSTEM', data }`.
 - Event names follow `NOTIFICATIONS_MATRIX.md` codes plus the analytics events in FS §14.1.
-- **As built (P3-01).** `outbox_event.payload` holds `{ actor, data }`; the relay builds the envelope from the columns and the payload (OQ-63). The routing table is `packages/core/src/platform/routes.ts` (OQ-64): matrix codes go to `lc-notifications.fifo` and every event to `lc-analytics`. FIFO messages carry `MessageGroupId` = aggregate id and `MessageDeduplicationId` = event id. A failing event does not stop the batch, but later events of the same aggregate wait for the next pass so their order is kept. After 50 failed attempts a row is parked (OQ-66). Consumers call `processOnce(tx, consumer, eventId, work)`.
+- **As built (P3-01).** `outbox_event.payload` holds `{ actor, data }`; the relay builds the envelope from the columns and the payload (OQ-63). The routing table is `packages/core/src/platform/routes.ts` (OQ-64): matrix codes go to `lc-notifications.fifo` and every event to `lc-analytics`. FIFO messages carry `MessageGroupId` = aggregate id and `MessageDeduplicationId` = event id. Only one relay runs at a time (an advisory lock), so that two workers cannot publish one aggregate's events out of order. A failing event does not stop the batch, but later events of the same aggregate wait for the next pass so their order is kept. After 50 failed attempts a row is parked (OQ-66). Consumers call `processOnce(tx, consumer, eventId, work)`.
 
 ## 4. Timers (ADR-008)
 - `timer(id, timer_type, aggregate_type, aggregate_id, due_at, status PENDING|FIRED|CANCELLED|FAILED, payload, attempts, fired_at, last_error)`.

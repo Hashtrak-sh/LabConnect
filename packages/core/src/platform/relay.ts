@@ -8,6 +8,7 @@ export const DEFAULT_RELAY_BATCH_SIZE = 100;
 /** A row that failed this many times is left alone until someone looks at it (OQ-66). */
 export const DEFAULT_RELAY_MAX_ATTEMPTS = 50;
 const MAX_ERROR_LENGTH = 500;
+const RELAY_LOCK_NAME = 'labconnect.outbox_event.relay';
 
 export interface RelayOptions {
   batchSize?: number;
@@ -19,6 +20,8 @@ export interface RelayResult {
   failed: number;
   /** Left for the next pass because an earlier event of the same aggregate failed in this one. */
   deferred: number;
+  /** Another relay was running, so this call did nothing. */
+  busy: boolean;
 }
 
 interface OutboxRow {
@@ -35,8 +38,10 @@ interface OutboxRow {
  * Publishes unpublished outbox events (AUDIT_AND_EVENT_ARCHITECTURE.md section 3).
  *
  * In one transaction as the worker, it locks up to `batchSize` rows in `occurred_at` order
- * with `FOR UPDATE SKIP LOCKED` (so two relays never take the same row), publishes each to
- * the queues of its route, and sets `published_at`. A failure increments `attempts` and
+ * with `FOR UPDATE SKIP LOCKED`, publishes each to the queues of its route, and sets
+ * `published_at`. Only one relay runs at a time (a transaction-scoped advisory lock; a
+ * second call returns `busy`), because two relays working on different batches could
+ * publish one aggregate's events out of order. A failure increments `attempts` and
  * stores a truncated error (never the payload) and the row stays for the next pass. A
  * failing event does not stop the others; but later events of the same aggregate are
  * deferred in that pass, so one aggregate's events never arrive out of order.
@@ -60,6 +65,12 @@ export async function relayOutbox(
     prisma,
     { kind: 'system' },
     async (tx) => {
+      // One relay at a time. With two, the second would take a later batch and could publish
+      // event 2 of an aggregate before the first has published its event 1.
+      const lock = await tx.$queryRaw<{ locked: boolean }[]>`
+        SELECT pg_try_advisory_xact_lock(hashtextextended(${RELAY_LOCK_NAME}, 0)) AS locked`;
+      if (lock[0]?.locked !== true) return { published: 0, failed: 0, deferred: 0, busy: true };
+
       const rows = await tx.$queryRaw<OutboxRow[]>`
         SELECT id::text AS id, aggregate_type, aggregate_id::text AS aggregate_id, event_type,
                event_version, payload, occurred_at
@@ -69,7 +80,7 @@ export async function relayOutbox(
          LIMIT ${batchSize}
            FOR UPDATE SKIP LOCKED`;
 
-      const result: RelayResult = { published: 0, failed: 0, deferred: 0 };
+      const result: RelayResult = { published: 0, failed: 0, deferred: 0, busy: false };
       const blocked = new Set<string>();
       for (const row of rows) {
         const aggregateKey = `${row.aggregate_type}:${row.aggregate_id}`;

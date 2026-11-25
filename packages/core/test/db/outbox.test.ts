@@ -100,7 +100,7 @@ describe('outbox and relay', () => {
     }
     const publisher = new InMemoryQueuePublisher();
     const result = await relayOutbox(worker(), publisher, clock, { batchSize: 100 });
-    expect(result).toEqual({ published: 5, failed: 0, deferred: 0 });
+    expect(result).toEqual({ published: 5, failed: 0, deferred: 0, busy: false });
     const notified = publisher.published.filter((m) => m.queue === QUEUES.notifications);
     expect(notified.map((m) => m.envelope.id)).toEqual(ids);
     expect(publisher.published.filter((m) => m.queue === QUEUES.analytics)).toHaveLength(5);
@@ -110,6 +110,7 @@ describe('outbox and relay', () => {
       published: 0,
       failed: 0,
       deferred: 0,
+      busy: false,
     });
     expect(publisher.published).toHaveLength(10);
   });
@@ -139,7 +140,7 @@ describe('outbox and relay', () => {
         : undefined,
     );
     const first = await relayOutbox(worker(), publisher, clock);
-    expect(first).toEqual({ published: 1, failed: 1, deferred: 1 });
+    expect(first).toEqual({ published: 1, failed: 1, deferred: 1, busy: false });
     expect(publisher.published.every((m) => m.envelope.id === good.id)).toBe(true);
 
     const afterFirst = await state();
@@ -157,7 +158,7 @@ describe('outbox and relay', () => {
 
     failing = false;
     const second = await relayOutbox(worker(), publisher, clock);
-    expect(second).toEqual({ published: 2, failed: 0, deferred: 0 });
+    expect(second).toEqual({ published: 2, failed: 0, deferred: 0, busy: false });
     const order = publisher.published
       .filter((m) => m.queue === QUEUES.analytics && m.envelope.aggregate.id === bad)
       .map((m) => m.envelope.id);
@@ -174,11 +175,12 @@ describe('outbox and relay', () => {
       published: 0,
       failed: 0,
       deferred: 0,
+      busy: false,
     });
     expect((await state())[0]?.attempts).toBe(2);
   });
 
-  it('never publishes the same row twice when two relays run at once', async () => {
+  it('runs one relay at a time, so two workers cannot publish an aggregate out of order', async () => {
     await reset();
     for (let i = 0; i < 10; i += 1) {
       await enqueue('booking.accepted', uuid());
@@ -195,20 +197,32 @@ describe('outbox and relay', () => {
     };
     const fast = new InMemoryQueuePublisher();
 
-    // The first relay locks five rows and waits inside its publisher; the second must skip
-    // those five, not wait for them, so it can finish while the first is still holding.
+    // The first relay holds five rows and waits inside its publisher. The second must
+    // neither wait for it nor take the next five: it reports busy and publishes nothing.
     const slowRun = relayOutbox(worker(), slow, clock, { batchSize: 5 });
     await firstLocked.wait;
-    const fastResult = await relayOutbox(worker(), fast, clock, { batchSize: 5 });
-    expect(fastResult.published).toBe(5);
+    const busyResult = await relayOutbox(worker(), fast, clock, { batchSize: 5 });
+    expect(busyResult).toEqual({ published: 0, failed: 0, deferred: 0, busy: true });
+    expect(fast.published).toHaveLength(0);
     holding.open();
     const slowResult = await slowRun;
-    expect(slowResult.published).toBe(5);
+    expect(slowResult).toMatchObject({ published: 5, busy: false });
 
+    // Once the first has committed, the next call takes the remaining five, each once.
+    const nextResult = await relayOutbox(worker(), fast, clock, { batchSize: 5 });
+    expect(nextResult).toMatchObject({ published: 5, busy: false });
     const rows = await state();
     expect(rows).toHaveLength(10);
     expect(rows.every((row) => row.published_at !== null && row.attempts === 0)).toBe(true);
-    const fastIds = new Set(fast.published.map((m) => m.envelope.id));
+    const fastIds = new Set(
+      fast.published.filter((m) => m.queue === QUEUES.analytics).map((m) => m.envelope.id),
+    );
     expect(fastIds.size).toBe(5);
+    expect(
+      rows
+        .slice(5)
+        .map((row) => row.id)
+        .sort(),
+    ).toEqual([...fastIds].sort());
   });
 });
