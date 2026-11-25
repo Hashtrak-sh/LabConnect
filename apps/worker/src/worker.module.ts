@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BookingWorkerModule } from './modules/booking/booking-worker.module.js';
 import { FilesWorkerModule } from './modules/files/files-worker.module.js';
 import { NotificationsWorkerModule } from './modules/notifications/notifications-worker.module.js';
 import { PaymentsWorkerModule } from './modules/payments/payments-worker.module.js';
@@ -10,6 +11,7 @@ import { PlatformWorkerModule } from './modules/platform/platform-worker.module.
 @Module({
   imports: [
     PlatformWorkerModule,
+    BookingWorkerModule,
     FilesWorkerModule,
     PaymentsWorkerModule,
     NotificationsWorkerModule,

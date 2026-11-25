@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import {
+  BookingNotificationContext,
   EmailConfigError,
   InMemoryEmailSender,
   InMemoryNotificationContext,
@@ -17,10 +18,12 @@ import {
   NOTIFICATIONS_SCHEDULER,
   NOTIFICATIONS_WORKER_CONFIG,
   NotificationsWorkerModule,
+  createNotificationsContextSource,
   type NotificationsContextSource,
 } from './notifications-worker.module.js';
 import {
   type NotificationsWorkerConfig,
+  readNotificationsContextSource,
   readNotificationsWorkerConfig,
 } from './notifications-worker.config.js';
 
@@ -99,6 +102,24 @@ describe('createEmailDeliveryJob', () => {
   });
 });
 
+describe('the notification context source', () => {
+  it('is unset by default (the queue is not consumed) and `booking` selects the booking adapter', () => {
+    expect(readNotificationsContextSource({})).toBeUndefined();
+    expect(readNotificationsContextSource({ NOTIFICATIONS_CONTEXT_SOURCE: ' ' })).toBeUndefined();
+    expect(readNotificationsContextSource({ NOTIFICATIONS_CONTEXT_SOURCE: 'booking' })).toBe(
+      'booking',
+    );
+    expect(() => readNotificationsContextSource({ NOTIFICATIONS_CONTEXT_SOURCE: 'x' })).toThrow(
+      /NOTIFICATIONS_CONTEXT_SOURCE/,
+    );
+    const database = { client: {} as never };
+    expect(createNotificationsContextSource(undefined, database)).toEqual({});
+    expect(createNotificationsContextSource('booking', database).port).toBeInstanceOf(
+      BookingNotificationContext,
+    );
+  });
+});
+
 describe('readNotificationsWorkerConfig', () => {
   it('has defaults for a developer machine', () => {
     expect(readNotificationsWorkerConfig({})).toEqual({
@@ -156,14 +177,19 @@ const config = (overrides: Partial<NotificationsWorkerConfig>): NotificationsWor
 
 async function boot(
   overrides: Partial<NotificationsWorkerConfig>,
-  options: { source?: NotificationsContextSource; sender?: () => InMemoryEmailSender } = {},
+  options: {
+    source?: NotificationsContextSource;
+    sender?: () => InMemoryEmailSender;
+    /** Keep the module's own provider (it reads `NOTIFICATIONS_CONTEXT_SOURCE`). */
+    environmentSource?: boolean;
+  } = {},
 ): Promise<number[]> {
   const scheduled: number[] = [];
   const scheduler: Scheduler = {
     setInterval: (_callback, milliseconds) => scheduled.push(milliseconds),
     clearInterval: () => undefined,
   };
-  const moduleRef = await Test.createTestingModule({ imports: [NotificationsWorkerModule] })
+  const builder = Test.createTestingModule({ imports: [NotificationsWorkerModule] })
     .overrideProvider(NOTIFICATIONS_WORKER_CONFIG)
     .useValue(config(overrides))
     .overrideProvider(NOTIFICATIONS_SCHEDULER)
@@ -171,10 +197,12 @@ async function boot(
     .overrideProvider(NOTIFICATIONS_QUEUE_CONSUMER)
     .useValue(new InMemoryQueueConsumer())
     .overrideProvider(NOTIFICATIONS_EMAIL_SENDER)
-    .useValue(options.sender ?? (() => new InMemoryEmailSender()))
-    .overrideProvider(NOTIFICATIONS_CONTEXT_SOURCE)
-    .useValue(options.source ?? {})
-    .compile();
+    .useValue(options.sender ?? (() => new InMemoryEmailSender()));
+  const moduleRef = await (
+    options.environmentSource === true
+      ? builder
+      : builder.overrideProvider(NOTIFICATIONS_CONTEXT_SOURCE).useValue(options.source ?? {})
+  ).compile();
   const app = moduleRef.createNestApplication();
   await app.init();
   await app.close();
@@ -195,6 +223,24 @@ describe('NotificationsWorkerModule', () => {
     const source = { port: new InMemoryNotificationContext() };
     expect(await boot({ enabled: true, consumeQueue: true }, { source })).toEqual([22, 11]);
     expect(await boot({ enabled: true }, { source })).toEqual([22]);
+  });
+
+  it('consumes the queue only when NOTIFICATIONS_CONTEXT_SOURCE=booking and a queue are both set', async () => {
+    const consuming = { enabled: true, consumeQueue: true };
+    vi.stubEnv('NOTIFICATIONS_CONTEXT_SOURCE', '');
+    expect(await boot(consuming, { environmentSource: true })).toEqual([22]);
+    vi.stubEnv('NOTIFICATIONS_CONTEXT_SOURCE', 'booking');
+    expect(await boot(consuming, { environmentSource: true })).toEqual([22, 11]);
+    expect(await boot({ enabled: true }, { environmentSource: true })).toEqual([22]);
+    vi.unstubAllEnvs();
+  });
+
+  it('refuses to start with an unknown context source', async () => {
+    vi.stubEnv('NOTIFICATIONS_CONTEXT_SOURCE', 'disputes');
+    await expect(
+      boot({ enabled: true, consumeQueue: true }, { environmentSource: true }),
+    ).rejects.toThrow(/NOTIFICATIONS_CONTEXT_SOURCE/);
+    vi.unstubAllEnvs();
   });
 
   it('refuses to start in production without a real mail sender', async () => {

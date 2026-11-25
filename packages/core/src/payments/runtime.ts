@@ -31,6 +31,12 @@ export class PaymentsRuntime {
   constructor(
     private readonly env: GatewayEnv,
     private readonly services: BookingEngineServices,
+    /**
+     * The booking engine to move bookings with. The worker passes the one engine it builds for
+     * the whole process (default effects and the T-09 guard); without it the runtime builds an
+     * engine of its own, which is what the API does.
+     */
+    private readonly sharedEngine?: BookingEngine,
   ) {}
 
   /** Fails (throws) if the configured gateway does not exist or may not run here. No secrets needed. */
@@ -59,9 +65,12 @@ export class PaymentsRuntime {
       );
       // The engine the payments module moves bookings with: the default booking effects (they
       // cancel the payment timers when T-09 leaves ACCEPTED) and the T-09 guard.
-      const registry = registerPaymentBookingGuards(
-        registerDefaultBookingEffects(new TransitionRegistry()),
-      );
+      const engine =
+        this.sharedEngine ??
+        new BookingEngine(
+          this.services,
+          registerPaymentBookingGuards(registerDefaultBookingEffects(new TransitionRegistry())),
+        );
       this.serviceInstance = new PaymentService({
         gateway: this.gateway,
         cipher,
@@ -69,7 +78,7 @@ export class PaymentsRuntime {
         audit: this.services.audit,
         outbox: this.services.outbox,
         timers: this.services.timers,
-        engine: new BookingEngine(this.services, registry),
+        engine,
       });
     }
     return this.serviceInstance;
