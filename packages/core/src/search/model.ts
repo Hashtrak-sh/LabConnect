@@ -91,8 +91,8 @@ export interface LabSearchDocument {
 
 export type SearchSort = 'relevance' | 'distance' | 'price' | 'tat';
 
-export const DEFAULT_PAGE_SIZE = 25;
-export const MAX_PAGE_SIZE = 100;
+export const SEARCH_DEFAULT_PAGE_SIZE = 25;
+export const SEARCH_MAX_PAGE_SIZE = 100;
 export const MAX_MATCHED_LINES = 10;
 export const MAX_TEXT_LENGTH = 200;
 export const MAX_TERMS = 8;

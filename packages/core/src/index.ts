@@ -5,4 +5,5 @@ export * from './files/index.js';
 export * from './platform/index.js';
 export * from './identity/index.js';
 export * from './payments/index.js';
+export * from './notifications/index.js';
 export * from './search/index.js';

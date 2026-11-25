@@ -1,7 +1,7 @@
 import { SearchQueryError } from './errors.js';
 import {
-  DEFAULT_PAGE_SIZE,
-  MAX_PAGE_SIZE,
+  SEARCH_DEFAULT_PAGE_SIZE,
+  SEARCH_MAX_PAGE_SIZE,
   MAX_TERMS,
   MAX_TEXT_LENGTH,
   type PublicLabCategory,
@@ -106,9 +106,9 @@ export function normaliseSearchQuery(request: SearchRequest, asOf: Date): Search
     throw new SearchQueryError('Sorting by distance needs a location.');
   }
 
-  const limit = request.limit ?? DEFAULT_PAGE_SIZE;
-  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_PAGE_SIZE) {
-    throw new SearchQueryError(`limit must be between 1 and ${String(MAX_PAGE_SIZE)}.`);
+  const limit = request.limit ?? SEARCH_DEFAULT_PAGE_SIZE;
+  if (!Number.isInteger(limit) || limit < 1 || limit > SEARCH_MAX_PAGE_SIZE) {
+    throw new SearchQueryError(`limit must be between 1 and ${String(SEARCH_MAX_PAGE_SIZE)}.`);
   }
 
   if (request.cursor !== undefined && request.cursor.length === 0) {

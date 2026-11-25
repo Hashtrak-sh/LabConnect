@@ -18,17 +18,20 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1100.0",
+    "@aws-sdk/client-sesv2": "^3.1100.0",
     "@aws-sdk/client-sqs": "^3.1100.0",
     "@aws-sdk/s3-request-presigner": "^3.1100.0",
     "@labconnect/database": "workspace:*",
     "@labconnect/shared": "workspace:*",
     "@opensearch-project/opensearch": "^3.9.0",
     "@prisma/adapter-pg": "^7.10.1",
-    "jose": "^6.2.18"
+    "jose": "^6.2.18",
+    "nodemailer": "^10.6.1"
   },
   "devDependencies": {
     "@labconnect/config": "workspace:*",
     "@types/node": "catalog:",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "pg": "^8.23.1",
     "typescript": "catalog:",

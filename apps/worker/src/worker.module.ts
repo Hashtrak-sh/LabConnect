@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { FilesWorkerModule } from './modules/files/files-worker.module.js';
+import { NotificationsWorkerModule } from './modules/notifications/notifications-worker.module.js';
 import { PaymentsWorkerModule } from './modules/payments/payments-worker.module.js';
 import { SearchWorkerModule } from './modules/search/search-worker.module.js';
 import { PlatformWorkerModule } from './modules/platform/platform-worker.module.js';
@@ -7,6 +8,12 @@ import { PlatformWorkerModule } from './modules/platform/platform-worker.module.
 // Worker modules for later phases (notifications, search, reports consumers and
 // the timer processor) are added here. See docs/02-architecture/MODULE_BOUNDARIES.md.
 @Module({
-  imports: [PlatformWorkerModule, FilesWorkerModule, PaymentsWorkerModule, SearchWorkerModule],
+  imports: [
+    PlatformWorkerModule,
+    FilesWorkerModule,
+    PaymentsWorkerModule,
+    NotificationsWorkerModule,
+    SearchWorkerModule,
+  ],
 })
 export class WorkerModule {}

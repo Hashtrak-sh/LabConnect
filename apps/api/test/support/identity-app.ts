@@ -155,6 +155,9 @@ export function useIdentityApp(
       http().get(path, options(extra)),
     post: (path: string, extra: Parameters<typeof options>[0] = {}) =>
       http().post(path, options({ post: true, ...extra })),
+    /** PATCH takes no `Idempotency-Key` in the contract. */
+    patch: (path: string, extra: Parameters<typeof options>[0] = {}) =>
+      http().patch(path, options(extra)),
   };
 
   /** Calls a route that is not in the contract (test-only controllers added through `setup.imports`). */

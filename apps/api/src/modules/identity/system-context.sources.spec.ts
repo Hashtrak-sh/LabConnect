@@ -60,6 +60,8 @@ describe('who may open the system database context', () => {
       'packages/database/src/db-context.ts': 1,
       // The scope: tenant, platform (also on behalf), user-only and the named system method.
       'packages/core/src/identity/tenant-scope.ts': 4,
+      // Anonymous public reads (search): the `public` kind, read-only. Never the system context.
+      'packages/core/src/search/public-context.ts': 1,
       // Worker and job services that run as SYSTEM with an explicit scope (TENANT_ISOLATION rule 7).
       'packages/core/src/platform/audit-chain.ts': 3,
       'packages/core/src/platform/relay.ts': 1,
@@ -68,6 +70,10 @@ describe('who may open the system database context', () => {
       // scan job finds pending uploads; it refuses to run outside development and test.
       'packages/core/src/files/scan-processor.ts': 3,
       'packages/core/src/files/dev-scan.ts': 1,
+      // The worker's notification consumer (one transaction per event) and email delivery pass
+      // (claim, mark sent, mark failed), P3-08. Notification rows of every user are written and read.
+      'packages/core/src/notifications/dispatch.ts': 1,
+      'packages/core/src/notifications/delivery.ts': 3,
       // The worker's job that processes stored gateway notifications (P3-09).
       'packages/core/src/payments/service.ts': 1,
     });
@@ -87,6 +93,10 @@ describe('who may open the system database context', () => {
       'packages/core/src/platform/timers.ts': 2,
       'packages/core/src/files/scan-processor.ts': 3,
       'packages/core/src/files/dev-scan.ts': 1,
+      // The worker's notification consumer (one transaction per event) and email delivery pass
+      // (claim, mark sent, mark failed), P3-08. Notification rows of every user are written and read.
+      'packages/core/src/notifications/dispatch.ts': 1,
+      'packages/core/src/notifications/delivery.ts': 3,
       // The worker's job that processes stored gateway notifications (P3-09).
       'packages/core/src/payments/service.ts': 1,
     });

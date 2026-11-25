@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from '@labconnect/database';
+import { type Prisma, type PrismaClient, withDbContext } from '@labconnect/database';
 
 /**
  * Runs `work` as an anonymous visitor: the four policy settings of the row-level security
@@ -13,22 +13,20 @@ import type { Prisma, PrismaClient } from '@labconnect/database';
  * The transaction is read-only and repeatable-read, so the two queries of a page see one state
  * and nothing in search can write. Use only the `tx` client inside `work`.
  *
- * This is deliberately not `withDbContext`: that function has no anonymous kind, and adding one
- * is a shared change to `packages/database` (OQ-154).
+ * It is the `public` kind of `withDbContext`, the one place that writes the policy settings,
+ * made read-only and repeatable-read.
  */
 export function withPublicReadContext<T>(
   prisma: Pick<PrismaClient, '$transaction'>,
   work: (tx: Prisma.TransactionClient) => Promise<T>,
   options: { maxWait?: number; timeout?: number } = {},
 ): Promise<T> {
-  return prisma.$transaction(
+  return withDbContext(
+    prisma,
+    { kind: 'public' },
     async (tx) => {
+      // Allowed after the settings query: a transaction may become read-only at any point.
       await tx.$executeRaw`SET TRANSACTION READ ONLY`;
-      await tx.$queryRaw`
-        SELECT set_config('app.org_id', '', true),
-               set_config('app.user_id', '', true),
-               set_config('app.is_platform', '', true),
-               set_config('app.is_system', '', true)`;
       return work(tx);
     },
     { isolationLevel: 'RepeatableRead', ...options },

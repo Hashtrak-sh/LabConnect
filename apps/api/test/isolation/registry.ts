@@ -22,8 +22,13 @@ export interface Exemption {
   reason: string;
 }
 
-/** Cases for the routes of the real app. None of its routes takes an id yet. */
-export const REAL_APP_CASES: readonly IsolationCase[] = [];
+/** Cases for the routes of the real app. */
+export const REAL_APP_CASES: readonly IsolationCase[] = [
+  {
+    route: 'POST /v1/me/notifications/:id/read',
+    spec: 'test/integration/isolation/notifications.spec.ts',
+  },
+];
 
 /** Routes with an id that touch no tenant data (for example a public reference lookup). */
 export const REAL_APP_EXEMPTIONS: readonly Exemption[] = [];
