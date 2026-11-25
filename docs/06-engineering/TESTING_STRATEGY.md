@@ -91,8 +91,9 @@ When a contract PR adds operations, add them to the list (sorted) or regenerate 
 **For consumers.** `createApiClient({ baseUrl, fetch?, headers? })` from `@labconnect/api-contract` is a typed `openapi-fetch` client over the generated `paths` (`baseUrl` includes `/v1`). `contractExample(operationId, status)` from `@labconnect/api-contract/examples` returns the first example the contract documents for a response, as mock data for the side that is not built yet (COLLABORATION_GUIDE §2); it throws if there is none. A unit test of that package reports how many operations have no example for their success response.
 
 **Commands.**
-- `pnpm test:contract` (root): builds `@labconnect/api-contract` (bundle and types), then runs the `http` and `contract-final` projects of `apps/api`. CI job `contract`.
-- `pnpm test` runs the same API tests too (all `apps/api` projects).
+- `pnpm test:contract` (root): builds `@labconnect/api-contract` (bundle and types), then runs the `http`, `http-db` and `contract-final` projects of `apps/api`. CI job `contract` (it has Docker).
+- `pnpm test` runs the `unit` and `http` projects of `apps/api` only. It needs no Docker, and it does not run `contract-final` (an operation that needs the database is exercised by `http-db`, which `pnpm test` leaves out).
+- `http-db` (`apps/api/test/integration/`, `pnpm --filter @labconnect/api test:integration`): the same `contractRequest()` tests against a real PostgreSQL started by Testcontainers. It reuses the migrated template database of `packages/database/test/db/global-setup.ts` (one clone per test file) and connects the API as a login user of `app_rw`, so row-level security and grants apply. Put an API test there when the operation reads or writes the database.
 - `pnpm --filter @labconnect/api contract:update-not-implemented`: regenerates the not-implemented list.
 
 **When you implement an endpoint:** write its API tests with `contractRequest()` (success and error cases), remove its line from `not-implemented.txt`, and run `pnpm test:contract`.

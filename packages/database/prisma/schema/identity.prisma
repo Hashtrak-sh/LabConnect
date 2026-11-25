@@ -333,6 +333,9 @@ model MfaFactor {
   secretCiphertext Bytes @map("secret_ciphertext")
   verifiedAt DateTime? @map("verified_at") @db.Timestamptz(6)
   revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  lastUsedStep BigInt? @map("last_used_step")
+  failedAttempts Int @default(0) @map("failed_attempts")
+  lockedUntil DateTime? @map("locked_until") @db.Timestamptz(6)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
   createdByUserId String? @map("created_by_user_id") @db.Uuid
