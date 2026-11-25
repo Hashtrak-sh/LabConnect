@@ -10,6 +10,7 @@ export * from './mfa.js';
 export * from './otp.js';
 export * from './policy.js';
 export * from './ports.js';
+export * from './recipients.js';
 export * from './repository.js';
 export * from './resource-checks.js';
 export * from './sessions.js';

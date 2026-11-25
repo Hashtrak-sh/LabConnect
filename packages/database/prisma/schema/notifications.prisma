@@ -36,6 +36,8 @@ model Notification {
   sentAt DateTime? @map("sent_at") @db.Timestamptz(6)
   readAt DateTime? @map("read_at") @db.Timestamptz(6)
   error String?
+  deliveryAttempts Int @default(0) @map("delivery_attempts")
+  nextAttemptAt DateTime? @map("next_attempt_at") @db.Timestamptz(6)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
   createdByUserId String? @map("created_by_user_id") @db.Uuid
@@ -46,6 +48,7 @@ model Notification {
 
   @@unique([eventId, recipientUserId, channel])
   @@index([recipientUserId, channel, readAt])
+  @@index([channel, status, nextAttemptAt])
   @@map("notification")
 }
 
