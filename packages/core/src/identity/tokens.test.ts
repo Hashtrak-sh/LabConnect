@@ -128,7 +128,11 @@ describe('AccessTokens', () => {
     expect((await rejection(tokens.verify(`${header}.${forgedPayload}.${signature}`))).code).toBe(
       'UNAUTHENTICATED',
     );
-    const flipped = `${signature.slice(0, -2)}${signature.endsWith('A') ? 'B' : 'A'}A`;
+    // Change the first character: it always carries six bits of the signature, so the bytes
+    // differ. (Rewriting the last two characters left a signature ending in "BA" unchanged,
+    // about one run in a thousand, and the token then verified.)
+    const flipped = `${signature.startsWith('A') ? 'B' : 'A'}${signature.slice(1)}`;
+    expect(flipped).not.toBe(signature);
     expect((await rejection(tokens.verify(`${header}.${payload}.${flipped}`))).code).toBe(
       'UNAUTHENTICATED',
     );

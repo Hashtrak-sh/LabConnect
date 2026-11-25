@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - infrastructure
 
 # Single place for versions shared by several workspaces.
 # TypeScript stays on 6.0.x: @nestjs/cli and typescript-eslint do not support 7 yet.

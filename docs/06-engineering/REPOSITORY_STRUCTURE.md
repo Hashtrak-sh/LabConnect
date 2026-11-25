@@ -41,12 +41,13 @@ LabConnect/
 │   ├── validation/           zod: trf.v1, imports, query params, config values
 │   ├── ui/                   design-system components (design phase)
 │   └── config/               eslint, tsconfig, prettier, dependency-cruiser presets
-├── infrastructure/           IaC (AWS CDK in TypeScript, proposed ADR-015): network, data, compute, edge, observability
+├── infrastructure/           IaC (AWS CDK in TypeScript, ADR-015 adopted as a default, P3-11): lib/stacks/ delivery, network, data, messaging, edge, compute, observability; test/ (offline assertions); scripts/ (the login-user step of the migration task); README.md. A workspace package, @labconnect/infrastructure.
 ├── tests/
 │   ├── e2e/                  Playwright specs + fixtures
 │   └── load/                 k6 scripts
 ├── scripts/                  dev setup, seed, db reset, codegen
 ├── docs/                     this documentation pack
+├── Dockerfile · .dockerignore   images api, worker, migrate (one file, one target each; no web image yet)
 ├── docker-compose.yml        postgres+postgis, redis, opensearch, localstack, mailpit
 ├── turbo.json · pnpm-workspace.yaml · package.json · .nvmrc · .editorconfig · .env.example
 ├── eslint.config.mjs · .dependency-cruiser.cjs · .prettierignore · .gitattributes
