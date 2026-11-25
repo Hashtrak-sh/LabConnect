@@ -13,6 +13,7 @@
     "contract:update-not-implemented": "vitest run --mode update-not-implemented --project http test/contract/endpoints.spec.ts"
   },
   "dependencies": {
+    "@labconnect/shared": "workspace:*",
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "^12.6.0",
