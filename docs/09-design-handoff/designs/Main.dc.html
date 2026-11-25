@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LabConnect design: cover</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1280px; height: 1120px; background: #fff; display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 40px; gap: 16px">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span>
+    <span class="prodname">LabConnect</span>
+    <span class="prov" style="margin-left: auto">Provisional brand values · OQ-19</span>
+  </header>
+  <div style="padding: 48px 40px 0; display: flex; gap: 48px">
+    <div style="flex: 1 1 0; display: flex; flex-direction: column; gap: 20px">
+      <p class="sectitle">Design handoff · D-02 · 25 Nov 2026</p>
+      <h1 style="font-size: 44px; line-height: 52px; font-weight: 700; letter-spacing: -0.02em; color: var(--qci-black)">LabConnect: find, book and verify NABL-accredited testing</h1>
+      <p class="t-lg muted" style="max-width: 620px">First visual design for the MVP flow: discover → book → lab accepts → pay → self-drop → Maker records → Checker approves → test → report with QR verification → 72-hour dispute window → payout.</p>
+      <div class="alert a-warn" style="max-width: 640px">
+        <svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>
+        <div><b>Provisional brand.</b> The blue (#1F6FA8) and the Poppins typeface are stand-ins chosen for this draft. They are not QCI-approved values. QCI's guidelines name "Q Blue" and black but give no colour codes and no web typeface (OQ-19). Swap the <span class="mono">--qci-*</span> tokens when the official values arrive; no component changes.</div>
+      </div>
+    </div>
+    <div class="panel" style="width: 420px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+      <p class="sectitle">How to read this canvas</p>
+      <p class="t-sm">Each page is one stage of the master prompt. Blue notes under each screen list the API fields it uses (from <span class="mono">packages/api-contract</span>).</p>
+      <p class="t-sm">Phone screens are 360 px, tablet 768 px, desktop 1280 px. Strips show several phone steps side by side.</p>
+      <p class="t-sm"><b>Clickable prototype (J1):</b> start at <a href="B1-Search-1280.dc.html">B1 Search</a> and press Play. Primary buttons link to the next screen. J6 hold: <a href="C7-Hold-1280.dc.html">C7 Hold</a>. J7 report returned: <a href="D3-ReviewReport-1280.dc.html">D3 Review</a>.</p>
+    </div>
+  </div>
+  <div style="padding: 40px 40px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+    <a class="card" href="A1-Tokens.dc.html" style="padding: 20px; text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 6px"><span class="badge b-brand" style="align-self: flex-start">Stage A</span><b class="t-lg">Tokens & core components</b><span class="t-sm muted">Token sheet, controls, booking and lab components, feedback states, all with their states.</span></a>
+    <a class="card" href="B1-Search-1280.dc.html" style="padding: 20px; text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 6px"><span class="badge b-brand" style="align-self: flex-start">Stage B</span><b class="t-lg">Public pages</b><span class="t-sm muted">Search, lab site page and report verification at 360 / 768 / 1280, plus edge states.</span></a>
+    <a class="card" href="C3-Booking-1280.dc.html" style="padding: 20px; text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 6px"><span class="badge b-brand" style="align-self: flex-start">Stage C</span><b class="t-lg">Customer booking C3–C7</b><span class="t-sm muted">TRF, review, counter-offer, payment, handover QR, booking detail and the on-hold decision.</span></a>
+    <a class="card" href="D1-Scanner-360-strip.dc.html" style="padding: 20px; text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 6px"><span class="badge b-brand" style="align-self: flex-start">Stage D</span><b class="t-lg">Lab counter & approvals</b><span class="t-sm muted">Maker counter scanner (L3) at 360; Checker receipt approval (L4) and report publish with MFA (L7).</span></a>
+    <a class="card" href="E1-Customer-1280.dc.html" style="padding: 20px; text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 6px"><span class="badge b-brand" style="align-self: flex-start">Stage E</span><b class="t-lg">Dashboards</b><span class="t-sm muted">Customer, Maker, Checker and the platform Ops board, all opening on "Needs your action".</span></a>
+    <a class="card" href="F1-Signup-360-strip.dc.html" style="padding: 20px; text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 6px"><span class="badge b-brand" style="align-self: flex-start">Stage F</span><b class="t-lg">Remaining flows</b><span class="t-sm muted">Sign-up, report and dispute, finance, lab onboarding, inbox, report upload, catalogue, admin.</span></a>
+  </div>
+  <div style="padding: 32px 40px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <p class="sectitle">Assumptions in this draft</p>
+      <ul class="t-sm" style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px">
+        <li>Header lockup: the supplied QCI standard logo, unaltered, on white, with "LabConnect" as plain text beside it. The endorsement wording is a placeholder (OQ-19, OQ-12).</li>
+        <li>Lab staff names are hidden from customers in timelines; only roles show (contract rule OQ-29). This differs from UX principle 5's example.</li>
+        <li>The verification page shows the approving Checker's name and designation (OQ-15 default).</li>
+        <li>All people, labs, numbers and amounts are illustrative sample data.</li>
+      </ul>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <p class="sectitle">Never in the UI</p>
+      <div class="row wrap g8">
+        <span class="badge b-neutral">Pickup / riders</span><span class="badge b-neutral">Sample tracking / GPS</span><span class="badge b-neutral">Subcontracting</span><span class="badge b-neutral">Price negotiation</span><span class="badge b-neutral">Purchase orders</span><span class="badge b-neutral">Platform fees</span>
+      </div>
+      <p class="t-sm muted">Constraints held throughout: WCAG 2.1 AA, status shown with label + icon (never colour alone), ₹1,00,000 Indian grouping, DD MMM YYYY, IST shown on every time, layouts with room for 30–40% longer Hindi strings.</p>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1120}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

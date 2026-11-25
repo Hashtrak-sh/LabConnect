@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>F5 Lab inbox and decision, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 100%; min-height: 1160px; background: #F9FAFB; display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 24px; gap: 16px">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span><span class="badge b-brand">Lab</span>
+    <span class="t-sm" style="margin-left: 12px">Vasundhara Testing Laboratories · <b>Gurugram site</b></span>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span class="row g8"><span style="width: 32px; height: 32px; border-radius: 50%; background: #D6E8F5; color: #13476D; display: inline-flex; align-items: center; justify-content: center; font-weight: 600">AM</span><span class="col"><b class="t-sm">Dr. Anita Mehta</b><span class="t-xs muted">Checker</span></span></span></div>
+  </header>
+  <main style="max-width: 1280px; width: 100%; margin: 0 auto; padding: 20px 32px 40px; display: flex; flex-direction: column; gap: 16px">
+    <h1 class="t-2xl w7">Requests</h1>
+    <div class="tabs"><span class="on">New requests <span class="count" style="margin-left: 4px">4</span></span><span>Waiting for customer <span class="badge b-neutral">6</span></span><span>Paid, expecting drop <span class="badge b-neutral">7</span></span><span>Overdue drops <span class="badge b-danger">1</span></span></div>
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+      <section class="card" style="flex: 1 1 340px; overflow: hidden" aria-label="Request list">
+        <div class="col g4" style="padding: 14px 16px; border-left: 4px solid #1F6FA8; background: #EEF5FB; border-bottom: 1px solid #E5E7EB"><div class="row between"><span class="mono t-sm w6">LC-2611-0004844</span><span class="sla danger t-xs"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>in 40 min</span></div><span class="t-sm">Shivam Paints · epoxy coating · 2 tests</span><span class="t-xs muted">Slot Thu 26 Nov, 10 AM · ₹2,950</span></div>
+        <div class="col g4" style="padding: 14px 16px; border-bottom: 1px solid #E5E7EB"><div class="row between"><span class="mono t-sm w6">LC-2611-0004850</span><span class="sla ok t-xs">in 9 h</span></div><span class="t-sm">Aarav Polymers · PE granules · 3 tests</span><span class="t-xs muted">Slot Fri 27 Nov, 12 PM · ₹3,540</span></div>
+        <div class="col g4" style="padding: 14px 16px; border-bottom: 1px solid #E5E7EB"><div class="row between"><span class="mono t-sm w6">LC-2611-0004852</span><span class="sla ok t-xs">in 20 h</span></div><span class="t-sm">Kaveri Wires · GI wire · 1 test</span><span class="t-xs muted">Slot Sat 28 Nov, 10 AM · ₹1,180</span></div>
+        <div class="col g4" style="padding: 14px 16px"><div class="row between"><span class="mono t-sm w6">LC-2611-0004857</span><span class="sla ok t-xs">in 23 h</span></div><span class="t-sm">Individual · drinking water bottle · 4 tests</span><span class="t-xs muted">Slot Sat 28 Nov, 12 PM · ₹4,720</span></div>
+      </section>
+      <section class="card col g16" style="flex: 999 1 520px; min-width: 0; padding: 24px">
+        <div class="row between wrap g8"><div class="col g4"><span class="mono t-lg w7">LC-2611-0004844</span><span class="t-sm muted">Shivam Paints Pvt Ltd · requested 24 Nov, 2:55 PM IST</span></div><span class="badge b-info" style="height: 28px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Requested · decide by 11:25 AM IST</span></div>
+        <div class="grid3 t-sm" style="gap: 12px 20px"><div class="col"><span class="t-xs muted">Item</span><b>Epoxy coating, grey</b></div><div class="col"><span class="t-xs muted">Batch</span><b>EP-1124</b></div><div class="col"><span class="t-xs muted">Packages</span><b>2</b></div><div class="col"><span class="t-xs muted">Drop-off slot</span><b>Thu 26 Nov · 10 AM – 12 PM</b></div><div class="col"><span class="t-xs muted">Conformity</span><b>Yes · IS 13238</b></div><div class="col"><span class="t-xs muted">Estimate</span><b class="num">₹2,950.00</b></div></div>
+        <table class="tbl compact"><thead><tr><th>Test</th><th>Sample offered</th><th>You need</th></tr></thead><tbody><tr><td>Dry film thickness</td><td>2 panels</td><td>2 panels</td></tr><tr><td>Salt spray resistance · 500 h</td><td>2 panels</td><td><span class="badge b-warn">3 panels</span></td></tr></tbody></table>
+        <div class="card col g12" style="padding: 16px; border: 2px solid #1F6FA8; background: #fff">
+          <b class="t-base">Propose a change (counter-offer)</b>
+          <div class="grid2" style="gap: 16px">
+            <div class="field"><label class="label" for="cs">New drop-off slot</label><div class="input between" id="cs">Fri 27 Nov · 10 AM – 12 PM<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div></div>
+            <div class="field"><label class="label" for="cq">Extra quantity · salt spray</label><div class="input" id="cq">+1 panel</div></div>
+          </div>
+          <div class="field"><label class="label" for="cm">Message to customer</label><div class="input textarea" id="cm">Salt spray needs one spare panel for a repeat. Thursday is full.</div></div>
+          <div class="alert a-info" style="padding: 8px 12px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg><span class="t-xs">You can change only the slot or quantity. Prices come from your published list and can't be changed here.</span></div>
+        </div>
+        <div class="row between wrap g8">
+          <button class="btn btn-ghost" type="button" style="color: #B91C1C">Reject…</button>
+          <div class="row g8"><button class="btn btn-secondary btn-lg" type="button">Send counter-offer</button><button class="btn btn-primary btn-lg" type="button">Accept as requested</button></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1160}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

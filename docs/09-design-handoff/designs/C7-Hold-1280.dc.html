@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>C7 On hold decision, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 100%; min-height: 1100px; background: #F9FAFB; display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 32px; gap: 16px; flex-wrap: wrap">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span>
+    <nav class="nav row g4" aria-label="Main" style="margin-left: 24px"><a href="E1-Customer-1280.dc.html">Dashboard</a><a class="on" href="#">Bookings</a><a href="#">Reports</a><a href="#">Payments</a></nav>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span style="width: 32px; height: 32px; border-radius: 50%; background: #D6E8F5; color: #13476D; display: inline-flex; align-items: center; justify-content: center; font-weight: 600" aria-label="Priya Sharma">PS</span></div>
+  </header>
+  <div style="max-width: 1120px; width: 100%; margin: 0 auto; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 20px">
+    <div class="row between wrap g12">
+      <div class="col g4"><span class="crumbs"><a href="E1-Customer-1280.dc.html">Bookings</a> › <span class="mono">LC-2611-0004790</span></span><h1 class="t-2xl w7">The lab found a problem with your sample</h1><span class="t-sm muted">PVC compound K-118 · Vasundhara Testing Laboratories</span></div>
+      <span class="badge b-warn" style="height: 28px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>On hold · your decision</span>
+    </div>
+    <div class="nac danger row between wrap g12">
+      <div class="col g4"><b class="t-lg">Decide by 28 Nov 2026, 11:30 AM IST</b><span class="t-sm">If you don't decide in time, the booking goes to LabConnect support.</span></div>
+      <span class="sla danger"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>in 2 h</span>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <section class="card col g12" style="flex: 1 1 380px; padding: 24px">
+        <h2 class="t-lg w6">What the lab found</h2>
+        <div class="alert a-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg><span class="t-sm"><b>Quantity short.</b> Package 2 of 2 holds about 180 g. Vicat softening temperature needs 300 g.</span></div>
+        <div class="col g4 t-sm"><span class="muted">Checks at the counter</span><div class="row wrap g8"><span class="chip on" style="height: 30px">✓ Item matches</span><span class="chip on" style="height: 30px">✓ Batch matches</span><span class="chip bad" style="height: 30px">✗ Quantity short</span><span class="chip on" style="height: 30px">✓ Seal intact</span></div></div>
+        <div class="row g8"><div class="img" style="width: 96px; height: 96px">Photo 1</div><div class="img" style="width: 96px; height: 96px">Photo 2</div><div class="img" style="width: 96px; height: 96px">Photo 3</div></div>
+        <span class="t-xs muted">Recorded by Lab Maker, confirmed by Lab Checker · 27 Nov 2026, 11:30 AM IST</span>
+      </section>
+      <section class="card col g12" style="flex: 999 1 480px; min-width: 0; padding: 24px" role="radiogroup" aria-labelledby="choose">
+        <h2 id="choose" class="t-lg w6">What would you like to do?</h2>
+        <sc-for list="{{ options }}" as="o" hint-placeholder-count="3">
+          <button type="button" role="radio" aria-checked="{{ o.checked }}" onClick="{{ o.pick }}" style="{{ o.boxStyle }}">
+            <span class="{{ o.dotCls }}" style="margin-top: 2px"></span>
+            <span class="col g4" style="text-align: left"><b class="t-base">{{ o.title }}</b><span class="t-sm muted">{{ o.desc }}</span></span>
+          </button>
+        </sc-for>
+        <div class="field"><label class="label" for="hn">Note to the lab (optional)</label><div class="input textarea" id="hn"><span class="ph">Anything the lab should know</span></div></div>
+        <div class="row between wrap g8"><a class="btn btn-ghost" href="C7-Detail-1280.dc.html">Back to booking</a><button class="btn btn-primary btn-lg" type="button">{{ confirmLabel }}</button></div>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1100}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { picked: 'PROCEED' }; }
+  renderVals() {
+    const base = 'display: flex; gap: 14px; align-items: flex-start; width: 100%; padding: 16px; border-radius: 10px; background: #fff; cursor: pointer; font: inherit; color: inherit; ';
+    const defs = [
+      { id: 'PROCEED', title: 'Proceed as is', desc: 'The lab tests what it has. The report will note the deviation (short quantity). No refund.', label: 'Confirm: proceed as is' },
+      { id: 'REPLACE', title: 'Bring a replacement or top-up', desc: 'Bring at least 120 g more of the same batch. You will get new QR labels for the extra package.', label: 'Confirm: bring a top-up' },
+      { id: 'CANCEL', title: 'Cancel this booking', desc: 'Tests not started are refunded per the cancellation policy. You will see the exact amount before confirming.', label: 'Review cancellation' }
+    ];
+    const picked = this.state.picked;
+    const options = defs.map((d) => ({
+      ...d,
+      checked: picked === d.id ? 'true' : 'false',
+      dotCls: picked === d.id ? 'dot on' : 'dot',
+      boxStyle: base + (picked === d.id ? 'border: 2px solid #1F6FA8; background: #EEF5FB;' : 'border: 1px solid #D1D5DB;'),
+      pick: () => this.setState({ picked: d.id })
+    }));
+    const cur = defs.find((d) => d.id === picked);
+    return { options, confirmLabel: cur ? cur.label : 'Confirm' };
+  }
+}
+</script>
+</body>
+</html>

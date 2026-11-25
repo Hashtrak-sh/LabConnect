@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>E1 Customer dashboard, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 100%; min-height: 1160px; background: #F9FAFB; display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 32px; gap: 16px; flex-wrap: wrap">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span>
+    <nav class="nav row g4" aria-label="Main" style="margin-left: 24px"><a class="on" href="#">Dashboard</a><a href="C7-Detail-1280.dc.html">Bookings</a><a href="F2-Report-Dispute-1280.dc.html">Reports</a><a href="F3-Finance-1280.dc.html">Payments</a><a href="B1-Search-1280.dc.html">Find a lab</a></nav>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span style="position: relative; display: inline-flex"><button class="btn btn-ghost btn-icon" type="button" aria-label="Notifications, 3 unread"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg></button><span class="count" style="position: absolute; top: 2px; right: -2px">3</span></span><span class="row g8"><span style="width: 32px; height: 32px; border-radius: 50%; background: #D6E8F5; color: #13476D; display: inline-flex; align-items: center; justify-content: center; font-weight: 600">PS</span><span class="col"><b class="t-sm">Priya Sharma</b><span class="t-xs muted">Aarav Polymers · Requester</span></span></span></div>
+  </header>
+  <div style="max-width: 1280px; width: 100%; margin: 0 auto; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 24px">
+    <div class="row between wrap g12"><div class="col g4"><h1 class="t-2xl w7">Good morning, Priya</h1><span class="t-sm muted">Wednesday 25 Nov 2026 · times in IST</span></div><a class="btn btn-primary btn-lg" href="B1-Search-1280.dc.html"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Book a test</a></div>
+
+    <section class="col g12" aria-labelledby="nya">
+      <div class="row g8"><h2 id="nya" class="t-lg w6">Needs your action</h2><span class="count" style="margin-left: 0">4</span></div>
+      <div class="grid4">
+        <div class="nac warn col g8" style="padding: 16px"><span class="badge b-warn" style="align-self: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Pay now</span><b class="t-base">Pay ₹3,540 by 4:30 PM IST</b><span class="t-xs muted mono">LC-2611-0004821 · HDPE pipe</span><span class="sla warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>in 5 h</span><a class="btn btn-primary btn-block" href="C6-Handover-1280.dc.html">Pay ₹3,540</a></div>
+        <div class="nac danger col g8" style="padding: 16px"><span class="badge b-warn" style="align-self: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>On hold</span><b class="t-base">Sample short · decide</b><span class="t-xs muted mono">LC-2611-0004790 · PVC compound</span><span class="sla danger"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>in 2 h</span><a class="btn btn-primary btn-block" href="C7-Hold-1280.dc.html">Review and decide</a></div>
+        <div class="nac warn col g8" style="padding: 16px"><span class="badge b-warn" style="align-self: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Counter-offer</span><b class="t-base">Lab proposed Fri 27 Nov</b><span class="t-xs muted mono">LC-2611-0004833 · Rebar Fe500D</span><span class="sla ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>in 23 h</span><a class="btn btn-secondary btn-block" href="C4-Counter-1280.dc.html">Respond</a></div>
+        <div class="nac warn col g8" style="padding: 16px"><span class="badge b-warn" style="align-self: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Drop due</span><b class="t-base">Drop 2 packages tomorrow</b><span class="t-xs muted mono">LC-2611-0004801 · PP granules</span><span class="sla ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>by 26 Nov, 4:00 PM</span><a class="btn btn-secondary btn-block" href="C6-Handover-1280.dc.html">Handover details</a></div>
+      </div>
+    </section>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 600px; min-width: 0; overflow: hidden" aria-labelledby="inprog">
+        <div class="row between" style="padding: 16px 20px"><h2 id="inprog" class="t-lg w6">In progress <span class="muted w5 t-sm">· 5</span></h2><a class="t-sm" href="#">All bookings</a></div>
+        <table class="tbl">
+          <thead><tr><th>Booking</th><th>Item · lab</th><th>Status</th><th>Expected</th></tr></thead>
+          <tbody>
+            <tr><td><a class="mono" href="C7-Detail-1280.dc.html">LC-2611-0004812</a></td><td>PE granules<br><span class="t-xs muted">Vasundhara, Gurugram</span></td><td><span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Under test</span></td><td class="num">Report by 3 Dec</td></tr>
+            <tr><td><a class="mono" href="#">LC-2611-0004798</a></td><td>Cable sheath<br><span class="t-xs muted">Indraprastha, New Delhi</span></td><td><span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Report in review</span></td><td class="num">Report by 26 Nov</td></tr>
+            <tr><td><a class="mono" href="#">LC-2611-0004844</a></td><td>Paint, epoxy<br><span class="t-xs muted">Shivalik, Gurugram</span></td><td><span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Requested</span></td><td class="num">Lab decides by 5:00 PM</td></tr>
+            <tr><td><a class="mono" href="#">LC-2611-0004766</a></td><td>Steel fasteners<br><span class="t-xs muted">Vasundhara, Gurugram</span></td><td><span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Received</span></td><td class="num muted">Testing not started</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="card col g12" style="flex: 1 1 340px; padding: 16px 20px" aria-labelledby="rr">
+        <div class="row between"><h2 id="rr" class="t-lg w6">Recent reports</h2><a class="t-sm" href="F2-Report-Dispute-1280.dc.html">All</a></div>
+        <div class="col g4" style="padding: 10px 0; border-bottom: 1px solid #E5E7EB"><div class="row between"><span class="mono t-sm">LC-2611-0004712</span><span class="badge b-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Released</span></div><span class="t-sm">Steel rebar Fe500D · 24 Nov</span><span class="t-xs" style="color: #B45309">Dispute window closes in 2 days</span><a class="t-sm" href="F2-Report-Dispute-1280.dc.html">Download report</a></div>
+        <div class="col g4" style="padding: 10px 0; border-bottom: 1px solid #E5E7EB"><div class="row between"><span class="mono t-sm">LC-2611-0004655</span><span class="badge b-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Completed</span></div><span class="t-sm">HDPE pipe · 18 Nov</span><a class="t-sm" href="#">Download report</a></div>
+        <div class="col g4" style="padding: 10px 0"><div class="row between"><span class="mono t-sm">LC-2610-0004410</span><span class="badge b-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Completed</span></div><span class="t-sm">PVC pipe · 30 Oct</span><a class="t-sm" href="#">Download report</a></div>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1160}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

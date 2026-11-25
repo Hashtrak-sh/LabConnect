@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A4 Feedback, data and verification</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1440px; height: 1800px; background: #fff; padding: 48px; display: flex; flex-direction: column; gap: 36px; font-family: var(--font-sans)">
+  <div class="row between">
+    <div class="col g4"><p class="sectitle">Stage A · 4 of 4</p><h1 class="t-3xl w7">Feedback, data & verification</h1><p class="muted t-sm">Errors say what happened, why, and what to do. Never just "Error 422".</p></div>
+    <span class="prov">Provisional brand values · OQ-19</span>
+  </div>
+
+  <section class="col g16">
+    <h2 class="t-xl w6">VerificationResult <span class="spec">understood in 5 seconds</span></h2>
+    <div class="grid4">
+      <div class="col g8" style="border-radius: 12px; padding: 20px; background: #F0FDF4; border: 2px solid #15803D">
+        <svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true" style="color: #15803D"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>
+        <b class="t-xl" style="color: #14532D">Genuine report</b><span class="t-sm" style="color: #14532D">This is the current version, issued through LabConnect.</span><span class="spec">GENUINE_CURRENT</span>
+      </div>
+      <div class="col g8" style="border-radius: 12px; padding: 20px; background: #FFFBEB; border: 2px solid #B45309">
+        <svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true" style="color: #B45309"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>
+        <b class="t-xl" style="color: #78350F">Genuine, but replaced</b><span class="t-sm" style="color: #78350F">A newer version (v2) was issued on 4 Dec 2026. Ask for the latest copy.</span><span class="spec">GENUINE_SUPERSEDED</span>
+      </div>
+      <div class="col g8" style="border-radius: 12px; padding: 20px; background: #F3F4F6; border: 2px solid #4B5563">
+        <svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true" style="color: #4B5563"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3M8 11h6"></path></svg>
+        <b class="t-xl">Not found</b><span class="t-sm">No report matches this code. Check the code, or treat the document as unverified.</span><span class="spec">NOT_FOUND</span>
+      </div>
+      <div class="col g8" style="border-radius: 12px; padding: 20px; background: #FEF2F2; border: 2px solid #B91C1C">
+        <svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true" style="color: #B91C1C"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6M9 9l6 6"></path></svg>
+        <b class="t-xl" style="color: #7F1D1D">Revoked</b><span class="t-sm" style="color: #7F1D1D">This report was withdrawn and must not be relied on.</span><span class="spec">REVOKED</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="col g16">
+    <h2 class="t-xl w6">DataTable <span class="spec">desktop compact · mobile card mode below md · empty · loading · error</span></h2>
+    <div style="display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); gap: 24px">
+      <div class="card" style="overflow: hidden">
+        <div class="row between" style="padding: 12px 16px; border-bottom: 1px solid #E5E7EB"><div class="row g8"><div class="input" style="height: 36px; width: 260px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg><span class="ph t-sm">Booking no. or item</span></div><button class="btn btn-secondary btn-sm" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 3H2l8 9.46V19l4 2v-8.54z"></path></svg>Status: 2</button></div><button class="btn btn-ghost btn-sm" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Export CSV</button></div>
+        <table class="tbl compact">
+          <thead><tr><th>Booking ▾</th><th>Item</th><th>Status</th><th>Next action</th><th>Deadline</th><th class="r">Total</th><th></th></tr></thead>
+          <tbody>
+            <tr><td class="mono">LC-2611-0004821</td><td>HDPE pipe · B-2611-07</td><td><span class="badge b-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Accepted · pay now</span></td><td>Pay</td><td class="num"><span class="sla warn">in 5 h</span></td><td class="r num">₹3,540</td><td><button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="Row actions">⋯</button></td></tr>
+            <tr><td class="mono">LC-2611-0004790</td><td>PVC compound · K-118</td><td><span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Under test</span></td><td class="muted">Lab</td><td class="num">3 Dec 2026</td><td class="r num">₹6,844</td><td><button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="Row actions">⋯</button></td></tr>
+            <tr><td class="mono">LC-2611-0004712</td><td>Steel rebar · Fe500D</td><td><span class="badge b-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Report released</span></td><td>Download</td><td class="num">Dispute window 2 days</td><td class="r num">₹4,130</td><td><button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="Row actions">⋯</button></td></tr>
+          </tbody>
+        </table>
+        <div class="row between t-sm muted" style="padding: 10px 16px"><span>Showing 1–3</span><div class="row g8"><button class="btn btn-secondary btn-sm is-disabled" type="button" disabled>Previous</button><button class="btn btn-secondary btn-sm" type="button">Next</button></div></div>
+      </div>
+      <div class="col g8">
+        <div class="card col g8" style="padding: 14px">
+          <div class="row between"><span class="mono t-sm w6">LC-2611-0004821</span><span class="badge b-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Pay now</span></div>
+          <span class="t-sm">HDPE pipe · B-2611-07</span>
+          <div class="row between t-sm"><span class="sla warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Pay by 4:30 PM IST</span><b class="num">₹3,540</b></div>
+        </div>
+        <div class="card col g8" style="padding: 14px"><div class="sk" style="height: 14px; width: 60%"></div><div class="sk" style="height: 12px; width: 85%"></div><div class="sk" style="height: 12px; width: 40%"></div><span class="spec">loading skeleton</span></div>
+        <div class="alert a-danger"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg><div class="col g4"><b>Couldn't load bookings</b><span>The connection dropped. Your data is safe.</span><button class="btn btn-secondary btn-sm" type="button" style="align-self: flex-start">Try again</button></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid4">
+    <div class="panel col g8" style="padding: 24px; align-items: center; text-align: center"><svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true" style="color: #6B7280"><path d="M16.5 9.4 7.55 4.24M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.3 7 12 12l8.7-5M12 22V12"></path></svg><b>No bookings yet</b><span class="t-sm muted">Find an accredited lab and book your first test.</span><a class="btn btn-primary btn-sm" href="#">Find a lab</a><span class="spec">EmptyState</span></div>
+    <div class="panel col g8" style="padding: 24px; align-items: center; text-align: center"><svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true" style="color: #B91C1C"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg><b>This booking has moved on</b><span class="t-sm muted">Someone else changed it while you were looking. Refresh to see its current state.</span><button class="btn btn-secondary btn-sm" type="button">Refresh</button><span class="spec">ErrorState · 409 INVALID_STATE_TRANSITION</span></div>
+    <div class="panel col g8" style="padding: 24px; align-items: center; text-align: center"><svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true" style="color: #4B5563"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><b>You don't have access</b><span class="t-sm muted">Only Finance and Admin users can see invoices. Ask your organisation admin.</span><span class="spec">PermissionDenied</span></div>
+    <div class="col g8">
+      <div class="alert a-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h.01M8.5 16.43a5 5 0 0 1 7 0M2 2l20 20M5 12.86a10 10 0 0 1 5.17-2.69M19 12.86a10 10 0 0 0-2-1.39M2 8.82a15 15 0 0 1 4.17-2.65M10.66 5c4.01-.36 8.14.9 11.34 3.76"></path></svg><span><b>You're offline.</b> 2 scans are saved on this phone and will sync.</span></div>
+      <span class="spec">OfflineBanner</span>
+      <div class="alert a-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg><span><b>Payments are slow right now.</b> If you already paid, don't pay again. We'll confirm as soon as the bank does.</span></div>
+      <span class="spec">PartnerOutageBanner</span>
+      <div class="row g12 card" style="padding: 12px 14px; background: #111827; color: #fff; border: 0"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: #4ADE80"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span class="t-sm">Labels sent to printer</span></div>
+      <span class="spec">Toast</span>
+    </div>
+  </section>
+
+  <section style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+    <div class="col g12">
+      <h2 class="t-xl w6">NotificationBell + Inbox</h2>
+      <div class="row g8"><span style="position: relative; display: inline-flex"><button class="btn btn-secondary btn-icon" type="button" aria-label="Notifications, 3 unread"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg></button><span class="count" style="position: absolute; top: -6px; right: -8px">3</span></span></div>
+      <div class="overlay col" style="overflow: hidden">
+        <div class="row between" style="padding: 12px 14px; border-bottom: 1px solid #E5E7EB"><b class="t-sm">Notifications</b><a class="t-xs" href="#">Mark all read</a></div>
+        <div class="col g4" style="padding: 10px 14px; background: #FFFBEB; border-bottom: 1px solid #E5E7EB"><span class="t-xs w6" style="color: #78350F">ACTION NEEDED · PINNED</span><span class="t-sm"><b>Pay ₹3,540</b> for LC-2611-0004821 by 4:30 PM IST</span></div>
+        <div class="col g4" style="padding: 10px 14px; border-bottom: 1px solid #E5E7EB"><span class="t-sm"><b>Report released</b> for LC-2611-0004712</span><span class="t-xs muted">2 h ago</span></div>
+        <div class="col g4" style="padding: 10px 14px"><span class="t-sm muted">Lab accepted LC-2611-0004790</span><span class="t-xs muted">Yesterday</span></div>
+      </div>
+    </div>
+    <div class="col g12">
+      <h2 class="t-xl w6">ScopeTree</h2>
+      <div class="card col" style="padding: 12px; gap: 2px">
+        <div class="input" style="height: 36px; margin-bottom: 8px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg><span class="ph t-sm">Search this lab's scope</span></div>
+        <div class="row g8 t-sm w6" style="height: 32px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>Chemical</div>
+        <div class="row g8 t-sm w5" style="height: 32px; padding-left: 20px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>Polymers & plastics</div>
+        <div class="row g8 t-sm" style="height: 32px; padding-left: 40px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>HDPE pipes</div>
+        <div class="row g8 t-sm" style="height: 36px; padding-left: 60px"><span class="box on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; stroke-width: 3"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="grow">Melt flow rate · IS 2530</span><span class="num muted">₹1,200</span></div>
+        <div class="row g8 t-sm" style="height: 36px; padding-left: 60px"><span class="box on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; stroke-width: 3"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="grow">Density · IS 7328</span><span class="num muted">₹800</span></div>
+        <div class="row g8 t-sm" style="height: 36px; padding-left: 60px; color: #6B7280"><span class="box" style="background: #F3F4F6; border-color: #D1D5DB"></span><span class="grow">Oxidation induction time</span><span class="badge b-neutral">Unavailable</span></div>
+        <div class="row g8 t-sm" style="height: 32px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>Mechanical</div>
+      </div>
+    </div>
+    <div class="col g12">
+      <h2 class="t-xl w6">DiffViewer · ImportPreview</h2>
+      <div class="card col g8" style="padding: 14px">
+        <span class="t-xs muted">Price list v3 → v4 draft</span>
+        <div class="row between t-sm"><span>Melt flow rate</span><span class="num"><span class="diff-del" style="padding: 0 4px">₹1,100</span> → <span class="diff-add" style="padding: 0 4px">₹1,200</span></span></div>
+        <div class="row between t-sm"><span>TAT · Density</span><span class="num"><span class="diff-del" style="padding: 0 4px">4 days</span> → <span class="diff-add" style="padding: 0 4px">3 days</span></span></div>
+        <div class="row between t-sm"><span class="diff-add" style="padding: 0 4px">+ Ash content · IS 2530</span><span class="num diff-add" style="padding: 0 4px">₹900</span></div>
+        <span class="t-xs muted">Removed and added rows also carry a − / + sign, not only colour.</span>
+      </div>
+      <div class="card col g8" style="padding: 14px">
+        <span class="t-xs muted">Import · scope-nabl-nov.xlsx · 1,284 rows</span>
+        <div class="row wrap g8"><span class="badge b-ok">+ 312 create</span><span class="badge b-info">~ 96 update</span><span class="badge b-neutral">= 860 no change</span><span class="badge b-warn">! 9 conflict</span><span class="badge b-danger">× 7 error</span></div>
+        <a class="t-sm" href="#">Download error CSV</a>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

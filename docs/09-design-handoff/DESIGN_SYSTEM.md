@@ -10,7 +10,7 @@
 |---|---|---|
 | `--color-bg` / `--color-surface` / `--color-surface-raised` | Page, cards, popovers | white / gray-50 / white |
 | `--color-text` / `--color-text-muted` / `--color-text-inverse` | Text | gray-900 / gray-600 / white |
-| `--color-border` / `--color-border-strong` | Borders | gray-200 / gray-400 |
+| `--color-border` / `--color-border-strong` | Borders | gray-200 / gray-500 (gray-400 is only 2.5:1 on white and fails WCAG 1.4.11 for input borders; changed in D-02) |
 | `--color-brand-primary` / `-hover` / `-contrast` | Primary actions, links, focus | neutral slate-800 (placeholder) |
 | `--color-brand-secondary` | Secondary emphasis | slate-600 |
 | `--color-success` / `--color-warning` / `--color-danger` / `--color-info` (+ `-bg` variants) | Status | green-700 / amber-700 / red-700 / blue-700 |

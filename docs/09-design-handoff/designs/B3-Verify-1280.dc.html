@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>B3 Verify a report, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 100%; min-height: 940px; background: #F9FAFB; display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 32px; gap: 16px">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span>
+    <span class="t-sm muted" style="margin-left: 8px">Report verification</span>
+    <span class="prov" style="margin-left: auto">Provisional brand</span>
+  </header>
+  <main style="max-width: 880px; width: 100%; margin: 0 auto; padding: 40px 32px; display: flex; flex-direction: column; gap: 20px">
+    <section style="border-radius: 16px; padding: 28px 32px; background: #F0FDF4; border: 2px solid #15803D; display: flex; gap: 24px; align-items: center; flex-wrap: wrap" aria-live="polite">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 72px; height: 72px; color: #15803D; stroke-width: 1.6"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>
+      <div class="col g4 grow">
+        <h1 class="t-3xl w7" style="color: #14532D">Genuine report</h1>
+        <p class="t-lg" style="color: #14532D">This is the current version, issued through LabConnect by an NABL-accredited lab.</p>
+      </div>
+    </section>
+    <section class="card" style="padding: 24px 28px; display: flex; flex-direction: column; gap: 16px">
+      <h2 class="t-lg w6">Report details</h2>
+      <div class="grid3" style="gap: 16px 24px">
+        <div class="col"><span class="t-xs muted">Report no.</span><b class="mono">VTL/R/26/11/0932</b></div>
+        <div class="col"><span class="t-xs muted">ULR</span><b class="mono">TC104822600009321F</b></div>
+        <div class="col"><span class="t-xs muted">Version</span><b>v1 · current</b></div>
+        <div class="col"><span class="t-xs muted">Issue date</span><b>3 Dec 2026</b></div>
+        <div class="col"><span class="t-xs muted">Lab</span><b>Vasundhara Testing Laboratories, Gurugram</b></div>
+        <div class="col"><span class="t-xs muted">NABL certificate</span><b class="mono">TC-10482 · valid</b></div>
+        <div class="col"><span class="t-xs muted">Approved by</span><b>Dr. Anita Mehta, Quality Manager</b></div>
+      </div>
+      <div class="alert a-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><span class="t-sm">For privacy this page shows only these details. It never shows the customer's name or the test results.</span></div>
+    </section>
+    <section class="card" style="padding: 24px 28px; display: flex; gap: 24px; flex-wrap: wrap; align-items: center">
+      <div class="col g8" style="flex: 1 1 320px">
+        <h2 class="t-lg w6">Compare a copy</h2>
+        <p class="t-sm muted">Got a PDF of this report? Check it's unchanged. The file stays on your device; we compare its fingerprint (SHA-256) with the issued copy.</p>
+      </div>
+      <div class="panel col g8" style="flex: 1 1 300px; border: 2px dashed #6B7280; padding: 20px; align-items: center; text-align: center">
+        <svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>
+        <span class="t-sm"><b>Drop the PDF here</b> or <a href="#">choose a file</a></span>
+      </div>
+      <div class="alert a-ok" style="flex: 1 1 100%"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span class="t-sm"><b>Matches.</b> report-0932.pdf is identical to the issued copy. <span class="mono t-xs">sha256 4f9a…c21e</span></span></div>
+    </section>
+    <p class="t-xs muted" style="text-align: center">Verification code <span class="mono">K3X9-P7QM-2TRA</span> · checked 4 Dec 2026, 9:12 AM IST</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

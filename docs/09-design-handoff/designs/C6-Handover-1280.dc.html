@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>C6 Handover after payment, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 100%; min-height: 1300px; background: #F9FAFB; display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 32px; gap: 16px; flex-wrap: wrap">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span>
+    <nav class="nav row g4" aria-label="Main" style="margin-left: 24px"><a href="E1-Customer-1280.dc.html">Dashboard</a><a class="on" href="#">Bookings</a><a href="#">Reports</a><a href="#">Payments</a><a href="B1-Search-1280.dc.html">Find a lab</a></nav>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span style="width: 32px; height: 32px; border-radius: 50%; background: #D6E8F5; color: #13476D; display: inline-flex; align-items: center; justify-content: center; font-weight: 600" aria-label="Priya Sharma">PS</span></div>
+  </header>
+  <div style="max-width: 1280px; width: 100%; margin: 0 auto; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 20px">
+    <div class="alert a-ok" role="status"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><div class="row between grow wrap g8"><span class="t-base"><b>Payment received: ₹3,540.00.</b> 25 Nov 2026, 2:10 PM IST.</span><a class="btn btn-secondary btn-sm" href="#"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Receipt (PDF)</a></div></div>
+    <div class="row between wrap g12">
+      <div class="col g4"><span class="crumbs"><a href="E1-Customer-1280.dc.html">Bookings</a> › <span class="mono">LC-2611-0004821</span></span><h1 class="t-2xl w7">Drop your sample at the lab</h1></div>
+      <span class="badge b-warn" style="height: 28px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Ready for drop-off</span>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+        <div class="nac warn row between wrap g12">
+          <div class="col g4"><b class="t-lg">Bring 3 packages by Thu 26 Nov, 4:00 PM IST</b><span class="t-sm">Your slot: 10:00 AM – 12:00 PM IST · drop-off deadline in 1 day</span></div>
+          <button class="btn btn-primary btn-lg" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>Print labels</button>
+        </div>
+        <section class="card col g16" style="padding: 24px">
+          <h2 class="t-lg w6">Before you go</h2>
+          <ol class="t-sm" style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px">
+            <li><b>Print the labels</b> (A4 sheet or thermal) and stick one on each package. Each label has its own QR.</li>
+            <li>Pack as the lab asks: <i>granules or pipe offcuts in a sealed polythene bag; keep away from moisture.</i></li>
+            <li>At the counter, show the booking QR on your phone, or hand over the labelled packages. Lab staff scan them.</li>
+          </ol>
+          <div class="row g16 wrap">
+            <div class="col g4 card" style="padding: 12px; align-items: center; width: 160px"><div class="qr" style="width: 90px; height: 90px" role="img" aria-label="Package 1 QR placeholder"></div><span class="t-xs w6">Package 1 of 3</span><span class="mono t-xs">H2P-8RT</span></div>
+            <div class="col g4 card" style="padding: 12px; align-items: center; width: 160px"><div class="qr" style="width: 90px; height: 90px" role="img" aria-label="Package 2 QR placeholder"></div><span class="t-xs w6">Package 2 of 3</span><span class="mono t-xs">K7Q-4MX</span></div>
+            <div class="col g4 card" style="padding: 12px; align-items: center; width: 160px"><div class="qr" style="width: 90px; height: 90px" role="img" aria-label="Package 3 QR placeholder"></div><span class="t-xs w6">Package 3 of 3</span><span class="mono t-xs">W3C-9LD</span></div>
+            <div class="col g8" style="justify-content: center"><div class="seg"><span class="on">A4 sheet</span><span>Thermal 50×25</span></div><span class="t-xs muted">Labels can't be edited. Lost one? Ask the lab for a reprint.</span></div>
+          </div>
+        </section>
+        <section class="card col g12" style="padding: 24px">
+          <h2 class="t-lg w6">Booking QR for the counter</h2>
+          <div class="row g24 wrap"><div class="qr" style="width: 140px; height: 140px" role="img" aria-label="Booking QR placeholder"></div><div class="col g8"><span class="t-sm">On your phone, open <b>"At the lab? Show this QR"</b>. It works without internet once opened.</span><span class="t-sm">Short code: <b class="mono t-lg" style="letter-spacing: .12em">LC4821</b></span><a class="btn btn-secondary" href="#" style="align-self: flex-start">Send to my phone</a></div></div>
+        </section>
+      </div>
+      <aside style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 16px">
+        <section class="card col g12" style="padding: 20px">
+          <b class="t-base">Vasundhara Testing Laboratories</b>
+          <span class="t-sm">Plot 14, Sector 37, Gurugram, Haryana 122001</span>
+          <div class="map" style="height: 160px; border-radius: 8px"><span class="pin sel" style="left: 46%; top: 40%"><span>V</span></span><span class="osm">© OpenStreetMap contributors</span></div>
+          <a class="btn btn-secondary" href="#"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>Open in maps</a>
+          <hr class="hr">
+          <div class="col g4 t-sm"><b>Receiving hours (IST)</b><span>Mon–Fri 9:30 AM – 5:00 PM · cut-off 4:00 PM</span><span>Sat 9:30 AM – 1:00 PM</span></div>
+          <div class="col g4 t-sm"><b>Sample receiving desk</b><span class="mono">+91 124 ••• ••48</span><span class="t-xs muted">Gate 2, ground floor</span></div>
+        </section>
+        <a class="btn btn-ghost" href="C7-Detail-1280.dc.html">View full booking details<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+      </aside>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1300}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
