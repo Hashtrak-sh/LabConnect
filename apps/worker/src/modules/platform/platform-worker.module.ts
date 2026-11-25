@@ -28,7 +28,7 @@ export const CLOCK = Symbol('CLOCK');
 export const QUEUE_PUBLISHER = Symbol('QUEUE_PUBLISHER');
 export const JOBS_CONFIG = Symbol('JOBS_CONFIG');
 export const JOBS_SCHEDULER = Symbol('JOBS_SCHEDULER');
-/** The registry later modules add their timer handlers to (in onModuleInit). Empty for now. */
+/** The registry modules add their timer handlers to in `onModuleInit` (the booking module does, see BookingTimersRegistrar). */
 export const TIMER_HANDLERS = Symbol('TIMER_HANDLERS');
 
 /**

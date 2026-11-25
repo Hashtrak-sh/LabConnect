@@ -56,3 +56,26 @@ export function readNotificationsWorkerConfig(
     emailMaxAttempts: positiveInteger(env, 'EMAIL_MAX_ATTEMPTS', 5),
   };
 }
+
+/** The values `NOTIFICATIONS_CONTEXT_SOURCE` can have. Unset means no adapter: the queue is not consumed. */
+export const NOTIFICATION_CONTEXT_SOURCES = ['booking'] as const;
+export type NotificationContextSourceName = (typeof NOTIFICATION_CONTEXT_SOURCES)[number];
+
+/**
+ * `NOTIFICATIONS_CONTEXT_SOURCE=booking` selects the booking adapter. Unset or empty is the safe
+ * default (no adapter, so the consumer does not start and no event is taken off the queue and
+ * lost, OQ-140). Any other value is a mistake and stops the worker from starting.
+ */
+export function readNotificationsContextSource(
+  env: Record<string, string | undefined> = process.env,
+): NotificationContextSourceName | undefined {
+  const raw = env.NOTIFICATIONS_CONTEXT_SOURCE?.trim();
+  if (raw === undefined || raw === '') return undefined;
+  const known = NOTIFICATION_CONTEXT_SOURCES.find((name) => name === raw);
+  if (!known) {
+    throw new RangeError(
+      `NOTIFICATIONS_CONTEXT_SOURCE must be one of: ${NOTIFICATION_CONTEXT_SOURCES.join(', ')} (or unset).`,
+    );
+  }
+  return known;
+}

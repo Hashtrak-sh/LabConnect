@@ -1,4 +1,5 @@
 import {
+  BookingNotificationContext,
   type Clock,
   consumeNotificationsQueue,
   createEmailSender,
@@ -8,6 +9,7 @@ import {
   type QueueConsumer,
   runEmailDeliveries,
 } from '@labconnect/core';
+import type { PrismaClient } from '@labconnect/database';
 import {
   Inject,
   Injectable,
@@ -25,7 +27,9 @@ import {
 } from '../platform/polling-runner.js';
 import { createEmailDeliveryJob, createNotificationsConsumerJob } from './notifications-jobs.js';
 import {
+  type NotificationContextSourceName,
   type NotificationsWorkerConfig,
+  readNotificationsContextSource,
   readNotificationsWorkerConfig,
 } from './notifications-worker.config.js';
 
@@ -36,14 +40,29 @@ export const NOTIFICATIONS_QUEUE_CONSUMER = Symbol('NOTIFICATIONS_QUEUE_CONSUMER
 export const NOTIFICATIONS_EMAIL_SENDER = Symbol('NOTIFICATIONS_EMAIL_SENDER');
 /**
  * Where the consumer learns who is involved in an event that does not say (the booking number,
- * the parties, the lab's name). The booking and labs modules provide the real adapter; until one
- * is registered here the consumer does not start, so no event is taken off the queue and lost
- * (OQ-140). Override this provider to register it.
+ * the parties, the lab's name). The environment variable `NOTIFICATIONS_CONTEXT_SOURCE=booking`
+ * selects the booking adapter; until one is selected the consumer does not start, so no event is
+ * taken off the queue and lost (OQ-140). Override this provider in tests.
  */
 export const NOTIFICATIONS_CONTEXT_SOURCE = Symbol('NOTIFICATIONS_CONTEXT_SOURCE');
 
 export interface NotificationsContextSource {
   port?: NotificationContextPort;
+}
+
+/**
+ * The context source the environment selects (`NOTIFICATIONS_CONTEXT_SOURCE`): `booking` is the
+ * adapter for events of a booking; nothing is the safe default (the queue is not consumed). The
+ * adapter reaches the database through the worker's lazy client, so building it needs no database.
+ */
+export function createNotificationsContextSource(
+  name: NotificationContextSourceName | undefined,
+  database: { readonly client: PrismaClient },
+): NotificationsContextSource {
+  if (name === 'booking') {
+    return { port: new BookingNotificationContext(database.client) };
+  }
+  return {};
 }
 
 /**
@@ -140,7 +159,12 @@ export class NotificationsJobsService implements OnApplicationBootstrap, OnAppli
       provide: NOTIFICATIONS_EMAIL_SENDER,
       useFactory: (): (() => EmailSender) => () => createEmailSender({ env: process.env }).sender,
     },
-    { provide: NOTIFICATIONS_CONTEXT_SOURCE, useValue: {} satisfies NotificationsContextSource },
+    {
+      provide: NOTIFICATIONS_CONTEXT_SOURCE,
+      useFactory: (database: WorkerDatabase): NotificationsContextSource =>
+        createNotificationsContextSource(readNotificationsContextSource(), database),
+      inject: [WorkerDatabase],
+    },
   ],
 })
 export class NotificationsWorkerModule {}

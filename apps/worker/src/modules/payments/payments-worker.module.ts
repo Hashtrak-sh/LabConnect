@@ -6,15 +6,13 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
+import { type BookingEngine, type BookingEngineServices, PaymentsRuntime } from '@labconnect/core';
 import {
-  AuditService,
-  ConfigParameters,
-  OutboxService,
-  PaymentsRuntime,
-  TimerService,
-  type Clock,
-} from '@labconnect/core';
-import { CLOCK, PlatformWorkerModule, WorkerDatabase } from '../platform/platform-worker.module.js';
+  BOOKING_ENGINE,
+  BOOKING_SERVICES,
+  BookingWorkerModule,
+} from '../booking/booking-worker.module.js';
+import { PlatformWorkerModule, WorkerDatabase } from '../platform/platform-worker.module.js';
 import { PollingRunner, type Scheduler, systemScheduler } from '../platform/polling-runner.js';
 import {
   createPaymentEventsJob,
@@ -84,7 +82,7 @@ export class PaymentJobsService implements OnApplicationBootstrap, OnApplication
 }
 
 @Module({
-  imports: [PlatformWorkerModule],
+  imports: [PlatformWorkerModule, BookingWorkerModule],
   providers: [
     PaymentJobsService,
     { provide: PAYMENT_JOBS_CONFIG, useFactory: () => readPaymentJobsConfig() },
@@ -92,17 +90,14 @@ export class PaymentJobsService implements OnApplicationBootstrap, OnApplication
     { provide: PAYMENTS_ENV, useFactory: (): Record<string, string | undefined> => process.env },
     {
       provide: PaymentsRuntime,
-      useFactory: (env: Record<string, string | undefined>, clock: Clock) => {
-        const audit = new AuditService(clock);
-        return new PaymentsRuntime(env, {
-          clock,
-          audit,
-          outbox: new OutboxService(clock),
-          timers: new TimerService(clock),
-          config: new ConfigParameters(clock, audit),
-        });
-      },
-      inject: [PAYMENTS_ENV, CLOCK],
+      // The worker's one booking engine, so that payments and the booking timers move bookings
+      // through the same registry (default effects and the T-09 guard).
+      useFactory: (
+        env: Record<string, string | undefined>,
+        services: BookingEngineServices,
+        engine: BookingEngine,
+      ) => new PaymentsRuntime(env, services, engine),
+      inject: [PAYMENTS_ENV, BOOKING_SERVICES, BOOKING_ENGINE],
     },
   ],
   exports: [PaymentsRuntime],
