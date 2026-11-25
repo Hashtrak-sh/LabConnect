@@ -21,6 +21,14 @@ const ALLOW_PARTIAL_SESSION = 'identity:allowPartialSession';
 export const AllowPartialSession = (): MethodDecorator & ClassDecorator =>
   SetMetadata(ALLOW_PARTIAL_SESSION, true);
 
+/** True when the route (a handler or its controller) accepts a partial session. Read-only (P3-05). */
+export function allowsPartialSession(handler: object, controller: object): boolean {
+  const declared =
+    (Reflect.getMetadata(ALLOW_PARTIAL_SESSION, handler) as boolean | undefined) ??
+    (Reflect.getMetadata(ALLOW_PARTIAL_SESSION, controller) as boolean | undefined);
+  return declared === true;
+}
+
 type RequestWithSession = Request & { authSession?: AuthenticatedSession };
 
 function bearerToken(request: Request): string | undefined {

@@ -10,12 +10,24 @@ import { defineConfig } from 'vitest/config';
 // - http-db: the same, against a real PostgreSQL (Testcontainers, so Docker is needed): the
 //   migrated template database of packages/database, one clone per test file, the API
 //   connecting as the app_rw role under row-level security. Lives in test/integration.
+// - permissions-db, isolation-db: the permission-matrix and tenant-isolation suites (P3-05), the
+//   same kind of test as http-db and in their own projects so the CI jobs `permissions` and
+//   `isolation` run them without `pnpm test:contract` running them a second time.
+//   Their declaration and coverage rules need no database and live in the `http` project
+//   (test/permissions, test/isolation), so `pnpm test` runs those too.
 // - contract-final: runs after the others (groupOrder 1) and fails if an implemented operation
 //   was not exercised in this run.
 //
 // `pnpm test` runs unit and http only (no Docker). `pnpm test:contract` runs http, http-db and
 // contract-final: an operation that needs the database is exercised there. `pnpm test:integration`
 // runs http-db alone.
+// What the database-backed projects share.
+const database = {
+  globalSetup: ['../../packages/database/test/db/global-setup.ts'],
+  hookTimeout: 240_000,
+  testTimeout: 60_000,
+};
+
 export default defineConfig(({ mode }) => {
   // One directory per run, shared by the workers. Stable within this process even if the
   // config is evaluated again.
@@ -39,12 +51,22 @@ export default defineConfig(({ mode }) => {
         },
         {
           extends: true,
+          test: { name: 'http-db', include: ['test/integration/*.spec.ts'], ...database },
+        },
+        {
+          extends: true,
           test: {
-            name: 'http-db',
-            include: ['test/integration/**/*.spec.ts'],
-            globalSetup: ['../../packages/database/test/db/global-setup.ts'],
-            hookTimeout: 240_000,
-            testTimeout: 60_000,
+            name: 'permissions-db',
+            include: ['test/integration/permissions/**/*.spec.ts'],
+            ...database,
+          },
+        },
+        {
+          extends: true,
+          test: {
+            name: 'isolation-db',
+            include: ['test/integration/isolation/**/*.spec.ts'],
+            ...database,
           },
         },
         {
