@@ -960,7 +960,7 @@ Unique (`dispute_no`). Unique (`id`, `customer_org_id`, `lab_org_id`). Partial u
 `event_code`, `channel notif_channel` (`EMAIL`, `IN_APP`, `SMS`, `WHATSAPP`), `locale`, `version`, `subject text null`, `body text` (Handlebars-style, variables whitelisted), `external_template_id null` (DLT or WhatsApp), `status`. Unique (`event_code`, `channel`, `locale`, `version`).
 
 ### 12.2 `notification`
-`recipient_user_id`, `organisation_id`, `event_code`, `event_id` (outbox id), `channel`, `template_version`, `payload jsonb` (no report content, no OTP for in-app), `is_action_required boolean`, `status notif_status` (`QUEUED`, `SENT`, `DELIVERED`, `FAILED`, `SUPPRESSED`), `provider_message_id null`, `sent_at`, `read_at null` (in-app), `error`. Unique (`event_id`, `recipient_user_id`, `channel`).
+`recipient_user_id`, `organisation_id`, `event_code`, `event_id` (outbox id), `channel`, `template_version`, `payload jsonb` (no report content, no OTP for in-app), `is_action_required boolean`, `status notif_status` (`QUEUED`, `SENT`, `DELIVERED`, `FAILED`, `SUPPRESSED`), `provider_message_id null`, `sent_at`, `read_at null` (in-app), `error`, `delivery_attempts int` and `next_attempt_at timestamptz null` (email retry and send lease, P3-08). A user may update only `read_at` of their own rows. Unique (`event_id`, `recipient_user_id`, `channel`).
 
 ### 12.3 `notification_preference`
 `user_id`, `event_code`, `channel`, `muted boolean`. Unique (`user_id`, `event_code`, `channel`). Muting is ignored for action-required events.
