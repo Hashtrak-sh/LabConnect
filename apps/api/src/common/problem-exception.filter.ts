@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
+import { CoreError } from '@labconnect/core';
 import type { ErrorCode } from '@labconnect/shared';
 import { DomainError, type ProblemIssue } from './domain-error.js';
 import { REQUEST_ID_HEADER, getRequestContext } from './request-context.js';
@@ -85,7 +86,9 @@ function transportStatus(exception: unknown): number | undefined {
 
 /** Turns any thrown value into the problem body. Never exposes the message or stack of an unknown error. */
 export function toProblem(exception: unknown, requestId: string): Problem {
-  if (exception instanceof DomainError) {
+  // A DomainError from the API, or a CoreError from packages/core (booking, identity, ...):
+  // both carry a catalogued code, a user-safe detail and optional meta.
+  if (exception instanceof DomainError || exception instanceof CoreError) {
     const { code, status } = exception;
     return {
       type: typeOf(code, status),
@@ -95,7 +98,8 @@ export function toProblem(exception: unknown, requestId: string): Problem {
       // The detail of a 5xx is never shown to users (ERROR_HANDLING.md §3).
       ...(exception.detail !== undefined && status < 500 && { detail: exception.detail }),
       requestId,
-      ...(exception.errors !== undefined && { errors: exception.errors }),
+      ...(exception instanceof DomainError &&
+        exception.errors !== undefined && { errors: exception.errors }),
       ...(exception.meta !== undefined && { meta: exception.meta }),
     };
   }
@@ -152,6 +156,9 @@ export class ProblemExceptionFilter implements ExceptionFilter {
       return;
     }
     const problem = toProblem(exception, requestId);
+    if (exception instanceof CoreError && exception.retryAfterSeconds !== undefined) {
+      res.setHeader('Retry-After', String(exception.retryAfterSeconds));
+    }
     if (problem.status >= 500) {
       // ERROR_HANDLING.md §3: server errors are logged with the stack, server side only.
       const stack = exception instanceof Error ? exception.stack : undefined;

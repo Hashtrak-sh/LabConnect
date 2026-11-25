@@ -1,13 +1,6 @@
-import type { ErrorCode } from '@labconnect/shared';
+import { CoreError, type CoreErrorOptions } from '../platform/errors.js';
 
-export interface IdentityErrorOptions {
-  /** Safe for end users. Never put a code, a token or an email address here. */
-  detail?: string;
-  meta?: Record<string, unknown>;
-  /** For `RATE_LIMITED` and `OTP_LOCKED`: becomes the `Retry-After` header. */
-  retryAfterSeconds?: number;
-  cause?: unknown;
-}
+export type IdentityErrorOptions = CoreErrorOptions;
 
 /**
  * A failure of an identity operation that carries a catalogued code (ERROR_HANDLING.md section
@@ -18,24 +11,8 @@ export interface IdentityErrorOptions {
  * outcome, the caller commits, and only then raises the error. A thrown error rolls the
  * transaction back.
  */
-export class IdentityError extends Error {
+export class IdentityError extends CoreError {
   override name = 'IdentityError';
-  readonly detail: string | undefined;
-  readonly meta: Record<string, unknown> | undefined;
-  readonly retryAfterSeconds: number | undefined;
-
-  constructor(
-    readonly code: ErrorCode,
-    options: IdentityErrorOptions = {},
-  ) {
-    super(
-      options.detail ?? code,
-      options.cause === undefined ? undefined : { cause: options.cause },
-    );
-    this.detail = options.detail;
-    this.meta = options.meta;
-    this.retryAfterSeconds = options.retryAfterSeconds;
-  }
 }
 
 /** Where a request came from, for audit rows and session records. */

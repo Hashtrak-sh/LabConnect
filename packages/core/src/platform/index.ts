@@ -14,3 +14,4 @@ export * from './relay.js';
 export * from './routes.js';
 export * from './sqs-publisher.js';
 export * from './timers.js';
+export * from './errors.js';
