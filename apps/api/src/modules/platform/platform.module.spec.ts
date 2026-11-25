@@ -2,11 +2,13 @@ import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import {
   AuditService,
+  BusinessCalendarLoader,
   type Clock,
   ConfigParameters,
   FixedClock,
   OutboxService,
   SystemClock,
+  TimerService,
 } from '@labconnect/core';
 import { describe, expect, it } from 'vitest';
 import { CLOCK, PRISMA_CLIENT } from './platform.providers.js';
@@ -19,6 +21,8 @@ describe('PlatformModule providers', () => {
     expect(moduleRef.get(AuditService)).toBeInstanceOf(AuditService);
     expect(moduleRef.get(OutboxService)).toBeInstanceOf(OutboxService);
     expect(moduleRef.get(ConfigParameters)).toBeInstanceOf(ConfigParameters);
+    expect(moduleRef.get(TimerService)).toBeInstanceOf(TimerService);
+    expect(moduleRef.get(BusinessCalendarLoader)).toBeInstanceOf(BusinessCalendarLoader);
     // The client exists but has not connected: nothing has touched it yet.
     expect(moduleRef.get(PRISMA_CLIENT)).toBeDefined();
     await moduleRef.close();

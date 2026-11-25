@@ -1,4 +1,9 @@
-import type { AuditChainVerification, RelayResult, SealResult } from '@labconnect/core';
+import type {
+  AuditChainVerification,
+  RelayResult,
+  RunDueResult,
+  SealResult,
+} from '@labconnect/core';
 import type { JobLogger, PollingJob } from './polling-runner.js';
 
 /** A pass that fills its batch means there may be more waiting, so go again, up to this many times. */
@@ -116,4 +121,54 @@ export async function runAuditVerification(
   if (broken.length > 0) throw new AuditChainBrokenError(broken);
   logger.info(`audit verification: ${String(results.length)} chains match their audit rows`);
   return results;
+}
+
+export interface TimerJobDeps {
+  /** One pass of `runDueTimers`. The job passes the same `skipIds` set to every pass of a run. */
+  runDue: (skipIds: Set<string>) => Promise<RunDueResult>;
+  batchSize: number;
+  intervalMs: number;
+  logger: JobLogger;
+}
+
+/**
+ * Fires due timers (AUDIT_AND_EVENT_ARCHITECTURE.md section 4). Goes again while a pass
+ * fires a full batch, but never retries in the same run a timer that already failed, so a
+ * backlog cannot use up a failing timer's attempts. Logs counts and timer types only,
+ * never payloads. A timer that gave up (FAILED) is logged as an error. Timers without a
+ * handler are logged when the counts change, not on every tick.
+ */
+export function createTimerJob(deps: TimerJobDeps): PollingJob {
+  let lastUnhandled = '';
+  return {
+    name: 'timers',
+    intervalMs: deps.intervalMs,
+    async run() {
+      const skipIds = new Set<string>();
+      let retried = 0;
+      let failed = 0;
+      let unhandled: RunDueResult['unhandled'] = {};
+      const fired = await drain(async () => {
+        const result = await deps.runDue(skipIds);
+        retried += result.retried;
+        failed += result.failed;
+        unhandled = result.unhandled;
+        return { handled: result.fired };
+      }, deps.batchSize);
+      if (fired > 0 || retried > 0 || failed > 0) {
+        deps.logger.info(
+          `timers: ${String(fired)} fired, ${String(retried)} to retry, ${String(failed)} failed`,
+        );
+      }
+      if (failed > 0) deps.logger.error(`timers: ${String(failed)} timers gave up (FAILED)`);
+      const summary = Object.entries(unhandled)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([type, count]) => `${type}=${String(count)}`)
+        .join(', ');
+      if (summary !== lastUnhandled) {
+        lastUnhandled = summary;
+        if (summary !== '') deps.logger.info(`timers: due but without a handler: ${summary}`);
+      }
+    },
+  };
 }

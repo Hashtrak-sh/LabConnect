@@ -6,6 +6,8 @@ export interface PlatformJobsConfig {
   sealIntervalMs: number;
   sealBatchSize: number;
   verifyIntervalMs: number;
+  timerIntervalMs: number;
+  timerBatchSize: number;
 }
 
 function positiveInteger(
@@ -24,7 +26,7 @@ function positiveInteger(
 
 /**
  * Intervals and batch sizes, from the environment, with the defaults the architecture
- * implies: the relay polls every second, sealing every 10 seconds, verification once a day.
+ * implies: the relay polls every second, sealing every 10 seconds, timers every 15 seconds, verification once a day.
  * Jobs run only when `WORKER_DATABASE_URL` is set.
  */
 export function readPlatformJobsConfig(
@@ -37,5 +39,7 @@ export function readPlatformJobsConfig(
     sealIntervalMs: positiveInteger(env, 'AUDIT_SEAL_INTERVAL_MS', 10_000),
     sealBatchSize: positiveInteger(env, 'AUDIT_SEAL_BATCH_SIZE', 500),
     verifyIntervalMs: positiveInteger(env, 'AUDIT_VERIFY_INTERVAL_MS', 24 * 60 * 60 * 1000),
+    timerIntervalMs: positiveInteger(env, 'TIMER_POLL_INTERVAL_MS', 15_000),
+    timerBatchSize: positiveInteger(env, 'TIMER_BATCH_SIZE', 50),
   };
 }

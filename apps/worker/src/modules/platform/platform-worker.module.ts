@@ -7,6 +7,8 @@ import {
   SystemClock,
   verifyAllAuditChains,
   relayOutbox,
+  runDueTimers,
+  TimerHandlerRegistry,
   sealAuditLog,
 } from '@labconnect/core';
 import type { PrismaClient } from '@labconnect/database';
@@ -18,7 +20,7 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { createRelayJob, createSealJob, createVerifyJob } from './platform-jobs.js';
+import { createRelayJob, createSealJob, createTimerJob, createVerifyJob } from './platform-jobs.js';
 import { type PlatformJobsConfig, readPlatformJobsConfig } from './platform-jobs.config.js';
 import { PollingRunner, systemScheduler, type Scheduler } from './polling-runner.js';
 
@@ -26,6 +28,8 @@ export const CLOCK = Symbol('CLOCK');
 export const QUEUE_PUBLISHER = Symbol('QUEUE_PUBLISHER');
 export const JOBS_CONFIG = Symbol('JOBS_CONFIG');
 export const JOBS_SCHEDULER = Symbol('JOBS_SCHEDULER');
+/** The registry later modules add their timer handlers to (in onModuleInit). Empty for now. */
+export const TIMER_HANDLERS = Symbol('TIMER_HANDLERS');
 
 /**
  * The worker's database connection: the `app_worker` login user in `WORKER_DATABASE_URL`.
@@ -59,6 +63,7 @@ export class PlatformJobsService implements OnApplicationBootstrap, OnApplicatio
     @Inject(QUEUE_PUBLISHER) private readonly publisher: QueuePublisher,
     @Inject(JOBS_CONFIG) private readonly config: PlatformJobsConfig,
     @Inject(JOBS_SCHEDULER) private readonly scheduler: Scheduler,
+    @Inject(TIMER_HANDLERS) private readonly timerHandlers: TimerHandlerRegistry,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -92,6 +97,16 @@ export class PlatformJobsService implements OnApplicationBootstrap, OnApplicatio
           intervalMs: this.config.sealIntervalMs,
           logger,
         }),
+        createTimerJob({
+          runDue: (skipIds) =>
+            runDueTimers(prisma, this.clock, this.timerHandlers, {
+              batchSize: this.config.timerBatchSize,
+              skipIds,
+            }),
+          batchSize: this.config.timerBatchSize,
+          intervalMs: this.config.timerIntervalMs,
+          logger,
+        }),
         createVerifyJob({
           verifyAll: () => verifyAllAuditChains(prisma, { clock: this.clock }),
           intervalMs: this.config.verifyIntervalMs,
@@ -102,7 +117,9 @@ export class PlatformJobsService implements OnApplicationBootstrap, OnApplicatio
       logger,
     );
     this.runner.start();
-    this.logger.log('Platform jobs started: outbox relay, audit sealing, audit verification.');
+    this.logger.log(
+      'Platform jobs started: outbox relay, audit sealing, timers, audit verification.',
+    );
   }
 
   async onApplicationShutdown(): Promise<void> {
@@ -117,11 +134,12 @@ export class PlatformJobsService implements OnApplicationBootstrap, OnApplicatio
     { provide: CLOCK, useFactory: (): Clock => new SystemClock() },
     { provide: JOBS_CONFIG, useFactory: () => readPlatformJobsConfig() },
     { provide: JOBS_SCHEDULER, useValue: systemScheduler },
+    { provide: TIMER_HANDLERS, useFactory: (): TimerHandlerRegistry => new TimerHandlerRegistry() },
     {
       provide: QUEUE_PUBLISHER,
       useFactory: (): QueuePublisher => createSqsPublisherFromEnv(),
     },
   ],
-  exports: [WorkerDatabase, CLOCK, QUEUE_PUBLISHER],
+  exports: [WorkerDatabase, CLOCK, QUEUE_PUBLISHER, TIMER_HANDLERS],
 })
 export class PlatformWorkerModule {}

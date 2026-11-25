@@ -1,9 +1,10 @@
-import type { AuditChainVerification } from '@labconnect/core';
+import type { AuditChainVerification, RunDueResult } from '@labconnect/core';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AuditChainBrokenError,
   createRelayJob,
   createSealJob,
+  createTimerJob,
   createVerifyJob,
   runAuditVerification,
 } from './platform-jobs.js';
@@ -129,13 +130,99 @@ describe('readPlatformJobsConfig', () => {
       sealIntervalMs: 10_000,
       sealBatchSize: 500,
       verifyIntervalMs: 86_400_000,
+      timerIntervalMs: 15_000,
+      timerBatchSize: 50,
     });
     expect(readPlatformJobsConfig({ WORKER_DATABASE_URL: 'postgresql://x' }).enabled).toBe(true);
   });
 
   it('reads overrides and rejects nonsense', () => {
     expect(readPlatformJobsConfig({ OUTBOX_RELAY_INTERVAL_MS: '250' }).relayIntervalMs).toBe(250);
+    expect(readPlatformJobsConfig({ TIMER_POLL_INTERVAL_MS: '5000' }).timerIntervalMs).toBe(5000);
+    expect(() => readPlatformJobsConfig({ TIMER_BATCH_SIZE: '0' })).toThrow(RangeError);
     expect(() => readPlatformJobsConfig({ AUDIT_SEAL_BATCH_SIZE: '0' })).toThrow(RangeError);
     expect(() => readPlatformJobsConfig({ AUDIT_SEAL_INTERVAL_MS: 'soon' })).toThrow(RangeError);
+  });
+});
+
+describe('timer job', () => {
+  const result = (partial: Partial<RunDueResult> = {}): RunDueResult => ({
+    fired: 0,
+    retried: 0,
+    failed: 0,
+    unhandled: {},
+    ...partial,
+  });
+  const job = (runDue: (skipIds: Set<string>) => Promise<RunDueResult>, log = logger()) =>
+    createTimerJob({ runDue, batchSize: 5, intervalMs: 15_000, logger: log });
+
+  it('is named for its work and polls every 15 seconds by default', () => {
+    const created = createTimerJob({
+      runDue: () => Promise.resolve(result()),
+      batchSize: 50,
+      intervalMs: readPlatformJobsConfig({}).timerIntervalMs,
+      logger: logger(),
+    });
+    expect(created.name).toBe('timers');
+    expect(created.intervalMs).toBe(15_000);
+  });
+
+  it('goes again while passes fire a full batch, shares one skip set, and logs counts only', async () => {
+    const passes = [result({ fired: 5 }), result({ fired: 5 }), result({ fired: 2, retried: 1 })];
+    const sets: Set<string>[] = [];
+    const runDue = vi.fn((skipIds: Set<string>) => {
+      sets.push(skipIds);
+      return Promise.resolve(passes.shift() ?? result());
+    });
+    const log = logger();
+    await job(runDue, log).run();
+    expect(runDue).toHaveBeenCalledTimes(3);
+    expect(new Set(sets).size).toBe(1);
+    expect(log.info).toHaveBeenCalledWith('timers: 12 fired, 1 to retry, 0 failed');
+    expect(log.error).not.toHaveBeenCalled();
+  });
+
+  it('does not loop on failing timers: a pass that fires nothing ends the run', async () => {
+    const runDue = vi.fn(() => Promise.resolve(result({ retried: 5 })));
+    await job(runDue).run();
+    expect(runDue).toHaveBeenCalledTimes(1);
+  });
+
+  it('is capped, so one run cannot loop forever on a busy table', async () => {
+    const runDue = vi.fn(() => Promise.resolve(result({ fired: 5 })));
+    await job(runDue).run();
+    expect(runDue).toHaveBeenCalledTimes(10);
+  });
+
+  it('stays quiet when there is nothing to do', async () => {
+    const log = logger();
+    await job(() => Promise.resolve(result()), log).run();
+    expect(log.info).not.toHaveBeenCalled();
+    expect(log.error).not.toHaveBeenCalled();
+  });
+
+  it('reports timers that gave up as an error', async () => {
+    const log = logger();
+    await job(() => Promise.resolve(result({ failed: 2 })), log).run();
+    expect(log.error).toHaveBeenCalledWith('timers: 2 timers gave up (FAILED)');
+  });
+
+  it('reports timers without a handler once per change, by type and count', async () => {
+    const log = logger();
+    const unhandled: RunDueResult['unhandled'][] = [
+      { NO_SHOW_DUE: 2 },
+      { NO_SHOW_DUE: 2 },
+      { NO_SHOW_DUE: 3, PAYMENT_DUE: 1 },
+      {},
+    ];
+    const created = job(() => Promise.resolve(result({ unhandled: unhandled.shift() ?? {} })), log);
+    await created.run();
+    await created.run();
+    await created.run();
+    await created.run();
+    expect(log.info.mock.calls).toEqual([
+      ['timers: due but without a handler: NO_SHOW_DUE=2'],
+      ['timers: due but without a handler: NO_SHOW_DUE=3, PAYMENT_DUE=1'],
+    ]);
   });
 });
