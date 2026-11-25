@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>F9 Disputes and payouts, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 100%; min-height: 1200px; background: #F9FAFB; display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 24px; gap: 16px">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span><span class="badge b-neutral">Platform console</span>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span class="row g8"><span style="width: 32px; height: 32px; border-radius: 50%; background: #E5E7EB; color: #374151; display: inline-flex; align-items: center; justify-content: center; font-weight: 600">RV</span><span class="col"><b class="t-sm">Rohit Verma</b><span class="t-xs muted">Platform Ops</span></span></span></div>
+  </header>
+  <div style="display: flex; flex-wrap: wrap; flex: 1">
+    <nav class="sidenav" aria-label="Platform"><a href="E4-Ops-1280.dc.html">Ops board</a><a href="#">Bookings</a><a class="on" href="#">Disputes<span class="count">3</span></a><a href="F10-Admin-Onboarding-Config-1280.dc.html">Labs & onboarding</a><a href="F8-Admin-MasterData-1280.dc.html">Master data</a><a href="#">Finance · payouts</a><a href="#">Audit log</a></nav>
+    <main style="flex: 999 1 640px; min-width: 0; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 20px">
+      <div class="row between wrap g12">
+        <div class="col g4"><span class="crumbs">Disputes › <span class="mono">DSP-2611-0031</span></span><div class="row g12"><h1 class="t-2xl w7">Result seems wrong · elongation</h1><span class="badge b-info" style="height: 28px">Under review</span></div><span class="t-sm muted">Booking <span class="mono">LC-2611-0004712</span> · Aarav Polymers vs Indraprastha Materials Lab · payout on hold</span></div>
+        <button class="btn btn-secondary" type="button">Request info from a party</button>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section class="card col g12" style="flex: 999 1 480px; min-width: 0; padding: 20px 24px">
+          <b class="t-base">Thread</b>
+          <div class="col g4 t-sm" style="padding: 10px 12px; border-radius: 8px; background: #F3F4F6"><b>Customer · 25 Nov, 11:02 AM IST</b><span>Elongation 14.2% conflicts with our in-house 18.5% on the same heat number.</span><span class="row g4 t-xs"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 12px; height: 12px"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path></svg>inhouse-test.pdf</span></div>
+          <div class="col g4 t-sm" style="padding: 10px 12px; border-radius: 8px; background: #EEF5FB"><b>Lab · 26 Nov, 3:15 PM IST</b><span>Gauge length per IS 1608 is 5.65√S₀; the customer used 50 mm fixed. Raw data attached.</span><span class="row g4 t-xs"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 12px; height: 12px"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path></svg>raw-data.xlsx</span></div>
+          <div class="alert a-neutral" style="padding: 10px 12px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><span class="t-sm">Report file is restricted. <a href="#">Request break-glass access</a> (needs a second approver, time-limited, logged).</span></div>
+        </section>
+        <section class="card col g12" style="flex: 1 1 360px; padding: 20px 24px; border: 2px solid #1F6FA8">
+          <b class="t-base">Decision</b>
+          <div class="col g8">
+            <label class="row g8"><span class="dot on"></span><span class="t-sm">Uphold the report · no refund</span></label>
+            <label class="row g8"><span class="dot"></span><span class="t-sm">Partial refund</span></label>
+            <label class="row g8"><span class="dot"></span><span class="t-sm">Full refund</span></label>
+          </div>
+          <div class="field"><label class="label" for="rat">Rationale <span class="req">*</span></label><div class="input textarea" id="rat">Lab followed IS 1608 gauge length. Customer's method differs. Report stands.</div><span class="help">Both parties see this.</span></div>
+          <button class="btn btn-primary btn-block" type="button">Record decision</button>
+          <span class="t-xs muted">On decision, the payout hold is released or the refund and credit note are created automatically.</span>
+        </section>
+      </div>
+      <section class="card" style="overflow: hidden">
+        <div class="row between" style="padding: 14px 20px"><div class="col"><b class="t-lg">Payout batch · 25 Nov 2026</b><span class="t-xs muted">Eligible after the dispute window, no holds</span></div><button class="btn btn-primary" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Release 3 payouts…</button></div>
+        <table class="tbl compact">
+          <thead><tr><th><span class="box on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; stroke-width: 3"><path d="M20 6 9 17l-5-5"></path></svg></span></th><th>Lab</th><th>Bank</th><th class="r">Amount</th><th>Status</th><th>UTR</th></tr></thead>
+          <tbody>
+            <tr><td><span class="box on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; stroke-width: 3"><path d="M20 6 9 17l-5-5"></path></svg></span></td><td>Vasundhara Testing Labs</td><td class="mono">••••4417</td><td class="r num">₹48,260.00</td><td><span class="badge b-ok">Eligible</span></td><td class="muted">—</td></tr>
+            <tr><td><span class="box on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; stroke-width: 3"><path d="M20 6 9 17l-5-5"></path></svg></span></td><td>Shivalik Polymer Testing</td><td class="mono">••••2093</td><td class="r num">₹21,830.00</td><td><span class="badge b-ok">Eligible</span></td><td class="muted">—</td></tr>
+            <tr><td><span class="box"></span></td><td>Indraprastha Materials Lab</td><td class="mono">••••7781</td><td class="r num">₹4,130.00</td><td><span class="badge b-danger"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>On hold · dispute</span></td><td class="muted">—</td></tr>
+            <tr><td></td><td>Narmada Analytical (earlier)</td><td class="mono">••••5530</td><td class="r num">₹12,980.00</td><td><span class="badge b-neutral">Released</span></td><td class="mono">UTR ••••4471</td></tr>
+          </tbody>
+        </table>
+        <div class="alert a-info" style="margin: 12px 20px 16px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg><span class="t-sm">Release asks for your authenticator code. Record the bank's UTR for each payout after transfer. Payout mechanism depends on the ICICI integration (not yet documented).</span></div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

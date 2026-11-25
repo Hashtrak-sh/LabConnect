@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A1 Token sheet</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;family=Noto+Sans+Devanagari:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1440px; height: 1900px; background: #fff; padding: 48px; display: flex; flex-direction: column; gap: 40px; font-family: var(--font-sans)">
+  <div class="row between">
+    <div class="col g4"><p class="sectitle">Stage A · 1 of 4</p><h1 class="t-3xl w7">Token sheet</h1><p class="muted t-sm">Three layers: brand primitives → semantic tokens → status mapping. Components read semantic tokens only.</p></div>
+    <span class="prov">Provisional brand values · not QCI-approved · OQ-19</span>
+  </div>
+
+  <section class="col g16">
+    <div class="row g12"><h2 class="t-xl w6">1. Brand primitives</h2><span class="badge b-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Provisional stand-ins</span></div>
+    <div style="display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 12px">
+      <div class="col g4"><div class="swatch" style="background: #EEF5FB"></div><b class="t-xs">qci-blue-50</b><span class="spec">#EEF5FB · tint</span></div>
+      <div class="col g4"><div class="swatch" style="background: #D6E8F5"></div><b class="t-xs">qci-blue-100</b><span class="spec">#D6E8F5</span></div>
+      <div class="col g4"><div class="swatch" style="background: #A9CDE8"></div><b class="t-xs">qci-blue-200</b><span class="spec">#A9CDE8</span></div>
+      <div class="col g4"><div class="swatch" style="background: #4596C4"></div><b class="t-xs">qci-blue-400</b><span class="spec">#4596C4 · 3.3:1 · decor/large only</span></div>
+      <div class="col g4"><div class="swatch" style="background: #1F6FA8; outline: 3px solid #1F6FA8; outline-offset: 2px"></div><b class="t-xs">qci-blue-600 ★</b><span class="spec">#1F6FA8 · 5.4:1 on white</span></div>
+      <div class="col g4"><div class="swatch" style="background: #185A8A"></div><b class="t-xs">qci-blue-700</b><span class="spec">#185A8A · 7.3:1 · hover</span></div>
+      <div class="col g4"><div class="swatch" style="background: #13476D"></div><b class="t-xs">qci-blue-800</b><span class="spec">#13476D · pressed</span></div>
+      <div class="col g4"><div class="swatch" style="background: #0E3450"></div><b class="t-xs">qci-blue-900</b><span class="spec">#0E3450</span></div>
+      <div class="col g4"><div class="swatch" style="background: #1A1A1A"></div><b class="t-xs">qci-black</b><span class="spec">#1A1A1A · 17.4:1</span></div>
+    </div>
+    <p class="t-xs muted">Named in QCI guidelines: "Q Blue" (primary), black (secondary). Values above are stand-ins near the logo's appearance. Replace with the official HEX values when QCI supplies them (BRAND_GUIDELINES §9 item 1).</p>
+  </section>
+
+  <section class="col g16">
+    <h2 class="t-xl w6">2. Semantic tokens</h2>
+    <table class="tbl compact">
+      <thead><tr><th style="width: 56px"></th><th>Token</th><th>Value</th><th>Purpose</th><th>Contrast</th></tr></thead>
+      <tbody>
+        <tr><td><div style="width: 32px; height: 24px; border-radius: 4px; border: 1px solid #E5E7EB; background: #fff"></div></td><td class="mono">--color-bg / --color-surface-raised</td><td class="mono">#FFFFFF</td><td>Page, cards, popovers</td><td class="muted">—</td></tr>
+        <tr><td><div style="width: 32px; height: 24px; border-radius: 4px; border: 1px solid #E5E7EB; background: #F9FAFB"></div></td><td class="mono">--color-surface</td><td class="mono">gray-50 #F9FAFB</td><td>Panels, table headers</td><td class="muted">—</td></tr>
+        <tr><td><div style="width: 32px; height: 24px; border-radius: 4px; background: #111827"></div></td><td class="mono">--color-text</td><td class="mono">gray-900 #111827</td><td>Body text</td><td class="num">17.7:1</td></tr>
+        <tr><td><div style="width: 32px; height: 24px; border-radius: 4px; background: #4B5563"></div></td><td class="mono">--color-text-muted</td><td class="mono">gray-600 #4B5563</td><td>Secondary text, help</td><td class="num">7.6:1</td></tr>
+        <tr><td><div style="width: 32px; height: 24px; border-radius: 4px; background: #E5E7EB"></div></td><td class="mono">--color-border</td><td class="mono">gray-200 #E5E7EB</td><td>Dividers, card edges (decorative)</td><td class="muted">n/a</td></tr>
+        <tr><td><div style="width: 32px; height: 24px; border-radius: 4px; background: #6B7280"></div></td><td class="mono">--color-border-strong</td><td class="mono">gray-500 #6B7280</td><td>Input and control borders</td><td class="num">4.8:1 (≥3:1 ✓)</td></tr>
+        <tr><td><div style="width: 32px; height: 24px; border-radius: 4px; background: #1F6FA8"></div></td><td class="mono">--color-brand-primary</td><td class="mono">qci-blue-600</td><td>Primary actions, links, focus ring</td><td class="num">5.4:1</td></tr>
+        <tr><td><div style="width: 32px; height: 24px; border-radius: 4px; background: #185A8A"></div></td><td class="mono">--color-brand-primary-hover</td><td class="mono">qci-blue-700</td><td>Hover / pressed</td><td class="num">7.3:1</td></tr>
+        <tr><td><div style="width: 32px; height: 24px; border-radius: 4px; background: #1A1A1A"></div></td><td class="mono">--color-brand-secondary</td><td class="mono">qci-black</td><td>Product name, headings emphasis</td><td class="num">17.4:1</td></tr>
+        <tr><td><div style="width: 32px; height: 24px; border-radius: 4px; border: 3px solid #1F6FA8"></div></td><td class="mono">--color-focus-ring</td><td class="mono">brand-primary · 3 px · offset 2</td><td>Every focusable element</td><td class="num">5.4:1</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="col g16">
+    <h2 class="t-xl w6">3. Status tones and the booking status mapping</h2>
+    <p class="t-sm muted">One source of truth: <span class="mono">packages/ui/status.ts</span>. Status is never shown by colour alone: every badge has an icon and a label.</p>
+    <div style="display: grid; grid-template-columns: 220px 1fr; row-gap: 14px; column-gap: 24px; align-items: center">
+      <div class="col"><b class="t-sm">Waiting on customer</b><span class="spec">warning · #B45309 on #FFFBEB · 4.8:1</span></div>
+      <div class="row wrap g8">
+        <span class="badge b-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Counter-offer</span>
+        <span class="badge b-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Accepted · pay now</span>
+        <span class="badge b-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Ready for drop-off</span>
+        <span class="badge b-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>On hold · your decision</span>
+        <span class="spec">COUNTERED · ACCEPTED · HANDOVER_SET · ON_HOLD</span>
+      </div>
+      <div class="col"><b class="t-sm">Waiting on lab</b><span class="spec">info · #1D4ED8 on #EFF6FF · 6.2:1</span></div>
+      <div class="row wrap g8">
+        <span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Requested</span>
+        <span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Sample recorded</span>
+        <span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Received</span>
+        <span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Under test</span>
+        <span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Report in review</span>
+        <span class="spec">REQUESTED · SAMPLE_RECORDED · RECEIVED · UNDER_TEST · REPORT_IN_REVIEW</span>
+      </div>
+      <div class="col"><b class="t-sm">Done or positive</b><span class="spec">success · #15803D on #F0FDF4 · 4.8:1</span></div>
+      <div class="row wrap g8">
+        <span class="badge b-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Paid</span>
+        <span class="badge b-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Report released</span>
+        <span class="badge b-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Completed</span>
+        <span class="spec">PAID (transient) · REPORT_RELEASED · COMPLETED</span>
+      </div>
+      <div class="col"><b class="t-sm">Problem</b><span class="spec">danger · #B91C1C on #FEF2F2 · 5.9:1</span></div>
+      <div class="row wrap g8">
+        <span class="badge b-danger"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>Disputed</span>
+        <span class="spec">DISPUTED</span>
+      </div>
+      <div class="col"><b class="t-sm">Closed or negative</b><span class="spec">neutral · #4B5563 on #F3F4F6 · 6.9:1</span></div>
+      <div class="row wrap g8">
+        <span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Rejected</span>
+        <span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Expired</span>
+        <span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Expired · not paid</span>
+        <span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>No-show</span>
+        <span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Cancelled</span>
+        <span class="spec">REJECTED · EXPIRED · EXPIRED_UNPAID · NO_SHOW · CANCELLED</span>
+      </div>
+    </div>
+  </section>
+
+  <section style="display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 48px">
+    <div class="col g16">
+      <h2 class="t-xl w6">4. Typography · Poppins (provisional)</h2>
+      <div class="col g12">
+        <div class="row g24" style="align-items: baseline"><span class="spec" style="width: 120px">3xl · 30/38 · 700</span><span style="font-size: 30px; line-height: 38px; font-weight: 700">Book accredited testing</span></div>
+        <div class="row g24" style="align-items: baseline"><span class="spec" style="width: 120px">2xl · 24/32 · 600</span><span style="font-size: 24px; line-height: 32px; font-weight: 600">Booking LC-2611-0004821</span></div>
+        <div class="row g24" style="align-items: baseline"><span class="spec" style="width: 120px">xl · 20/28 · 600</span><span style="font-size: 20px; line-height: 28px; font-weight: 600">Sample requirements</span></div>
+        <div class="row g24" style="align-items: baseline"><span class="spec" style="width: 120px">lg · 18/28 · 500</span><span style="font-size: 18px; line-height: 28px; font-weight: 500">Pay ₹3,540 by 4:30 PM IST</span></div>
+        <div class="row g24" style="align-items: baseline"><span class="spec" style="width: 120px">base · 16/24 · 400</span><span style="font-size: 16px; line-height: 24px">Body text is 16 px minimum, line height 1.5.</span></div>
+        <div class="row g24" style="align-items: baseline"><span class="spec" style="width: 120px">sm · 14/20 · 400</span><span style="font-size: 14px; line-height: 20px">Table cells, helper text, secondary labels</span></div>
+        <div class="row g24" style="align-items: baseline"><span class="spec" style="width: 120px">xs · 12/16 · 600</span><span style="font-size: 12px; line-height: 16px; font-weight: 600">BADGES · CAPTIONS</span></div>
+        <div class="row g24" style="align-items: baseline"><span class="spec" style="width: 120px">tabular nums</span><span class="num t-lg w6">₹1,00,000.00 · ₹3,540.00 · 12 / 12</span></div>
+        <div class="row g24" style="align-items: baseline"><span class="spec" style="width: 120px">Hindi check</span><span style="font-size: 16px; line-height: 24px; font-family: 'Poppins', 'Noto Sans Devanagari', sans-serif">नमूना जमा करने की अंतिम तिथि · 28 नव॰ 2026</span></div>
+      </div>
+      <p class="t-xs muted">Poppins is on QCI's collateral list (open licence, includes Devanagari) but QCI hasn't named a web typeface. Fallback: Noto Sans, Noto Sans Devanagari, system-ui, Segoe UI, Roboto, Arial.</p>
+    </div>
+    <div class="col g24">
+      <div class="col g12">
+        <h2 class="t-xl w6">5. Spacing · 4 px grid</h2>
+        <div class="row g16" style="align-items: flex-end">
+          <div class="col g4" style="align-items: center"><div style="width: 4px; height: 4px; background: #1F6FA8"></div><span class="spec">4</span></div>
+          <div class="col g4" style="align-items: center"><div style="width: 8px; height: 8px; background: #1F6FA8"></div><span class="spec">8</span></div>
+          <div class="col g4" style="align-items: center"><div style="width: 12px; height: 12px; background: #1F6FA8"></div><span class="spec">12</span></div>
+          <div class="col g4" style="align-items: center"><div style="width: 16px; height: 16px; background: #1F6FA8"></div><span class="spec">16</span></div>
+          <div class="col g4" style="align-items: center"><div style="width: 24px; height: 24px; background: #1F6FA8"></div><span class="spec">24</span></div>
+          <div class="col g4" style="align-items: center"><div style="width: 32px; height: 32px; background: #1F6FA8"></div><span class="spec">32</span></div>
+          <div class="col g4" style="align-items: center"><div style="width: 48px; height: 48px; background: #1F6FA8"></div><span class="spec">48</span></div>
+        </div>
+      </div>
+      <div class="col g12">
+        <h2 class="t-xl w6">6. Radius · elevation</h2>
+        <div class="row g24">
+          <div class="col g4" style="align-items: center"><div style="width: 72px; height: 56px; border: 2px solid #6B7280; border-radius: 4px"></div><span class="spec">sm 4</span></div>
+          <div class="col g4" style="align-items: center"><div style="width: 72px; height: 56px; border: 2px solid #1F6FA8; border-radius: 8px"></div><span class="spec">md 8 · default</span></div>
+          <div class="col g4" style="align-items: center"><div style="width: 72px; height: 56px; border: 2px solid #6B7280; border-radius: 12px"></div><span class="spec">lg 12</span></div>
+          <div class="col g4" style="align-items: center"><div class="card" style="width: 88px; height: 56px"></div><span class="spec">card</span></div>
+          <div class="col g4" style="align-items: center"><div class="overlay" style="width: 88px; height: 56px"></div><span class="spec">overlay</span></div>
+        </div>
+      </div>
+      <div class="col g12">
+        <h2 class="t-xl w6">7. Density · motion</h2>
+        <div class="col g8">
+          <div class="row between panel" style="height: 56px; padding: 0 16px"><span class="t-sm">Comfortable · public & customer</span><span class="spec">56 px rows</span></div>
+          <div class="row between panel" style="height: 40px; padding: 0 16px"><span class="t-sm">Compact · lab & admin tables (desktop only)</span><span class="spec">40 px rows</span></div>
+        </div>
+        <p class="t-sm muted">Motion 150–200 ms ease-out, none decorative on operational screens; <span class="mono">prefers-reduced-motion</span> removes it. Dark mode: not in MVP, tokens allow it later.</p>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

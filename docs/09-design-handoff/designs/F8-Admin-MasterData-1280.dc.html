@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>F8 Change set review and import, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 100%; min-height: 1200px; background: #F9FAFB; display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 24px; gap: 16px">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span><span class="badge b-neutral">Platform console</span>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span class="row g8"><span style="width: 32px; height: 32px; border-radius: 50%; background: #E5E7EB; color: #374151; display: inline-flex; align-items: center; justify-content: center; font-weight: 600">KS</span><span class="col"><b class="t-sm">Kavita Singh</b><span class="t-xs muted">Data steward · approver</span></span></span></div>
+  </header>
+  <div style="display: flex; flex-wrap: wrap; flex: 1">
+    <nav class="sidenav" aria-label="Platform"><a href="E4-Ops-1280.dc.html">Ops board</a><a href="#">Bookings</a><a href="F9-Admin-Disputes-Payouts-1280.dc.html">Disputes</a><a href="F10-Admin-Onboarding-Config-1280.dc.html">Labs & onboarding</a><a class="on" href="#">Master data<span class="count">2</span></a><a href="#">Imports</a><a href="#">Finance</a><a href="#">Audit log</a></nav>
+    <main style="flex: 999 1 640px; min-width: 0; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 16px">
+      <div class="row between wrap g12">
+        <div class="col g4"><span class="crumbs">Master data › Change sets › To review</span><div class="row g12"><h1 class="t-2xl w7">CS-2611-0017 · NABL scope refresh, Nov</h1><span class="badge b-info" style="height: 28px">Submitted</span></div><span class="t-sm muted">Created by Arjun Rao from import scope-nabl-nov.xlsx · submitted 24 Nov 2026, 6:10 PM IST</span></div>
+        <div class="row g8"><button class="btn btn-secondary" type="button">Send back…</button><button class="btn btn-primary" type="button">Approve</button></div>
+      </div>
+      <div class="grid4">
+        <div class="card col" style="padding: 14px"><span class="t-xs muted">Create</span><b class="t-2xl num" style="color: #15803D">+312</b></div>
+        <div class="card col" style="padding: 14px"><span class="t-xs muted">Update</span><b class="t-2xl num" style="color: #1D4ED8">~96</b></div>
+        <div class="card col" style="padding: 14px"><span class="t-xs muted">Retire</span><b class="t-2xl num" style="color: #B91C1C">−4</b></div>
+        <div class="card col" style="padding: 14px"><span class="t-xs muted">Conflicts resolved</span><b class="t-2xl num">9 / 9</b></div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section class="card" style="flex: 999 1 520px; min-width: 0; overflow: hidden">
+          <div class="row between" style="padding: 12px 16px; border-bottom: 1px solid #E5E7EB"><b class="t-sm">Changes</b><div class="row g8"><span class="chip on" style="height: 30px">All</span><span class="chip" style="height: 30px">Updates</span><span class="chip" style="height: 30px">Retire</span></div></div>
+          <table class="tbl compact">
+            <thead><tr><th>Record</th><th>Field</th><th>Before → after</th></tr></thead>
+            <tbody>
+              <tr><td>Scope · TC-10482 · MFR</td><td>Method</td><td><span class="diff-del" style="padding: 0 4px">IS 2530:1963</span> → <span class="diff-add" style="padding: 0 4px">IS 2530 (Part 6):2024</span></td></tr>
+              <tr><td>Scope · TC-15520 · Density</td><td>Range</td><td><span class="diff-del" style="padding: 0 4px">0.90–1.40</span> → <span class="diff-add" style="padding: 0 4px">0.85–1.50 g/cm³</span></td></tr>
+              <tr><td>Scope · TC-7741 · OIT</td><td>Status</td><td><span class="diff-del" style="padding: 0 4px">Active</span> → <span class="diff-add" style="padding: 0 4px">− Retired</span></td></tr>
+              <tr><td>Taxonomy · Polymers › PE100</td><td>New node</td><td><span class="diff-add" style="padding: 0 4px">+ PE100-RC</span></td></tr>
+            </tbody>
+          </table>
+          <div class="row between t-sm muted" style="padding: 10px 16px"><span>4 of 412 shown</span><a href="#">Download full diff (CSV)</a></div>
+        </section>
+        <aside style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 16px">
+          <section class="card col g8" style="padding: 18px">
+            <b class="t-base">Impact</b>
+            <div class="alert a-warn" style="padding: 10px 12px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg><span class="t-sm"><b>3 open bookings</b> use the retired OIT line at TC-7741. They keep their snapshot; new bookings won't see it.</span></div>
+            <span class="t-sm">2 published price lists reference changed lines.</span>
+            <a class="t-sm" href="#">See affected bookings</a>
+          </section>
+          <section class="card col g8" style="padding: 18px">
+            <b class="t-base">Separation of duties</b>
+            <span class="t-sm">You can approve: you didn't create this change set.</span>
+            <span class="t-xs muted">After approval, any steward can publish. Version history is kept for every record.</span>
+          </section>
+          <section class="card col g8" style="padding: 18px">
+            <b class="t-base">Source import</b>
+            <span class="t-sm mono">scope-nabl-nov.xlsx · 1,284 rows</span>
+            <div class="row wrap g4"><span class="badge b-ok">+ 312</span><span class="badge b-info">~ 96</span><span class="badge b-neutral">= 860</span><span class="badge b-warn">! 9 resolved</span><span class="badge b-danger">× 7 skipped</span></div>
+            <a class="t-sm" href="#">Error rows (CSV)</a>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

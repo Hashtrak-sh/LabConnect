@@ -81,7 +81,7 @@ P3-01 also adds the global exception filter (every error in the shared problem s
 | ID | Task | Owner | Status |
 |---|---|---|---|
 | D-01 | Finalise BRAND_GUIDELINES from the QCI PDF | H | ☐ |
-| D-02 | Run Claude Design with DESIGN_MASTER_PROMPT | S | ☐ |
+| D-02 | Run Claude Design with DESIGN_MASTER_PROMPT (output: `09-design-handoff/designs/`, provisional brand values) | S | ☑ |
 | D-03 | Review designs against the user flows and accessibility | S | ☐ |
 | D-04 | Implement design tokens and core components in `packages/ui` | A | ☐ |
 
