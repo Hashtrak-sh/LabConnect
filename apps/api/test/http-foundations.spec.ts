@@ -1,11 +1,11 @@
 // Request ids and the problem-shape exception filter, over HTTP (P3-01). The real app has no
 // route that fails on demand, so a testing module adds a throwaway controller. The real app's
 // routes stay exactly those of the contract.
-import { Body, Controller, Get, HttpException, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, Logger, Post } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { Server } from 'node:http';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { configureApp } from '../src/app.config.js';
 import { DomainError } from '../src/common/domain-error.js';
 import { getRequestContext } from '../src/common/request-context.js';
@@ -126,6 +126,21 @@ describe('request ids and problem responses', () => {
       expect(response.status).toBe(500);
       expect(response.headers['x-request-id']).toBe('req-500');
       expect(response.body).toMatchObject({ requestId: 'req-500' });
+    });
+
+    it('logs a 500 on the server with the request id and the stack', async () => {
+      const logged = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      try {
+        await undocumentedRequest(probe).get('/v1/probe/unknown', {
+          headers: { 'X-Request-Id': 'req-logged' },
+        });
+        expect(logged).toHaveBeenCalledWith(
+          'INTERNAL_ERROR requestId=req-logged',
+          expect.stringContaining('Error'),
+        );
+      } finally {
+        logged.mockRestore();
+      }
     });
   });
 

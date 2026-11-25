@@ -4,6 +4,7 @@ import {
   type ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
@@ -139,6 +140,8 @@ function getRequestId(header: unknown): string {
 
 @Catch()
 export class ProblemExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ProblemExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
     const res = http.getResponse<Response>();
@@ -149,6 +152,11 @@ export class ProblemExceptionFilter implements ExceptionFilter {
       return;
     }
     const problem = toProblem(exception, requestId);
+    if (problem.status >= 500) {
+      // ERROR_HANDLING.md §3: server errors are logged with the stack, server side only.
+      const stack = exception instanceof Error ? exception.stack : undefined;
+      this.logger.error(`${problem.code} requestId=${requestId}`, stack);
+    }
     sendProblem(res, problem);
   }
 }
