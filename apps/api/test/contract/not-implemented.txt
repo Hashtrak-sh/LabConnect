@@ -159,7 +159,6 @@ revokeLabInvitation
 revokeReportShareLink
 scanCustodyCode
 searchAdminAuditLog
-searchLabs
 sendBackAdminChangeSet
 setAdminConfigValue
 setAdminPlatformUserRoles
