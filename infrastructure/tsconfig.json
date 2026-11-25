@@ -1,0 +1,7 @@
+{
+  "extends": "@labconnect/config/tsconfig/library.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["bin", "lib", "test", "vitest.config.ts"]
+}

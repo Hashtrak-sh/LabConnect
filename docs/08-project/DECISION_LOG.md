@@ -83,7 +83,8 @@ Template:
 - Consequences: No asynchronous gap between approval and release. Stamping failures surface before approval.
 
 ## ADR-015: AWS CDK (TypeScript) for infrastructure as code
-- Status: **Proposed**. Alternative: Terraform. CDK chosen for a single-language codebase.
+- Status: **Proposed. Adopted as the default for P3-11 (2026-11-25) under the single-developer MVP defaults; to be confirmed by @Hashtrak-sh and reviewed by @akshit-anand.** Nobody has approved it yet: if the choice changes, `infrastructure/` is replaced. Alternative: Terraform. CDK chosen for a single-language codebase.
+- As built (P3-11): `infrastructure/` is the CDK v2 app (TypeScript, `aws-cdk-lib` 2.x, `tsc` plus the `aws-cdk` CLI, no extra tooling), with offline assertion tests in Vitest. See `infrastructure/README.md`. Nothing is deployed.
 
 ## ADR-016: Identifiers and money representation
 - Status: **Accepted** (G1, 2026-11-24). UUIDv7 primary keys generated in the application, separate human-readable references, integer paise for money, basis points for rates.

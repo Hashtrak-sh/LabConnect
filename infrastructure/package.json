@@ -1,0 +1,25 @@
+{
+  "name": "@labconnect/infrastructure",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "synth": "pnpm build && cdk synth"
+  },
+  "devDependencies": {
+    "@labconnect/config": "workspace:*",
+    "@types/node": "catalog:",
+    "aws-cdk": "^2.1149.0",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.278.0",
+    "constructs": "^10.8.1"
+  }
+}
