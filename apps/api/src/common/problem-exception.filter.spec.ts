@@ -1,4 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BookingError } from '@labconnect/core';
 import { ERROR_CODE_LIST } from '@labconnect/shared';
 import { describe, expect, it } from 'vitest';
 import { DomainError } from './domain-error.js';
@@ -12,6 +13,22 @@ describe('DomainError', () => {
 });
 
 describe('toProblem', () => {
+  it('maps an error of packages/core like a DomainError', () => {
+    const error = new BookingError('INVALID_STATE_TRANSITION', {
+      detail: 'T-03 cannot leave PAID.',
+      meta: { currentState: 'PAID' },
+    });
+    expect(toProblem(error, 'r2')).toEqual({
+      type: 'https://labconnect/errors/invalid-state-transition',
+      title: 'Invalid state transition',
+      status: error.status,
+      code: 'INVALID_STATE_TRANSITION',
+      detail: 'T-03 cannot leave PAID.',
+      requestId: 'r2',
+      meta: { currentState: 'PAID' },
+    });
+  });
+
   it('maps a DomainError', () => {
     const problem = toProblem(new DomainError('NOT_FOUND', { detail: 'No such booking.' }), 'r1');
     expect(problem).toEqual({
