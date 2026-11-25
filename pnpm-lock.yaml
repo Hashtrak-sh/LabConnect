@@ -434,6 +434,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1100.0
         version: 3.1176.0
+      '@aws-sdk/client-sesv2':
+        specifier: ^3.1100.0
+        version: 3.1176.0
       '@aws-sdk/client-sqs':
         specifier: ^3.1100.0
         version: 3.1176.0
@@ -452,6 +455,9 @@ importers:
       jose:
         specifier: ^6.2.18
         version: 6.2.18
+      nodemailer:
+        specifier: ^10.6.1
+        version: 10.6.1
     devDependencies:
       '@labconnect/config':
         specifier: workspace:*
@@ -459,6 +465,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
+      '@types/nodemailer':
+        specifier: ^8.0.2
+        version: 8.0.2
       '@types/pg':
         specifier: ^8.23.1
         version: 8.23.1
@@ -583,6 +592,10 @@ packages:
 
   '@aws-sdk/client-s3@3.1176.0':
     resolution: {integrity: sha512-ZD0T/34Rx8cyCF7KjT9DpKbeeUjPvdDTgcOzdn/NOHQIQ3GdMc7NIdfea3GUBI+rFaxvlLsQ4auV1eNR8pvkAQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-sesv2@3.1176.0':
+    resolution: {integrity: sha512-d18Su77o0jsJCIzMndAU83vI1acBJp/pyW2HTEsW8QRg/emDmX2K8m2PXaS+uyF2bs4KF4E3T2kimLKIYXMILA==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-sqs@3.1176.0':
@@ -4053,6 +4066,18 @@ snapshots:
       '@aws-sdk/core': 3.981.1
       '@aws-sdk/credential-provider-node': 3.972.98
       '@aws-sdk/middleware-sdk-s3': 3.972.91
+      '@aws-sdk/signature-v4-multi-region': 3.996.52
+      '@aws-sdk/types': 3.975.1
+      '@smithy/core': 3.41.1
+      '@smithy/fetch-http-handler': 5.8.1
+      '@smithy/node-http-handler': 4.14.2
+      '@smithy/types': 4.20.0
+      tslib: 2.9.1
+
+  '@aws-sdk/client-sesv2@3.1176.0':
+    dependencies:
+      '@aws-sdk/core': 3.981.1
+      '@aws-sdk/credential-provider-node': 3.972.98
       '@aws-sdk/signature-v4-multi-region': 3.996.52
       '@aws-sdk/types': 3.975.1
       '@smithy/core': 3.41.1

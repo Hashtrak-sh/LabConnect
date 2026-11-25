@@ -132,13 +132,10 @@ listLabScopeLines
 listLabSiteClosures
 listLabSlots
 listLabUsers
-listNotificationPreferences
-listNotifications
 listPaymentOrders
 listPublicScopeLines
 listPublicSlots
 listTaxonomyNodes
-markNotificationRead
 placeAdminPayoutHold
 publishAdminChangeSet
 publishLabPriceList
@@ -192,7 +189,6 @@ updateLabPriceListItems
 updateLabSite
 updateLabSlot
 updateLabUser
-updateNotificationPreferences
 verifyAdminBankAccount
 verifyAdminKycDocument
 verifyLabClaimOtp
