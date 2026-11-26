@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>K5 Cancel booking, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1640px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+<div class="col g12"><span class="stripcap">K5.1 · Cancel · free</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6"><span class="mono">LC-2611-0004821</span></h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><b class="t-xl">Cancel this booking?</b><p class="t-base">You haven't paid, so there is nothing to refund.</p><div class="field"><label class="label" for="k5mr">Reason <span class="req">*</span></label><select class="input" id="k5mr"><option>Choose a reason</option><option selected>No longer needed</option><option>Found another lab</option><option>Booked by mistake</option><option>Dates don&#x27;t work</option><option>Other</option></select></div><div class="field"><label class="label" for="k5mn">Notes (optional)</label><textarea class="input" id="k5mn"></textarea></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-destructive btn-lg btn-block" type="button">Cancel booking</button><button class="btn btn-ghost btn-block" type="button">Keep booking</button></div></div></div>
+<div class="col g12"><span class="stripcap">K5.2 · Cancel · after payment</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6"><span class="mono">LC-2611-0004821</span></h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><b class="t-xl">Cancel this paid booking?</b><p class="t-base">Tests not started are refunded under the policy.</p><div class="field"><label class="label" for="k5mr2">Reason <span class="req">*</span></label><select class="input" id="k5mr2"><option>Choose a reason</option><option selected>No longer needed</option><option>Found another lab</option><option>Booked by mistake</option><option>Dates don&#x27;t work</option><option>Other</option></select></div><div class="row between panel" style="padding: 10px 12px"><span class="t-base">Refund amount</span><span class="row g8"><span class="t-base muted">shown once confirmed</span><span class="placeholder">Placeholder</span></span></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-destructive btn-lg btn-block" type="button">Cancel booking</button><button class="btn btn-ghost btn-block" type="button">Keep booking</button></div></div></div>
+<div class="col g12"><span class="stripcap">K5.3 · Cancelling</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6"><span class="mono">LC-2611-0004821</span></h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><button class="btn btn-destructive btn-lg btn-block is-disabled" type="button" disabled aria-busy="true">Cancelling…</button></main></div></div>
+<div class="col g12"><span class="stripcap">K5.4 · CANCELLED detail</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-base"><span class="mono">LC-2611-0004821</span></b><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><h1 class="t-xl w7">Booking cancelled</h1><span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Cancelled</span><div class="nac neutral col g8" style="padding: 14px"><b class="t-lg">You cancelled this booking</b><span class="t-base">27 Nov 2026, 11:04 AM IST</span><span class="t-base">Reason: No longer needed</span></div><div class="row between panel" style="padding: 10px 12px"><span class="t-base">Refund amount</span><span class="row g8"><span class="t-base muted">shown once confirmed</span><span class="placeholder">Placeholder</span></span></div></main></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1640, "height": 900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

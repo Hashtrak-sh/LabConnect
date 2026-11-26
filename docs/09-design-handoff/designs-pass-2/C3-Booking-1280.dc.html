@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>C3 Booking form, sample step, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 100%; min-height: 1200px; background: var(--color-surface); display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar" style="padding: 0 32px; gap: 16px; flex-wrap: wrap">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span>
+    <nav class="nav row g4" aria-label="Main" style="margin-left: 24px"><a href="E1-Customer-1280.dc.html">Dashboard</a><a class="on" href="#">Bookings</a><a href="#">Reports</a><a href="#">Payments</a><a href="B1-Search-1280.dc.html">Find a lab</a></nav>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><button class="btn btn-ghost btn-icon" type="button" aria-label="Notifications"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg></button><span class="row g8 t-sm"><span style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-on-tint); display: inline-flex; align-items: center; justify-content: center; font-weight: 600">PS</span><span class="col"><b class="t-sm">Priya Sharma</b><span class="t-xs muted">Aarav Polymers Pvt Ltd · Requester</span></span></span></div>
+  </header>
+  <main id="main" style="display: contents">
+
+  <div style="max-width: 1280px; width: 100%; margin: 0 auto; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 20px">
+    <div class="row between wrap g12"><div class="col g4"><span class="crumbs">New booking · Vasundhara Testing Laboratories, Gurugram</span><h1 class="t-2xl w7">Sample details</h1></div><span class="t-sm muted row g8"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Draft saved 10:42 AM IST</span></div>
+    <ol class="steps" aria-label="Booking steps" style="list-style: none; margin: 0; padding: 16px 20px; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: 8px">
+      <li class="step done"><b>✓</b>Tests</li><span class="stepline" style="background: var(--color-success)"></span>
+      <li class="step done"><b>✓</b>Item</li><span class="stepline" style="background: var(--color-success)"></span>
+      <li class="step on" aria-current="step"><b>3</b>Sample</li><span class="stepline"></span>
+      <li class="step"><b>4</b>Report details</li><span class="stepline"></span>
+      <li class="step"><b>5</b>Drop-off slot</li><span class="stepline"></span>
+      <li class="step"><b>6</b>Review</li>
+    </ol>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <form style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+        <section class="card col g16" style="padding: 24px">
+          <div class="col g4"><h2 class="t-lg w6">How much sample to send</h2><p class="t-base muted">The lab's price list sets the minimum quantity for each test. Send at least this much.</p></div>
+          <table class="tbl"><caption class="sr-only">How much sample to send</caption>
+            <thead><tr><th scope="col">Test</th><th scope="col">Lab needs</th><th scope="col" style="width: 200px">You'll send</th></tr></thead>
+            <tbody>
+              <tr><td><b>Melt flow rate</b><br><span class="t-xs muted">IS 2530 (Part 6)</span></td><td class="num">50 g granules</td><td><div class="input num" style="height: 40px"><input class="bare" id="f10" value="60 g"></div></td></tr>
+              <tr><td><b>Density</b><br><span class="t-xs muted">IS 7328</span></td><td class="num">20 g</td><td><div class="input num" style="height: 40px"><input class="bare" id="f11" value="20 g"></div></td></tr>
+              <tr><td><b>Carbon black content</b><br><span class="t-xs muted">IS 2530</span></td><td class="num">30 g</td><td><div class="input is-error num" style="height: 40px"><input class="bare" id="f12" aria-invalid="true" value="25 g"></div><span class="err" style="margin-top: 4px">Send at least 30 g.</span></td></tr>
+            </tbody>
+          </table>
+          <div class="grid2" style="gap: 20px">
+            <div class="field"><label class="label" for="pk">Number of packages <span class="req">*</span></label><div class="input num"><input class="bare" id="pk" value="3"></div><span class="help">Suggested from your quantities: one per test. You'll get one QR label per package.</span></div>
+            <div class="field"><label class="label" for="cond">Sample condition <span class="req">*</span></label><div class="input between"><select class="bare" id="cond"><option>Granules, dry, sealed bag</option></select></div></div>
+            <div class="field"><label class="label" for="std">Test to standard</label><div class="input between"><select class="bare" id="std"><option>As listed for each test</option></select></div><span class="help">Change only if your customer asked for a different edition.</span></div>
+            <div class="field"><label class="label" for="ins">Special instructions</label><div class="input textarea"><textarea class="bare" id="ins" placeholder="e.g. retain the remaining sample for 30 days"></textarea></div></div>
+          </div>
+        </section>
+        <section class="card col g12" style="padding: 24px">
+          <div class="row g12"><button class="switch on" type="button" role="switch" aria-checked="true" role="switch" aria-checked="true" aria-labelledby="conf"></button><div class="col"><b id="conf" class="t-base">I need a statement of conformity</b><span class="t-sm muted">The report will say whether each result meets a specification.</span></div></div>
+          <div class="grid2" style="gap: 20px; padding-left: 52px">
+            <div class="field"><label class="label" for="spec">Specification <span class="req">*</span></label><div class="input"><input class="bare" id="spec" value="IS 4984:2016 · PE100"></div></div>
+            <div class="field"><label class="label" for="dr">Decision rule <span class="req">*</span></label><div class="input between"><select class="bare" id="dr"><option>Simple acceptance (ILAC-G8)</option></select></div><a class="t-xs" href="#">What's a decision rule?</a></div>
+          </div>
+        </section>
+        <div class="row between">
+          <a class="btn btn-secondary btn-lg" href="#"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg>Back</a>
+          <a class="btn btn-primary btn-lg" href="C3-Review-1280.dc.html">Continue to report details<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+        </div>
+      </form>
+
+      <aside style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 16px">
+        <div class="card col g12" style="padding: 20px">
+          <b class="t-base">Vasundhara Testing Laboratories</b>
+          <span class="t-xs muted">Gurugram · NABL TC-10482</span>
+          <hr class="hr">
+          <div class="col g8 t-sm"><span class="t-xs w6 muted upper">Item</span><span>HDPE pipe, PE100, 110 mm SDR 11</span><span class="muted">Batch B-2611-07 · made 12 Nov 2026</span></div>
+          <hr class="hr">
+          <div class="col g8 t-sm"><div class="row between"><span>Melt flow rate</span><span class="num">₹1,200.00</span></div><div class="row between"><span>Density</span><span class="num">₹800.00</span></div><div class="row between"><span>Carbon black content</span><span class="num">₹1,000.00</span></div></div>
+          <div class="row between"><span class="t-sm">Estimate</span><b class="num">₹3,540.00 <span class="t-xs muted w5">incl. GST</span></b></div>
+        </div>
+        <div class="alert a-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg><span class="t-base">You'll take the sample to the lab yourself after paying. LabConnect doesn't collect samples.</span></div>
+      </aside>
+    </div>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

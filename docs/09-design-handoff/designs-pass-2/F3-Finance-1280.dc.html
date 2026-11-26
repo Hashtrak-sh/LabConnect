@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>F3 Finance views, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 100%; min-height: 1040px; background: var(--color-surface); display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar" style="padding: 0 32px; gap: 16px; flex-wrap: wrap">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span>
+    <nav class="nav row g4" aria-label="Main" style="margin-left: 24px"><a href="E1-Customer-1280.dc.html">Dashboard</a><a href="#">Bookings</a><a href="#">Reports</a><a class="on" href="#">Payments</a></nav>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span class="row g8"><span style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-on-tint); display: inline-flex; align-items: center; justify-content: center; font-weight: 600">NK</span><span class="col"><b class="t-sm">Neha Kapoor</b><span class="t-xs muted">Aarav Polymers · Finance</span></span></span></div>
+  </header>
+  <main id="main" style="display: contents">
+  <div style="max-width: 1280px; width: 100%; margin: 0 auto; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 20px">
+    <div class="row between wrap g12"><h1 class="t-2xl w7">Payments & documents</h1><div class="row g8"><span class="chip">Nov 2026 ▾</span><span class="chip">All sites ▾</span><button class="btn btn-secondary btn-sm" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Export CSV</button></div></div>
+    <div class="grid3">
+      <div class="card col g4" style="padding: 16px"><span class="t-sm muted">Payments due</span><b class="t-2xl num">₹10,384.00</b><span class="t-xs" style="color: var(--color-warning)">2 bookings · earliest 4:30 PM IST today</span></div>
+      <div class="card col g4" style="padding: 16px"><span class="t-sm muted">Paid this month</span><b class="t-2xl num">₹1,42,860.00</b><span class="t-xs muted">38 bookings</span></div>
+      <div class="card col g4" style="padding: 16px"><span class="t-sm muted">Refunds</span><b class="t-2xl num">₹4,130.00</b><span class="t-xs muted">1 processing · 2 done</span></div>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Finance documents"><button type="button" role="tab" id="F3-t1" aria-selected="true" aria-controls="F3-panel">Payments</button><button type="button" role="tab" id="F3-t2" aria-selected="false" aria-controls="F3-panel" tabindex="-1">Invoices & receipts</button><button type="button" role="tab" id="F3-t3" aria-selected="false" aria-controls="F3-panel" tabindex="-1">Credit & refund notes</button></div>
+    <section role="tabpanel" id="F3-panel" aria-labelledby="F3-t1" class="card" style="overflow: hidden">
+      <table class="tbl"><caption class="sr-only">Payments &amp; documents</caption>
+        <thead><tr><th scope="col">Booking</th><th scope="col">Lab</th><th scope="col">Status</th><th scope="col" class="r">Amount</th><th scope="col">Date</th><th scope="col">Documents</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">LC-2611-0004821</td><td>Vasundhara</td><td><span class="badge b-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Due by 4:30 PM IST</span></td><td class="r num">₹3,540.00</td><td class="num">—</td><td><a class="btn btn-primary btn-sm" href="#">Pay</a></td></tr>
+          <tr><td class="mono">LC-2611-0004812</td><td>Vasundhara</td><td><span class="badge b-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Paid</span></td><td class="r num">₹2,360.00</td><td class="num">23 Nov 2026</td><td class="t-sm"><a href="#">Receipt</a></td></tr>
+          <tr><td class="mono">LC-2611-0004712</td><td>Indraprastha, New Delhi</td><td><span class="badge b-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Paid</span></td><td class="r num">₹4,130.00</td><td class="num">19 Nov 2026</td><td class="t-sm"><a href="#">Receipt</a> · <a href="#">Tax invoice</a></td></tr>
+          <tr><td class="mono">LC-2611-0004633</td><td>Shivalik, Gurugram</td><td><span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Refunded</span></td><td class="r num">₹4,130.00</td><td class="num">15 Nov 2026</td><td class="t-sm"><a href="#">Receipt</a> · <a href="#">Refund note</a></td></tr>
+          <tr><td class="mono">LC-2611-0004601</td><td>Vasundhara</td><td><span class="badge b-danger"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>Attempt failed</span></td><td class="r num">₹1,770.00</td><td class="num">14 Nov 2026</td><td class="t-sm muted">Retried and paid 14 Nov</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <section class="card col g12" style="padding: 20px">
+      <b class="t-base">Tax invoice · <span class="mono">VTL/INV/26-27/0412</span></b>
+      <div class="grid4 t-sm" style="gap: 8px 24px">
+        <div class="col"><span class="t-xs muted">Issued by <span class="prov">Provisional</span></span><b>Vasundhara Testing Laboratories</b></div>
+        <div class="col"><span class="t-xs muted">Taxable value</span><b class="num">₹2,000.00</b></div>
+        <div class="col"><span class="t-xs muted">CGST 9% + SGST 9% <span class="prov">Provisional</span></span><b class="num">₹180.00 + ₹180.00</b></div>
+        <div class="col"><span class="t-xs muted">Total</span><b class="num">₹2,360.00</b></div>
+      </div>
+      <span class="t-xs muted">Who issues the tax invoice and the GST split are still to be decided (OQ-08). <span class="prov">Provisional</span></span>
+    </section>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

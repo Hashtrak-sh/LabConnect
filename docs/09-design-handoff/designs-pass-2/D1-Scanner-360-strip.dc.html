@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>D1 Counter scanner, Maker, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 3240px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+  <div class="col g12"><span class="stripcap">L3.1 · Camera permission</span>
+    <div class="phone dark">
+      <div class="cam col" style="flex: 1; align-items: center; justify-content: center; padding: 32px; gap: 16px; text-align: center">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 56px; height: 56px"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+        <b class="t-xl">Allow the camera</b>
+        <p class="t-base" style="color: var(--gray-300)">LabConnect needs the camera to scan QR labels at the counter. Images aren't stored.</p>
+        <button class="btn btn-primary btn-xl btn-block" type="button">Allow camera</button>
+        <button class="btn btn-block" type="button" style="color: var(--color-text-inverse); background: transparent; border: 1px solid var(--gray-400); height: 48px">Type the package code instead</button>
+      </div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">L3.2 · Scanning</span>
+    <div class="phone dark">
+      <div class="row between" style="padding: 12px 16px; position: relative; z-index: 2"><button class="btn btn-icon" type="button" aria-label="Close scanner" style="background: rgba(0,0,0,.4); color: var(--color-text-inverse); width: 44px; height: 44px"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button><span class="t-sm w6">Vasundhara · Gurugram</span><button class="btn btn-icon" type="button" aria-label="Torch" style="background: rgba(0,0,0,.4); color: var(--color-text-inverse); width: 44px; height: 44px"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9z"></path></svg></button></div>
+      <div class="cam" style="flex: 1"><div class="reticle"></div><p class="t-base w5" style="position: absolute; left: 0; right: 0; top: 66%; text-align: center">Point at the booking or package QR</p></div>
+      <div style="padding: 16px; background: #0B0F14"><button class="btn btn-block" type="button" style="height: 52px; background: #1F2937; color: var(--color-text-inverse); font-size: 15px">Can't scan? Enter package code</button></div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">L3.3 · Booking found</span>
+    <div class="phone dark">
+      <div class="cam" style="height: 200px; flex: none"><div class="reticle" style="width: 120px; height: 120px; top: 50%"></div></div>
+      <div class="sheet col g12" style="flex: 1; padding: 20px 16px">
+        <div class="row between"><span class="mono t-lg w7">LC-2611-0004821</span><span class="badge b-warn">Drop due today</span></div>
+        <div class="col g4 t-sm"><span class="muted">Customer</span><b>Aarav Polymers Pvt Ltd</b></div>
+        <div class="col g4 t-sm"><span class="muted">Item · batch</span><b>HDPE pipe PE100 · B-2611-07</b></div>
+        <div class="col g4 t-sm"><span class="muted">Tests</span><span>Melt flow rate 60 g · Density 20 g · Carbon black 30 g</span></div>
+        <div class="row between panel" style="padding: 12px"><span class="t-sm">Expected packages</span><b class="t-xl">3</b></div>
+        <a class="t-sm" href="#">View full test request form</a>
+        <button class="btn btn-primary btn-xl btn-block" type="button" style="margin-top: auto">Scan packages</button>
+      </div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">L3.4 · Package scanned · 2 of 3</span>
+    <div class="phone dark">
+      <div class="col" style="height: 230px; flex: none; background: var(--color-success); align-items: center; justify-content: center; gap: 6px" role="status">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 64px; height: 64px"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+        <b class="t-2xl">Package 2 of 3</b><span class="t-sm">Tone + vibration</span>
+      </div>
+      <div class="sheet col g12" style="flex: 1; padding: 20px 16px">
+        <div class="row between"><b class="t-base">Packages</b><span class="t-sm num">2 / 3</span></div>
+        <div class="bar"><i style="width: 66%; background: var(--color-success)"></i></div>
+        <div class="col g8">
+          <div class="row g8 t-sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--color-success)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Package 1 · H2P-8RT · 10:31 AM IST</div>
+          <div class="row g8 t-sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--color-success)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Package 2 · K7Q-4MX · 10:32 AM IST</div>
+          <div class="row g8 t-sm muted"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle></svg>Package 3 · waiting</div>
+        </div>
+        <button class="btn btn-primary btn-xl btn-block" type="button" style="margin-top: auto">Scan next package</button>
+        <button class="btn btn-ghost btn-block" type="button">Only 2 arrived · continue</button>
+      </div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">L3.5 · Checks</span>
+    <div class="phone">
+      <div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back" style="width: 44px; height: 44px"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><div class="col"><b class="t-sm">Check the sample</b><span class="t-xs muted mono">LC-2611-0004821 · 3/3 scanned</span></div></div>
+      <main class="mbody" style="gap: 14px">
+        <span class="t-base">Tap each check. Tap twice to mark a problem.</span>
+        <div class="col g8">
+          <span class="chip on" style="height: 52px; font-size: 15px; justify-content: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Item matches TRF</span>
+          <span class="chip on" style="height: 52px; font-size: 15px; justify-content: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Batch matches · B-2611-07</span>
+          <span class="chip on" style="height: 52px; font-size: 15px; justify-content: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Quantity enough</span>
+          <span class="chip" style="height: 52px; font-size: 15px; justify-content: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle></svg>Seal intact?</span>
+        </div>
+        <div class="field"><label class="label" for="cnd">Condition</label><div class="input between"><select class="bare" id="cnd"><option>Good · dry, sealed</option></select></div></div>
+      </main>
+      <div class="mfoot"><button class="btn btn-primary btn-xl btn-block" type="button">Next: photos</button></div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">L3.6 · Photos · discrepancy · submit</span>
+    <div class="phone">
+      <div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back" style="width: 44px; height: 44px"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-sm">Photos and submit</b></div>
+      <main class="mbody" style="gap: 14px">
+        <div class="row g8"><div class="img" style="width: 76px; height: 76px">1</div><div class="img" style="width: 76px; height: 76px">2</div><button class="btn btn-secondary" type="button" style="width: 76px; height: 76px; flex-direction: column; gap: 2px" aria-label="Take photo"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"></path><circle cx="12" cy="13" r="3"></circle></svg><span class="t-xs">2/10</span></button></div>
+        <div class="row g12"><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Something&#x27;s wrong (discrepancy)"></button><span class="t-sm">Something's wrong (discrepancy)</span></div>
+        <div class="panel col g8" style="padding: 12px"><span class="t-xs w6 muted upper">Summary</span><span class="t-sm">3 of 3 packages · all checks OK · 2 photos</span></div>
+        <div class="alert a-info" style="padding: 10px 12px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg><span class="t-base">A Checker who isn't you must approve this receipt.</span></div>
+      </main>
+      <div class="mfoot"><button class="btn btn-primary btn-xl btn-block" type="button">Submit for approval</button></div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">L3.7 · Wrong lab (blocking)</span>
+    <div class="phone dark">
+      <div class="col" style="flex: 1; background: var(--color-danger); padding: 32px 20px; gap: 14px; align-items: center; text-align: center; justify-content: center" role="alert">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 64px; height: 64px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>
+        <b class="t-2xl">Wrong lab: don't accept</b>
+        <p class="t-base">This sample is booked at:</p>
+        <div style="background: rgba(255,255,255,.14); border-radius: 12px; padding: 14px; width: 100%"><b class="t-lg">Vasundhara Testing Laboratories · Noida site</b><br><span class="t-sm">Plot 14, Sector 63, Noida 201301</span></div>
+        <p class="t-base">Tell the customer to take it to that address. Nothing was recorded here.</p>
+        <button class="btn btn-xl btn-block" type="button" style="background: var(--color-surface-raised); color: #7F1D1D">OK, scan another</button>
+      </div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">L3.8 · Offline · short code</span>
+    <div class="phone">
+      <div class="row g8" style="background: var(--color-warning); color: var(--color-text-inverse); padding: 10px 14px" role="status"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h.01M8.5 16.43a5 5 0 0 1 7 0M2 2l20 20M5 12.86a10 10 0 0 1 5.17-2.69M19 12.86a10 10 0 0 0-2-1.39M2 8.82a15 15 0 0 1 4.17-2.65M10.66 5c4.01-.36 8.14.9 11.34 3.76"></path></svg><span class="t-base w6">Offline · 2 scans saved, will sync</span></div>
+      <div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back" style="width: 44px; height: 44px"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-sm">Enter short code</b></div>
+      <main class="mbody" style="gap: 14px">
+        <label class="t-base" for="pc8" id="pc8l">Type the 6-character package code printed under the package QR.</label>
+        <div class="otp" role="group" aria-labelledby="pc8l"><input inputmode="text" maxlength="6" autocomplete="one-time-code" id="pc8" aria-label="Character 1" value="K" style="background: #fff"><input inputmode="text" maxlength="1" aria-label="Character 2" value="7" style="background: #fff"><input inputmode="text" maxlength="1" aria-label="Character 3" value="Q" style="background: #fff"><input inputmode="text" maxlength="1" aria-label="Character 4" value="4" style="background: #fff"><input inputmode="text" maxlength="1" aria-label="Character 5" value="M" style="background: #fff"><input inputmode="text" maxlength="1" aria-label="Character 6" value="" style="background: #fff"></div>
+        <button class="btn btn-secondary btn-lg" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>Photo of the damaged label</button>
+        <div class="panel col g4" style="padding: 12px"><span class="t-xs w6 muted upper">Queued on this phone</span><span class="t-sm mono">LC-2611-0004821 · pkg 1, 2</span><span class="t-xs muted">Saved at 10:31 AM IST. They'll be sent when you're back online.</span></div>
+      </main>
+      <div class="mfoot"><button class="btn btn-primary btn-xl btn-block" type="button">Look up</button></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":3240,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

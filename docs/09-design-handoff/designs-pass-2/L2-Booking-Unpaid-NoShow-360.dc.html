@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>L2 Booking expired unpaid or no-show, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 840px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+<div class="col g12"><span class="stripcap">L2.1 · EXPIRED_UNPAID</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-base">LC-2611-0004821</b><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><h1 class="t-xl w7">Payment time ended</h1><span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Expired · not paid</span><p class="t-base">The payment time ended and the slot was released. Nothing was charged.</p></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Book the same tests again</button></div></div></div>
+<div class="col g12"><span class="stripcap">L2.2 · NO_SHOW</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-base">LC-2611-0004821</b><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><h1 class="t-xl w7">Sample not dropped off</h1><span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>No-show</span><p class="t-base">The sample didn't reach the lab by 28 Nov 2026, 4:00 PM IST plus the grace period.</p><div class="row between panel" style="padding: 10px 12px"><span class="t-base">Fee or refund</span><span class="row g8"><span class="t-base muted">shown once confirmed</span><span class="placeholder">Placeholder</span></span></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Book the same tests again</button></div></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 840, "height": 900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

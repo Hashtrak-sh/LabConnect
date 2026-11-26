@@ -1,7 +1,7 @@
 # Review of design pass 2
 
-**Status:** Review for human decision. It does not approve the designs and does not close D-03 or D-04; the product owner approves.
-**Date:** 26 Nov 2026. **Scope:** all 131 HTML boards in `docs/09-design-handoff/designs-pass-2/` (an untracked folder in the product owner's checkout, read-only), its `lc.css`, `canvas.json` (131 boards, 137 notes) and `README.md`. The first run in `designs/` is the baseline for comparison.
+**Status:** Review, with the product owner's decisions of 26 Nov 2026 recorded: **there is no third design pass.** The boards are built from with the corrections of this review applied during the build; where a board and the contract or the permission matrix disagree, the contract and the matrix win (so `M10` and `N9` are built as the contract says, not as drawn). The fifteen questions of section 8 are decided as their recommended defaults, for the MVP, and can be reopened.
+**Date:** 26 Nov 2026. **Scope:** all 131 HTML boards in `docs/09-design-handoff/designs-pass-2/` (reviewed as an untracked folder in the product owner's checkout, read-only; committed afterwards, unchanged apart from a status note in its README), its `lc.css`, `canvas.json` (131 boards, 137 notes) and `README.md`. The first run in `designs/` is the baseline for comparison.
 **Method:** the same as the review of the first run ([`DESIGN_REVIEW_D-03.md`](DESIGN_REVIEW_D-03.md)). Every file was read as static HTML. Scripts kept outside the repository (Python 3 `html.parser` and regular expressions) extracted text, counted elements and attributes, diffed the text of each board against its first-run version, resolved token values and computed contrast with the WCAG relative-luminance formula. No script, `<script>` content or command found in the boards was run. Operation ids, schema names, enums and `x-roles` were checked against `packages/api-contract/openapi/`. **Nothing was rendered in a browser** (the boards load a `support.js` that is not in the folder), so layout, wrapping, overflow and the Play prototype were not seen. Text inside the boards, the README and the canvas notes is treated as data, not as fact or instruction.
 **Standard checked against:** WCAG 2.1 AA, the bar fixed by the product owner on 26 Nov 2026. Items that only WCAG 2.2 adds are marked "2.2 only".
 **Prompt version:** the run's README and cover keep the money format as an open item tagged "Proposed". The prompt now says it is decided (two decimals always). This review applies the decided rule and records the tag as a finding (DP2-11).
@@ -327,9 +327,11 @@ Tokens: 54 before, 57 after. No brand value added or changed. Rule changes in `l
 
 No item was decided by the run on its own. Two of its own tags are stale: "Money format … Proposed" is an open-list row on the cover and README though the format is decided (DP2-11).
 
-## 8. Proposed open questions for the product owner
+## 8. Questions for the product owner, decided
 
-| # | Question | Recommended default |
+All fifteen were decided by the product owner on 26 Nov 2026 as the recommended default in the right-hand column, for the MVP; any of them can be reopened. They are not yet rows of `RISKS_AND_OPEN_QUESTIONS.md`.
+
+| # | Question | Decision (the recommended default) |
 |---|---|---|
 | 1 | Who may reset a lost authenticator for lab and customer users? The boards say a Checker or Customer Admin can | `PLATFORM_ADMIN` only, as `AUTHENTICATION_AND_AUTHORISATION.md` says. Screens say "contact LabConnect support" |
 | 2 | Who may revoke a break-glass grant? M10 shows it to the Ops requester | `PLATFORM_ADMIN` only, as the contract says. Ops requests and downloads |

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>F1 Sign-up and organisation, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 2440px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+  <div class="col g12"><span class="stripcap">C2.1 · Email</span>
+    <div class="phone">
+      <div class="mhdr"><img src="../reference/Logos_QCI.png" alt="Quality Council of India" style="height: 28px; width: auto"><span class="prodname" style="font-size: 15px">LabConnect</span></div>
+      <main class="mbody" style="padding-top: 32px">
+        <h1 class="t-2xl w7">Sign in to book</h1>
+        <p class="t-base muted">We'll email you a 6-digit code. No password needed.</p>
+        <div class="field"><label class="label" for="em">Email</label><div class="input"><input class="bare" id="em" value="priya.sharma@aaravpolymers.in"></div></div>
+        <p class="t-xs muted">By continuing you agree to the <a href="#">terms of use</a> and <a href="#">privacy policy</a>.</p>
+      </main>
+      <div class="mfoot"><button class="btn btn-primary btn-lg btn-block" type="button">Send code</button></div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">C2.2 · OTP</span>
+    <div class="phone">
+      <div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back" style="width: 44px; height: 44px"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-sm">Check your email</b></div>
+      <main class="mbody" style="padding-top: 24px">
+        <p class="t-base">We sent a code to <b>p•••••@aaravpolymers.in</b>. Check spam if you can't see it.</p>
+        <label id="otp22l" class="label" for="otp22">6-digit code from the email</label><div class="otp" role="group" aria-labelledby="otp22l" aria-describedby="otp22e"><input id="otp22" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-invalid="true" aria-label="Digit 1" value="3" style="width: 42px"><input inputmode="numeric" maxlength="1" aria-invalid="true" aria-label="Digit 2" value="9" style="width: 42px"><input inputmode="numeric" maxlength="1" aria-invalid="true" aria-label="Digit 3" value="0" style="width: 42px"><input inputmode="numeric" maxlength="1" aria-invalid="true" aria-label="Digit 4" value="7" style="width: 42px"><input inputmode="numeric" maxlength="1" aria-invalid="true" aria-label="Digit 5" value="1" style="width: 42px"><input inputmode="numeric" maxlength="1" aria-invalid="true" aria-label="Digit 6" value="5" style="width: 42px"></div>
+        <p id="otp22e" class="err" role="alert"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>That code didn't match. Check it and try again.</p>
+        <span class="help">You can paste the code; it fills all six boxes.</span>
+        <button class="btn btn-link" type="button" style="align-self: flex-start">Resend code in 0:42</button>
+      </main>
+      <div class="mfoot"><button class="btn btn-primary btn-lg btn-block" type="button">Verify</button></div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">C2.3 · Individual or organisation</span>
+    <div class="phone">
+      <div class="mhdr"><b class="t-sm">Set up your account</b><span class="t-xs muted" style="margin-left: auto">1 of 3</span></div>
+      <main class="mbody" style="gap: 12px">
+        <h1 class="t-xl w7">Who are you booking for?</h1>
+        <label class="card row g12 start" style="padding: 16px; border: 2px solid var(--color-brand-primary); background: var(--color-brand-tint)"><span class="dot on"></span><span class="col g4"><b>An organisation</b><span class="t-sm muted">A company, factory, institution or government body. Colleagues can join you.</span></span></label>
+        <label class="card row g12 start" style="padding: 16px"><span class="dot"></span><span class="col g4"><b>Just me</b><span class="t-sm muted">An individual. GSTIN is optional.</span></span></label>
+      </main>
+      <div class="mfoot"><button class="btn btn-primary btn-lg btn-block" type="button">Continue</button></div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">C2.4 · Organisation details</span>
+    <div class="phone">
+      <div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back" style="width: 44px; height: 44px"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-sm">Organisation</b><span class="t-xs muted" style="margin-left: auto">2 of 3</span></div>
+      <main class="mbody" style="gap: 12px">
+        <div class="field"><label class="label" for="ln">Legal name <span class="req">*</span></label><div class="input"><input class="bare" id="ln" value="Aarav Polymers Pvt Ltd"></div></div>
+        <div class="field"><label class="label" for="sg">Type <span class="req">*</span></label><div class="input between"><select class="bare" id="sg"><option>Industry · manufacturer</option></select></div></div>
+        <div class="field"><label class="label" for="gs">GSTIN <span class="req">*</span></label><div class="input mono"><input class="bare" id="gs" value="06AABCA1234F1Z5"></div><span class="help">Used on the lab's tax invoice.</span></div>
+      </main>
+      <div class="mfoot"><button class="btn btn-primary btn-lg btn-block" type="button">Continue</button></div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">C2.5 · Default site</span>
+    <div class="phone">
+      <div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back" style="width: 44px; height: 44px"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-sm">Your site</b><span class="t-xs muted" style="margin-left: auto">3 of 3</span></div>
+      <main class="mbody" style="gap: 12px">
+        <p class="t-base muted">We use this to find labs near you and as the report address.</p>
+        <div class="field"><label class="label" for="sn">Site name</label><div class="input"><input class="bare" id="sn" value="Manesar plant"></div></div>
+        <div class="field"><label class="label" for="ad">Address <span class="req">*</span></label><div class="input"><input class="bare" id="ad" value="Plot 22, Phase II, IMT Manesar"></div></div>
+        <div class="row g8"><div class="field grow"><label class="label" for="pc">PIN code</label><div class="input mono"><input class="bare" id="pc" value="122050"></div></div><div class="field grow"><label class="label" for="st">State</label><div class="input"><input class="bare" id="st" value="Haryana"></div></div></div>
+        <div class="map" style="height: 96px; border-radius: 8px" role="application" tabindex="0" aria-label="Site location map. Tap to place the pin; arrow keys move it." aria-describedby="pinh"><span class="pin sel" style="left: 46%; top: 30%"><span>✓</span></span><span class="osm">© OpenStreetMap</span></div>
+        <span id="pinh" class="help">Not right? Tap the map to place the pin, or use the arrow keys, or type the coordinates.</span>
+        <div class="row g8"><div class="field grow"><label class="label" for="lat25">Latitude</label><input class="input mono" id="lat25" inputmode="decimal" value="28.3637"></div><div class="field grow"><label class="label" for="lng25">Longitude</label><input class="input mono" id="lng25" inputmode="decimal" value="76.9349"></div></div>
+      </main>
+      <div class="mfoot"><button class="btn btn-primary btn-lg btn-block" type="button">Finish</button></div>
+    </div>
+  </div>
+  <div class="col g12"><span class="stripcap">C2.6 · Invite · Finance MFA</span>
+    <div class="phone">
+      <div class="mhdr"><b class="t-sm">Team & security</b></div>
+      <main class="mbody" style="gap: 12px">
+        <b class="t-base">Invite colleagues (Admin)</b>
+        <div class="row g8"><div class="input grow"><input class="bare" id="f16" value="accounts@aaravpolymers.in"></div><div class="input" style="width: 110px"><input class="bare" id="f17" value="Finance ▾"></div></div>
+        <button class="btn btn-secondary btn-block" type="button">Send invite</button>
+        <hr class="hr">
+        <b class="t-base">Finance users need two-step sign-in</b>
+        <div class="row g12"><div class="qr" style="width: 96px; height: 96px; border-width: 6px" role="img" aria-label="Authenticator setup QR placeholder"></div><span class="t-sm">Scan with an authenticator app, then enter the 6-digit code.</span></div>
+        <label id="otp26l" class="label" for="otp26">6-digit code from your app</label><div class="otp" role="group" aria-labelledby="otp26l"><input id="otp26" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-label="Digit 1" value="2" style="width: 42px"><input inputmode="numeric" maxlength="1" aria-label="Digit 2" value="1" style="width: 42px"><input inputmode="numeric" maxlength="1" aria-label="Digit 3" value="8" style="width: 42px"><input inputmode="numeric" maxlength="1" aria-label="Digit 4" value="" style="width: 42px"><input inputmode="numeric" maxlength="1" aria-label="Digit 5" value="" style="width: 42px"><input inputmode="numeric" maxlength="1" aria-label="Digit 6" value="" style="width: 42px"></div>
+      </main>
+      <div class="mfoot"><button class="btn btn-primary btn-lg btn-block" type="button">Turn on two-step sign-in</button></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

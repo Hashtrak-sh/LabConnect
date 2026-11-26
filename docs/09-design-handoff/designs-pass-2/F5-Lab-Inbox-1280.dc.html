@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>F5 Lab inbox and decision, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 100%; min-height: 1160px; background: var(--color-surface); display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 24px; gap: 16px">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span><span class="badge b-brand">Lab</span>
+    <span class="t-sm" style="margin-left: 12px">Vasundhara Testing Laboratories · <b>Gurugram site</b></span>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span class="row g8"><span style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-on-tint); display: inline-flex; align-items: center; justify-content: center; font-weight: 600">AM</span><span class="col"><b class="t-sm">Dr. Anita Mehta</b><span class="t-xs muted">Checker</span></span></span></div>
+  </header>
+  <main style="max-width: 1280px; width: 100%; margin: 0 auto; padding: 20px 32px 40px; display: flex; flex-direction: column; gap: 16px">
+    <h1 class="t-2xl w7">Requests</h1><a class="t-sm" href="K8-Lab-Inbox-Tabs-1280.dc.html">Maker's read-only view (K8)</a>
+    <div class="tabs" role="tablist" aria-label="Inbox"><button type="button" role="tab" id="F5-t1" aria-selected="true" aria-controls="F5-panel">New requests <span class="count" style="margin-left: 4px">4</span></button><button type="button" role="tab" id="F5-t2" aria-selected="false" aria-controls="F5-panel" tabindex="-1">Waiting for customer <span class="badge b-neutral">6</span></button><button type="button" role="tab" id="F5-t3" aria-selected="false" aria-controls="F5-panel" tabindex="-1">Paid, expecting drop <span class="badge b-neutral">7</span></button><button type="button" role="tab" id="F5-t4" aria-selected="false" aria-controls="F5-panel" tabindex="-1">Overdue drops <span class="badge b-danger">1</span></button></div>
+    <div role="tabpanel" id="F5-panel" aria-labelledby="F5-t1" style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+      <section class="card" style="flex: 1 1 340px; overflow: hidden" aria-label="Request list">
+        <div class="col g4" style="padding: 14px 16px; border-left: 4px solid var(--color-brand-primary); background: var(--color-brand-tint); border-bottom: 1px solid var(--color-border)"><div class="row between"><span class="mono t-sm w6">LC-2611-0004844</span><span class="sla danger t-xs"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>in 40 min</span></div><span class="t-sm">Shivam Paints · epoxy coating · 2 tests</span><span class="t-xs muted">Slot Thu 26 Nov, 10 AM IST · ₹2,950.00</span></div>
+        <div class="col g4" style="padding: 14px 16px; border-bottom: 1px solid var(--color-border)"><div class="row between"><span class="mono t-sm w6">LC-2611-0004850</span><span class="sla ok t-xs">in 9 h</span></div><span class="t-sm">Aarav Polymers · PE granules · 3 tests</span><span class="t-xs muted">Slot Fri 27 Nov, 12 PM IST · ₹3,540.00</span></div>
+        <div class="col g4" style="padding: 14px 16px; border-bottom: 1px solid var(--color-border)"><div class="row between"><span class="mono t-sm w6">LC-2611-0004852</span><span class="sla ok t-xs">in 20 h</span></div><span class="t-sm">Kaveri Wires · GI wire · 1 test</span><span class="t-xs muted">Slot Sat 28 Nov, 10 AM IST · ₹1,180.00</span></div>
+        <div class="col g4" style="padding: 14px 16px"><div class="row between"><span class="mono t-sm w6">LC-2611-0004857</span><span class="sla ok t-xs">in 23 h</span></div><span class="t-sm">Individual · drinking water bottle · 4 tests</span><span class="t-xs muted">Slot Sat 28 Nov, 12 PM IST · ₹4,720.00</span></div>
+      </section>
+      <section class="card col g16" style="flex: 999 1 520px; min-width: 0; padding: 24px">
+        <div class="row between wrap g8"><div class="col g4"><span class="mono t-lg w7">LC-2611-0004844</span><span class="t-sm muted">Shivam Paints Pvt Ltd · requested 24 Nov, 2:55 PM IST</span></div><span class="badge b-info" style="height: 28px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Requested · decide by 11:25 AM IST</span></div>
+        <div class="grid3 t-sm" style="gap: 12px 20px"><div class="col"><span class="t-xs muted">Item</span><b>Epoxy coating, grey</b></div><div class="col"><span class="t-xs muted">Batch</span><b>EP-1124</b></div><div class="col"><span class="t-xs muted">Packages</span><b>2</b></div><div class="col"><span class="t-xs muted">Drop-off slot</span><b>Thu 26 Nov · 10 AM – 12 PM IST</b></div><div class="col"><span class="t-xs muted">Conformity</span><b>Yes · IS 13238</b></div><div class="col"><span class="t-xs muted">Estimate</span><b class="num">₹2,950.00</b></div></div>
+        <table class="tbl compact"><caption class="sr-only">F5 Lab inbox and decision, desktop</caption><thead><tr><th scope="col">Test</th><th scope="col">Sample offered</th><th scope="col">You need</th></tr></thead><tbody><tr><td>Dry film thickness</td><td>2 panels</td><td>2 panels</td></tr><tr><td>Salt spray resistance · 500 h</td><td>2 panels</td><td><span class="badge b-warn">3 panels</span></td></tr></tbody></table>
+        <div class="card col g12" style="padding: 16px; border: 2px solid var(--color-brand-primary); background: var(--color-surface-raised)">
+          <b class="t-base">Propose a change (counter-offer)</b>
+          <div class="grid2" style="gap: 16px">
+            <div class="field"><label class="label" for="cs">New drop-off slot</label><div class="input between"><select class="bare" id="cs"><option>Fri 27 Nov · 10 AM – 12 PM IST</option></select></div></div>
+            <div class="field"><label class="label" for="cq">Extra quantity · salt spray</label><div class="input"><input class="bare" id="cq" value="+1 panel"></div></div>
+          </div>
+          <div class="field"><label class="label" for="cm">Message to customer</label><div class="input textarea"><textarea class="bare" id="cm">Salt spray needs one spare panel for a repeat. Thursday is full.</textarea></div></div>
+          <div class="alert a-info" style="padding: 8px 12px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg><span class="t-base">You can change only the slot or quantity. Prices come from your published list and can't be changed here.</span></div>
+        </div>
+        <div class="row between wrap g8">
+          <a class="btn btn-ghost" href="K9-Lab-Decision-Dialogs-1280.dc.html" style="color: var(--color-danger)">Reject…</a>
+          <div class="row g8"><button class="btn btn-secondary btn-lg" type="button">Send counter-offer</button><button class="btn btn-primary btn-lg" type="button">Accept as requested</button></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1160}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>M1 Booking tracking states, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1240px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+<div class="col g12"><span class="stripcap">M1.1 · Sample recorded</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6"><span class="mono">LC-2611-0004821</span></h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Sample recorded</span><div class="nac info col g8" style="padding: 14px"><b class="t-lg">The lab recorded your sample</b><span class="t-base">A second person approves it, usually within 2 h.</span></div></main></div></div>
+<div class="col g12"><span class="stripcap">M1.2 · Report in review</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6"><span class="mono">LC-2611-0004821</span></h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Report in review</span><div class="nac info col g8" style="padding: 14px"><b class="t-lg">Your report is being checked</b><span class="t-base">You'll get an email when it's released.</span></div></main></div></div>
+<div class="col g12"><span class="stripcap">M1.3 · Under test · per line</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6"><span class="mono">LC-2611-0004821</span></h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Under test</span><b class="t-lg">Report by 2 Dec 2026</b><span class="t-sm">Moved from 30 Nov: "Density test repeated."</span><div class="col g8"><div class="row between t-base"><span>Melt flow rate</span><span class="badge b-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Done</span></div><div class="row between t-base"><span>Density</span><span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>In progress</span></div><div class="row between t-base"><span>Carbon black</span><span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Cancelled</span></div></div></main></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1240, "height": 900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

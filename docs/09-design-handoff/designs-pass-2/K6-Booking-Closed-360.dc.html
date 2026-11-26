@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>K6 Booking rejected or expired, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1240px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+<div class="col g12"><span class="stripcap">K6.1 · REJECTED</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-base"><span class="mono">LC-2611-0004821</span></b><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><h1 class="t-xl w7">The lab declined</h1><span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Rejected</span><div class="panel col g4" style="padding: 12px"><span class="t-base"><b>Reason:</b> Equipment under maintenance</span><span class="t-sm">"Out for calibration until 5 Dec 2026."</span></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Book the same tests again</button></div></div></div>
+<div class="col g12"><span class="stripcap">K6.2 · EXPIRED</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-base"><span class="mono">LC-2611-0004821</span></b><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><h1 class="t-xl w7">Request expired</h1><span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Expired</span><p class="t-base">The lab didn't decide in time, or the counter-offer was declined or not answered. Nothing was charged.</p></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Book the same tests again</button></div></div></div>
+<div class="col g12"><span class="stripcap">K6.3 · Alternatives</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6"><span class="mono">LC-2611-0004821</span></h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="col g8"><div class="row g8 wrap"><b class="t-base">Labs that can do the same tests</b><span class="prov">Source not in the contract</span></div><div class="card row between wrap g8" style="padding: 12px"><span class="col"><b class="t-base">Shivalik Polymer Testing Centre</b><span class="t-sm muted">6.9 km · report in 4 days</span></span><button class="btn btn-secondary" type="button">Rebook here</button></div><div class="card row between wrap g8" style="padding: 12px"><span class="col"><b class="t-base">Indraprastha Materials Lab</b><span class="t-sm muted">21.3 km · report in 6 days</span></span><button class="btn btn-secondary" type="button">Rebook here</button></div></div></main></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1240, "height": 900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
