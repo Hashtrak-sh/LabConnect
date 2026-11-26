@@ -55,6 +55,12 @@ export interface IsolatedInput {
   request: (as: Client) => Promise<Response>;
   /** The same request for an id that exists nowhere: the answers must not differ. */
   unknownRequest?: (as: Client) => Promise<Response>;
+  /**
+   * For a platform-only route (`/admin`): the guard refuses every tenant caller with `403
+   * FORBIDDEN` before any lookup, so the answer is 403 instead of 404, and (with `unknownRequest`)
+   * still the same for an id that exists and one that does not.
+   */
+  refusal?: 'FORBIDDEN';
 }
 
 /**
@@ -67,15 +73,19 @@ export async function expectIsolated(input: IsolatedInput): Promise<Response> {
   expect(input.as.user.organisationId, 'the caller must belong to another tenant').not.toBe(
     input.resourceOf.organisationId,
   );
+  const expectedStatus = input.refusal === 'FORBIDDEN' ? 403 : 404;
+  const expectedCode = input.refusal === 'FORBIDDEN' ? 'FORBIDDEN' : 'NOT_FOUND';
   const response = await input.request(input.as);
-  expect(response.status, `${input.route} as ${input.as.user.role} of another tenant`).toBe(404);
-  expect(problem(response).code).toBe('NOT_FOUND');
+  expect(response.status, `${input.route} as ${input.as.user.role} of another tenant`).toBe(
+    expectedStatus,
+  );
+  expect(problem(response).code).toBe(expectedCode);
   expect(response.headers['content-type']).toMatch(/application\/problem\+json/);
   const sent = [input.resourceId ?? []].flat();
   expectNoLeak(response, input.resourceOf, sent);
   if (input.unknownRequest) {
     const unknown = await input.unknownRequest(input.as);
-    expect(unknown.status).toBe(404);
+    expect(unknown.status).toBe(expectedStatus);
     const [a, b] = [problem(response), problem(unknown)];
     expect({ code: a.code, title: a.title, detail: a.detail, status: a.status }).toEqual({
       code: b.code,

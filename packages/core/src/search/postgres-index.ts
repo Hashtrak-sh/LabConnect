@@ -14,7 +14,7 @@ import {
   type SiteDocuments,
   type SiteSearchResult,
 } from './model.js';
-import { withPublicReadContext } from './public-context.js';
+import { withPublicReadContext } from '../platform/public-context.js';
 import { visibleLinesSql } from './visible-lines.js';
 
 /**
