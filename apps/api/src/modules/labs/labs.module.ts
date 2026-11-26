@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { type Clock, LabDirectoryService } from '@labconnect/core';
 import type { PrismaClient } from '@labconnect/database';
+import { FilesModule } from '../files/files.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { PlatformModule } from '../platform/platform.module.js';
 import { CLOCK, PRISMA_CLIENT } from '../platform/platform.providers.js';
@@ -15,7 +16,7 @@ import { PublicLabSitesController } from './public-lab-sites.controller.js';
  * pricing and capacity commands come with the lab slices.
  */
 @Module({
-  imports: [PlatformModule, IdentityModule],
+  imports: [PlatformModule, IdentityModule, FilesModule],
   controllers: [PublicLabSitesController, LabClaimsController],
   providers: [
     LabClaimsService,

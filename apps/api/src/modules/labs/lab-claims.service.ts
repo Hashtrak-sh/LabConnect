@@ -5,13 +5,18 @@ import {
   type ClaimDeps,
   type Clock,
   type CurrentActor,
+  FileService,
   findListedSiteByCertificate,
+  isFilesError,
   LabClaimError,
   type LabClaimView,
+  type LetterheadDeps,
   type OtpMailer,
   OutboxService,
   type RequestMeta,
+  requestClaimLetterheadUpload,
   startLabClaim,
+  submitLabClaimLetterhead,
   TenantScope,
   verifyLabClaimOtp,
 } from '@labconnect/core';
@@ -79,6 +84,7 @@ export class LabClaimsService {
     private readonly outbox: OutboxService,
     private readonly runtime: IdentityRuntime,
     @Inject(OTP_MAILER) private readonly mailer: OtpMailer,
+    private readonly files: FileService,
   ) {}
 
   private deps(): ClaimDeps {
@@ -153,6 +159,80 @@ export class LabClaimsService {
     if (!outcome.ok) throw claimOtpFailure(outcome.reason);
     return outcome.claim;
   }
+
+  /**
+   * `createLabClaimLetterheadUploadUrl`. The row and its link to the claim commit first; the
+   * presigned URL is made after the commit and is never logged or stored (it is a secret for
+   * its 15 minutes). A refused type or size is `422 VALIDATION_FAILED` with the field named.
+   */
+  async createLetterheadUploadUrl(
+    actor: CurrentActor,
+    input: { claimId: string; contentType: string; sizeBytes: number; fileName?: string },
+    meta: RequestMeta,
+  ): Promise<FileUploadUrlBody> {
+    let ticket;
+    try {
+      ticket = await this.scope.runAsSystem(LETTERHEAD_REASON, (tx) =>
+        requestClaimLetterheadUpload(tx, this.letterheadDeps(), { actor, ...input, meta }),
+      );
+    } catch (error) {
+      throw uploadRefusal(error) ?? error;
+    }
+    const url = await this.files.presignUpload(ticket);
+    return {
+      fileId: url.fileId,
+      uploadUrl: url.uploadUrl,
+      method: url.method,
+      headers: url.headers,
+      expiresAt: url.expiresAt.toISOString(),
+    };
+  }
+
+  /** `submitLabClaimLetterhead`. */
+  async submitLetterhead(
+    actor: CurrentActor,
+    input: { claimId: string; ifMatch: number; fileId: string },
+    meta: RequestMeta,
+  ): Promise<LabClaimView> {
+    return this.scope.runAsSystem(LETTERHEAD_REASON, (tx) =>
+      submitLabClaimLetterhead(tx, this.letterheadDeps(), { actor, ...input, meta }),
+    );
+  }
+
+  private letterheadDeps(): LetterheadDeps {
+    return { ...this.deps(), files: this.files };
+  }
+}
+
+const LETTERHEAD_REASON =
+  'Lab claim letterhead: the claimant is no member of the organisation they claim, and the file has no owning organisation';
+
+/** `FileUploadUrl` of the contract (`components/schemas/files.yaml`). */
+export interface FileUploadUrlBody {
+  fileId: string;
+  uploadUrl: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+  expiresAt: string;
+}
+
+/** The file service's refusal of a type or size, as the contract's `422` with the field named. */
+function uploadRefusal(error: unknown): DomainError | undefined {
+  if (!isFilesError(error) || error.code !== 'VALIDATION_FAILED') return undefined;
+  const sizeProblem = error.reason === 'SIZE_LIMIT_EXCEEDED';
+  const path = sizeProblem ? 'sizeBytes' : 'contentType';
+  return new DomainError('VALIDATION_FAILED', {
+    detail: error.detail ?? 'The file is not allowed for this upload.',
+    errors: [
+      {
+        path,
+        code: sizeProblem ? 'SIZE_LIMIT_EXCEEDED' : 'CONTENT_TYPE_NOT_ALLOWED',
+        message: sizeProblem
+          ? 'The file is larger than the limit for a claim letterhead (10 MB).'
+          : 'A claim letterhead must be a PDF, JPEG or PNG file.',
+      },
+    ],
+  });
 }
 
 function errorKind(error: unknown): string {

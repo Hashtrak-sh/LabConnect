@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { DomainError } from '../../common/domain-error.js';
-import { parseLabClaimCreate, parseLabClaimOtpVerify, requireClaimId } from './lab-claims.dto.js';
+import {
+  parseLabClaimCreate,
+  parseLabClaimManual,
+  parseLabClaimOtpVerify,
+  parseLetterheadUploadRequest,
+  requireClaimId,
+} from './lab-claims.dto.js';
 
 const issues = (work: () => unknown): { path: string; code: string }[] => {
   try {
@@ -64,6 +70,67 @@ describe('parseLabClaimOtpVerify', () => {
         JSON.stringify(body),
       ).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('parseLetterheadUploadRequest', () => {
+  it('takes a file name (optional), a content type and a whole number size', () => {
+    expect(
+      parseLetterheadUploadRequest({
+        fileName: 'a.pdf',
+        contentType: 'application/pdf',
+        sizeBytes: 5,
+      }),
+    ).toEqual({ fileName: 'a.pdf', contentType: 'application/pdf', sizeBytes: 5 });
+    expect(parseLetterheadUploadRequest({ contentType: 'image/png', sizeBytes: 1 })).toEqual({
+      contentType: 'image/png',
+      sizeBytes: 1,
+    });
+  });
+
+  it('refuses unknown fields (no owner, no key) and a size that is not a positive integer', () => {
+    const base = { contentType: 'application/pdf', sizeBytes: 5 };
+    for (const extra of ['ownerOrgId', 'objectKey', 'purpose', 'bucket']) {
+      expect(issues(() => parseLetterheadUploadRequest({ ...base, [extra]: 'x' }))).toEqual([
+        expect.objectContaining({ path: extra, code: 'UNKNOWN_FIELD' }),
+      ]);
+    }
+    for (const sizeBytes of [0, -1, 1.5, '5', null, Number.NaN, 2 ** 60]) {
+      expect(issues(() => parseLetterheadUploadRequest({ ...base, sizeBytes }))).toEqual([
+        expect.objectContaining({ path: 'sizeBytes' }),
+      ]);
+    }
+    expect(issues(() => parseLetterheadUploadRequest({ sizeBytes: 5 }))).toEqual([
+      expect.objectContaining({ path: 'contentType' }),
+    ]);
+    expect(issues(() => parseLetterheadUploadRequest({ ...base, fileName: '' }))).toEqual([
+      expect.objectContaining({ path: 'fileName' }),
+    ]);
+    expect(
+      issues(() => parseLetterheadUploadRequest({ ...base, fileName: 'x'.repeat(256) })),
+    ).toEqual([expect.objectContaining({ path: 'fileName' })]);
+  });
+});
+
+describe('parseLabClaimManual', () => {
+  it('takes exactly a file id, lower-cased', () => {
+    expect(parseLabClaimManual({ fileId: '0190D6A2-7C4E-7A1B-9C3D-000000000000' })).toEqual({
+      fileId: '0190d6a2-7c4e-7a1b-9c3d-000000000000',
+    });
+  });
+
+  it('refuses anything else, naming the field', () => {
+    expect(issues(() => parseLabClaimManual({}))).toEqual([
+      expect.objectContaining({ path: 'fileId' }),
+    ]);
+    expect(issues(() => parseLabClaimManual({ fileId: 'x' }))).toEqual([
+      expect.objectContaining({ path: 'fileId' }),
+    ]);
+    expect(
+      issues(() =>
+        parseLabClaimManual({ fileId: '0190d6a2-7c4e-7a1b-9c3d-000000000000', status: 'X' }),
+      ),
+    ).toEqual([expect.objectContaining({ path: 'status', code: 'UNKNOWN_FIELD' })]);
   });
 });
 

@@ -55,7 +55,11 @@ describe('who may open the system database context', () => {
       // context carrying the claimed organisation would open every table of that organisation and
       // take its id from a lookup, not a membership; so the core functions run as `system` in one
       // transaction and scope each query by hand (requested_by_user_id = the caller). One call each.
-      'apps/api/src/modules/labs/lab-claims.service.ts': 2,
+      // Lab claim letterhead upload URL and submit (I1-LAB-03, I1-LAB-04), same reason, and also:
+      // the letterhead `file_object` has no owning organisation (owner_org_id NULL), so its row
+      // policy lets only the platform or the system insert and read it, and no tenant can reach it.
+      // Every query is by claim + caller (+ uploader, purpose and file_link for the file). Two more.
+      'apps/api/src/modules/labs/lab-claims.service.ts': 4,
       // The gateway's server-to-server callback: no user, and no tenant until it is matched.
       'apps/api/src/modules/payments/payment-webhook.controller.ts': 1,
     });

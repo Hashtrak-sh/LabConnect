@@ -41,7 +41,6 @@ createCustomerOrganisation
 createCustomerSite
 createDisputeEvidenceUploadUrl
 createLabBankAccount
-createLabClaimLetterheadUploadUrl
 createLabInvitation
 createLabKycDocument
 createLabKycUploadUrl
@@ -168,7 +167,6 @@ setLabScopeLineAvailability
 setLabSlotTemplates
 startBookingTesting
 submitAdminChangeSet
-submitLabClaimLetterhead
 submitReceipt
 submitReportVersion
 suggestSearch

@@ -13,6 +13,7 @@ import { consumeOtp, requestOtp } from '../identity/otp.js';
 import type { IdentityDeps } from '../identity/ports.js';
 import type { RequestMeta } from '../identity/errors.js';
 import { auditMeta } from '../identity/errors.js';
+import type { FileService, UploadTicket } from '../files/file-service.js';
 import { istDateKey } from '../platform/business-calendar.js';
 import type { Clock } from '../platform/clock.js';
 import type { OutboxService } from '../platform/outbox.js';
@@ -20,8 +21,9 @@ import { withPublicReadContext } from '../platform/public-context.js';
 import { LabClaimError } from './claim-errors.js';
 
 /*
- * The first half of the lab claim flow (FR-DAT-07, I1-LAB-01 and I1-LAB-02): `startLabClaim`
- * and `verifyLabClaimOtp`. Approval, rejection and the letterhead route are later tasks.
+ * The lab claim flow (FR-DAT-07): `startLabClaim` and `verifyLabClaimOtp` (I1-LAB-01, I1-LAB-02),
+ * and the letterhead route `requestClaimLetterheadUpload` and `submitLabClaimLetterhead`
+ * (I1-LAB-03, I1-LAB-04). Approval and rejection are later tasks.
  *
  * Who the code goes to, what is stored and where it may appear (CLAUDE.md section 5):
  * - the code goes only to `lab_site_private.contact_email`, imported from NABL data. Nothing in
@@ -30,12 +32,19 @@ import { LabClaimError } from './claim-errors.js';
  *   caller to send after the commit. They are in no audit row, outbox payload, error or log;
  * - the claim view carries the address only masked (`maskEmail`).
  *
- * Database context: both functions run in ONE transaction as `system`, chosen by the caller
+ * Database context: every function here runs in ONE transaction as `system`, chosen by the caller
  * (apps/api `LabClaimsService`), because the claimant belongs to no organisation: the policies
  * of `lab_claim_request` and `lab_site_private` (`app_is_org(organisation_id)`) hide them from
  * a non-member, and `otp_challenge` is `platform_only`. Every query below is therefore scoped
  * by hand: a claim is always looked up by `requested_by_user_id = <the caller>`, and the
  * organisation is never taken from the request but from the site found by certificate number.
+ *
+ * The letterhead file (OQ-213): a `file_object` of purpose `KYC_DOCUMENT` with `owner_org_id`,
+ * `customer_org_id` and `lab_org_id` all NULL. Its row-level policy then shows it to the platform
+ * and the system context only, never to a member of any organisation (the claimed lab's later
+ * members included), and only the system context can insert it. It is tied to its claim by a
+ * `file_link` row (`lab_claim_request`, role `CLAIM_LETTERHEAD`) written in the same transaction
+ * as the upload request, and every lookup of it is by id + uploader (the caller) + purpose + that link.
  */
 
 /** A claim that has not been decided yet; the partial unique index allows one per organisation. */
@@ -511,4 +520,211 @@ export async function verifyLabClaimOtp(
       address,
     ),
   };
+}
+
+// ------------------------------------------------------------------ letterhead (I1-LAB-03, I1-LAB-04)
+
+/** What ties a file to the claim it was requested for (`file_link.entity_type` and `role`). */
+const LETTERHEAD_LINK = { entityType: 'lab_claim_request', role: 'CLAIM_LETTERHEAD' } as const;
+/** A claim letterhead is a KYC document by purpose: type and size limits of FILES_AND_REPORTS section 1. */
+const LETTERHEAD_PURPOSE = 'KYC_DOCUMENT';
+
+export interface LetterheadDeps extends ClaimDeps {
+  files: FileService;
+}
+
+/** The caller's own claim, only while it waits for its code; else `404`, or `409` with the state. */
+async function ownPendingOtpClaim(tx: Prisma.TransactionClient, userId: string, claimId: string) {
+  const claim = await tx.labClaimRequest.findFirst({
+    where: { id: claimId, requestedByUserId: userId },
+    select: {
+      id: true,
+      organisationId: true,
+      labSiteId: true,
+      status: true,
+      method: true,
+      createdAt: true,
+      reviewedAt: true,
+      decisionNotes: true,
+      lockVersion: true,
+    },
+  });
+  if (claim === null) throw new LabClaimError('NOT_FOUND', { detail: 'No claim with this id.' });
+  if (claim.status !== 'PENDING_OTP') {
+    throw conflict(claim.status, 'This claim is not waiting for a code or a letterhead.');
+  }
+  return claim;
+}
+
+/**
+ * `createLabClaimLetterheadUploadUrl`: records a letterhead upload for the caller's own claim and
+ * returns the ticket the caller presigns after the commit (`FileService.presignUpload`).
+ *
+ * Allowed for every claim of the caller that is `PENDING_OTP`, whatever its method: the contract
+ * calls the letterhead the fallback route and restricts only the state (OQ-214). Type and size
+ * are the rules of `KYC_DOCUMENT` in the file service (`422 VALIDATION_FAILED`). The file is
+ * owned by no organisation (see the header) and is linked to this claim. No limit on the number
+ * of upload requests is applied: no document gives one (OQ-217). The audit entry carries ids only:
+ * the file name stays in `file_object.original_filename`, out of audit, outbox and logs.
+ */
+export async function requestClaimLetterheadUpload(
+  tx: Prisma.TransactionClient,
+  deps: LetterheadDeps,
+  input: {
+    actor: CurrentActor;
+    claimId: string;
+    contentType: string;
+    sizeBytes: number;
+    fileName?: string | undefined;
+    meta: RequestMeta;
+  },
+): Promise<UploadTicket> {
+  const userId = input.actor.userId;
+  const claim = await ownPendingOtpClaim(tx, userId, input.claimId);
+
+  const ticket = await deps.files.requestUpload(tx, {
+    purpose: LETTERHEAD_PURPOSE,
+    ownerOrgId: null,
+    declaredContentType: input.contentType,
+    declaredSizeBytes: input.sizeBytes,
+    fileName: input.fileName,
+    uploadedByUserId: userId,
+  });
+  await tx.fileLink.create({
+    data: {
+      id: uuidv7(deps.clock.now().getTime()),
+      fileId: ticket.fileId,
+      entityType: LETTERHEAD_LINK.entityType,
+      entityId: claim.id,
+      role: LETTERHEAD_LINK.role,
+      createdByUserId: userId,
+    },
+  });
+  await deps.audit.record(tx, {
+    actor: { userId },
+    action: 'lab_claim.letterhead_upload_requested',
+    entityType: 'lab_claim_request',
+    entityId: claim.id,
+    after: { fileId: ticket.fileId, purpose: LETTERHEAD_PURPOSE, sizeBytes: input.sizeBytes },
+    ...auditMeta(input.meta),
+  });
+  return ticket;
+}
+
+/**
+ * `submitLabClaimLetterhead`: `PENDING_OTP` to `PENDING_REVIEW` with method `MANUAL` and the file
+ * as `authorisation_file_id`, for Ops to review (a later task).
+ *
+ * Order of the checks, each with the answer the contract gives:
+ * 1. the caller's own claim, else `404`; 2. `PENDING_OTP`, else `409` with `meta.currentState`
+ *    (so a claim already completed by code or letterhead is `409` whatever `If-Match` says);
+ * 3. `lock_version` equals `ifMatch`, else `412`; 4. a file that this caller requested for this
+ *    claim (uploader, purpose, link), else `404` (a file of another claim, user or purpose is
+ *    not found, whatever its id); 5. the file is `CLEAN`, else `422 FILE_NOT_CLEAN` and the claim
+ *    does not move; 6. one `UPDATE ... WHERE status = 'PENDING_OTP' AND lock_version = <If-Match>`
+ *    that sets the status, method, file and `lock_version = lock_version + 1`; no row is `412`.
+ * Code and letterhead use the same conditional update on the same `lock_version`, so when both
+ * race for one claim exactly one wins; the loser is `409` or `412`, and a code left open for the
+ * claim is refused from then on by the state check of `verifyLabClaimOtp`.
+ */
+export async function submitLabClaimLetterhead(
+  tx: Prisma.TransactionClient,
+  deps: LetterheadDeps,
+  input: {
+    actor: CurrentActor;
+    claimId: string;
+    ifMatch: number;
+    fileId: string;
+    meta: RequestMeta;
+  },
+): Promise<LabClaimView> {
+  const userId = input.actor.userId;
+  const claim = await ownPendingOtpClaim(tx, userId, input.claimId);
+  if (claim.lockVersion !== input.ifMatch) {
+    throw new LabClaimError('CONCURRENT_MODIFICATION', {
+      detail: 'The claim changed since it was read.',
+    });
+  }
+
+  const file = await tx.fileObject.findFirst({
+    where: {
+      id: input.fileId,
+      purpose: LETTERHEAD_PURPOSE,
+      uploadedByUserId: userId,
+      ownerOrgId: null,
+      fileLinks: {
+        some: {
+          entityType: LETTERHEAD_LINK.entityType,
+          entityId: claim.id,
+          role: LETTERHEAD_LINK.role,
+          removedAt: null,
+        },
+      },
+    },
+    select: { id: true },
+  });
+  if (file === null) {
+    throw new LabClaimError('NOT_FOUND', { detail: 'No such file of this claim.' });
+  }
+  // `FILE_NOT_CLEAN` (scan pending, failed, infected or rejected): the claim does not move.
+  await deps.files.requireClean(tx, file.id, [LETTERHEAD_PURPOSE]);
+
+  const changed = await tx.labClaimRequest.updateMany({
+    where: {
+      id: claim.id,
+      requestedByUserId: userId,
+      status: 'PENDING_OTP',
+      lockVersion: input.ifMatch,
+    },
+    data: {
+      status: 'PENDING_REVIEW',
+      method: 'MANUAL',
+      authorisationFileId: file.id,
+      lockVersion: { increment: 1 },
+    },
+  });
+  if (changed.count !== 1) {
+    throw new LabClaimError('CONCURRENT_MODIFICATION', {
+      detail: 'The claim changed since it was read.',
+    });
+  }
+
+  const actorRecord = { userId };
+  await deps.audit.record(tx, {
+    actor: actorRecord,
+    action: 'lab_claim.submit_letterhead',
+    entityType: 'lab_claim_request',
+    entityId: claim.id,
+    before: { status: 'PENDING_OTP', method: claim.method },
+    after: {
+      status: 'PENDING_REVIEW',
+      method: 'MANUAL',
+      labSiteId: claim.labSiteId,
+      fileId: file.id,
+    },
+    ...auditMeta(input.meta),
+  });
+  await deps.outbox.enqueue(tx, {
+    type: 'lab_claim.pending_review',
+    aggregate: { type: 'lab_claim_request', id: claim.id },
+    actor: actorRecord,
+    data: {
+      claimId: claim.id,
+      organisationId: claim.organisationId,
+      labSiteId: claim.labSiteId,
+      status: 'PENDING_REVIEW',
+      method: 'MANUAL',
+      fileId: file.id,
+    },
+  });
+
+  const site = await tx.labSite.findUniqueOrThrow({
+    where: { id: claim.labSiteId },
+    select: { id: true, siteCode: true, name: true, organisationId: true },
+  });
+  return view(
+    { ...claim, status: 'PENDING_REVIEW', method: 'MANUAL', lockVersion: claim.lockVersion + 1 },
+    site,
+    null,
+  );
 }

@@ -4,8 +4,11 @@
 // `404 NOT_FOUND`, indistinguishable from an unknown id, even for a caller who holds the real code,
 // and nothing of the claim, its organisation, its site or its address shows in any answer.
 import { randomUUID } from 'node:crypto';
+import { FixedClock, type FilesConfig, InMemoryObjectStorage } from '@labconnect/core';
+import { withDbContext } from '@labconnect/database';
 import { createUser } from '@labconnect/database/test-utils';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { FILES_CONFIG, OBJECT_STORAGE } from '../../../src/modules/files/files.module.js';
 import { useClaimLabs } from '../../support/claim-labs.js';
 import { START, useIdentityApp } from '../../support/identity-app.js';
 import { expectIsolated, expectNoLeak } from '../../support/isolation/kit.js';
@@ -17,7 +20,18 @@ import {
 } from '../../support/isolation/world.js';
 
 describe('tenant isolation on the lab claim routes', () => {
-  const t = useIdentityApp();
+  const t = useIdentityApp({
+    configure: (builder) =>
+      builder
+        .overrideProvider(OBJECT_STORAGE)
+        .useValue(new InMemoryObjectStorage(new FixedClock(START)))
+        .overrideProvider(FILES_CONFIG)
+        .useValue((): FilesConfig => ({
+          bucket: 'labconnect-test',
+          quarantinePrefix: 'quarantine',
+          cleanPrefix: 'clean',
+        })),
+  });
   const makeLab = useClaimLabs(t, new Date(START));
   const clientOf = clientFactory(t);
 
@@ -144,6 +158,93 @@ describe('tenant isolation on the lab claim routes', () => {
     expectNoLeak(response, resource, [claimed.certificateNo]);
     expect(JSON.stringify(response.body)).not.toContain(claimId);
     expect(t.mailer.claimSent.filter((m) => m.to === claimed.email?.toLowerCase())).toHaveLength(1);
+  });
+
+  // The letterhead routes (I1-LAB-03, I1-LAB-04): the claim id and the file id are both in play.
+  const PDF = { fileName: 'letterhead.pdf', contentType: 'application/pdf', sizeBytes: 5000 };
+  const uploadUrl = (id: string) => (client: Client) =>
+    client.post(`/v1/lab/claims/${id}/manual/upload-url`, { body: PDF });
+  const submit = (id: string, fileId: string) => (client: Client) =>
+    client.post(`/v1/lab/claims/${id}/manual`, {
+      body: { fileId },
+      headers: { 'If-Match': '"0"' },
+    });
+  const settleClean = (fileId: string) =>
+    withDbContext(t.worker(), { kind: 'system' }, (tx) =>
+      tx.fileObject.update({
+        where: { id: fileId },
+        data: {
+          scanStatus: 'CLEAN',
+          sha256: new Uint8Array(32).fill(3),
+          detectedContentType: 'application/pdf',
+        },
+      }),
+    );
+  const filesOf = async (userId: string) =>
+    (
+      await t
+        .db()
+        .query<{ n: string }>(
+          'SELECT count(*) AS n FROM file_object WHERE uploaded_by_user_id = $1',
+          [userId],
+        )
+    ).rows[0]?.n;
+
+  it("POST /lab/claims/{id}/manual/upload-url with another user's claim: 404, the same answer as for an unknown id, and no file", async () => {
+    await expectIsolated({
+      route: 'POST /v1/lab/claims/:id/manual/upload-url',
+      as: stranger,
+      resourceOf: resource,
+      resourceId: claimId,
+      request: uploadUrl(claimId),
+      unknownRequest: uploadUrl(randomUUID()),
+    });
+    expect(await filesOf(stranger.user.id)).toBe('0');
+    expect(await stateOfClaim()).toMatchObject({ status: 'PENDING_OTP', lock_version: 0 });
+  });
+
+  it("POST /lab/claims/{id}/manual with another user's claim: 404, even for a caller who holds the owner's clean file id", async () => {
+    const upload = await uploadUrl(claimId)(owner);
+    expect(upload.status).toBe(201);
+    const fileId = (upload.body as { fileId: string }).fileId;
+    await settleClean(fileId);
+    await expectIsolated({
+      route: 'POST /v1/lab/claims/:id/manual',
+      as: stranger,
+      resourceOf: resource,
+      resourceId: claimId,
+      request: submit(claimId, fileId),
+      unknownRequest: submit(randomUUID(), fileId),
+    });
+    expect(await stateOfClaim()).toMatchObject({ status: 'PENDING_OTP', lock_version: 0 });
+  });
+
+  it("cannot attach the owner's file to the stranger's own claim, and the answer shows nothing of it", async () => {
+    const otherLab = await makeLab();
+    const started = await stranger.post('/v1/lab/claims', {
+      body: { certificateNo: otherLab.certificateNo },
+    });
+    expect(started.status).toBe(201);
+    const strangerClaim = (started.body as { id: string }).id;
+    const ownerUpload = await uploadUrl(claimId)(owner);
+    const ownerFile = (ownerUpload.body as { fileId: string }).fileId;
+    await settleClean(ownerFile);
+    const unknown = await submit(strangerClaim, randomUUID())(stranger);
+    const attached = await submit(strangerClaim, ownerFile)(stranger);
+    expect(attached.status).toBe(404);
+    expect(attached.body).toMatchObject({ code: 'NOT_FOUND' });
+    expect({ ...(attached.body as object), requestId: '' }).toEqual({
+      ...(unknown.body as object),
+      requestId: '',
+    });
+    expectNoLeak(attached, resource, [claimId]);
+    const row = await t
+      .db()
+      .query<{ authorisation_file_id: string | null; status: string }>(
+        'SELECT authorisation_file_id, status FROM lab_claim_request WHERE id = $1',
+        [strangerClaim],
+      );
+    expect(row.rows[0]).toEqual({ authorisation_file_id: null, status: 'PENDING_OTP' });
   });
 
   it('keeps the claim working for its owner after all of that', async () => {

@@ -80,3 +80,59 @@ export function parseLabClaimOtpVerify(body: unknown): { code: string } {
   if (issues.length > 0) fail(issues);
   return { code };
 }
+
+/**
+ * `KycDocumentUploadUrlRequest`: `{ fileName?, contentType, sizeBytes }`. Only the shape is checked
+ * here; the allowed types and the 10 MB limit are the `KYC_DOCUMENT` rule of the file service,
+ * the one place that knows them (`422 VALIDATION_FAILED` from `LabClaimsService`).
+ */
+export function parseLetterheadUploadRequest(body: unknown): {
+  fileName?: string;
+  contentType: string;
+  sizeBytes: number;
+} {
+  const object = asObject(body);
+  const issues = noOtherFields(object, ['fileName', 'contentType', 'sizeBytes']);
+  const { fileName, contentType, sizeBytes } = object;
+  if (
+    fileName !== undefined &&
+    (typeof fileName !== 'string' || fileName.length < 1 || fileName.length > 255)
+  ) {
+    issues.push({
+      path: 'fileName',
+      code: 'INVALID_VALUE',
+      message: 'Give the file name, 1 to 255 characters, or leave it out.',
+    });
+  }
+  if (typeof contentType !== 'string' || contentType === '') {
+    issues.push({ path: 'contentType', code: 'INVALID_VALUE', message: 'Give the content type.' });
+  }
+  if (typeof sizeBytes !== 'number' || !Number.isSafeInteger(sizeBytes) || sizeBytes < 1) {
+    issues.push({
+      path: 'sizeBytes',
+      code: 'INVALID_VALUE',
+      message: 'Give the size in bytes, a whole number of at least 1.',
+    });
+  }
+  if (issues.length > 0) fail(issues);
+  return {
+    ...(typeof fileName === 'string' && { fileName }),
+    contentType: contentType as string,
+    sizeBytes: sizeBytes as number,
+  };
+}
+
+/** `LabClaimManual`: `{ fileId }`, a UUID. */
+export function parseLabClaimManual(body: unknown): { fileId: string } {
+  const object = asObject(body);
+  const issues = noOtherFields(object, ['fileId']);
+  const value = object.fileId;
+  let fileId = '';
+  if (typeof value !== 'string' || !UUID.test(value)) {
+    issues.push({ path: 'fileId', code: 'INVALID_VALUE', message: 'Give the file id, a UUID.' });
+  } else {
+    fileId = value.toLowerCase();
+  }
+  if (issues.length > 0) fail(issues);
+  return { fileId };
+}
