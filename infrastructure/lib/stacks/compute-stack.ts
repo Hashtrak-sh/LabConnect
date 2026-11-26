@@ -9,7 +9,7 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import type { Construct } from 'constructs';
-import { type InfraConfig, apiHost, senderParts } from '../config.js';
+import { DEMO_OTP_EMAIL_DOMAIN, type InfraConfig, apiHost, senderParts } from '../config.js';
 import {
   API_PORT,
   FILES_CLEAN_PREFIX,
@@ -178,6 +178,11 @@ export class ComputeStack extends cdk.Stack {
       AUTH_ALLOWED_ORIGINS: webOrigin,
       AUTH_JWT_KEY_ID: 'k1',
       ...searchEnvironment,
+      // Demo one-time codes: the API only, and only when the context parameter is given. Never
+      // on the worker or the migration task. The API refuses them in production.
+      ...(config.demoOtpCode === undefined
+        ? {}
+        : { DEMO_OTP_CODE: config.demoOtpCode, DEMO_OTP_EMAIL_DOMAIN: DEMO_OTP_EMAIL_DOMAIN }),
     };
     const apiSecrets: Record<string, ecs.Secret> = {
       ...sharedSecrets,

@@ -19,6 +19,7 @@
 | Logging | No sensitive data in logs. Audit log hash-chained and append-only. |
 | Testing | OWASP ASVS L2 checklist, ZAP baseline nightly, third-party pen test before launch and annually |
 | Admin access | No direct production DB access for developers. Break-glass via SSM Session Manager with approval and logging. |
+| Environments | **UAT may run with demo one-time codes** (`DEMO_OTP_CODE`, AUTHENTICATION section 9, OQ-237): for the demo domain (reserved `.test`-style top-level domain) the code is fixed and not mailed, so anyone who knows it can sign in as a demo user. While it is on, UAT **must hold no real personal data** (OQ-238). The API refuses to start with it in production, logs a warning when it is on, and marks each demo code in the audit log. The authenticator step is not bypassed. Remove it before any real user is given access. |
 
 ## 2. Data classification
 | Class | Examples | Handling |

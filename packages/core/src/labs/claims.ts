@@ -75,6 +75,8 @@ export interface ClaimOtpDelivery {
   to: string;
   code: string;
   validForMinutes: number;
+  /** `true` for a fixed demo code (UAT only): the caller must send no mail for it. */
+  demo?: true;
 }
 
 export interface StartLabClaimResult {
@@ -559,6 +561,7 @@ export async function startLabClaim(
       to: address,
       code: outcome.code,
       validForMinutes: IDENTITY_POLICY.otpTtlSeconds / 60,
+      ...(outcome.demo === true && { demo: true as const }),
     };
   }
 
@@ -575,6 +578,8 @@ export async function startLabClaim(
       labSiteId: claim.labSiteId,
       organisationId,
       codeSent: delivery !== null,
+      // A fixed demo code (UAT only). The key avoids the words the redactor blanks ("otp").
+      ...(delivery?.demo === true && { demoCode: true }),
     },
     ...auditMeta(meta),
   });

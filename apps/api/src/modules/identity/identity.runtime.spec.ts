@@ -49,6 +49,25 @@ describe('IdentityRuntime', () => {
     });
   });
 
+  it('has no demo one-time code unless DEMO_OTP_CODE is set, and then only outside production', () => {
+    expect(runtime({}).demoOtp).toBeUndefined();
+    expect(runtime({ NODE_ENV: 'production' }).demoOtp).toBeUndefined();
+    const demo = runtime({
+      APP_ENV: 'uat',
+      NODE_ENV: 'production',
+      DEMO_OTP_CODE: '444444',
+    }).demoOtp;
+    expect(demo?.code).toBe('444444');
+    expect(demo?.emailDomain).toBe('demo.labconnect.test');
+    // Read on every use, so a bad value can never be skipped after start-up.
+    expect(() => runtime({ NODE_ENV: 'production', DEMO_OTP_CODE: '444444' }).demoOtp).toThrow(
+      /DEMO_OTP_CODE/,
+    );
+    expect(() => {
+      runtime({ NODE_ENV: 'production', DEMO_OTP_CODE: '444444' }).onModuleInit();
+    }).toThrow(/DEMO_OTP_CODE/);
+  });
+
   it('lists the allowed origins without spaces or trailing slashes', () => {
     const origins = runtime({
       AUTH_ALLOWED_ORIGINS: ' https://a.example , https://b.example/,, ',

@@ -48,6 +48,7 @@ Nothing organisational is in the code. Parameters are CDK context: `-c key=value
 | `logRetentionDays` | 30 | One of 7, 14, 30, 60, 90, 180, 365, 400, 545, 731, 1827, 3653. |
 | `enableOpenSearch` | `false` | Adds an OpenSearch domain with basic authentication (OQ-156). Off: public search runs on PostgreSQL alone. |
 | `budgetMonthlyUsd` | none | Creates an AWS Budgets alert at 80 and 100 percent (needs `alarmEmail`). |
+| `demoOtpCode` | none | Six digits. Only for a demonstration: sets `DEMO_OTP_CODE` and `DEMO_OTP_EMAIL_DOMAIN` (`demo.labconnect.test`) on the **API** task definition, and nowhere else. Unset (the default) sets nothing, so the template does not contain the variables. See "Demo one-time codes" below. |
 | `githubRepository` | `Hashtrak-sh/LabConnect` | Repository whose workflows may assume the deploy role. |
 | `githubOidcProviderArn` | none | Reuse an existing GitHub OIDC provider (the account may have only one). |
 
@@ -177,6 +178,19 @@ the image tags it was last deployed with. Before the next `cdk deploy Compute`, 
 (`aws ecs describe-task-definition --task-definition labconnect-uat-api --query 'taskDefinition.containerDefinitions[0].image'`,
 or the job summary of the last run) and pass it: `-c apiImageTag=<sha> -c workerImageTag=<sha> -c migrateImageTag=<sha>`
 (`-c imageTag=<sha>` sets all three). Without it the services roll back to the old image. Details: CI_CD.md "As built (P3-12)".
+
+## Demo one-time codes (UAT demonstrations only)
+
+For a demonstration without a mailbox (OQ-237) the API can accept a fixed one-time code for the demo accounts. Read `AUTHENTICATION_AND_AUTHORISATION.md` section 9 first: it applies only to addresses in `demo.labconnect.test`, never to a real address, never replaces the authenticator step, and **the API refuses to start with it in production**. UAT must hold no real personal data while it is on (`SECURITY_AND_PRIVACY.md`, OQ-238).
+
+Nothing is deployed by these steps; a person runs them.
+
+1. Load the demo data once, if the database does not have it yet: `seed:reference`, then `seed:demo` (MIGRATION_AND_SEED_STRATEGY.md section 3; it refuses `APP_ENV=production`).
+2. Deploy the compute stack with the context parameter, passing the image tags that are running (see "Drift" above): `cdk deploy LabConnect-uat-compute -c demoOtpCode=444444 -c apiImageTag=<sha> -c workerImageTag=<sha> -c migrateImageTag=<sha>`. The code must be exactly six digits, else synthesis fails. It is set on the **API** task definition only, with `DEMO_OTP_EMAIL_DOMAIN=demo.labconnect.test`; the worker and the migration task do not get it.
+3. Check the API log for the one start-up warning "Demo one-time codes are ENABLED for the demo domain demo.labconnect.test".
+4. **Before the demo, enrol authenticators** for the demo accounts whose roles need one: sign in once as each platform user (Ops, Data Steward, Finance, Admin), each demo Customer Finance user and each demo Lab Checker with the fixed code, scan the secret into an authenticator app, confirm, and keep the recovery codes. The fixed code does not replace this step; an account that has not enrolled cannot get past it during the demo.
+5. During the demo, sign in with the demo address and `444444`. No mail is sent.
+6. **After the demo, turn it off:** deploy the compute stack again without `demoOtpCode` (with the image tags), and confirm that the API task definition has neither `DEMO_OTP_CODE` nor `DEMO_OTP_EMAIL_DOMAIN` (`aws ecs describe-task-definition --task-definition labconnect-uat-api`).
 
 ## What is manual or outside the code
 

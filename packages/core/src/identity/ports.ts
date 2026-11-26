@@ -1,6 +1,7 @@
 import type { AuditService } from '../platform/audit.js';
 import type { Clock } from '../platform/clock.js';
 import type { SecretCipher } from './cipher.js';
+import type { DemoOtpSettings } from './demo-otp.js';
 import type { IdentityHasher } from './hasher.js';
 
 /**
@@ -61,4 +62,9 @@ export interface IdentityDeps {
   audit: AuditService;
   hasher: IdentityHasher;
   cipher: SecretCipher;
+  /**
+   * Demo one-time codes (UAT only, see `demo-otp.ts`). Absent unless the API was started with
+   * the setting, which production refuses: then every code is random and mailed, as always.
+   */
+  demoOtp?: DemoOtpSettings | undefined;
 }
