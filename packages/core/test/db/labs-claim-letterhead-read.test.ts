@@ -88,6 +88,8 @@ describe('Ops read of a claim letterhead (I2-ADM-04)', () => {
       purpose?: 'KYC_DOCUMENT' | 'BOOKING_ATTACHMENT';
       ownerOrgId?: string | null;
       scan?: 'CLEAN' | 'PENDING' | 'INFECTED' | 'REJECTED' | 'ERROR';
+      /** Who uploaded the file. Default: the claimant, as the claim flow does. */
+      uploadedByUserId?: string;
     } = {},
   ) => {
     const ticket = await w.asSystem((tx) =>
@@ -96,7 +98,7 @@ describe('Ops read of a claim letterhead (I2-ADM-04)', () => {
         ownerOrgId: options.ownerOrgId ?? null,
         declaredContentType: 'application/pdf',
         declaredSizeBytes: 90_000,
-        uploadedByUserId: claim.claimant.id,
+        uploadedByUserId: options.uploadedByUserId ?? claim.claimant.id,
       }),
     );
     await w.db().query(
@@ -364,6 +366,16 @@ describe('Ops read of a claim letterhead (I2-ADM-04)', () => {
       const claim = await w.reviewable({ manual: true });
       const owned = await linkedFile(claim, { ownerOrgId: claim.organisationId });
       await pointClaimAt(claim.claimId, owned);
+      await refusedWithNoTrace(claim.claimId, { code: 'NOT_FOUND', status: 404 });
+    });
+
+    it('never a file that someone other than the claimant uploaded, even linked, clean and of the right purpose', async () => {
+      // The claim flow only ever attaches the claimant's own upload. A row pointing at another
+      // person's file is not a letterhead of this claim, for Ops or for the approval.
+      const claim = await w.reviewable({ manual: true });
+      const someoneElse = await w.reviewable({ manual: true });
+      const foreign = await linkedFile(claim, { uploadedByUserId: someoneElse.claimant.id });
+      await pointClaimAt(claim.claimId, foreign);
       await refusedWithNoTrace(claim.claimId, { code: 'NOT_FOUND', status: 404 });
     });
 

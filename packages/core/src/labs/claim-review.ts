@@ -350,7 +350,7 @@ async function lockedPendingReview(
  */
 export async function findClaimLetterhead(
   tx: Prisma.TransactionClient,
-  claim: { id: string; authorisationFileId: string | null },
+  claim: { id: string; authorisationFileId: string | null; requestedByUserId: string },
 ): Promise<{ id: string } | null> {
   if (claim.authorisationFileId === null) return null;
   return tx.fileObject.findFirst({
@@ -358,6 +358,9 @@ export async function findClaimLetterhead(
       id: claim.authorisationFileId,
       purpose: LETTERHEAD_PURPOSE,
       ownerOrgId: null,
+      // The claimant's own upload, as the submit requires: a file someone else uploaded is never
+      // a claim's letterhead, even if a row should one day point at it.
+      uploadedByUserId: claim.requestedByUserId,
       fileLinks: {
         some: {
           entityType: LETTERHEAD_LINK.entityType,
