@@ -3,6 +3,7 @@ import { type ScanStatus, withDbContext } from '@labconnect/database';
 import { describe, expect, it } from 'vitest';
 import {
   AuditService,
+  claimExpiredError,
   FileService,
   type FilesConfig,
   InMemoryObjectStorage,
@@ -53,26 +54,37 @@ describe('lab claim: the letterhead route', () => {
     claimId: string,
     over: { contentType?: string; sizeBytes?: number; fileName?: string } = {},
   ): Promise<UploadTicket> =>
-    w.asSystem((tx) =>
-      requestClaimLetterheadUpload(tx, deps, {
-        actor: who.actor,
-        claimId,
-        contentType: over.contentType ?? 'application/pdf',
-        sizeBytes: over.sizeBytes ?? 182_044,
-        fileName: over.fileName ?? FILE_NAME,
-        meta: CLAIM_META,
-      }),
-    );
+    w
+      .asSystem((tx) =>
+        requestClaimLetterheadUpload(tx, deps, {
+          actor: who.actor,
+          claimId,
+          contentType: over.contentType ?? 'application/pdf',
+          sizeBytes: over.sizeBytes ?? 182_044,
+          fileName: over.fileName ?? FILE_NAME,
+          meta: CLAIM_META,
+        }),
+      )
+      // As the API service does: the committed outcome of a stale claim is raised afterwards.
+      .then((outcome) => {
+        if (!outcome.ok) throw claimExpiredError();
+        return outcome.ticket;
+      });
   const submit = (who: Claimant, claimId: string, fileId: string, ifMatch = 0) =>
-    w.asSystem((tx) =>
-      submitLabClaimLetterhead(tx, deps, {
-        actor: who.actor,
-        claimId,
-        ifMatch,
-        fileId,
-        meta: CLAIM_META,
-      }),
-    );
+    w
+      .asSystem((tx) =>
+        submitLabClaimLetterhead(tx, deps, {
+          actor: who.actor,
+          claimId,
+          ifMatch,
+          fileId,
+          meta: CLAIM_META,
+        }),
+      )
+      .then((outcome) => {
+        if (!outcome.ok) throw claimExpiredError();
+        return outcome.claim;
+      });
   /** What the scan job does to a file: only the system context may (frozen-columns trigger). */
   const settle = (fileId: string, status: ScanStatus) =>
     withDbContext(w.worker(), { kind: 'system' }, (tx) =>

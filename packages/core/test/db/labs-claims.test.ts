@@ -628,9 +628,9 @@ describe('lab claim: start and verify an OTP', () => {
       });
     });
 
-    it('does not expire a PENDING_OTP claim by itself: it can be continued weeks later (OQ-206)', async () => {
+    it('does not expire a PENDING_OTP claim by itself within 24 hours: it can be continued (OQ-206; the 24-hour rule is in labs-claims-limits.test.ts)', async () => {
       const { who, claim } = await opened();
-      w.clock.advance(30 * 86_400_000);
+      w.clock.advance(23 * 3_600_000);
       const state = await w
         .db()
         .query<{ status: string }>('SELECT status FROM lab_claim_request WHERE id = $1', [

@@ -247,6 +247,76 @@ describe('tenant isolation on the lab claim routes', () => {
     expect(row.rows[0]).toEqual({ authorisation_file_id: null, status: 'PENDING_OTP' });
   });
 
+  // I1-LAB-06: the limits belong to the person and the claim. Nothing a second user does can expire,
+  // count against or use up the upload allowance of the first user's fresh claim.
+  it("keeps a second user from expiring, counting against or using the uploads of the first user's fresh claim", async () => {
+    const mine = await claimant('limits-owner');
+    const theirs = await claimant('limits-stranger');
+    const lab = await makeLab({ email: 'limits.owner.head@limits-isolation.example.test' });
+    const started = await mine.post('/v1/lab/claims', {
+      body: { certificateNo: lab.certificateNo },
+    });
+    expect(started.status).toBe(201);
+    const id = (started.body as { id: string }).id;
+    const name = await t
+      .db()
+      .query<{ display_name: string }>('SELECT display_name FROM organisation WHERE id = $1', [
+        lab.organisationId,
+      ]);
+    const resourceOfMine = claimOf(mine, lab, name.rows[0]?.display_name ?? '');
+    for (let i = 0; i < 2; i++) expect((await uploadUrl(id)(mine)).status).toBe(201);
+
+    // The second user hammers the first user's claim and lab.
+    for (let i = 0; i < 4; i++) {
+      const again = await theirs.post('/v1/lab/claims', {
+        body: { certificateNo: lab.certificateNo },
+      });
+      expect(again.status).toBe(409);
+      expectNoLeak(again, resourceOfMine, [lab.certificateNo]);
+    }
+    for (let i = 0; i < 7; i++) {
+      const refused = await uploadUrl(id)(theirs);
+      expect(refused.status).toBe(404);
+      expectNoLeak(refused, resourceOfMine, [id]);
+    }
+    expect((await verify(id, '123456')(theirs)).status).toBe(404);
+    // The second user fills their own three places and is refused the fourth: their own limit only.
+    for (let i = 0; i < 3; i++) {
+      const other = await makeLab();
+      expect(
+        (await theirs.post('/v1/lab/claims', { body: { certificateNo: other.certificateNo } }))
+          .status,
+      ).toBe(201);
+    }
+    const spare = await makeLab();
+    const capped = await theirs.post('/v1/lab/claims', {
+      body: { certificateNo: spare.certificateNo },
+    });
+    expect(capped.status).toBe(429);
+    expectNoLeak(capped, resourceOfMine, []);
+
+    // The first user's claim is untouched: still open, never expired, no expiry in the audit log.
+    const row = await t
+      .db()
+      .query<{ status: string; lock_version: number }>(
+        'SELECT status, lock_version FROM lab_claim_request WHERE id = $1',
+        [id],
+      );
+    expect(row.rows[0]).toEqual({ status: 'PENDING_OTP', lock_version: 0 });
+    const expiries = await t
+      .db()
+      .query("SELECT 1 FROM audit_log WHERE entity_id = $1 AND action = 'lab_claim.expire'", [id]);
+    expect(expiries.rowCount).toBe(0);
+    // Their requests used none of the first user's five places: three more are left, then the limit.
+    for (let i = 0; i < 3; i++) expect((await uploadUrl(id)(mine)).status).toBe(201);
+    expect((await uploadUrl(id)(mine)).status).toBe(429);
+    // And the first user's cap is their own: the second user's claims do not count against it.
+    const next = await makeLab();
+    expect(
+      (await mine.post('/v1/lab/claims', { body: { certificateNo: next.certificateNo } })).status,
+    ).toBe(201);
+  });
+
   it('keeps the claim working for its owner after all of that', async () => {
     const response = await verify(claimId, code)(owner);
     expect(response.status).toBe(200);

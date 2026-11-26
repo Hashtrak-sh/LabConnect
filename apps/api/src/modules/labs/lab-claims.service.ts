@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   AuditService,
+  claimExpiredError,
   claimOtpFailure,
   type ClaimDeps,
   type Clock,
@@ -170,15 +171,17 @@ export class LabClaimsService {
     input: { claimId: string; contentType: string; sizeBytes: number; fileName?: string },
     meta: RequestMeta,
   ): Promise<FileUploadUrlBody> {
-    let ticket;
+    let outcome;
     try {
-      ticket = await this.scope.runAsSystem(LETTERHEAD_REASON, (tx) =>
+      outcome = await this.scope.runAsSystem(LETTERHEAD_REASON, (tx) =>
         requestClaimLetterheadUpload(tx, this.letterheadDeps(), { actor, ...input, meta }),
       );
     } catch (error) {
       throw uploadRefusal(error) ?? error;
     }
-    const url = await this.files.presignUpload(ticket);
+    // A claim found stale was set to EXPIRED and that is committed; only now is the refusal raised.
+    if (!outcome.ok) throw claimExpiredError();
+    const url = await this.files.presignUpload(outcome.ticket);
     return {
       fileId: url.fileId,
       uploadUrl: url.uploadUrl,
@@ -194,9 +197,11 @@ export class LabClaimsService {
     input: { claimId: string; ifMatch: number; fileId: string },
     meta: RequestMeta,
   ): Promise<LabClaimView> {
-    return this.scope.runAsSystem(LETTERHEAD_REASON, (tx) =>
+    const outcome = await this.scope.runAsSystem(LETTERHEAD_REASON, (tx) =>
       submitLabClaimLetterhead(tx, this.letterheadDeps(), { actor, ...input, meta }),
     );
+    if (!outcome.ok) throw claimExpiredError();
+    return outcome.claim;
   }
 
   private letterheadDeps(): LetterheadDeps {
