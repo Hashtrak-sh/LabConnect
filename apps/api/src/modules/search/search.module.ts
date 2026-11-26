@@ -3,6 +3,8 @@ import { type Clock, LazySearchService } from '@labconnect/core';
 import type { PrismaClient } from '@labconnect/database';
 import { PlatformModule } from '../platform/platform.module.js';
 import { CLOCK, PRISMA_CLIENT } from '../platform/platform.providers.js';
+import { PincodeLocator, UnavailablePincodeLocator } from './pincode-locator.js';
+import { SearchController } from './search.controller.js';
 
 export const searchProviders: Provider[] = [
   {
@@ -12,14 +14,14 @@ export const searchProviders: Provider[] = [
     useFactory: (clock: Clock, prisma: PrismaClient) => new LazySearchService({ clock, prisma }),
     inject: [CLOCK, PRISMA_CLIENT],
   },
+  // No pincode dataset yet (OQ-153): every pincode is unknown until a real locator is provided.
+  { provide: PincodeLocator, useClass: UnavailablePincodeLocator },
 ];
 
 /**
  * Search (P3-10): `SearchService` of `@labconnect/core` as the `LazySearchService` provider, plus
- * the mapper to the contract's response (`search-response.ts`). There are no controllers on
- * purpose: the public endpoints (`searchLabs`, `suggestSearch`) belong to the customer search
- * increment (Phase 5), which injects `LazySearchService`, calls `search` with the validated
- * query parameters and returns `toLabSearchResultList`.
+ * the mapper to the contract's response (`search-response.ts`), and the public controller of the
+ * customer search increment (I1-CUS-01 `searchLabs`; `suggestSearch` follows in I1-CUS-08).
  *
  * Search is an event consumer (MODULE_BOUNDARIES rule 5): its index is kept current by the
  * worker from `lc-search-sync`, never by a call during a business write. Public search runs in
@@ -27,6 +29,7 @@ export const searchProviders: Provider[] = [
  */
 @Module({
   imports: [PlatformModule],
+  controllers: [SearchController],
   providers: searchProviders,
   exports: [LazySearchService],
 })
