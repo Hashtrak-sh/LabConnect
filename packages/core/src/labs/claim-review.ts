@@ -392,8 +392,11 @@ export async function approveLabClaim(
   const now = deps.clock.now();
 
   // 5. The organisation, locked and then changed by a conditional update.
-  await tx.$queryRaw(Prisma.sql`
-    SELECT id FROM organisation WHERE id = ${claim.organisationId}::uuid FOR UPDATE`);
+  const lockedOrganisation = await tx.$queryRaw<{ claim_status: string }[]>(Prisma.sql`
+    SELECT claim_status::text AS claim_status
+      FROM organisation WHERE id = ${claim.organisationId}::uuid FOR UPDATE`);
+  // What the organisation was before this approval, for the audit entry (read under the lock).
+  const previousClaimStatus = lockedOrganisation[0]?.claim_status ?? 'UNKNOWN';
   const claimed = await tx.organisation.updateMany({
     where: {
       id: claim.organisationId,
@@ -496,7 +499,7 @@ export async function approveLabClaim(
     action: 'organisation.claim',
     entityType: 'organisation',
     entityId: claim.organisationId,
-    before: { claimStatus: 'UNCLAIMED' },
+    before: { claimStatus: previousClaimStatus },
     after: { claimStatus: 'CLAIMED', claimId: claim.id },
     ...auditMeta(meta),
   });
