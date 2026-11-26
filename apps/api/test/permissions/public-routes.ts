@@ -52,4 +52,9 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
     reason:
       "A bookable site's open drop-off slots (FR-BKG-04, contract security: []). Only slots with capacity left are listed and capacity figures are never returned.",
   },
+  {
+    route: 'GET /v1/public/taxonomies/:code/nodes',
+    reason:
+      'Search filter values (FR-DIS-03, contract security: []). Taxonomies are public reference data (TENANT_ISOLATION section 1); only active values are listed.',
+  },
 ];
