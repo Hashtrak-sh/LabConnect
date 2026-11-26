@@ -211,7 +211,7 @@ export class LabDirectoryService {
    * a substring, or for four characters or more a `word_similarity` of at least 0.6, against the
    * same fields (parameter, product, group, discipline, method and standard, and their aliases).
    * Admin synonyms are not applied here yet: they live in `search`, which `labs` may not import
-   * (OQ-198). The order stays the tree order; matches are not ranked.
+   * (OQ-224). The order stays the tree order; matches are not ranked.
    */
   async listPublicScope(siteId: string, query: PublicScopeQuery): Promise<PublicScopePage | null> {
     if (!UUID.test(siteId)) return null;
@@ -609,7 +609,9 @@ function decodeScopeCursor(cursor: string, prefix = SCOPE_CURSOR_PREFIX): ScopeP
   if (
     !Array.isArray(parsed) ||
     parsed.length !== 6 ||
-    !parsed.every((value) => typeof value === 'string' && Array.from(value).length <= SORT_KEY_LENGTH) ||
+    !parsed.every(
+      (value) => typeof value === 'string' && Array.from(value).length <= SORT_KEY_LENGTH,
+    ) ||
     !UUID.test(parsed[5] as string)
   ) {
     throw invalid;

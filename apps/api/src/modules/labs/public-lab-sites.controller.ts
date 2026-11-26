@@ -46,7 +46,7 @@ export class PublicLabSitesController {
 
   /**
    * `listPublicScopeLines` (FR-DIS-06, I1-CUS-03): the site's public scope lines in tree order,
-   * optionally narrowed by `q` with the lab search's text rule (no synonyms yet, OQ-198).
+   * optionally narrowed by `q` with the lab search's text rule (no synonyms yet, OQ-224).
    */
   @Get(':siteId/scope')
   async listPublicScopeLines(
