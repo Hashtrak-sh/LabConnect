@@ -29,6 +29,7 @@ counterBooking
 createAdminChangeSet
 createAdminImport
 createAdminImportUploadUrl
+createAdminLabClaimLetterheadDownloadUrl
 createAdminMappingTemplate
 createAdminNotificationTemplate
 createAdminPlatformUser
