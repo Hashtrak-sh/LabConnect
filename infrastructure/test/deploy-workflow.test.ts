@@ -165,7 +165,13 @@ describe('deploy-uat.yml shape', () => {
   it('reads only the variables that are documented', () => {
     const variables = [...text.matchAll(/vars\.([A-Z_]+)/g)].map((m) => m[1]);
     expect(new Set(variables)).toEqual(
-      new Set(['UAT_DEPLOY_ENABLED', 'AWS_UAT_DEPLOY_ROLE_ARN', 'AWS_REGION', 'UAT_API_BASE_URL']),
+      new Set([
+        'UAT_DEPLOY_ENABLED',
+        'AWS_UAT_DEPLOY_ROLE_ARN',
+        'AWS_REGION',
+        'UAT_API_BASE_URL',
+        'UAT_WEB_BASE_URL',
+      ]),
     );
     expect(new Set([...text.matchAll(/\$\{\{\s*([\w.]+)/g)].map((m) => m[1]))).toEqual(
       new Set([
@@ -174,6 +180,7 @@ describe('deploy-uat.yml shape', () => {
         'vars.AWS_REGION',
         'vars.AWS_UAT_DEPLOY_ROLE_ARN',
         'vars.UAT_API_BASE_URL',
+        'vars.UAT_WEB_BASE_URL',
         'job.status',
       ]),
     );
@@ -182,7 +189,7 @@ describe('deploy-uat.yml shape', () => {
   it('stops the deployment of the services when the migration failed (the migration is its own earlier step)', () => {
     const steps = [...text.matchAll(/^ {6}- name: (.+)$/gm)].map((m) => m[1]);
     const migration = steps.indexOf('Run the database migration');
-    const services = steps.indexOf('Deploy the api and worker services');
+    const services = steps.indexOf('Deploy the api, worker and web services');
     expect(migration).toBeGreaterThan(-1);
     expect(services).toBeGreaterThan(migration);
     // No step before the last has `if:` or `continue-on-error`, so a failed step ends the job.
@@ -198,6 +205,44 @@ describe('deploy-uat.yml shape', () => {
     expect(migration).toContain('assignPublicIp=DISABLED');
     expect(migration).toContain('migration-result');
     expect(migration).toContain('tasks-stopped');
+  });
+});
+
+describe('deploy-uat.yml and the web service', () => {
+  const steps = [...text.matchAll(/^ {6}- name: (.+)$/gm)].map((m) => m[1]);
+  const rollScript = runScripts().find((s) => s.includes('update-service')) ?? '';
+  const buildScript = runScripts().find((s) => s.includes('docker build')) ?? '';
+  const loopOf = (script: string): string[] =>
+    (/for service in ([a-z ]+); do/.exec(script)?.[1] ?? '').split(' ').filter((s) => s !== '');
+
+  it('builds and pushes the web image with the others', () => {
+    expect(loopOf(buildScript)).toEqual(['api', 'worker', 'migrate', 'web']);
+    expect(buildScript).toContain('docker build --target "$service"');
+  });
+
+  it('rolls the services in the order api, worker, web: a new web app never meets an old API', () => {
+    const order = loopOf(rollScript);
+    expect(order).toEqual(['api', 'worker', 'web']);
+    expect(order.indexOf('web')).toBeGreaterThan(order.indexOf('api'));
+    // Each one is waited for and its rollout checked before the next starts (one loop body).
+    expect(rollScript).toContain('services-stable');
+    expect(rollScript).toMatch(/rollout-result --service "\$family" --task-definition "\$new_arn"/);
+    // The migration is before all of it.
+    expect(steps.indexOf('Run the database migration')).toBeLessThan(
+      steps.indexOf('Deploy the api, worker and web services'),
+    );
+  });
+
+  it('fetches the web health route only when UAT_WEB_BASE_URL is set, after the services are rolled', () => {
+    const index = steps.indexOf('Smoke test the web app');
+    expect(index).toBeGreaterThan(steps.indexOf('Deploy the api, worker and web services'));
+    const script = runScripts().find((s) => s.includes('--service web')) ?? '';
+    expect(script).toContain('WEB_BASE_URL');
+    expect(script).toMatch(/if \[ -z "\$WEB_BASE_URL" \]; then/);
+    expect(script).toContain('health-url --base "$WEB_BASE_URL" --service web');
+    expect(script).toContain('health-check --status');
+    // The API smoke test is kept as it was.
+    expect(runScripts().join('\n')).toContain('health-url --base "$API_BASE_URL")');
   });
 });
 

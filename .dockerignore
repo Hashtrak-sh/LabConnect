@@ -11,13 +11,11 @@
 docs
 tests
 
-# Workspaces the images do not use. Their package.json stays so that pnpm's lockfile still
-# matches the workspace; their code does not enter the build.
+# The infrastructure workspace is not part of any image. Its package.json stays so that pnpm's
+# lockfile still matches the workspace; its code does not enter the build.
 infrastructure/*
 !infrastructure/package.json
 !infrastructure/scripts
-apps/web/*
-!apps/web/package.json
 
 # Local configuration and secrets: never in an image (deployed environments use Secrets Manager).
 .env
