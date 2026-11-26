@@ -41,9 +41,12 @@ const MAX_ROUTE_LENGTH = 200;
 // request hash; 429 passes with time. 5xx and unmapped errors are never stored.
 const STORED_ERROR_STATUSES: ReadonlySet<number> = new Set([404, 409, 422]);
 
-/** The request as the guards leave it. Read-only: the user comes from the session or the actor. */
+/**
+ * The request as the guards of `@Authorised()` leave it. Read-only. The user, the acting
+ * organisation and the active membership all come from the resolved actor and from nowhere else:
+ * a bare session without an actor is refused, because it would say nothing about the organisation.
+ */
 type GuardedRequest = Request & {
-  authSession?: { userId: string };
   actor?: { userId: string; orgId: string | null; membershipId: string | null };
 };
 
@@ -110,11 +113,13 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
     const request = context.switchToHttp().getRequest<GuardedRequest>();
-    const userId = request.actor?.userId ?? request.authSession?.userId;
-    if (userId === undefined) {
-      // A programming error, not a client error: fail closed, loudly, before anything runs.
+    const actor = request.actor;
+    if (actor === undefined) {
+      // A programming error, not a client error: fail closed, loudly, before anything runs. A
+      // session alone is not enough: the organisation and membership are part of the request hash.
       throw new Error('@Idempotent() needs an authenticated user: put it behind @Authorised().');
     }
+    const userId = actor.userId;
     const key = request.headers[IDEMPOTENCY_KEY_HEADER.toLowerCase()];
     if (!isValidIdempotencyKey(key)) {
       // Names the header and the rule, never the value.
@@ -135,8 +140,8 @@ export class IdempotencyInterceptor implements NestInterceptor {
       // resolved onto the actor (never a raw header); the query is this request's raw string.
       requestHash: hashRequest({
         body: request.body,
-        organisationId: request.actor?.orgId ?? null,
-        membershipId: request.actor?.membershipId ?? null,
+        organisationId: actor.orgId,
+        membershipId: actor.membershipId,
         query: queryOf(request),
       }),
     });
