@@ -83,7 +83,9 @@ describe('alarms', () => {
   it('has the alarms the documents call for', () => {
     for (const name of [
       'Api5xxRate',
+      'Web5xxRate',
       'ApiTasksRunning',
+      'WebTasksRunning',
       'WorkerTasksRunning',
       'DbCpu',
       'DbFreeStorage',
@@ -102,8 +104,40 @@ describe('alarms', () => {
     }
   });
 
-  it('has the 20 alarms the documentation of this task lists', () => {
-    expect(alarms).toHaveLength(20);
+  it('has the 22 alarms the documentation lists (the 20 of P3-11 and two for the web service)', () => {
+    expect(alarms).toHaveLength(22);
+  });
+
+  it('alarms when no web task is running, like the API (a missing metric counts as breaching)', () => {
+    const alarm = alarms.find((a) => a.AlarmName === 'labconnect-uat-WebTasksRunning');
+    expect(alarm).toMatchObject({
+      Namespace: 'ECS/ContainerInsights',
+      MetricName: 'RunningTaskCount',
+      Threshold: 1,
+      ComparisonOperator: 'LessThanThreshold',
+      EvaluationPeriods: 2,
+      TreatMissingData: 'breaching',
+    });
+    // The service name is the web service's own, not the API's or the worker's.
+    expect(JSON.stringify(alarm?.Dimensions)).toContain('WebService');
+  });
+
+  it('measures the web 5xx rate on the web target group and the API rate on the API target group, not on the whole load balancer', () => {
+    for (const [name, group] of [
+      ['Web5xxRate', 'WebTargets'],
+      ['Api5xxRate', 'ApiTargets'],
+    ] as const) {
+      const alarm = alarms.find((a) => a.AlarmName === `labconnect-uat-${name}`);
+      expect(alarm?.Threshold, name).toBe(2);
+      const metrics = JSON.stringify(alarm?.Metrics);
+      expect(metrics, name).toContain('HTTPCode_Target_5XX_Count');
+      expect(metrics, name).toContain('RequestCount');
+      expect(metrics, name).toContain('TargetGroup');
+      expect(metrics, name).toContain(group);
+      expect(metrics, name).toContain('IF(requests >= 10, 100 * errors / requests, 0)');
+    }
+    const web = JSON.stringify(alarms.find((a) => a.AlarmName === 'labconnect-uat-Web5xxRate'));
+    expect(web).not.toContain('ApiTargets');
   });
 
   it('alarms on an audit chain break at the first occurrence', () => {
@@ -168,6 +202,7 @@ describe('log groups', () => {
     expect(groups.map(([, g]) => g.Properties.LogGroupName).sort()).toEqual([
       '/labconnect/uat/api',
       '/labconnect/uat/migrate',
+      '/labconnect/uat/web',
       '/labconnect/uat/worker',
     ]);
     for (const [, group] of groups) expect(group.Properties.RetentionInDays).toBe(30);

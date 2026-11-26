@@ -1,6 +1,7 @@
 # Deploys the application to UAT (task P3-12). See docs/06-engineering/CI_CD.md, "As built (P3-12)".
 #
-# It changes the application only: images, the migration task and the api and worker services.
+# It changes the application only: images, the migration task and the api, worker and web services
+# (the web service last, so that a new web app never talks to an old API).
 # It never runs CDK and never changes infrastructure; a person does that (infrastructure/README.md).
 # It does nothing until a person sets the repository variable UAT_DEPLOY_ENABLED to 'true'.
 # Variables it reads (none is a secret; there are no GitHub secrets, only OIDC):
@@ -8,6 +9,7 @@
 #   AWS_UAT_DEPLOY_ROLE_ARN  the DeployRoleArn output of the Delivery stack
 #   AWS_REGION               optional repository variable, default ap-south-1
 #   UAT_API_BASE_URL         optional, origin of the API for the smoke test; without it the smoke test is skipped
+#   UAT_WEB_BASE_URL         optional, origin of the web app for its smoke test (GET /health); without it that step is skipped
 name: deploy-uat
 
 on:
@@ -81,7 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
-          for service in api worker migrate; do
+          for service in api worker migrate web; do
             repository="labconnect/${service}"
             aws ecr batch-get-image --repository-name "$repository" --image-ids "imageTag=${IMAGE_TAG}" \
               --query '{images: images[].imageId, failures: failures}' --output json > "$RUNNER_TEMP/image-${service}.json"
@@ -115,10 +117,11 @@ jobs:
           aws ecs describe-tasks --cluster "$CLUSTER_NAME" --tasks "$task_arn" --output json > "$RUNNER_TEMP/migrate-done.json"
           node "$DEPLOY_SCRIPT" migration-result < "$RUNNER_TEMP/migrate-done.json" | tee -a "$GITHUB_STEP_SUMMARY"
 
-      - name: Deploy the api and worker services
+      - name: Deploy the api, worker and web services
         run: |
           set -euo pipefail
-          for service in api worker; do
+          # The API first: a new web app must never run against an old API.
+          for service in api worker web; do
             family="${NAME_PREFIX}-${service}"
             aws ecs describe-task-definition --task-definition "$family" --output json > "$RUNNER_TEMP/${service}-current.json"
             node "$DEPLOY_SCRIPT" task-definition-input --container "$service" --tag "$IMAGE_TAG" --repository "labconnect/${service}" \
@@ -161,6 +164,34 @@ jobs:
             exit 1
           fi
           echo "- Smoke test: passed" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke test the web app
+        env:
+          WEB_BASE_URL: ${{ vars.UAT_WEB_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$WEB_BASE_URL" ]; then
+            echo "UAT_WEB_BASE_URL is not set: web smoke test skipped."
+            echo "- Web smoke test: skipped (UAT_WEB_BASE_URL is not set)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          url="$(node "$DEPLOY_SCRIPT" health-url --base "$WEB_BASE_URL" --service web)"
+          passed=false
+          for attempt in 1 2 3 4 5 6; do
+            : > "$RUNNER_TEMP/web-health.txt"
+            status="$(curl --silent --show-error --max-time 10 --output "$RUNNER_TEMP/web-health.txt" --write-out '%{http_code}' "$url" || true)"
+            if node "$DEPLOY_SCRIPT" health-check --status "${status:-0}" < "$RUNNER_TEMP/web-health.txt"; then
+              passed=true
+              break
+            fi
+            echo "Attempt ${attempt} failed."
+            sleep 10
+          done
+          if [ "$passed" != "true" ]; then
+            echo "- Web smoke test: failed" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "- Web smoke test: passed" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Result
         if: always()

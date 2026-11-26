@@ -3,7 +3,7 @@ import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import type { Construct } from 'constructs';
-import { type InfraConfig, apiHost } from '../config.js';
+import { type InfraConfig, apiHost, webHost } from '../config.js';
 
 export interface EdgeStackProps extends cdk.StackProps {
   config: InfraConfig;
@@ -25,8 +25,8 @@ export const RATE_LIMITS = {
  * The firewall is attached to the load balancer in the compute stack, because the load
  * balancer is created there; doing it here would make the two stacks depend on each other.
  *
- * Not built here: CloudFront. It would need a firewall in us-east-1 and there is no web
- * application to put behind it yet (the web app is still a skeleton). See the "As built" section.
+ * Not built here: CloudFront. It would need a second firewall in us-east-1 and a decision on
+ * caching and on the domain (OQ-173). See the "As built" section.
  */
 export class EdgeStack extends cdk.Stack {
   readonly webAcl: wafv2.CfnWebACL;
@@ -39,7 +39,8 @@ export class EdgeStack extends cdk.Stack {
     const { config } = props;
 
     const host = apiHost(config);
-    if (host !== undefined) {
+    const web = webHost(config);
+    if (host !== undefined && web !== undefined) {
       this.hostedZone =
         config.hostedZoneId !== undefined && config.hostedZoneName !== undefined
           ? route53.HostedZone.fromHostedZoneAttributes(this, 'Zone', {
@@ -47,10 +48,13 @@ export class EdgeStack extends cdk.Stack {
               zoneName: config.hostedZoneName,
             })
           : undefined;
-      this.certificate = new acm.Certificate(this, 'ApiCertificate', {
-        domainName: host,
-        // With a hosted zone the validation record is created for you. Without one, the record
-        // is shown in the ACM console and has to be added by hand before the stack finishes.
+      // One certificate for both names: the web app (the base domain) and the API (`api.<domain>`).
+      this.certificate = new acm.Certificate(this, 'Certificate', {
+        domainName: web,
+        subjectAlternativeNames: [host],
+        // With a hosted zone the validation records are created for you. Without one, there are
+        // two records (one per name), shown in the ACM console, and both have to be added by hand
+        // before the stack finishes.
         validation:
           this.hostedZone === undefined
             ? acm.CertificateValidation.fromDns()
@@ -114,12 +118,17 @@ export class EdgeStack extends cdk.Stack {
 
     this.webAcl = new wafv2.CfnWebACL(this, 'WebAcl', {
       name: `${config.prefix}-api`,
-      description: 'LabConnect API: managed rules and rate limits',
+      description: 'LabConnect load balancer, web and API: managed rules and rate limits',
       scope: 'REGIONAL',
       defaultAction: { allow: {} },
       visibilityConfig: metric(`${config.prefix}-api`),
       rules: [
-        // Specific, tighter limits first so they are the ones that answer.
+        // Specific, tighter limits first so they are the ones that answer. The path-scoped rules
+        // match `/v1/...` on any host: that is the API's own address (`api.<domain>`, or the shared
+        // host without a domain). They count what reaches the API through this load balancer. They
+        // do not count the web server's own calls to the API (private, they never pass here), so
+        // sign-in attempts made through the web app are limited by `RateLimitAll` and by the
+        // application's own throttles only (OQ-243).
         rateRule('RateLimitWebhooks', 1, RATE_LIMITS.webhooks, '/v1/webhooks/'),
         rateRule('RateLimitAuth', 2, RATE_LIMITS.auth, '/v1/auth/'),
         rateRule('RateLimitAll', 3, RATE_LIMITS.all),

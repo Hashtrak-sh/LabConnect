@@ -64,7 +64,9 @@ describe('parameters', () => {
       apiImageTag: 'abc',
       workerImageTag: 'abc',
       migrateImageTag: 'abc',
+      webImageTag: 'abc',
     });
+    expect(config({ imageTag: 'abc', webImageTag: 'def' }).webImageTag).toBe('def');
     expect(config({ imageTag: 'abc', workerImageTag: 'def' }).workerImageTag).toBe('def');
   });
 });

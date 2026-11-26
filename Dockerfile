@@ -6,10 +6,10 @@
 #   docker build --target api     -t labconnect/api:<tag> .
 #   docker build --target worker  -t labconnect/worker:<tag> .
 #   docker build --target migrate -t labconnect/migrate:<tag> .
+#   docker build --target web     -t labconnect/web:<tag> .
 #
-# The web app is not built here: apps/web is still a skeleton. All images run as the
-# unprivileged `node` user and contain no secrets: configuration comes from the task
-# definition (infrastructure/lib/stacks/compute-stack.ts).
+# All images run as the unprivileged `node` user and contain no secrets: configuration comes
+# from the task definition (infrastructure/lib/stacks/compute-stack.ts).
 
 ARG NODE_IMAGE=node:24-bookworm-slim
 
@@ -31,7 +31,7 @@ COPY . .
 RUN pnpm install --frozen-lockfile \
       --filter "@labconnect/api..." \
       --filter "@labconnect/worker..." \
-      --filter "@labconnect/database..."
+      --filter "@labconnect/database..."       --filter "@labconnect/web..."
 RUN pnpm db:generate \
     && pnpm contract:generate \
     && pnpm --filter "@labconnect/api..." --filter "@labconnect/worker..." run build
@@ -42,6 +42,17 @@ RUN pnpm --filter @labconnect/api deploy --prod --legacy /bundle
 
 FROM build AS worker-bundle
 RUN pnpm --filter @labconnect/worker deploy --prod --legacy /bundle
+
+# The web app is compiled in its own stage, so that the api and worker images do not wait for it.
+# It builds without the API or any environment: it holds no secret and calls nothing at build time
+# (API_BASE_URL is read when a request arrives, not baked in). Telemetry is off so that the build
+# makes no outbound call of its own.
+FROM build AS web-build
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN pnpm --filter "@labconnect/web..." run build
+
+FROM web-build AS web-bundle
+RUN pnpm --filter @labconnect/web deploy --prod --legacy /bundle     && rm -rf /bundle/.next     && cp -r apps/web/.next /bundle/.next
 
 # ---- shared runtime base: non-root, trusts the RDS CA
 FROM ${NODE_IMAGE} AS runtime
@@ -60,6 +71,19 @@ FROM runtime AS worker
 COPY --from=worker-bundle --chown=node:node /bundle /app
 USER node
 CMD ["node", "dist/main.js"]
+
+# The web server (Next.js, `next start`). One port, 3000. It talks to the API from the server only,
+# at API_BASE_URL (the task definition sets it); it holds no secret and needs no database
+# certificate, so it uses the plain node image rather than `runtime`. Binding to 0.0.0.0 is
+# explicit: a container's HOSTNAME is its own id, which would leave the health check unable to
+# connect. The node user owns /app because Next writes its cache under .next/cache.
+FROM ${NODE_IMAGE} AS web
+ENV NODE_ENV=production     NEXT_TELEMETRY_DISABLED=1     PORT=3000
+WORKDIR /app
+COPY --from=web-bundle --chown=node:node /bundle /app
+USER node
+EXPOSE 3000
+CMD ["node", "node_modules/next/dist/bin/next", "start", "--hostname", "0.0.0.0"]
 
 # ---- one-off: prisma migrate deploy, the login users, the reference seed.
 # Runs as the schema owner. It carries the build tools (the Prisma CLI is a development

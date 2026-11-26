@@ -138,29 +138,36 @@ export class ObservabilityStack extends cdk.Stack {
       },
     );
 
-    // ---- API: 5xx above 2% of requests for 5 minutes (High). Ten requests at least, so one
-    // failed request on a quiet night does not page anyone.
-    const requests = compute.loadBalancer.metrics.requestCount({ period: five, statistic: 'Sum' });
-    const errors = compute.loadBalancer.metrics.httpCodeTarget(
-      elbv2.HttpCodeTarget.TARGET_5XX_COUNT,
-      { period: five, statistic: 'Sum' },
-    );
-    alarm(
-      'Api5xxRate',
-      new cloudwatch.MathExpression({
-        expression: 'IF(requests >= 10, 100 * errors / requests, 0)',
-        usingMetrics: { requests, errors },
+    // ---- API and web: 5xx above 2% of requests for 5 minutes (High). Ten requests at least, so one
+    // failed request on a quiet night does not page anyone. Each alarm looks at its own target
+    // group: the load balancer now serves both, and one service's errors must not page for the other.
+    for (const [id, label, targetGroup] of [
+      ['Api5xxRate', 'API', compute.apiTargetGroup],
+      ['Web5xxRate', 'Web', compute.webTargetGroup],
+    ] as const) {
+      const requests = targetGroup.metrics.requestCount({ period: five, statistic: 'Sum' });
+      const errors = targetGroup.metrics.httpCodeTarget(elbv2.HttpCodeTarget.TARGET_5XX_COUNT, {
         period: five,
-        label: 'API 5xx percent',
-      }),
-      {
-        description: 'More than 2 percent of API requests failed with 5xx for 5 minutes',
-        threshold: 2,
-        comparison: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-      },
-    );
+        statistic: 'Sum',
+      });
+      alarm(
+        id,
+        new cloudwatch.MathExpression({
+          expression: 'IF(requests >= 10, 100 * errors / requests, 0)',
+          usingMetrics: { requests, errors },
+          period: five,
+          label: `${label} 5xx percent`,
+        }),
+        {
+          description: `More than 2 percent of ${label} requests failed with 5xx for 5 minutes`,
+          threshold: 2,
+          comparison: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+        },
+      );
+    }
     for (const [name, service] of [
       ['ApiTasksRunning', compute.apiService],
+      ['WebTasksRunning', compute.webService],
       ['WorkerTasksRunning', compute.workerService],
     ] as const) {
       alarm(

@@ -28,6 +28,8 @@ export const FILES_QUARANTINE_PREFIX = 'quarantine';
 export const FILES_CLEAN_PREFIX = 'clean';
 
 export const API_PORT = 3001;
+/** The web server (Next.js `next start`, the Dockerfile's `web` target). */
+export const WEB_PORT = 3000;
 export const DATABASE_NAME = 'labconnect';
 /** The RDS master user. It is also the owner of every schema object (the migration comments call it app_owner). */
 export const DATABASE_OWNER_USER = 'app_owner';
@@ -45,6 +47,8 @@ export interface Names {
   sesConfigurationSet: string;
   guardDutyRuleName: string;
   deployRoleName: string;
+  /** Private DNS zone of the VPC (Cloud Map): the web server finds the API in it. Never public. */
+  privateNamespace: string;
 }
 
 export function namesFor(config: InfraConfig): Names {
@@ -59,6 +63,7 @@ export function namesFor(config: InfraConfig): Names {
     sesConfigurationSet: `labconnect-${config.stage}`,
     guardDutyRuleName: 'lc-guardduty-scan-results',
     deployRoleName: `${config.stage}-deployer`,
+    privateNamespace: `${prefix}.internal`,
   };
 }
 

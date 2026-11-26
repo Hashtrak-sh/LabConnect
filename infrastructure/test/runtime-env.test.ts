@@ -54,8 +54,10 @@ const OPEN_SEARCH = { enableOpenSearch: 'true' };
 
 describe('.env.example is covered', () => {
   const keys = envExampleKeys();
-  const plain = ['api', 'worker', 'migrate'].map((s) => taskDefinition({}, `labconnect-uat-${s}`));
-  const withSearch = ['api', 'worker', 'migrate'].map((s) =>
+  const plain = ['api', 'worker', 'migrate', 'web'].map((s) =>
+    taskDefinition({}, `labconnect-uat-${s}`),
+  );
+  const withSearch = ['api', 'worker', 'migrate', 'web'].map((s) =>
     taskDefinition(OPEN_SEARCH, `labconnect-uat-${s}`),
   );
   const set = new Set([...plain, ...withSearch].flatMap((task) => [...task.names]));
@@ -179,6 +181,47 @@ describe('the API task definition', () => {
       'labconnect-uat-api',
     );
     expect(withDomain.env.get('AUTH_ALLOWED_ORIGINS')).toBe('https://uat.labconnect.example');
+  });
+});
+
+describe('the web task definition', () => {
+  const web = taskDefinition({}, 'labconnect-uat-web');
+
+  it('reads exactly the variables the web app and its server read, all in .env.example', () => {
+    expect([...web.names].sort()).toEqual(['API_BASE_URL', 'NODE_ENV', 'PORT']);
+    for (const name of web.names) expect(envExampleKeys(), name).toContain(name);
+  });
+
+  it('points the web server at the API by its private name, with the /v1 prefix and the API port', () => {
+    expect(web.env.get('API_BASE_URL')).toBe('http://api.labconnect-uat.internal:3001/v1');
+    expect(web.env.get('PORT')).toBe('3000');
+  });
+
+  it('holds no secret, no database URL, no AWS setting, nothing of the API, worker or migration task', () => {
+    expect(web.secrets.size).toBe(0);
+    const other = new Set(
+      ['api', 'worker', 'migrate'].flatMap((s) => [
+        ...taskDefinition({}, `labconnect-uat-${s}`).names,
+      ]),
+    );
+    // NODE_ENV and PORT are shared names with different values; everything else is the web's own.
+    for (const name of web.names) {
+      if (name === 'NODE_ENV' || name === 'PORT') continue;
+      expect(other.has(name), name).toBe(false);
+    }
+    const secretNames = /SECRET|PASSWORD|PRIVATE_KEY|ENCRYPTION_KEY|DATABASE_URL|AWS_/;
+    for (const name of web.names) expect(secretNames.test(name), name).toBe(false);
+  });
+
+  it('is a deployed process but sets no APP_ENV: it has no use for the fake-gateway switch', () => {
+    expect(web.env.get('NODE_ENV')).toBe('production');
+    expect(web.env.has('APP_ENV')).toBe(false);
+  });
+
+  it('keeps every other task definition free of the web variable', () => {
+    for (const service of ['api', 'worker', 'migrate']) {
+      expect(taskDefinition({}, `labconnect-uat-${service}`).names.has('API_BASE_URL')).toBe(false);
+    }
   });
 });
 

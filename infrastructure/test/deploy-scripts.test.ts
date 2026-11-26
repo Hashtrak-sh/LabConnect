@@ -465,6 +465,17 @@ describe('healthUrl and judgeHealth', () => {
     );
     expect(healthUrl('http://localhost:3001')).toBe('http://localhost:3001/v1/health');
   });
+  it('appends /health for the web service, and only knows api and web', () => {
+    expect(healthUrl('https://uat.example', 'web')).toBe('https://uat.example/health');
+    expect(healthUrl('http://labconnect-uat-123.ap-south-1.elb.amazonaws.com/', 'web')).toBe(
+      'http://labconnect-uat-123.ap-south-1.elb.amazonaws.com/health',
+    );
+    expect(healthUrl('https://api.uat.example', 'api')).toBe('https://api.uat.example/v1/health');
+    for (const service of ['', 'worker', 'WEB', '../admin', 'constructor', '__proto__']) {
+      expect(() => healthUrl('https://uat.example', service), service).toThrow(DeployCheckError);
+    }
+    expect(() => healthUrl('https://uat.example/path', 'web')).toThrow(DeployCheckError);
+  });
   it.each([
     'api.uat.example',
     'ftp://api.uat.example',
@@ -567,6 +578,12 @@ describe('command line', () => {
     ).toBe('false');
     expect(cli(['health-url', '--base', 'https://api.uat.example'], '').stdout.trim()).toBe(
       'https://api.uat.example/v1/health',
+    );
+    expect(
+      cli(['health-url', '--base', 'https://uat.example', '--service', 'web'], '').stdout.trim(),
+    ).toBe('https://uat.example/health');
+    expect(cli(['health-url', '--base', 'https://uat.example', '--service', 'x'], '').status).toBe(
+      1,
     );
     expect(cli(['health-check', '--status', '200'], '{"status":"ok"}').status).toBe(0);
     expect(cli(['health-check', '--status', '502'], '').status).toBe(1);

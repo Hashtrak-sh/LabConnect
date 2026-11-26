@@ -4,7 +4,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import { logRetention } from '../retention.js';
 import type { Construct } from 'constructs';
 import type { InfraConfig } from '../config.js';
-import { API_PORT } from '../names.js';
+import { API_PORT, WEB_PORT } from '../names.js';
 
 export interface NetworkStackProps extends cdk.StackProps {
   config: InfraConfig;
@@ -22,6 +22,7 @@ export class NetworkStack extends cdk.Stack {
   readonly vpc: ec2.Vpc;
   readonly albSecurityGroup: ec2.SecurityGroup;
   readonly apiSecurityGroup: ec2.SecurityGroup;
+  readonly webSecurityGroup: ec2.SecurityGroup;
   readonly workerSecurityGroup: ec2.SecurityGroup;
   readonly migrateSecurityGroup: ec2.SecurityGroup;
   readonly databaseSecurityGroup: ec2.SecurityGroup;
@@ -63,6 +64,10 @@ export class NetworkStack extends cdk.Stack {
     // ---- security groups. None allows 0.0.0.0/0 inbound except the load balancer.
     this.albSecurityGroup = this.group('Alb', 'Load balancer: the only public entry');
     this.apiSecurityGroup = this.group('Api', 'API tasks');
+    this.webSecurityGroup = this.group(
+      'Web',
+      'Web tasks (Next.js server): from the load balancer only',
+    );
     this.workerSecurityGroup = this.group('Worker', 'Worker tasks: no inbound at all');
     this.migrateSecurityGroup = this.group('Migrate', 'One-off migration and seed task');
     this.databaseSecurityGroup = this.group('Database', 'RDS: reachable from the tasks only');
@@ -94,6 +99,38 @@ export class NetworkStack extends cdk.Stack {
       this.albSecurityGroup,
       ec2.Port.tcp(API_PORT),
       'From the load balancer',
+    );
+
+    // The web server. Visitors reach it through the load balancer; it reaches the API directly,
+    // inside the VPC, by the API's private name (compute stack, Cloud Map), never through the
+    // load balancer. The API admits the web group on its port and nothing else new.
+    this.albSecurityGroup.addEgressRule(
+      this.webSecurityGroup,
+      ec2.Port.tcp(WEB_PORT),
+      'To the web tasks',
+    );
+    this.webSecurityGroup.addIngressRule(
+      this.albSecurityGroup,
+      ec2.Port.tcp(WEB_PORT),
+      'From the load balancer',
+    );
+    this.webSecurityGroup.addEgressRule(
+      this.apiSecurityGroup,
+      ec2.Port.tcp(API_PORT),
+      'To the API tasks (server-side calls)',
+    );
+    this.apiSecurityGroup.addIngressRule(
+      this.webSecurityGroup,
+      ec2.Port.tcp(API_PORT),
+      'From the web tasks (server-side calls)',
+    );
+    // The web task starts by pulling its image and writing logs through the endpoints below, which
+    // are reached on 443. It calls nothing on the internet itself. (The VPC resolver that answers
+    // for the API's private name is not filtered by security groups.)
+    this.webSecurityGroup.addEgressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(443),
+      'web: HTTPS to the AWS endpoints (image pull, logs)',
     );
 
     for (const [name, group] of [
