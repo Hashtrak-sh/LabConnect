@@ -4,11 +4,10 @@ import {
   type ReactNode,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
-  useId,
 } from 'react';
 import { cn } from '../lib/cn.js';
 
-/** What a field passes to its control so the label, help and error are tied to it (DR-25). */
+/** What a field's control needs so the label, help and error are tied to it (DR-25). */
 export interface FieldControlProps {
   id: string;
   'aria-describedby'?: string;
@@ -16,23 +15,59 @@ export interface FieldControlProps {
   'aria-required'?: true;
 }
 
-export interface FieldProps {
-  label: ReactNode;
+export interface FieldState {
   help?: ReactNode;
-  /** Error text; when set the control is marked invalid and the text is announced. */
   error?: ReactNode;
   required?: boolean;
-  /** The marker after a required label, from the app's messages (for example "required"). */
-  requiredLabel?: string;
-  className?: string;
-  children: (control: FieldControlProps) => ReactNode;
+}
+
+function present(value: ReactNode): boolean {
+  return value !== undefined && value !== null && value !== false;
 }
 
 /**
- * A labelled form field (lc.css `.field`): a visible label, help text and an error, all tied to
- * the control with `for`, `aria-describedby` and `aria-invalid`.
+ * The attributes for a field's control: spread them on the input, select or textarea inside the
+ * `Field` with the same `id` and state. A plain function, so it works in server and client
+ * components alike.
+ */
+export function fieldProps(id: string, state: FieldState = {}): FieldControlProps {
+  const describedBy = [
+    present(state.help) ? `${id}-help` : undefined,
+    present(state.error) ? `${id}-error` : undefined,
+  ]
+    .filter((value) => value !== undefined)
+    .join(' ');
+  return {
+    id,
+    ...(describedBy === '' ? {} : { 'aria-describedby': describedBy }),
+    ...(present(state.error) ? { 'aria-invalid': true as const } : {}),
+    ...(state.required === true ? { 'aria-required': true as const } : {}),
+  };
+}
+
+export interface FieldProps extends FieldState {
+  /** The control's id; the control gets its attributes from `fieldProps(id, …)`. */
+  id: string;
+  label: ReactNode;
+  /** The marker after a required label, from the app's messages (for example "required"). */
+  requiredLabel?: string;
+  className?: string;
+  children: ReactNode;
+}
+
+/**
+ * A labelled form field (lc.css `.field`): a visible label, help text and an error, tied to the
+ * control by `for`, `aria-describedby` and `aria-invalid` (see `fieldProps`). Works in server
+ * components: it takes its id from the caller instead of generating one.
+ *
+ * ```tsx
+ * <Field id="email" label="Email" error={error} required>
+ *   <Input {...fieldProps('email', { error, required: true })} />
+ * </Field>
+ * ```
  */
 export function Field({
+  id,
   label,
   help,
   error,
@@ -41,11 +76,6 @@ export function Field({
   className,
   children,
 }: FieldProps) {
-  const id = useId();
-  const helpId = help === undefined ? undefined : `${id}-help`;
-  const errorId =
-    error === undefined || error === null || error === false ? undefined : `${id}-error`;
-  const describedBy = [helpId, errorId].filter((value) => value !== undefined).join(' ');
   return (
     <div className={cn('flex min-w-0 flex-col gap-1.5', className)}>
       <label htmlFor={id} className="text-sm font-medium text-text">
@@ -57,19 +87,14 @@ export function Field({
           </span>
         )}
       </label>
-      {children({
-        id,
-        ...(describedBy === '' ? {} : { 'aria-describedby': describedBy }),
-        ...(errorId === undefined ? {} : { 'aria-invalid': true as const }),
-        ...(required ? { 'aria-required': true as const } : {}),
-      })}
-      {helpId !== undefined && (
-        <p id={helpId} className="text-sm text-text-muted">
+      {children}
+      {present(help) && (
+        <p id={`${id}-help`} className="text-sm text-text-muted">
           {help}
         </p>
       )}
-      {errorId !== undefined && (
-        <p id={errorId} role="alert" className="text-sm text-danger">
+      {present(error) && (
+        <p id={`${id}-error`} role="alert" className="text-sm text-danger">
           {error}
         </p>
       )}

@@ -7,7 +7,7 @@ import { BOOKING_STATUS_STYLES } from '../status.js';
 import { StatusBadge } from './badge.js';
 import { Button } from './button.js';
 import { Combobox, type ComboboxOption } from './combobox.js';
-import { Field, Input } from './field.js';
+import { Field, fieldProps, Input } from './field.js';
 import { LabResultCard } from './lab-result-card.js';
 import { MapView } from './map-view.js';
 import { Modal, Tabs, TabsContent, TabsList, TabsTrigger } from './overlays.js';
@@ -47,14 +47,14 @@ describe('Button', () => {
 
 describe('Field', () => {
   it('ties the label, help and error to the control', () => {
+    const state = {
+      help: 'We only use it for this request',
+      error: 'Give an email address',
+      required: true,
+    };
     render(
-      <Field
-        label="Email"
-        help="We only use it for this request"
-        error="Give an email address"
-        required
-      >
-        {(control) => <Input {...control} />}
+      <Field id="email" label="Email" {...state}>
+        <Input {...fieldProps('email', state)} />
       </Field>,
     );
     const input = screen.getByLabelText(/Email/);
