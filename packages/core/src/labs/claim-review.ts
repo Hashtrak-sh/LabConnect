@@ -4,7 +4,7 @@ import type { RequestMeta } from '../identity/errors.js';
 import { auditMeta } from '../identity/errors.js';
 import { grantLabMembership, type LabMembershipRefusal } from '../identity/memberships.js';
 import { isUuid } from '../identity/repository.js';
-import type { FileService } from '../files/file-service.js';
+import type { DownloadTicket, FileService } from '../files/file-service.js';
 import type { AuditActor, AuditService } from '../platform/audit.js';
 import type { Clock } from '../platform/clock.js';
 import type { OutboxService } from '../platform/outbox.js';
@@ -29,8 +29,8 @@ import { isStale, LETTERHEAD_LINK, LETTERHEAD_PURPOSE, staleCutoff } from './cla
  * request.
  *
  * What the list and the responses show: exactly the contract's `AdminLabClaim`. It carries the
- * claimant's user id and the letterhead's file id, and no name, no address, no download link
- * (the contract gives Ops no way to open the letterhead: OQ-225).
+ * claimant's user id and the letterhead's file id, and no name, no address, no download link.
+ * The letterhead is opened only through `createLetterheadDownloadTicket` (I2-ADM-04, OQ-225).
  *
  * The 24-hour rule (OQ-206, OQ-220): a claim that is `PENDING_OTP` in the table and 24 hours old
  * or older is `EXPIRED`, whatever the row says. This code reads it that way everywhere, with the
@@ -341,6 +341,36 @@ async function lockedPendingReview(
   return claim;
 }
 
+/**
+ * The claim's own letterhead, or `null`: the file whose id is the claim's `authorisation_file_id`
+ * AND that is tied to this claim by its live `file_link` (role `CLAIM_LETTERHEAD`), of the
+ * `KYC_DOCUMENT` purpose and ownerless. The approval and the Ops read of the letterhead use this
+ * one predicate, so a file that one of them accepts is the file the other would open. It does not
+ * look at the scan status: the callers ask the file service (`requireClean`).
+ */
+export async function findClaimLetterhead(
+  tx: Prisma.TransactionClient,
+  claim: { id: string; authorisationFileId: string | null },
+): Promise<{ id: string } | null> {
+  if (claim.authorisationFileId === null) return null;
+  return tx.fileObject.findFirst({
+    where: {
+      id: claim.authorisationFileId,
+      purpose: LETTERHEAD_PURPOSE,
+      ownerOrgId: null,
+      fileLinks: {
+        some: {
+          entityType: LETTERHEAD_LINK.entityType,
+          entityId: claim.id,
+          role: LETTERHEAD_LINK.role,
+          removedAt: null,
+        },
+      },
+    },
+    select: { id: true },
+  });
+}
+
 function cleanNotes(notes: string | undefined): string | null {
   const trimmed = notes?.trim();
   return trimmed === undefined || trimmed === '' ? null : trimmed;
@@ -422,25 +452,7 @@ export async function approveLabClaim(
 
   // 6. A manual claim needs its letterhead, clean.
   if (claim.method === 'MANUAL') {
-    const file =
-      claim.authorisationFileId === null
-        ? null
-        : await tx.fileObject.findFirst({
-            where: {
-              id: claim.authorisationFileId,
-              purpose: LETTERHEAD_PURPOSE,
-              ownerOrgId: null,
-              fileLinks: {
-                some: {
-                  entityType: LETTERHEAD_LINK.entityType,
-                  entityId: claim.id,
-                  role: LETTERHEAD_LINK.role,
-                  removedAt: null,
-                },
-              },
-            },
-            select: { id: true },
-          });
+    const file = await findClaimLetterhead(tx, claim);
     if (file === null) {
       throw refusal('LETTERHEAD_MISSING', 'A manual claim needs its letterhead file.');
     }
@@ -629,4 +641,68 @@ export async function rejectLabClaim(
     },
     now,
   );
+}
+
+// ------------------------------------------------------------------ letterhead read (I2-ADM-04)
+
+/**
+ * `createAdminLabClaimLetterheadDownloadUrl`, the database part: Ops open the letterhead
+ * authorisation of a claim for review (OQ-225). Returns the ticket the caller presigns with
+ * `FileService.presignDownload` AFTER the transaction commits; the URL never exists inside it.
+ * The caller sends a claim id and nothing else: the file is found from the claim row.
+ *
+ * Order of the checks, each refusal writing nothing (the thrown error rolls the transaction back):
+ * 1. only `PLATFORM_OPS` (`403`), before any row is read;
+ * 2. the claim exists (`404`), whatever its status: a decided claim can still be looked at;
+ * 3. it has a letterhead (`404`): `findClaimLetterhead`, the predicate of the approval. A claim made
+ *    by code, and a claim whose `authorisation_file_id` names a file not tied to it, have none;
+ * 4. the file is `CLEAN` (`422 FILE_NOT_CLEAN` for a pending, failed, infected or rejected file):
+ *    never a link to a file the scan has not passed;
+ * 5. `FileService.requestDownload` (re-reads the file, writes its own `file.download_url` audit
+ *    entry for the restricted purpose `KYC_DOCUMENT`);
+ * 6. the audit entry `lab_claim.letterhead_download_url_created`: claim id, file id, the claim's
+ *    status as it is, and (through the audit actor) the reviewer. No URL, no file name, no storage
+ *    key; no outbox event (FILES_AND_REPORTS asks for none).
+ *
+ * The claim row is not locked and not changed: this read moves nothing.
+ */
+export async function createLetterheadDownloadTicket(
+  tx: Prisma.TransactionClient,
+  deps: Pick<ClaimReviewDeps, 'clock' | 'audit' | 'files'>,
+  input: { actor: CurrentActor; claimId: string; meta: RequestMeta },
+): Promise<{ ticket: DownloadTicket }> {
+  const { actor, meta } = input;
+  requireOps(actor);
+  if (!isUuid(input.claimId)) throw new LabClaimError('NOT_FOUND', { detail: 'No such claim.' });
+  const claim = await tx.labClaimRequest.findUnique({
+    where: { id: input.claimId },
+    select: CLAIM_SELECT,
+  });
+  if (claim === null) throw new LabClaimError('NOT_FOUND', { detail: 'No such claim.' });
+
+  const file = await findClaimLetterhead(tx, claim);
+  if (file === null) {
+    throw new LabClaimError('NOT_FOUND', { detail: 'This claim has no letterhead.' });
+  }
+  await deps.files.requireClean(tx, file.id, [LETTERHEAD_PURPOSE]);
+
+  const who = auditActor(actor);
+  const ticket = await deps.files.requestDownload(tx, {
+    fileId: file.id,
+    actor: who,
+    ...(meta.requestId === undefined ? {} : { requestId: meta.requestId }),
+  });
+  await deps.audit.record(tx, {
+    actor: who,
+    action: 'lab_claim.letterhead_download_url_created',
+    entityType: 'lab_claim_request',
+    entityId: claim.id,
+    after: {
+      claimId: claim.id,
+      fileId: file.id,
+      claimStatus: effectiveClaimStatus(claim, deps.clock.now()),
+    },
+    ...auditMeta(meta),
+  });
+  return { ticket };
 }

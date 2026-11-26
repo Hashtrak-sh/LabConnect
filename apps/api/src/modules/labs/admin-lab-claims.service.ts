@@ -5,6 +5,7 @@ import {
   AuditService,
   type ClaimReviewDeps,
   type Clock,
+  createLetterheadDownloadTicket,
   type CurrentActor,
   FileService,
   listLabClaimsForReview,
@@ -91,6 +92,23 @@ export class AdminLabClaimsService {
     return this.scope.run(actor, (tx) =>
       approveLabClaim(tx, this.deps(), { actor, ...input, meta }),
     );
+  }
+
+  /**
+   * `createAdminLabClaimLetterheadDownloadUrl`: the checks and the audit run in one transaction;
+   * the URL is made by the file service after it has committed, and is returned and nothing else:
+   * never logged, stored or audited.
+   */
+  async letterheadDownloadUrl(
+    actor: CurrentActor,
+    claimId: string,
+    meta: RequestMeta,
+  ): Promise<{ downloadUrl: string; expiresAt: string }> {
+    const { ticket } = await this.scope.run(actor, (tx) =>
+      createLetterheadDownloadTicket(tx, this.deps(), { actor, claimId, meta }),
+    );
+    const url = await this.files.presignDownload(ticket);
+    return { downloadUrl: url.downloadUrl, expiresAt: url.expiresAt.toISOString() };
   }
 
   /** `rejectAdminLabClaim`. */
