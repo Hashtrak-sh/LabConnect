@@ -24,7 +24,7 @@ import { CLAIM_LIMITS } from './claim-limits.js';
 /*
  * The lab claim flow (FR-DAT-07): `startLabClaim` and `verifyLabClaimOtp` (I1-LAB-01, I1-LAB-02),
  * and the letterhead route `requestClaimLetterheadUpload` and `submitLabClaimLetterhead`
- * (I1-LAB-03, I1-LAB-04). Approval and rejection are later tasks.
+ * (I1-LAB-03, I1-LAB-04). Approval, rejection and the Ops list are in `claim-review.ts` (I2-ADM-01 to 03).
  *
  * Who the code goes to, what is stored and where it may appear (CLAUDE.md section 5):
  * - the code goes only to `lab_site_private.contact_email`, imported from NABL data. Nothing in
@@ -224,12 +224,15 @@ interface ExpiryCandidate {
 }
 
 /** A `PENDING_OTP` claim created at or before this instant is stale: `created_at <= cutoff`. */
-function staleCutoff(now: Date): Date {
+export function staleCutoff(now: Date): Date {
   return new Date(now.getTime() - CLAIM_LIMITS.unverifiedClaimTtlMs);
 }
 
 /** Stale = `PENDING_OTP` and at least 24 hours old (at exactly 24 hours: stale). */
-function isStale(claim: { status: ClaimRequestStatus; createdAt: Date }, now: Date): boolean {
+export function isStale(
+  claim: { status: ClaimRequestStatus; createdAt: Date },
+  now: Date,
+): boolean {
   return claim.status === 'PENDING_OTP' && claim.createdAt.getTime() <= staleCutoff(now).getTime();
 }
 
@@ -717,9 +720,12 @@ export async function verifyLabClaimOtp(
 // ------------------------------------------------------------------ letterhead (I1-LAB-03, I1-LAB-04)
 
 /** What ties a file to the claim it was requested for (`file_link.entity_type` and `role`). */
-const LETTERHEAD_LINK = { entityType: 'lab_claim_request', role: 'CLAIM_LETTERHEAD' } as const;
+export const LETTERHEAD_LINK = {
+  entityType: 'lab_claim_request',
+  role: 'CLAIM_LETTERHEAD',
+} as const;
 /** A claim letterhead is a KYC document by purpose: type and size limits of FILES_AND_REPORTS section 1. */
-const LETTERHEAD_PURPOSE = 'KYC_DOCUMENT';
+export const LETTERHEAD_PURPOSE = 'KYC_DOCUMENT';
 
 export interface LetterheadDeps extends ClaimDeps {
   files: FileService;

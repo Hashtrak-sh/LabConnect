@@ -11,7 +11,6 @@ addAdminChangeItem
 addDisputeEvidence
 addDisputeMessage
 approveAdminChangeSet
-approveAdminLabClaim
 approveAdminLabSitePin
 approveAdminRefund
 approveBreakGlassGrant
@@ -104,7 +103,6 @@ listAdminChangeSets
 listAdminDisputes
 listAdminGeocodeQueue
 listAdminImportRows
-listAdminLabClaims
 listAdminLeads
 listAdminMappingTemplates
 listAdminNodeTypes
@@ -141,7 +139,6 @@ publishReportVersion
 raiseDispute
 rateBooking
 rejectAdminChangeSet
-rejectAdminLabClaim
 rejectBooking
 rejectBreakGlassGrant
 rejectUnfitSample

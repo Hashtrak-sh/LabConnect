@@ -40,6 +40,15 @@ export const REAL_APP_CASES: readonly IsolationCase[] = [
     route: 'POST /v1/lab/claims/:id/manual',
     spec: 'test/integration/isolation/lab-claims.spec.ts',
   },
+  // Platform-only routes: a tenant caller is refused with 403 (`refusal: 'FORBIDDEN'` in the kit).
+  {
+    route: 'POST /v1/admin/claims/:id/approve',
+    spec: 'test/integration/isolation/admin-lab-claims.spec.ts',
+  },
+  {
+    route: 'POST /v1/admin/claims/:id/reject',
+    spec: 'test/integration/isolation/admin-lab-claims.spec.ts',
+  },
 ];
 
 /** Routes with an id that touch no tenant data (for example a public reference lookup). */

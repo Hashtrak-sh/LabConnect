@@ -131,6 +131,15 @@ Kicked off 2026-11-26 by H. Backend first: the claim screens wait for the second
 | I1-LAB-06 | Decide and build what stops a claim from blocking a lab for ever (expiry of an unverified claim, a cap per user) | OQ-206 | product owner | In review |
 | I1-LAB-07 | Claim screens | L1 | second design pass, D-04 | ☐ |
 
+### I2: Onboarding, admin slice (shared), started by H
+Started 2026-11-26 by H, on the lab claim flow of I1: the Ops side of FR-DAT-07. Backend first; the admin screens wait for the designs (CLAUDE.md §2). KYC and bank verification and the geocode queue are later I2 tasks.
+
+| ID | Task | Refs | Depends | Status |
+|---|---|---|---|---|
+| I2-ADM-01 | `GET /admin/claims` (`listAdminLabClaims`): oldest first, cursor, `status` filter, the 24-hour rule applied to stale `PENDING_OTP` claims | FR-DAT-07, OQ-220 | I1-LAB-06 | In review |
+| I2-ADM-02 | `POST /admin/claims/{id}/approve` (`approveAdminLabClaim`): claim `APPROVED`, organisation `CLAIMED`, the claimant the first `LAB_CHECKER` | FR-DAT-07, RR-2, RR-5, OQ-208 | I2-ADM-01 | In review |
+| I2-ADM-03 | `POST /admin/claims/{id}/reject` (`rejectAdminLabClaim`): claim `REJECTED` with notes, the organisation free again | FR-DAT-07 | I2-ADM-01 | In review |
+
 ## Phase 6–7
 | ID | Task | Owner | Status |
 |---|---|---|---|
