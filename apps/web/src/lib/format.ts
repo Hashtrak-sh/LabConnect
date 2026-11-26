@@ -1,56 +1,30 @@
-// Display helpers. Money is integer paise and is only turned into rupees for display; times are
-// stored in UTC and shown in IST (CLAUDE.md §6).
+// Web-only helpers. Display formatting (money, dates, times) comes from @labconnect/ui, so every
+// screen formats the same way (DP2-11, DP2-12, DR-23).
 
-const IST = 'Asia/Kolkata';
-
-const rupees = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
-
-/** `125000` paise → "₹1,250". Indian digit grouping. */
-export function formatMoney(money: { amountPaise: number }): string {
-  return rupees.format(money.amountPaise / 100);
-}
-
-/** "27 Nov 2026, 10:00 am" in IST. */
-export function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-IN', {
-    timeZone: IST,
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(iso));
-}
-
-/** "10:00 am" in IST. */
-export function formatTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-IN', {
-    timeZone: IST,
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(iso));
-}
-
-/** A `YYYY-MM-DD` calendar date as "Fri, 27 Nov, 2026" (en-IN). */
-export function formatDate(date: string): string {
-  return new Intl.DateTimeFormat('en-IN', {
-    timeZone: 'UTC',
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(`${date}T00:00:00Z`));
-}
+const IST_OFFSET_MS = 5.5 * 3_600_000;
 
 /** The IST calendar date `days` after `now`, as `YYYY-MM-DD`. */
 export function istDate(now: Date, days = 0): string {
-  const shifted = new Date(now.getTime() + 5.5 * 3_600_000 + days * 86_400_000);
-  return shifted.toISOString().slice(0, 10);
+  return new Date(now.getTime() + IST_OFFSET_MS + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Today's weekday in IST, 1 = Monday … 7 = Sunday (as `receiving_hours.weekday`). */
+export function istWeekday(now: Date): number {
+  const day = new Date(now.getTime() + IST_OFFSET_MS).getUTCDay();
+  return day === 0 ? 7 : day;
+}
+
+/** The IST wall-clock time of `now`, `HH:MM`. */
+export function istClock(now: Date): string {
+  return new Date(now.getTime() + IST_OFFSET_MS).toISOString().slice(11, 16);
+}
+
+/** `HH:MM` (24 h, IST) → "5:00 PM IST". */
+export function formatClock(hhmm: string): string {
+  const [h = 0, m = 0] = hhmm.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${String(hour)}:${String(m).padStart(2, '0')} ${period} IST`;
 }
 
 /** Rupees typed by a user ("1250", "1,250.50") → integer paise, or `null` when not a price. */

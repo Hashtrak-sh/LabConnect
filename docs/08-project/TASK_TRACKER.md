@@ -116,11 +116,11 @@ Kicked off 2026-11-25 by A. Backend first: screens (`apps/web`) wait for the D-0
 | I1-CUS-07 | `POST /public/leads` (request a lab, no-result lead) | FR-DIS-07, AC-DIS-04, EC-05, EC-06 | OQ-194 | ☑ |
 | I1-CUS-08 | `GET /public/search/suggest` (typeahead) | FR-DIS-01 | I1-CUS-01 | ☑ |
 | I1-CUS-09 | Public rate limits (60/min search, leads per OQ-194) | API_CONVENTIONS §7 | OQ-88 (Redis limiter, shared with H) | ☐ |
-| I1-CUS-10 | Search, lab page and request-a-lab screens | FR-DIS-01..07 | D-03, D-04 | ◐ |
+| I1-CUS-10 | Search, lab page and request-a-lab screens | FR-DIS-01..07 | D-03, D-04 | ◐ In review |
 
 I1-CUS-02 builds the first piece of the `labs` module, which @Hashtrak-sh owns: the public read side of `LabDirectoryService` (`packages/core/src/labs/`, `apps/api/src/modules/labs/`). A built it at the owner's agreement to review, so it is a shared change. It also moves `withPublicReadContext` from `search` to `platform` and the accreditation verification URL helper into `labs`, because MODULE_BOUNDARIES rule 5 forbids importing `search`. The rule for which sites are public repeats search's `visibleLinesSql` until search reads through this service (OQ-152); the database test checks both give the same answer for every site of the search world.
 
-I1-CUS-10 is ◐: rough prototype screens (`/search`, `/labs/[siteId]`) were built on 2026-11-26 for localhost use only (A's decision). They stay on the draft PR #58 branch and are not merged or deployed. The approved boards for I1 now exist (`designs-pass-2/` H1 to H3, #60), so I1-CUS-10 is rebuilt from them through `packages/ui` after D-04, and the rough screens are then replaced.
+I1-CUS-10 is in review: the I1 screens are built from the approved boards (`designs-pass-2/` H1, B1, H2, B2, H3, B4) on `packages/ui` (D-04): `/` (search home), `/search` (results with filters inline or in a sheet, list and map, no-result and error states), `/labs/[siteId]` (profile, accreditation, scope and prices, requirements, hours, location, ratings; listed and calibration states) and `/request-a-lab`. Left out on purpose: sign-in, "Verify a report" and the lab entry (no pages yet), the booking estimate and "Book" (I3), the "Has a slot this week" and "Bookable only" filters and the sort control (no API for them, DP2-06, OQ-151), and PIN code search (shown as coming soon, OQ-153). The rough prototype on draft PR #58 is superseded.
 
 ### I1: Directory, lab slice (H) and shared pieces
 Kicked off 2026-11-26 by H. Backend first: the claim screens wait for the second design pass (D-03 was approved in part; lab onboarding is not in the approved set). The lab slice of I1 is the claim flow up to "waiting for review"; approval by Ops is the admin slice of I2 (ROADMAP).

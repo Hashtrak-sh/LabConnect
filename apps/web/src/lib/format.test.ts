@@ -1,18 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatMoney, formatTime, istDate, rupeesToPaise } from './format';
+import { formatClock, istClock, istDate, istWeekday, rupeesToPaise } from './format';
 import { t } from './i18n';
 
-describe('display helpers', () => {
-  it('shows paise as rupees with Indian grouping', () => {
-    expect(formatMoney({ amountPaise: 125_000 })).toBe('₹1,250');
-    expect(formatMoney({ amountPaise: 12_345_678 })).toBe('₹1,23,456.78');
-  });
-
-  it('shows times in IST and dates as calendar dates', () => {
-    expect(formatTime('2026-11-27T04:30:00Z')).toMatch(/^10:00\s?am$/i);
-    expect(formatDate('2026-11-27')).toBe('Fri, 27 Nov, 2026');
+describe('web helpers', () => {
+  it('works out IST dates, weekdays and clock times', () => {
     expect(istDate(new Date('2026-11-26T20:00:00Z'))).toBe('2026-11-27');
     expect(istDate(new Date('2026-11-26T10:00:00Z'), 14)).toBe('2026-12-10');
+    // 26 Nov 2026 is a Thursday; at 20:00 UTC it is already Friday in India.
+    expect(istWeekday(new Date('2026-11-26T10:00:00Z'))).toBe(4);
+    expect(istWeekday(new Date('2026-11-26T20:00:00Z'))).toBe(5);
+    expect(istClock(new Date('2026-11-26T04:30:00Z'))).toBe('10:00');
+  });
+
+  it('writes a 24-hour clock time the way the boards do', () => {
+    expect(formatClock('17:00')).toBe('5:00 PM IST');
+    expect(formatClock('09:30')).toBe('9:30 AM IST');
+    expect(formatClock('00:15')).toBe('12:15 AM IST');
   });
 
   it('reads rupees typed by a user as paise', () => {
