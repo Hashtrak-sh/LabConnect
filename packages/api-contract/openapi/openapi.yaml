@@ -353,6 +353,8 @@ paths:
     $ref: './paths/admin-onboarding.yaml#/claim-approve'
   /admin/claims/{id}/reject:
     $ref: './paths/admin-onboarding.yaml#/claim-reject'
+  /admin/claims/{id}/letterhead/download-url:
+    $ref: './paths/admin-onboarding.yaml#/claim-letterhead-download-url'
   /admin/kyc-documents/{id}/verify:
     $ref: './paths/admin-onboarding.yaml#/kyc-document-verify'
   /admin/bank-accounts/{id}/verify:
