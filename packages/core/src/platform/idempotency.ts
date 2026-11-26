@@ -24,6 +24,19 @@ export const IDEMPOTENCY_RETENTION_MS = 24 * 60 * 60 * 1000;
  */
 export const IDEMPOTENCY_LOCK_TIMEOUT_MS = 60_000;
 
+/**
+ * How often a running handler renews its lock (the caller's timer; this service has none): a third
+ * of the lock timeout, so two renewals can fail in a row before the record looks abandoned.
+ */
+export const IDEMPOTENCY_HEARTBEAT_INTERVAL_MS = IDEMPOTENCY_LOCK_TIMEOUT_MS / 3;
+
+/**
+ * The longest a handler may keep renewing. After this the caller stops renewing and the record
+ * becomes available for takeover after the normal timeout, so a hung handler cannot hold a key for
+ * ever. A request that needs longer belongs in a background job and should answer 202.
+ */
+export const IDEMPOTENCY_MAX_LEASE_MS = 10 * 60_000;
+
 const MAX_ROUTE_LENGTH = 200;
 const KEY_PATTERN = /^[\x21-\x7e]{1,100}$/;
 const CLAIM_ATTEMPTS = 3;
@@ -33,14 +46,58 @@ export function isValidIdempotencyKey(key: unknown): key is string {
   return typeof key === 'string' && KEY_PATTERN.test(key);
 }
 
+/** Version of the request-hash recipe, inside the hashed object: a new recipe never collides with an old one. */
+export const REQUEST_HASH_VERSION = 1;
+
+/** A request hash made by `hashRequest`. The brand makes a bare `Buffer` (a body-only hash) a type error. */
+export type RequestHash = Buffer & { readonly __requestHash: true };
+
+/** What decides what a request means, beyond the route and the user. Only the interceptor builds this. */
+export interface RequestParts {
+  /** The parsed JSON body. A missing body and `{}` are the same request. */
+  body: unknown;
+  /** The acting organisation as the guards resolved it onto the actor; `null` with no membership. */
+  organisationId: string | null;
+  /** The active membership as the guards resolved it; `null` with no membership. */
+  membershipId: string | null;
+  /** The raw query string of the request, with or without the leading `?`. */
+  query: string;
+}
+
 /**
- * SHA-256 of the canonical JSON of the body, so key order does not matter. A missing body and `{}`
- * are the same request. Never log the input or the result's source.
+ * The query as sorted `[name, value]` pairs: decoded, sorted by name (code units), repeated names
+ * kept in the order they came, so `?a=1&b=2` and `?b=2&a=1` are the same and `?a=1&a=2` is not
+ * `?a=2&a=1`.
  */
-export function hashRequestBody(body: unknown): Buffer {
+export function canonicalQuery(query: string): [string, string][] {
+  const pairs = [...new URLSearchParams(query.startsWith('?') ? query.slice(1) : query)];
+  return pairs
+    .map((pair, index) => ({ pair, index }))
+    .sort((a, b) => {
+      const [x, y] = [a.pair[0], b.pair[0]];
+      return x < y ? -1 : x > y ? 1 : a.index - b.index;
+    })
+    .map(({ pair }) => pair);
+}
+
+/**
+ * SHA-256 of the canonical JSON of everything that decides what a request means beyond the route
+ * and the user: the body, the acting organisation, the active membership and the query, with the
+ * recipe version. Body key order and query parameter order do not matter. Never log the input or
+ * the result's source. `If-Match` is deliberately not part of it (OQ-199).
+ */
+export function hashRequest(parts: RequestParts): RequestHash {
   return createHash('sha256')
-    .update(canonicalJson(body ?? {}))
-    .digest();
+    .update(
+      canonicalJson({
+        v: REQUEST_HASH_VERSION,
+        body: parts.body ?? {},
+        organisationId: parts.organisationId,
+        membershipId: parts.membershipId,
+        query: canonicalQuery(parts.query),
+      }),
+    )
+    .digest() as RequestHash;
 }
 
 export interface IdempotencyRequest {
@@ -50,7 +107,8 @@ export interface IdempotencyRequest {
   actorUserId: string;
   /** Method and concrete path without the query, at most 200 characters. See API_CONVENTIONS.md. */
   route: string;
-  requestHash: Buffer;
+  /** From `hashRequest`: a hash of anything else does not type-check. */
+  requestHash: RequestHash;
 }
 
 /** Proof of holding a record. Completing or abandoning with a lost claim does nothing. */
@@ -126,6 +184,32 @@ export class IdempotencyService {
            AND created_at = ${claim.lockedAt}::timestamptz
         RETURNING id`;
       return rows.length === 1;
+    });
+  }
+
+  /**
+   * Moves the lock time forward so a handler that is still running is not mistaken for a dead
+   * process (the lease). Same compare-and-swap as a takeover. Returns the claim to use from now
+   * on (`complete` and `abandon` need the renewed one), or `null` when the claim was lost
+   * (taken over, finished, or abandoned: an abandoned record is expired and is not revived).
+   */
+  async renew(
+    claim: IdempotencyClaim,
+    tx?: Prisma.TransactionClient,
+  ): Promise<IdempotencyClaim | null> {
+    const now = this.clock.now();
+    const expiresAt = new Date(now.getTime() + IDEMPOTENCY_RETENTION_MS);
+    return this.within(claim, tx, async (client) => {
+      const [row] = await client.$queryRaw<{ created_at: Date }[]>`
+        UPDATE idempotency_record
+           SET created_at = GREATEST(${now}::timestamptz, created_at + interval '1 millisecond'),
+               expires_at = ${expiresAt}::timestamptz
+         WHERE id = ${claim.id}::uuid
+           AND status = 'IN_PROGRESS'::idempotency_status
+           AND created_at = ${claim.lockedAt}::timestamptz
+           AND expires_at > ${now}::timestamptz
+        RETURNING created_at`;
+      return row ? { ...claim, lockedAt: row.created_at } : null;
     });
   }
 

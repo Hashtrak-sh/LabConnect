@@ -6,18 +6,27 @@ import {
   Logger,
   type NestInterceptor,
   UseInterceptors,
-  BadRequestException,
 } from '@nestjs/common';
 import {
   CoreError,
-  hashRequestBody,
+  hashRequest,
   type IdempotencyClaim,
   IdempotencyService,
   isValidIdempotencyKey,
 } from '@labconnect/core';
 import type { ErrorCode } from '@labconnect/shared';
 import type { Request } from 'express';
-import { catchError, concatMap, from, mergeMap, type Observable, of, throwError } from 'rxjs';
+import { IdempotencyLease } from './idempotency-lease.js';
+import {
+  catchError,
+  concatMap,
+  finalize,
+  from,
+  mergeMap,
+  type Observable,
+  of,
+  throwError,
+} from 'rxjs';
 import { DomainError, type ProblemIssue } from './domain-error.js';
 
 export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key';
@@ -33,7 +42,10 @@ const MAX_ROUTE_LENGTH = 200;
 const STORED_ERROR_STATUSES: ReadonlySet<number> = new Set([404, 409, 422]);
 
 /** The request as the guards leave it. Read-only: the user comes from the session or the actor. */
-type GuardedRequest = Request & { authSession?: { userId: string }; actor?: { userId: string } };
+type GuardedRequest = Request & {
+  authSession?: { userId: string };
+  actor?: { userId: string; orgId: string | null; membershipId: string | null };
+};
 
 interface StoredProblem {
   code: ErrorCode;
@@ -51,7 +63,8 @@ interface StoredProblem {
  * @Idempotent()
  * ```
  *
- * The scope is (key, user, concrete route). Only for authenticated routes: with no user on the
+ * The scope is (key, user, concrete route); the request hash adds the body, the acting organisation,
+ * the active membership and the query, so the same key meaning something else is a 422. Only for authenticated routes: with no user on the
  * request it refuses with a 500 and never runs the handler (anonymous routes need OQ-42). Never
  * for `/auth/*` (OQ-33): a stored response there would hold tokens at rest.
  */
@@ -64,6 +77,12 @@ export function routeOf(request: Pick<Request, 'method' | 'path'>): string {
   const route = `${request.method.toUpperCase()} ${path}`;
   if (route.length <= MAX_ROUTE_LENGTH) return route;
   return `${route.slice(0, 150)}#${createHash('sha256').update(route).digest('hex').slice(0, 32)}`;
+}
+
+/** The raw query string without the `?` (empty when there is none). */
+function queryOf(request: Pick<Request, 'originalUrl'>): string {
+  const at = request.originalUrl.indexOf('?');
+  return at === -1 ? '' : request.originalUrl.slice(at + 1);
 }
 
 function storedProblemOf(error: unknown): { status: number; body: StoredProblem } | undefined {
@@ -97,13 +116,29 @@ export class IdempotencyInterceptor implements NestInterceptor {
       throw new Error('@Idempotent() needs an authenticated user: put it behind @Authorised().');
     }
     const key = request.headers[IDEMPOTENCY_KEY_HEADER.toLowerCase()];
-    if (!isValidIdempotencyKey(key)) throw new BadRequestException();
+    if (!isValidIdempotencyKey(key)) {
+      // Names the header and the rule, never the value.
+      throw new DomainError('VALIDATION_FAILED', {
+        status: 400,
+        detail:
+          key === undefined
+            ? `The ${IDEMPOTENCY_KEY_HEADER} header is required on this request: 1 to 100 visible ASCII characters.`
+            : `The ${IDEMPOTENCY_KEY_HEADER} header is not valid: it must be 1 to 100 visible ASCII characters, sent once.`,
+      });
+    }
 
     const begin = await this.idempotency.begin({
       key,
       actorUserId: userId,
       route: routeOf(request),
-      requestHash: hashRequestBody(request.body),
+      // The one place the parts are assembled. Organisation and membership are what the guards
+      // resolved onto the actor (never a raw header); the query is this request's raw string.
+      requestHash: hashRequest({
+        body: request.body,
+        organisationId: request.actor?.orgId ?? null,
+        membershipId: request.actor?.membershipId ?? null,
+        query: queryOf(request),
+      }),
     });
     switch (begin.kind) {
       case 'in_progress':
@@ -127,19 +162,27 @@ export class IdempotencyInterceptor implements NestInterceptor {
         });
       }
       case 'started': {
-        const { claim } = begin;
         const status = this.successStatus(context, request.method);
+        // The lease renews the lock while the handler runs. `stop()` ends the timer on success and
+        // on error (and hands out the latest claim); `finalize` ends it if the stream is
+        // unsubscribed or completes without a value.
+        const lease = new IdempotencyLease(this.idempotency, begin.claim, this.logger);
         return next.handle().pipe(
           concatMap((value: unknown) =>
-            from(this.finish(claim, { status, body: toJson(value) })).pipe(
+            from(lease.stop()).pipe(
+              concatMap((claim) => this.finish(claim, { status, body: toJson(value) })),
               mergeMap(() => of(value)),
             ),
           ),
           catchError((error: unknown) => {
             const problem = storedProblemOf(error);
-            return from(problem ? this.finish(claim, problem) : this.release(claim)).pipe(
+            return from(lease.stop()).pipe(
+              concatMap((claim) => (problem ? this.finish(claim, problem) : this.release(claim))),
               mergeMap(() => throwError(() => error)),
             );
+          }),
+          finalize(() => {
+            lease.halt();
           }),
         );
       }

@@ -3,9 +3,10 @@ import { withDbContext } from '@labconnect/database';
 import { describe, expect, it } from 'vitest';
 import {
   FixedClock,
-  hashRequestBody,
+  hashRequest,
   IDEMPOTENCY_LOCK_TIMEOUT_MS,
   IDEMPOTENCY_RETENTION_MS,
+  type IdempotencyClaim,
   type IdempotencyRequest,
   IdempotencyService,
   isValidIdempotencyKey,
@@ -22,7 +23,8 @@ describe('idempotency keys', () => {
   const service = () => new IdempotencyService(api(), clock);
 
   const newUser = async (): Promise<string> => (await createCustomer(owner())).admin;
-  const hash = (body: unknown) => hashRequestBody(body);
+  const hash = (body: unknown) =>
+    hashRequest({ body, organisationId: null, membershipId: null, query: '' });
   const request = (
     actorUserId: string,
     overrides: Partial<IdempotencyRequest> = {},
@@ -144,6 +146,56 @@ describe('idempotency keys', () => {
     expect((await service().begin(input)).kind).toBe('in_progress');
     expect(await service().complete(second.claim, { status: 200, body: { ok: true } })).toBe(true);
     expect((await service().begin(input)).kind).toBe('replay');
+  });
+
+  it('renew keeps a running holder: a repeat after the original timeout is still in progress, and the renewed claim completes', async () => {
+    const user = await newUser();
+    const input = request(user);
+    const first = started(await service().begin(input));
+    clock.advance(IDEMPOTENCY_LOCK_TIMEOUT_MS - 1);
+    const renewed = await service().renew(first.claim);
+    expect(renewed).not.toBeNull();
+    expect(renewed?.lockedAt.getTime()).toBeGreaterThan(first.claim.lockedAt.getTime());
+    // 60 s after creation, but only 1 ms after the last renewal.
+    clock.advance(IDEMPOTENCY_LOCK_TIMEOUT_MS - 1);
+    expect((await service().begin(input)).kind).toBe('in_progress');
+    expect(
+      await service().complete(renewed as IdempotencyClaim, { status: 200, body: { ok: 1 } }),
+    ).toBe(true);
+    expect((await service().begin(input)).kind).toBe('replay');
+  });
+
+  it('a claim that stops being renewed is taken over one timeout after its last renewal', async () => {
+    const user = await newUser();
+    const input = request(user);
+    const first = started(await service().begin(input));
+    clock.advance(40_000);
+    const renewed = await service().renew(first.claim);
+    expect(renewed).not.toBeNull();
+    clock.advance(IDEMPOTENCY_LOCK_TIMEOUT_MS - 1);
+    expect((await service().begin(input)).kind).toBe('in_progress');
+    clock.advance(1);
+    const second = started(await service().begin(input));
+    expect(second.takenOver).toBe(true);
+    // The old holder, even with its renewed claim, has lost the record and cannot renew again.
+    expect(await service().renew(renewed as IdempotencyClaim)).toBeNull();
+    expect(await service().complete(renewed as IdempotencyClaim, { status: 200, body: {} })).toBe(
+      false,
+    );
+  });
+
+  it('renew with a stale, abandoned or finished claim returns null', async () => {
+    const user = await newUser();
+    const input = request(user);
+    const first = started(await service().begin(input));
+    const renewed = (await service().renew(first.claim)) as IdempotencyClaim;
+    // The pre-renewal claim is void: only the latest claim holds the record.
+    expect(await service().renew(first.claim)).toBeNull();
+    expect(await service().complete(renewed, { status: 200, body: {} })).toBe(true);
+    expect(await service().renew(renewed)).toBeNull();
+    const other = started(await service().begin(request(user)));
+    expect(await service().abandon(other.claim)).toBe(true);
+    expect(await service().renew(other.claim)).toBeNull();
   });
 
   it('does not take over for a different body even after the timeout', async () => {

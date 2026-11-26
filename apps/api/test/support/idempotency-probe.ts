@@ -13,10 +13,13 @@ import { PlatformModule } from '../../src/modules/platform/platform.module.js';
 export const idempotencyProbe = {
   runs: 0,
   failNext: false,
+  /** `slow` throws a 409 after the gate opens instead of answering. */
+  failAfterHold: false,
   hold: undefined as Promise<void> | undefined,
   reset(): void {
     this.runs = 0;
     this.failNext = false;
+    this.failAfterHold = false;
     this.hold = undefined;
   },
 };
@@ -28,6 +31,16 @@ export class IdempotencyProbeController {
   @Authorised({ permission: 'lab.search' })
   @Idempotent()
   create(@Body() body: { name?: string }): { run: number; name?: string | undefined } {
+    idempotencyProbe.runs += 1;
+    return { run: idempotencyProbe.runs, name: body.name };
+  }
+
+  /** Open to a user with no membership: the actor has no organisation and no membership. */
+  @Post('open')
+  @HttpCode(200)
+  @Authorised({ noPermissionRequired: true })
+  @Idempotent()
+  open(@Body() body: { name?: string }): { run: number; name?: string | undefined } {
     idempotencyProbe.runs += 1;
     return { run: idempotencyProbe.runs, name: body.name };
   }
@@ -50,6 +63,9 @@ export class IdempotencyProbeController {
     idempotencyProbe.runs += 1;
     const run = idempotencyProbe.runs;
     await idempotencyProbe.hold;
+    if (idempotencyProbe.failAfterHold) {
+      throw new DomainError('INVALID_STATE_TRANSITION', { detail: 'Closed meanwhile.' });
+    }
     return { run };
   }
 
