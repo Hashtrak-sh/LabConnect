@@ -27,4 +27,14 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
     reason:
       "The payment gateway's server-to-server callback: no user. The adapter authenticates it by its signature, and the answer never says whether a reference exists.",
   },
+  {
+    route: 'GET /v1/public/search/labs',
+    reason:
+      'Anonymous discovery (FR-DIS-01, AC-DIS-01, contract security: []). Reads only public reference data in a read-only transaction with no tenant (SEARCH.md section 4).',
+  },
+  {
+    route: 'GET /v1/public/lab-sites/:siteId',
+    reason:
+      'Public lab site profile (FR-DIS-06, contract security: []). LabDirectoryService reads only public reference data as an anonymous visitor; hidden and missing sites give the same 404.',
+  },
 ];

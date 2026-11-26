@@ -1,9 +1,10 @@
 import type { components } from '@labconnect/api-contract';
-import type {
-  MatchedLine,
-  SearchResult,
-  SiteAccreditation,
-  SiteSearchResult,
+import {
+  accreditationVerificationUrl,
+  type MatchedLine,
+  type SearchResult,
+  type SiteAccreditation,
+  type SiteSearchResult,
 } from '@labconnect/core';
 
 type Schemas = components['schemas'];
@@ -22,21 +23,8 @@ export function paiseToMoney(paise: bigint): Money {
   return { amountPaise, currency: 'INR' };
 }
 
-/**
- * The accreditation body's own page for the certificate, from `verification_url_template`. The
- * template syntax is not documented (OQ-159): `{certificate_no}` or `{certificateNo}` is replaced
- * by the URL-encoded certificate number. A body without a template, or a template that is not
- * a URL once filled in, gives `null`.
- */
-export function verificationUrl(template: string | null, certificateNo: string): string | null {
-  if (template === null) return null;
-  const filled = template.replaceAll(/\{certificate_?[nN]o\}/g, encodeURIComponent(certificateNo));
-  try {
-    return new URL(filled).toString();
-  } catch {
-    return null;
-  }
-}
+/** The accreditation body's page for a certificate; the rule lives in `labs` (OQ-159). */
+export const verificationUrl = accreditationVerificationUrl;
 
 function accreditation(source: SiteAccreditation): PublicAccreditation {
   return {
