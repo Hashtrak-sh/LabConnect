@@ -1,6 +1,7 @@
 export * from './actor.js';
 export * from './cipher.js';
 export * from './email.js';
+export * from './demo-otp.js';
 export * from './errors.js';
 export * from './hasher.js';
 export * from './me.js';

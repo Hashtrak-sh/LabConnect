@@ -176,17 +176,26 @@ export function readStackOutputs(output, keys) {
   return result;
 }
 
-/** `<base>/v1/health` from the configured base URL, which must be a plain http(s) origin. */
-export function healthUrl(base) {
+/** The liveness path of each service: the API's is under /v1, the web app's is its own route. */
+const HEALTH_PATHS = { api: '/v1/health', web: '/health' };
+
+/**
+ * `<base>/v1/health` (service `api`, the default) or `<base>/health` (service `web`) from the
+ * configured base URL, which must be a plain http(s) origin.
+ */
+export function healthUrl(base, service = 'api') {
+  if (!Object.hasOwn(HEALTH_PATHS, service)) {
+    throw new DeployCheckError('The service must be api or web.');
+  }
   if (typeof base !== 'string' || !/^https?:\/\/[A-Za-z0-9.-]+(:\d{1,5})?\/?$/.test(base.trim())) {
     throw new DeployCheckError(
-      'UAT_API_BASE_URL must be an http or https origin such as https://api.uat.example (no path, query or credentials).',
+      'The base URL must be an http or https origin such as https://api.uat.example (no path, query or credentials).',
     );
   }
-  return `${base.trim().replace(/\/$/, '')}/v1/health`;
+  return `${base.trim().replace(/\/$/, '')}${HEALTH_PATHS[service]}`;
 }
 
-/** The liveness answer is `{"status":"ok"}` with status 200 (health.service.ts, contract HealthStatus). */
+/** The liveness answer of both services is `{"status":"ok"}` with status 200 (the API's health.service.ts and contract HealthStatus; the web app's /health route). */
 export function judgeHealth(status, body) {
   if (status !== 200)
     throw new DeployCheckError(`The health check answered ${String(status)}, not 200.`);

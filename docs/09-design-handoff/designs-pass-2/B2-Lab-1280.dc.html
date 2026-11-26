@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>B2 Lab site page, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 100%; min-height: 1760px; background: var(--color-surface); display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 32px; gap: 16px; flex-wrap: wrap">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span>
+    <nav class="nav row g4" aria-label="Main" style="margin-left: 24px"><a class="on" href="B1-Search-1280.dc.html">Find a lab</a><a href="B3-Verify-1280.dc.html">Verify a report</a><a href="#">For laboratories</a></nav>
+    <div class="row g8" style="margin-left: auto"><span class="prov">Provisional brand</span><a class="btn btn-secondary btn-sm" href="#">Sign in</a></div>
+  </header>
+
+  <div style="max-width: 1280px; width: 100%; margin: 0 auto; padding: 20px 32px 40px; display: flex; flex-direction: column; gap: 20px">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="B1-Search-1280.dc.html">Search results</a><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg><span>Vasundhara Testing Laboratories</span></nav>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <main style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+        <section class="card col g12" style="padding: 24px">
+          <div class="row between start wrap g12">
+            <div class="col g4"><h1 class="t-3xl w7">Vasundhara Testing Laboratories</h1><span class="t-sm muted">Plot 14, Sector 37, Gurugram, Haryana 122001 · Site code VTL-GGN-01</span></div>
+            <span class="badge b-ok" style="height: 28px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Bookable on LabConnect</span>
+          </div>
+          <div class="row g16 t-sm wrap"><span><span class="star">★</span> <b>4.6</b> <span class="muted">from 38 ratings</span></span><span class="muted">·</span><span>Receiving today until <b>5:00 PM IST</b> (cut-off 4:00 PM IST)</span><span class="muted">·</span><span>4.2 km from 122015</span></div>
+        </section>
+
+        <section class="card" style="padding: 20px 24px; display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start" aria-labelledby="acc">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 40px; height: 40px; color: var(--color-success)"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>
+          <div class="col g8 grow">
+            <h2 id="acc" class="t-lg w6">NABL accreditation</h2>
+            <div class="grid4 t-sm" style="gap: 12px 24px">
+              <div class="col"><span class="t-xs muted">Certificate no.</span><b class="mono">TC-10482</b></div>
+              <div class="col"><span class="t-xs muted">Standard</span><b>ISO/IEC 17025:2017</b></div>
+              <div class="col"><span class="t-xs muted">Valid until</span><b class="num">14 Aug 2028</b></div>
+              <div class="col"><span class="t-xs muted">Status</span><span class="badge b-ok" style="align-self: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Valid</span></div>
+            </div>
+            <span class="t-xs muted">Status checked 24 Nov 2026. <a href="#">Verify on the NABL website <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 12px; height: 12px"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg></a></span>
+          </div>
+        </section>
+
+        <section class="card" style="padding: 0; overflow: hidden">
+          <div class="tabs" role="tablist" aria-label="Lab details" style="padding: 0 16px"><button type="button" role="tab" id="B2-t1" aria-selected="true" aria-controls="B2-panel">Scope & prices</button><button type="button" role="tab" id="B2-t2" aria-selected="false" aria-controls="B2-panel" tabindex="-1">Sample requirements</button><button type="button" role="tab" id="B2-t3" aria-selected="false" aria-controls="B2-panel" tabindex="-1">Receiving hours</button><button type="button" role="tab" id="B2-t4" aria-selected="false" aria-controls="B2-panel" tabindex="-1">Location</button><button type="button" role="tab" id="B2-t5" aria-selected="false" aria-controls="B2-panel" tabindex="-1">Ratings</button></div>
+          <div role="tabpanel" id="B2-panel" aria-labelledby="B2-t1" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 14px">
+            <div class="row between wrap g12"><div class="input" style="max-width: 380px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg><input class="bare" id="f4" placeholder="Search 214 accredited tests at this site"></div><span class="t-sm muted">Prices from published list v3 · effective 1 Nov 2026</span></div>
+            <div class="row g8 t-sm w6" style="height: 32px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>Chemical › Polymers & plastics › HDPE pipes & fittings</div>
+            <table class="tbl"><caption class="sr-only">B2 Lab site page, desktop</caption>
+              <thead><tr><th scope="col" style="width: 44px"><span class="sr-only">Select</span></th><th scope="col">Parameter · method</th><th scope="col">Range</th><th scope="col">Sample needed</th><th scope="col" class="r">Price</th><th scope="col" class="r">TAT</th></tr></thead>
+              <tbody>
+                <tr style="background: var(--color-brand-tint)"><td><span class="box on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; stroke-width: 3"><path d="M20 6 9 17l-5-5"></path></svg></span></td><td><b>Melt flow rate</b><br><span class="t-xs muted">IS 2530 (Part 6) · 190 °C / 5 kg</span></td><td class="t-sm">0.1–50 g/10 min</td><td class="t-sm">50 g granules</td><td class="r num">₹1,200.00</td><td class="r">5 days</td></tr>
+                <tr style="background: var(--color-brand-tint)"><td><span class="box on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; stroke-width: 3"><path d="M20 6 9 17l-5-5"></path></svg></span></td><td><b>Density</b><br><span class="t-xs muted">IS 7328 · immersion</span></td><td class="t-sm">0.85–1.50 g/cm³</td><td class="t-sm">20 g</td><td class="r num">₹800.00</td><td class="r">3 days</td></tr>
+                <tr style="background: var(--color-brand-tint)"><td><span class="box on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; stroke-width: 3"><path d="M20 6 9 17l-5-5"></path></svg></span></td><td><b>Carbon black content</b><br><span class="t-xs muted">IS 2530 · pyrolysis</span></td><td class="t-sm">0.5–5 %</td><td class="t-sm">30 g</td><td class="r num">₹1,000.00</td><td class="r">5 days</td></tr>
+                <tr><td><span class="box"></span></td><td><b>Ash content</b><br><span class="t-xs muted">IS 2530</span></td><td class="t-sm">0–10 %</td><td class="t-sm">30 g</td><td class="r num">₹900.00</td><td class="r">4 days</td></tr>
+                <tr style="color: var(--color-border-strong)"><td><span class="box" style="background: var(--color-neutral-bg); border-color: var(--gray-300)"></span></td><td><b>Oxidation induction time</b><br><span class="t-xs">ISO 11357-6</span></td><td class="t-sm">—</td><td class="t-sm">—</td><td class="r" colspan="2"><span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Temporarily unavailable</span></td></tr>
+              </tbody>
+            </table>
+            <p class="t-xs muted">Prices exclude 18% GST. The lab confirms the final price when it accepts your request.</p>
+          </div>
+        </section>
+
+        <div class="grid2" style="gap: 20px">
+          <section class="card col g12" style="padding: 20px 24px">
+            <h2 class="t-lg w6">Sample requirements</h2>
+            <ul class="t-sm" style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px"><li>Granules or pipe offcuts in a sealed polythene bag.</li><li>Label every package with the LabConnect QR label.</li><li>Keep away from moisture. Drop within 7 days of sampling.</li></ul>
+            <h3 class="t-base w6" style="margin-top: 4px">Receiving hours (IST)</h3>
+            <table class="tbl compact t-sm"><caption class="sr-only">Receiving hours (IST)</caption><tbody><tr><td>Mon–Fri</td><td class="num">9:30 AM – 5:00 PM IST · cut-off 4:00 PM IST</td></tr><tr><td>Saturday</td><td class="num">9:30 AM – 1:00 PM IST · cut-off 12:30 PM IST</td></tr><tr><td>Sunday</td><td class="muted">Closed</td></tr></tbody></table>
+          </section>
+          <section class="card col g12" style="padding: 20px 24px">
+            <h2 class="t-lg w6">Location</h2>
+            <div class="map" style="height: 200px; border-radius: 8px"><span class="pin sel" style="left: 48%; top: 40%"><span>V</span></span><span class="osm">© OpenStreetMap contributors</span></div>
+            <a class="btn btn-secondary btn-sm" href="#" style="align-self: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>Open in maps</a>
+            <div class="row g16 t-base"><span><span class="star" aria-hidden="true">★</span> <b>4.6</b> average from 38 ratings</span></div>
+          </section>
+        </div>
+      </main>
+
+      <aside style="flex: 1 1 300px; position: sticky; top: 16px" aria-label="Your selection">
+        <div class="card col g12" style="padding: 20px">
+          <b class="t-lg">Your selection</b>
+          <div class="col g8 t-sm"><div class="row between"><span>Melt flow rate</span><span class="num">₹1,200.00</span></div><div class="row between"><span>Density</span><span class="num">₹800.00</span></div><div class="row between"><span>Carbon black content</span><span class="num">₹1,000.00</span></div></div>
+          <hr class="hr">
+          <div class="row between"><span class="t-sm">Estimate · 3 tests</span><b class="t-xl num">₹3,000.00</b></div>
+          <span class="t-xs muted">+ GST 18% (₹540.00). Estimate until the lab confirms.</span>
+          <div class="col g4 t-sm"><span>Next drop slot: <b>Thu 26 Nov, 10:00 AM IST</b></span><span>Report in up to <b>5 working days</b> after receipt</span></div>
+          <a class="btn btn-primary btn-lg btn-block" href="C3-Booking-1280.dc.html">Book these 3 tests</a>
+          <span class="t-xs muted" style="text-align: center">You'll sign in with an email code. No password.</span>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1760}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

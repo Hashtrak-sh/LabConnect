@@ -63,6 +63,11 @@ export const NOT_SET_IN_UAT: Record<string, string> = {
   SEARCH_POLL_BATCH_SIZE: 'application default; only read when OpenSearch is on',
   SEARCH_REINDEX_INTERVAL_MS: 'application default; only read when OpenSearch is on',
   SEARCH_REINDEX_BATCH_SIZE: 'application default; only read when OpenSearch is on',
+  // demo one-time codes: off by default, set on the API task only by the demoOtpCode context
+  DEMO_OTP_CODE:
+    'UAT demonstrations only: set on the API task only when the demoOtpCode context is given (README: Demo one-time codes)',
+  DEMO_OTP_EMAIL_DOMAIN:
+    'UAT demonstrations only: set on the API task only when the demoOtpCode context is given (README: Demo one-time codes)',
   // tests
   OPENSEARCH_TEST_URL: 'test suites only',
 };

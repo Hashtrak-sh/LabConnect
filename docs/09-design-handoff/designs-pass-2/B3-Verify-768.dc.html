@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>B3 Verify a report, tablet, superseded</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 768px; height: 1060px; background: var(--color-surface); display: flex; flex-direction: column; overflow: hidden; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 24px; gap: 12px">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India" style="height: 36px">
+    <span class="vr"></span><span class="prodname">LabConnect</span><span class="t-sm muted">Report verification</span>
+  </header>
+  <main style="padding: 32px 40px; display: flex; flex-direction: column; gap: 20px">
+    <section style="border-radius: 16px; padding: 24px; background: var(--color-warning-bg); border: 2px solid var(--color-warning); display: flex; gap: 20px; align-items: flex-start">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 56px; height: 56px; color: var(--color-warning); stroke-width: 1.6"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>
+      <div class="col g8">
+        <h1 class="t-2xl w7" style="color: #78350F">Genuine, but replaced by a newer version</h1>
+        <p class="t-base" style="color: #78350F">This copy (v1) was genuine when issued. The lab issued an amended version (v2) on 4 Dec 2026. Ask whoever gave you this report for the latest copy.</p>
+      </div>
+    </section>
+    <section class="card col g16" style="padding: 24px">
+      <h2 class="t-lg w6">This copy</h2>
+      <div class="grid2" style="gap: 14px 24px">
+        <div class="col"><span class="t-xs muted">Report no.</span><b class="mono">VTL/R/26/11/0932</b></div>
+        <div class="col"><span class="t-xs muted">ULR</span><b class="mono">TC104822600009321F</b></div>
+        <div class="col"><span class="t-xs muted">Version</span><span class="row g8"><b>v1</b><span class="badge b-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Superseded</span></span></div>
+        <div class="col"><span class="t-xs muted">Issue date</span><b>3 Dec 2026</b></div>
+        <div class="col"><span class="t-xs muted">Lab</span><b>Vasundhara Testing Laboratories</b></div>
+        <div class="col"><span class="t-xs muted">NABL certificate</span><b class="mono">TC-10482 · valid</b><span class="t-xs muted">Status as of the issue date</span></div>
+      </div>
+      <hr class="hr">
+      <div class="row between"><div class="col"><span class="t-xs muted">Replaced by</span><b>v2 · issued 4 Dec 2026</b></div><span class="t-sm muted">Reason shown only to the customer</span></div>
+    </section>
+    <section class="card col g12" style="padding: 24px">
+      <h2 class="t-lg w6">Compare a copy</h2>
+      <p class="t-base muted">Check a PDF against the issued file. The file never leaves your device.</p>
+      <div class="panel row g12" style="border: 2px dashed var(--color-border-strong); padding: 16px; justify-content: center"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg><span class="t-sm"><b>Choose a PDF</b> to compare</span></div>
+      <div class="alert a-danger"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg><span class="t-base"><b>Doesn't match.</b> scan-0932.pdf differs from the issued copy. It may have been edited or re-saved. Treat its contents as unverified.</span></div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":768,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

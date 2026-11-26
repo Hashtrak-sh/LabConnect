@@ -210,7 +210,7 @@ describe('execution roles (they inject secrets, so each lists exactly its own)',
     );
   });
 
-  it.each(['api', 'worker', 'migrate'])(
+  it.each(['api', 'worker', 'migrate', 'web'])(
     'gives the %s execution role no wildcard action',
     (service) => {
       const statements = statementsOfRole(templates.compute, `labconnect-uat-${service}-exec`);
@@ -221,6 +221,53 @@ describe('execution roles (they inject secrets, so each lists exactly its own)',
       }
     },
   );
+});
+
+describe('web roles (the web server holds no secret and has no AWS permission)', () => {
+  const roleResource = (name: string) =>
+    resourcesOfType(templates.compute, 'AWS::IAM::Role')
+      .map(([, r]) => r)
+      .find((r) => r.Properties.RoleName === name);
+
+  it('gives the web task role no permission at all: no policy, no managed policy', () => {
+    const role = roleResource('labconnect-uat-web-task');
+    expect(role, 'the web task role exists').toBeDefined();
+    expect(statementsOfRole(templates.compute, 'labconnect-uat-web-task')).toEqual([]);
+    expect(role?.Properties.Policies).toBeUndefined();
+    expect(role?.Properties.ManagedPolicyArns).toBeUndefined();
+  });
+
+  it('lets only ECS tasks of this account assume the web roles', () => {
+    for (const name of ['labconnect-uat-web-task', 'labconnect-uat-web-exec']) {
+      const trust = roleResource(name)?.Properties.AssumeRolePolicyDocument as {
+        Statement: { Principal: { Service: string }; Condition: unknown }[];
+      };
+      expect(trust.Statement, name).toHaveLength(1);
+      expect(trust.Statement[0]?.Principal.Service, name).toBe('ecs-tasks.amazonaws.com');
+      expect(text(trust.Statement[0]?.Condition), name).toContain('aws:SourceAccount');
+    }
+  });
+
+  it('gives the web execution role image pull and log writing only: no key, no secret', () => {
+    const statements = statementsOfRole(templates.compute, 'labconnect-uat-web-exec');
+    expect(statements.length).toBeGreaterThan(0);
+    const actions = statements.flatMap(actionsOf);
+    for (const action of actions) {
+      expect(action, action).toMatch(/^(ecr:|logs:)/);
+    }
+    expect(text(statements)).not.toMatch(/kms:|secretsmanager:|s3:|sqs:|ses:/);
+    // The pull is scoped to the web repository (the one wildcard is the login token).
+    const pull = statements.find((s) => actionsOf(s).includes('ecr:BatchGetImage'));
+    expect(text(pull?.Resource)).toContain('Repository');
+  });
+
+  it('keeps the web task definition free of secrets', () => {
+    const task = resourcesOfType(templates.compute, 'AWS::ECS::TaskDefinition').find(
+      ([, t]) => t.Properties.Family === 'labconnect-uat-web',
+    )?.[1];
+    const [container] = task?.Properties.ContainerDefinitions as { Secrets?: unknown }[];
+    expect(container?.Secrets).toBeUndefined();
+  });
 });
 
 describe('GitHub OIDC deploy role', () => {
@@ -347,19 +394,40 @@ describe('GitHub OIDC deploy role', () => {
     expect(actions.filter((action) => action.startsWith('logs:'))).toEqual([]);
   });
 
-  it('may pass only the six task and execution roles, and only to ECS tasks', () => {
+  it('may pass only the eight task and execution roles (api, worker, migrate, web), and only to ECS tasks', () => {
     const pass = deploy.find((s) => actionsOf(s).includes('iam:PassRole'));
-    expect(resourcesOf(pass as Statement)).toHaveLength(6);
-    expect(text(pass?.Resource)).toContain('role/labconnect-uat-api-task');
-    expect(text(pass?.Resource)).toContain('role/labconnect-uat-migrate-exec');
+    expect(resourcesOf(pass as Statement)).toHaveLength(8);
+    const arns = resourcesOf(pass as Statement).map((r) => text(r));
+    const roles = arns
+      .map((arn) => /role\/(labconnect-uat-[a-z]+-(?:task|exec))/.exec(arn)?.[1])
+      .sort();
+    expect(roles).toEqual(
+      ['api', 'migrate', 'web', 'worker']
+        .flatMap((service) => [`labconnect-uat-${service}-exec`, `labconnect-uat-${service}-task`])
+        .sort(),
+    );
+    // Nothing else: no wildcard in the names, nothing outside the labconnect-uat-<service> pattern.
+    for (const arn of arns) expect(arn).not.toContain('*');
     expect(pass?.Condition).toEqual({
       StringEquals: { 'iam:PassedToService': 'ecs-tasks.amazonaws.com' },
     });
   });
 
-  it('pushes only to the three image repositories and cannot run tasks of other definitions', () => {
+  it('updates exactly the api, worker and web services', () => {
+    const services = deploy.find((s) => actionsOf(s).includes('ecs:UpdateService'));
+    expect(actionsOf(services as Statement).sort()).toEqual([
+      'ecs:DescribeServices',
+      'ecs:UpdateService',
+    ]);
+    const names = resourcesOf(services as Statement)
+      .map((r) => /service\/labconnect-uat\/(labconnect-uat-[a-z]+)/.exec(text(r))?.[1])
+      .sort();
+    expect(names).toEqual(['labconnect-uat-api', 'labconnect-uat-web', 'labconnect-uat-worker']);
+  });
+
+  it('pushes only to the four image repositories and cannot run tasks of other definitions', () => {
     const push = deploy.find((s) => actionsOf(s).includes('ecr:PutImage'));
-    expect(resourcesOf(push as Statement)).toHaveLength(3);
+    expect(resourcesOf(push as Statement)).toHaveLength(4);
     const run = deploy.find((s) => actionsOf(s).includes('ecs:RunTask'));
     expect(text(run?.Resource)).toContain('task-definition/labconnect-uat-migrate:*');
     expect(run?.Condition).toBeDefined();
@@ -379,6 +447,7 @@ describe('image repositories', () => {
     expect(repositories.map(([, r]) => r.Properties.RepositoryName).sort()).toEqual([
       'labconnect/api',
       'labconnect/migrate',
+      'labconnect/web',
       'labconnect/worker',
     ]);
     for (const [, repository] of repositories) {

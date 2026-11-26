@@ -9,14 +9,14 @@ export interface DeliveryStackProps extends cdk.StackProps {
   config: InfraConfig;
 }
 
-/** Services whose images are built (the web app is still a skeleton: no image yet). */
-export const IMAGE_SERVICES = ['api', 'worker', 'migrate'] as const;
+/** Services whose images are built (Dockerfile targets of the same names). */
+export const IMAGE_SERVICES = ['api', 'worker', 'migrate', 'web'] as const;
 export type ImageService = (typeof IMAGE_SERVICES)[number];
 
 /** The container roles' physical names, so this stack can name them in `iam:PassRole` without depending on compute. */
 export function taskRoleNames(config: InfraConfig): string[] {
   const names = namesFor(config);
-  return ['api', 'worker', 'migrate'].flatMap((service) => [
+  return IMAGE_SERVICES.flatMap((service) => [
     names.roleName(`${service}-task`),
     names.roleName(`${service}-exec`),
   ]);
@@ -98,7 +98,7 @@ export class DeliveryStack extends cdk.Stack {
       }),
     );
 
-    // Images: push to the three repositories.
+    // Images: push to the four repositories.
     this.deployRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'EcrLogin',
@@ -142,7 +142,7 @@ export class DeliveryStack extends cdk.Stack {
       new iam.PolicyStatement({
         sid: 'EcsServices',
         actions: ['ecs:UpdateService', 'ecs:DescribeServices'],
-        resources: ['api', 'worker'].map((service) =>
+        resources: ['api', 'worker', 'web'].map((service) =>
           arn('ecs', 'service', `${cluster}/${names.serviceName(service)}`),
         ),
       }),

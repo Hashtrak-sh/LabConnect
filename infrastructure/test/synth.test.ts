@@ -22,14 +22,16 @@ describe('synthesis', () => {
 
   it('synthesises for uat with a domain', () => {
     const { templates } = synthesise(WITH_DOMAIN);
+    // One certificate for the web app (the base domain) and the API (api.<domain>).
+    templates.edge.resourceCountIs('AWS::CertificateManager::Certificate', 1);
     templates.edge.hasResourceProperties('AWS::CertificateManager::Certificate', {
-      DomainName: 'api.uat.labconnect.example',
+      DomainName: 'uat.labconnect.example',
+      SubjectAlternativeNames: ['api.uat.labconnect.example'],
       ValidationMethod: 'DNS',
     });
-    templates.compute.hasResourceProperties('AWS::Route53::RecordSet', {
-      Name: 'api.uat.labconnect.example.',
-      Type: 'A',
-    });
+    for (const name of ['uat.labconnect.example.', 'api.uat.labconnect.example.']) {
+      templates.compute.hasResourceProperties('AWS::Route53::RecordSet', { Name: name, Type: 'A' });
+    }
     templates.compute.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
       Port: 443,
       Protocol: 'HTTPS',

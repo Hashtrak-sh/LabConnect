@@ -2,6 +2,7 @@ import type { AuditChainVerification, RunDueResult } from '@labconnect/core';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AuditChainBrokenError,
+  createIdempotencyPurgeJob,
   createRelayJob,
   createSealJob,
   createTimerJob,
@@ -132,6 +133,8 @@ describe('readPlatformJobsConfig', () => {
       verifyIntervalMs: 86_400_000,
       timerIntervalMs: 15_000,
       timerBatchSize: 50,
+      purgeIntervalMs: 3_600_000,
+      purgeBatchSize: 500,
     });
     expect(readPlatformJobsConfig({ WORKER_DATABASE_URL: 'postgresql://x' }).enabled).toBe(true);
   });
@@ -224,5 +227,29 @@ describe('timer job', () => {
       ['timers: due but without a handler: NO_SHOW_DUE=2'],
       ['timers: due but without a handler: NO_SHOW_DUE=3, PAYMENT_DUE=1'],
     ]);
+  });
+});
+
+describe('idempotency purge job', () => {
+  it('is named for its work, purges until a short batch and logs a count only', async () => {
+    const batches = [{ deleted: 3 }, { deleted: 1 }];
+    const purge = vi.fn(() => Promise.resolve(batches.shift() ?? { deleted: 0 }));
+    const log = logger();
+    const job = createIdempotencyPurgeJob({ purge, batchSize: 3, intervalMs: 60_000, logger: log });
+    expect(job.name).toBe('idempotency-purge');
+    await job.run();
+    expect(purge).toHaveBeenCalledTimes(2);
+    expect(log.info).toHaveBeenCalledWith('idempotency purge: 4 expired records deleted');
+  });
+
+  it('stays quiet when nothing has expired', async () => {
+    const log = logger();
+    await createIdempotencyPurgeJob({
+      purge: () => Promise.resolve({ deleted: 0 }),
+      batchSize: 3,
+      intervalMs: 60_000,
+      logger: log,
+    }).run();
+    expect(log.info).not.toHaveBeenCalled();
   });
 });

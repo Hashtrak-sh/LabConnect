@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>J1 Sign-up as an individual, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1640px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+<div class="col g12"><span class="stripcap">J1.1 · Booking as an individual</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Step 3 of 5</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><fieldset class="col g8" style="border: 0; padding: 0; margin: 0"><legend class="t-xl w7">How are you booking?</legend><label class="rcard"><input type="radio" name="jk"><span class="col"><b class="t-base">An organisation</b><span class="t-sm muted">GSTIN on invoices</span></span></label><label class="rcard on"><input type="radio" name="jk" checked><span class="col"><b class="t-base">An individual</b><span class="t-sm muted">Just you; GSTIN optional</span></span></label></fieldset></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Continue</button></div></div></div>
+<div class="col g12"><span class="stripcap">J1.2 · Your details (segment INDIVIDUAL)</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-base">Step 4 of 5</b><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><h1 class="t-xl w7">Your details</h1><div class="field"><label class="label" for="ji1">Your full name <span class="req">*</span></label><input class="input" id="ji1" type="text" value="Priya Sharma" aria-describedby="ji1h" required><span id="ji1h" class="help">Used as the name on reports and invoices.</span></div><div class="field"><label class="label" for="ji2">GSTIN (optional)</label><input class="input mono" id="ji2" type="text" placeholder="Only if you have one"></div><div class="field"><label class="label" for="ji3">Address <span class="req">*</span></label><textarea class="input" id="ji3" required>House 114, Sector 15, Gurugram, Haryana 122001</textarea></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Continue</button></div></div></div>
+<div class="col g12"><span class="stripcap">J1.3 · Default site</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-base">Step 5 of 5</b><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><h1 class="t-xl w7">Your default site</h1><div class="field"><label class="label" for="ji4">Where will samples come from?</label><input class="input" id="ji4" type="text" value="Home" aria-describedby="ji4h"><span id="ji4h" class="help">A name for this address.</span></div><div class="map" style="height: 110px; border-radius: 8px" role="application" tabindex="0" aria-label="Site location. Tap to place the pin; arrow keys move it." aria-describedby="jipmh"><span class="pin sel" style="left: 46%; top: 34%"><span>✓</span></span><span class="osm">© OpenStreetMap</span></div><span id="jipmh" class="help">Not right? Tap the map, use the arrow keys, or type the coordinates.</span><div class="row g8"><div class="grow"><div class="field"><label class="label" for="jipma">Latitude</label><input class="input mono" id="jipma" type="text" value="28.3637" inputmode="decimal"></div></div><div class="grow"><div class="field"><label class="label" for="jipmo">Longitude</label><input class="input mono" id="jipmo" type="text" value="76.9349" inputmode="decimal"></div></div></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Finish</button></div></div></div>
+<div class="col g12"><span class="stripcap">J1.4 · Done</span><div class="phone"><div class="mhdr"><img src="../reference/Logos_QCI.png" alt="Quality Council of India" style="height: 28px; width: auto"><span class="prodname" style="font-size: 15px">LabConnect</span><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="col g12" style="align-items: center; text-align: center; padding-top: 32px"><svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--color-success)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><h1 class="t-2xl w7">You're all set</h1><p class="t-base">Find a lab and book a test. Nothing to pay until a lab accepts.</p></div></main><div class="mfoot" style="flex-direction: column"><a class="btn btn-primary btn-lg btn-block" href="H1-Search-Home-360.dc.html">Find a lab</a></div></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1640, "height": 900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

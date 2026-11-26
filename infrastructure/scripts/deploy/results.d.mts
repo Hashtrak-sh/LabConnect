@@ -7,5 +7,5 @@ export interface ExpectedRollout {
 export function judgeRollout(output: unknown, expected: ExpectedRollout): string;
 export function imageExists(output: unknown): boolean;
 export function readStackOutputs(output: unknown, keys: string[]): Record<string, string>;
-export function healthUrl(base: unknown): string;
+export function healthUrl(base: unknown, service?: string): string;
 export function judgeHealth(status: number, body: string): string;

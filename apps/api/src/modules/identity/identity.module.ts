@@ -45,6 +45,16 @@ import { PRISMA_CLIENT } from '../platform/platform.providers.js';
     PermissionGuard,
     MfaGuard,
   ],
-  exports: [AuthGuard, MembershipGuard, PermissionGuard, MfaGuard, IdentityService, TenantScope],
+  exports: [
+    AuthGuard,
+    MembershipGuard,
+    PermissionGuard,
+    MfaGuard,
+    IdentityService,
+    TenantScope,
+    // For the lab claim code (I1-LAB-01): the OTP hasher and the mail port.
+    IdentityRuntime,
+    OTP_MAILER,
+  ],
 })
 export class IdentityModule {}

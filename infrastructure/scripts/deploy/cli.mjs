@@ -11,7 +11,7 @@
 //   rollout-result --service <name> --task-definition <arn>                      < describe-services
 //   image-exists                                                                 < ecr batch-get-image
 //   stack-outputs                                                                < cloudformation describe-stacks
-//   health-url --base <url>
+//   health-url --base <url> [--service api|web]    (api, the default: /v1/health; web: /health)
 //   health-check --status <code>                                                 < response body
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
@@ -108,9 +108,9 @@ function run(command, args) {
         .join('\n');
     }
     case 'health-url': {
-      const v = options(args, { base: { type: 'string' } });
+      const v = options(args, { base: { type: 'string' }, service: { type: 'string' } });
       required(v, 'base');
-      return healthUrl(v.base);
+      return healthUrl(v.base, v.service);
     }
     case 'health-check': {
       const v = options(args, { status: { type: 'string' } });

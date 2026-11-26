@@ -6,16 +6,24 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as servicediscovery from 'aws-cdk-lib/aws-servicediscovery';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 import type { Construct } from 'constructs';
-import { type InfraConfig, apiHost, senderParts } from '../config.js';
+import {
+  DEMO_OTP_EMAIL_DOMAIN,
+  type InfraConfig,
+  apiHost,
+  senderParts,
+  webHost,
+} from '../config.js';
 import {
   API_PORT,
   FILES_CLEAN_PREFIX,
   FILES_QUARANTINE_PREFIX,
   QUEUE_NAMES,
   type QueueKey,
+  WEB_PORT,
   namesFor,
   queueUrlVariable,
 } from '../names.js';
@@ -38,24 +46,40 @@ export interface ComputeStackProps extends cdk.StackProps {
 /** Queues the worker takes messages from (it publishes to all five). */
 const WORKER_CONSUMES: readonly QueueKey[] = ['files', 'notifications', 'searchSync'];
 
+type ServiceName = 'api' | 'worker' | 'migrate' | 'web';
+
+/** The ALB listener rule that sends the API's traffic to the API. The default action is the web app. */
+const API_RULE_PRIORITY = 10;
+
 /**
- * Compute: the ECS cluster, the API behind the load balancer, the worker, and the one-off
- * migration task (`prisma migrate deploy`, the two login users, the reference seed) that CI
- * runs before it rolls the services (CI_CD.md, `deploy-uat.yml`).
+ * Compute: the ECS cluster, the web server and the API behind the load balancer, the worker,
+ * and the one-off migration task (`prisma migrate deploy`, the two login users, the reference
+ * seed) that CI runs before it rolls the services (CI_CD.md, `deploy-uat.yml`).
  *
- * The web application is not here: `apps/web` is a skeleton with no pages to serve yet.
+ * Two ways in, one load balancer:
+ * - with a domain: `https://<domainName>` is the web app (the listener's default), and a rule on
+ *   the host `api.<domainName>` sends that host to the API;
+ * - without one: one HTTP listener; `/v1/*` goes to the API, everything else to the web app.
+ *
+ * The web server reaches the API server-side and inside the VPC only, by the API's private DNS
+ * name (a Cloud Map private namespace), never through the load balancer.
  */
 export class ComputeStack extends cdk.Stack {
   readonly cluster: ecs.Cluster;
   readonly loadBalancer: elbv2.ApplicationLoadBalancer;
+  readonly apiTargetGroup: elbv2.ApplicationTargetGroup;
+  readonly webTargetGroup: elbv2.ApplicationTargetGroup;
   readonly apiService: ecs.FargateService;
+  readonly webService: ecs.FargateService;
   readonly workerService: ecs.FargateService;
   readonly apiTaskDefinition: ecs.FargateTaskDefinition;
   readonly workerTaskDefinition: ecs.FargateTaskDefinition;
+  readonly webTaskDefinition: ecs.FargateTaskDefinition;
   readonly migrateTaskDefinition: ecs.FargateTaskDefinition;
   readonly apiTaskRole: iam.Role;
   readonly workerTaskRole: iam.Role;
-  readonly logGroups: Record<'api' | 'worker' | 'migrate', logs.LogGroup>;
+  readonly webTaskRole: iam.Role;
+  readonly logGroups: Record<ServiceName, logs.LogGroup>;
 
   constructor(scope: Construct, id: string, props: ComputeStackProps) {
     super(scope, id, props);
@@ -95,9 +119,16 @@ export class ComputeStack extends cdk.Stack {
       clusterName: names.clusterName,
       vpc: network.vpc,
       containerInsightsV2: ecs.ContainerInsights.ENABLED,
+      // A private DNS zone inside the VPC (not resolvable from outside). The API registers in it as
+      // `api.<namespace>`; the web server calls that name (Cloud Map DNS, not Service Connect: README).
+      defaultCloudMapNamespace: {
+        name: names.privateNamespace,
+        type: servicediscovery.NamespaceType.DNS_PRIVATE,
+        vpc: network.vpc,
+      },
     });
 
-    const logGroup = (service: 'api' | 'worker' | 'migrate'): logs.LogGroup =>
+    const logGroup = (service: ServiceName): logs.LogGroup =>
       new logs.LogGroup(this, `${service}Logs`, {
         logGroupName: names.logGroup(service),
         retention: logRetention(config),
@@ -107,6 +138,7 @@ export class ComputeStack extends cdk.Stack {
       api: logGroup('api'),
       worker: logGroup('worker'),
       migrate: logGroup('migrate'),
+      web: logGroup('web'),
     };
 
     // ---- load balancer (created before the environment so that the web origin is known)
@@ -119,6 +151,7 @@ export class ComputeStack extends cdk.Stack {
       // No access logs: the request line would record query strings (device location, OQ-40).
     });
     const host = apiHost(config);
+    const web = webHost(config);
     const webOrigin =
       config.domainName === undefined
         ? `http://${this.loadBalancer.loadBalancerDnsName}`
@@ -178,6 +211,11 @@ export class ComputeStack extends cdk.Stack {
       AUTH_ALLOWED_ORIGINS: webOrigin,
       AUTH_JWT_KEY_ID: 'k1',
       ...searchEnvironment,
+      // Demo one-time codes: the API only, and only when the context parameter is given. Never
+      // on the worker or the migration task. The API refuses them in production.
+      ...(config.demoOtpCode === undefined
+        ? {}
+        : { DEMO_OTP_CODE: config.demoOtpCode, DEMO_OTP_EMAIL_DOMAIN: DEMO_OTP_EMAIL_DOMAIN }),
     };
     const apiSecrets: Record<string, ecs.Secret> = {
       ...sharedSecrets,
@@ -226,14 +264,19 @@ export class ComputeStack extends cdk.Stack {
           conditions: { StringEquals: { 'aws:SourceAccount': stack.account } },
         }),
       });
-    const executionRole = (service: string): iam.Role => {
+    const executionRole = (service: ServiceName): iam.Role => {
       const created = new iam.Role(this, `${service}ExecutionRole`, {
         roleName: names.roleName(`${service}-exec`),
-        description: `ECS agent of ${service}: pulls the image, writes logs, injects secrets`,
+        description:
+          service === 'web'
+            ? 'ECS agent of web: pulls the image and writes logs (the web task has no secrets)'
+            : `ECS agent of ${service}: pulls the image, writes logs, injects secrets`,
         assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com', {
           conditions: { StringEquals: { 'aws:SourceAccount': stack.account } },
         }),
       });
+      // The web task carries no secret, so its execution role gets no key access at all.
+      if (service === 'web') return created;
       // The secrets are encrypted with the data key. Which secrets each role may read is
       // decided by what its task definition lists (the grants are added with the secrets).
       created.addToPolicy(
@@ -358,12 +401,15 @@ export class ComputeStack extends cdk.Stack {
       'migrate',
       'One-off migration and seed task: no AWS access of its own',
     );
+    // Web: a Next.js server that only calls the API over the VPC's own network. It has no AWS
+    // permission at all (no policy is ever attached to this role), and the task holds no secret.
+    this.webTaskRole = role('web', 'LabConnect web container: no AWS access of its own');
 
     // ---- task definitions
-    const ecrImage = (service: 'api' | 'worker' | 'migrate', tag: string): ecs.ContainerImage =>
+    const ecrImage = (service: ServiceName, tag: string): ecs.ContainerImage =>
       ecs.ContainerImage.fromEcrRepository(delivery.repositories[service], tag);
     const taskDefinition = (
-      service: 'api' | 'worker' | 'migrate',
+      service: ServiceName,
       taskRole: iam.Role,
       cpu: number,
       memoryLimitMiB: number,
@@ -379,7 +425,7 @@ export class ComputeStack extends cdk.Stack {
           operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
         },
       });
-    const logging = (service: 'api' | 'worker' | 'migrate'): ecs.LogDriver =>
+    const logging = (service: ServiceName): ecs.LogDriver =>
       ecs.LogDriver.awsLogs({ logGroup: this.logGroups[service], streamPrefix: service });
 
     this.apiTaskDefinition = taskDefinition(
@@ -414,6 +460,38 @@ export class ComputeStack extends cdk.Stack {
       config.workerCpu,
       config.workerMemoryMiB,
     );
+    // The web server. `API_BASE_URL` is the API's private name with the /v1 prefix (the web app reads
+    // it per request, server side only). Nothing else is configured and nothing is secret.
+    const apiPrivateUrl = `http://api.${names.privateNamespace}:${String(API_PORT)}/v1`;
+    this.webTaskDefinition = taskDefinition(
+      'web',
+      this.webTaskRole,
+      config.webCpu,
+      config.webMemoryMiB,
+    );
+    this.webTaskDefinition.addContainer('web', {
+      image: ecrImage('web', config.webImageTag),
+      portMappings: [{ containerPort: WEB_PORT }],
+      environment: {
+        NODE_ENV: 'production',
+        PORT: String(WEB_PORT),
+        API_BASE_URL: apiPrivateUrl,
+      },
+      logging: logging('web'),
+      healthCheck: {
+        // The slim image has no curl; Node 24 has fetch. /health does not call the API.
+        command: [
+          'CMD-SHELL',
+          `node -e "fetch('http://127.0.0.1:${String(WEB_PORT)}/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"`,
+        ],
+        interval: cdk.Duration.seconds(30),
+        timeout: cdk.Duration.seconds(5),
+        retries: 3,
+        startPeriod: cdk.Duration.seconds(60),
+      },
+      stopTimeout: cdk.Duration.seconds(30),
+    });
+
     // The worker has no port to check. ECS restarts it when the process exits.
     this.workerTaskDefinition.addContainer('worker', {
       image: ecrImage('worker', config.workerImageTag),
@@ -468,6 +546,27 @@ export class ComputeStack extends cdk.Stack {
       maxHealthyPercent: 200,
       healthCheckGracePeriod: cdk.Duration.seconds(60),
       enableExecuteCommand: false,
+      // `api.<privateNamespace>`: an A record per running task, in the VPC's private DNS. A short
+      // TTL so that a replaced task's address leaves the web server's view quickly.
+      cloudMapOptions: {
+        name: 'api',
+        dnsRecordType: servicediscovery.DnsRecordType.A,
+        dnsTtl: cdk.Duration.seconds(10),
+      },
+    });
+    this.webService = new ecs.FargateService(this, 'WebService', {
+      serviceName: names.serviceName('web'),
+      cluster: this.cluster,
+      taskDefinition: this.webTaskDefinition,
+      desiredCount: config.webDesiredCount,
+      securityGroups: [network.webSecurityGroup],
+      vpcSubnets: subnets,
+      assignPublicIp: false,
+      circuitBreaker: { enable: true, rollback: true },
+      minHealthyPercent: 100,
+      maxHealthyPercent: 200,
+      healthCheckGracePeriod: cdk.Duration.seconds(60),
+      enableExecuteCommand: false,
     });
     this.workerService = new ecs.FargateService(this, 'WorkerService', {
       serviceName: names.serviceName('worker'),
@@ -483,7 +582,7 @@ export class ComputeStack extends cdk.Stack {
       enableExecuteCommand: false,
     });
 
-    const targetGroup = new elbv2.ApplicationTargetGroup(this, 'ApiTargets', {
+    const apiTargetGroup = new elbv2.ApplicationTargetGroup(this, 'ApiTargets', {
       vpc: network.vpc,
       port: API_PORT,
       protocol: elbv2.ApplicationProtocol.HTTP,
@@ -498,23 +597,53 @@ export class ComputeStack extends cdk.Stack {
         unhealthyThresholdCount: 3,
       },
     });
-    if (edge.certificate === undefined) {
-      // No domain, so no certificate: plain HTTP to the listed client ranges only.
-      this.loadBalancer.addListener('Http', {
+    // The web app is the default of every listener: anything not claimed by the API's rule is a page.
+    const webTargetGroup = new elbv2.ApplicationTargetGroup(this, 'WebTargets', {
+      vpc: network.vpc,
+      port: WEB_PORT,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      targetType: elbv2.TargetType.IP,
+      targets: [this.webService],
+      deregistrationDelay: cdk.Duration.seconds(30),
+      healthCheck: {
+        path: '/health',
+        healthyHttpCodes: '200',
+        interval: cdk.Duration.seconds(30),
+        healthyThresholdCount: 2,
+        unhealthyThresholdCount: 3,
+      },
+    });
+    this.apiTargetGroup = apiTargetGroup;
+    this.webTargetGroup = webTargetGroup;
+    if (edge.certificate === undefined || host === undefined) {
+      // No domain, so no certificate: plain HTTP to the listed client ranges only. One host, so the
+      // API is told apart by its path: everything under /v1/ is the API, the rest is the web app.
+      const http = this.loadBalancer.addListener('Http', {
         port: 80,
         protocol: elbv2.ApplicationProtocol.HTTP,
         open: false,
-        defaultTargetGroups: [targetGroup],
+        defaultTargetGroups: [webTargetGroup],
+      });
+      http.addTargetGroups('ApiByPath', {
+        priority: API_RULE_PRIORITY,
+        conditions: [elbv2.ListenerCondition.pathPatterns(['/v1/*'])],
+        targetGroups: [apiTargetGroup],
       });
     } else {
-      this.loadBalancer.addListener('Https', {
+      const https = this.loadBalancer.addListener('Https', {
         port: 443,
         protocol: elbv2.ApplicationProtocol.HTTPS,
         certificates: [edge.certificate],
         // TLS 1.3 with TLS 1.2 fallback only (AWS_ENVIRONMENTS_AND_DEPLOYMENT.md section 4).
         sslPolicy: elbv2.SslPolicy.RECOMMENDED_TLS,
         open: false,
-        defaultTargetGroups: [targetGroup],
+        defaultTargetGroups: [webTargetGroup],
+      });
+      // Two names, one certificate: `<domainName>` is the web app (the default), `api.<domainName>` the API.
+      https.addTargetGroups('ApiByHost', {
+        priority: API_RULE_PRIORITY,
+        conditions: [elbv2.ListenerCondition.hostHeaders([host])],
+        targetGroups: [apiTargetGroup],
       });
       this.loadBalancer.addListener('HttpRedirect', {
         port: 80,
@@ -533,12 +662,17 @@ export class ComputeStack extends cdk.Stack {
       webAclArn: edge.webAcl.attrArn,
     });
 
-    if (host !== undefined && edge.hostedZone !== undefined) {
-      new route53.ARecord(this, 'ApiAlias', {
-        zone: edge.hostedZone,
-        recordName: host,
-        target: route53.RecordTarget.fromAlias(new targets.LoadBalancerTarget(this.loadBalancer)),
-      });
+    if (host !== undefined && web !== undefined && edge.hostedZone !== undefined) {
+      for (const [id, recordName] of [
+        ['WebAlias', web],
+        ['ApiAlias', host],
+      ] as const) {
+        new route53.ARecord(this, id, {
+          zone: edge.hostedZone,
+          recordName,
+          target: route53.RecordTarget.fromAlias(new targets.LoadBalancerTarget(this.loadBalancer)),
+        });
+      }
     }
 
     // What CI needs to run the migration task by hand (README: "Deploying").
@@ -553,5 +687,7 @@ export class ComputeStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'LoadBalancerDnsName', {
       value: this.loadBalancer.loadBalancerDnsName,
     });
+    // The API's address inside the VPC, as the web task sees it.
+    new cdk.CfnOutput(this, 'ApiPrivateUrl', { value: apiPrivateUrl });
   }
 }

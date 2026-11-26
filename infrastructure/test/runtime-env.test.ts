@@ -54,8 +54,10 @@ const OPEN_SEARCH = { enableOpenSearch: 'true' };
 
 describe('.env.example is covered', () => {
   const keys = envExampleKeys();
-  const plain = ['api', 'worker', 'migrate'].map((s) => taskDefinition({}, `labconnect-uat-${s}`));
-  const withSearch = ['api', 'worker', 'migrate'].map((s) =>
+  const plain = ['api', 'worker', 'migrate', 'web'].map((s) =>
+    taskDefinition({}, `labconnect-uat-${s}`),
+  );
+  const withSearch = ['api', 'worker', 'migrate', 'web'].map((s) =>
     taskDefinition(OPEN_SEARCH, `labconnect-uat-${s}`),
   );
   const set = new Set([...plain, ...withSearch].flatMap((task) => [...task.names]));
@@ -182,6 +184,47 @@ describe('the API task definition', () => {
   });
 });
 
+describe('the web task definition', () => {
+  const web = taskDefinition({}, 'labconnect-uat-web');
+
+  it('reads exactly the variables the web app and its server read, all in .env.example', () => {
+    expect([...web.names].sort()).toEqual(['API_BASE_URL', 'NODE_ENV', 'PORT']);
+    for (const name of web.names) expect(envExampleKeys(), name).toContain(name);
+  });
+
+  it('points the web server at the API by its private name, with the /v1 prefix and the API port', () => {
+    expect(web.env.get('API_BASE_URL')).toBe('http://api.labconnect-uat.internal:3001/v1');
+    expect(web.env.get('PORT')).toBe('3000');
+  });
+
+  it('holds no secret, no database URL, no AWS setting, nothing of the API, worker or migration task', () => {
+    expect(web.secrets.size).toBe(0);
+    const other = new Set(
+      ['api', 'worker', 'migrate'].flatMap((s) => [
+        ...taskDefinition({}, `labconnect-uat-${s}`).names,
+      ]),
+    );
+    // NODE_ENV and PORT are shared names with different values; everything else is the web's own.
+    for (const name of web.names) {
+      if (name === 'NODE_ENV' || name === 'PORT') continue;
+      expect(other.has(name), name).toBe(false);
+    }
+    const secretNames = /SECRET|PASSWORD|PRIVATE_KEY|ENCRYPTION_KEY|DATABASE_URL|AWS_/;
+    for (const name of web.names) expect(secretNames.test(name), name).toBe(false);
+  });
+
+  it('is a deployed process but sets no APP_ENV: it has no use for the fake-gateway switch', () => {
+    expect(web.env.get('NODE_ENV')).toBe('production');
+    expect(web.env.has('APP_ENV')).toBe(false);
+  });
+
+  it('keeps every other task definition free of the web variable', () => {
+    for (const service of ['api', 'worker', 'migrate']) {
+      expect(taskDefinition({}, `labconnect-uat-${service}`).names.has('API_BASE_URL')).toBe(false);
+    }
+  });
+});
+
 describe('the worker task definition', () => {
   const worker = taskDefinition({}, 'labconnect-uat-worker');
 
@@ -271,5 +314,48 @@ describe('with OpenSearch', () => {
       const without = taskDefinition({}, `labconnect-uat-${service}`);
       expect(without.names.has('OPENSEARCH_URL')).toBe(false);
     }
+  });
+});
+
+describe('demo one-time codes (UAT demonstrations only)', () => {
+  const DEMO_VARIABLES = ['DEMO_OTP_CODE', 'DEMO_OTP_EMAIL_DOMAIN'];
+  const DEMO = { demoOtpCode: '444444' };
+
+  it('is off by default: no task definition and no synthesised template mentions the variables', () => {
+    for (const service of ['api', 'worker', 'migrate']) {
+      const task = taskDefinition({}, `labconnect-uat-${service}`);
+      for (const name of DEMO_VARIABLES) expect(task.names.has(name)).toBe(false);
+    }
+    const text = JSON.stringify(synthesise({}).all);
+    expect(text).not.toContain('DEMO_OTP');
+    expect(text).not.toContain('444444');
+  });
+
+  it('sets both variables on the API task definition when the context parameter is given', () => {
+    const api = taskDefinition(DEMO, 'labconnect-uat-api');
+    expect(api.env.get('DEMO_OTP_CODE')).toBe('444444');
+    expect(api.env.get('DEMO_OTP_EMAIL_DOMAIN')).toBe('demo.labconnect.test');
+    // The API is a UAT process, which is the only place the API accepts them.
+    expect(api.env.get('APP_ENV')).toBe('uat');
+    expect(api.env.get('NODE_ENV')).toBe('production');
+  });
+
+  it('never sets them on the worker, the migration task or anything else', () => {
+    for (const service of ['worker', 'migrate']) {
+      const task = taskDefinition(DEMO, `labconnect-uat-${service}`);
+      for (const name of DEMO_VARIABLES) expect(task.names.has(name)).toBe(false);
+    }
+    const { templates } = synthesise(DEMO);
+    for (const [name, template] of Object.entries(templates)) {
+      for (const [, task] of resourcesOfType(template, 'AWS::ECS::TaskDefinition')) {
+        const isApi = task.Properties.Family === 'labconnect-uat-api';
+        const label = `${name} ${String(task.Properties.Family)}`;
+        expect(JSON.stringify(task).includes('DEMO_OTP'), label).toBe(isApi);
+      }
+    }
+  });
+
+  it('is listed as not set by default, with a reason, in the allow-list', () => {
+    for (const name of DEMO_VARIABLES) expect(NOT_SET_IN_UAT[name]).toMatch(/demoOtpCode/);
   });
 });

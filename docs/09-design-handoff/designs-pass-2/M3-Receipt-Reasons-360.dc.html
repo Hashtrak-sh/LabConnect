@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>M3 Receipt approve, hold, reject, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1240px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+<div class="col g12"><span class="stripcap">M3.1 · Approvals queue</span><div class="phone"><div class="mhdr"><h1 class="t-base w6">Approvals</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="col g8"><a class="card col g4" href="#" style="padding: 12px; text-decoration: none; color: inherit"><div class="row between"><span class="mono t-base w6">…4801</span><span class="sla ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>18 min</span></div><span class="t-sm muted">Receipt · 2 packages · by Sanjay Kumar</span></a><a class="card col g4" href="#" style="padding: 12px; text-decoration: none; color: inherit"><div class="row between"><span class="mono t-base w6">…4790</span><span class="sla warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>2 h 10 min</span></div><span class="t-sm muted">Receipt · discrepancy flagged</span></a><a class="card col g4" href="#" style="padding: 12px; text-decoration: none; color: inherit"><div class="row between"><span class="mono t-base w6">…4766</span><span class="sla ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>10 min</span></div><span class="t-sm muted">Label reprint · by Meera Iyer</span></a></div></main></div></div>
+<div class="col g12"><span class="stripcap">M3.2 · Hold form</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Hold</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="field"><label class="label" for="m3mr">Reason <span class="req">*</span></label><select class="input" id="m3mr"><option selected>Quantity short</option></select></div><div class="field"><label class="label" for="m3md">Details for the customer <span class="req">*</span></label><textarea class="input" id="m3md" required>About 180 g; 300 g needed.</textarea></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Hold and ask the customer</button></div></div></div>
+<div class="col g12"><span class="stripcap">M3.3 · Reject as unfit</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Reject sample</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="field"><label class="label" for="m3mu">Reason <span class="req">*</span></label><select class="input" id="m3mu"><option selected>Degraded in transit</option></select></div><div class="alert a-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg><div class="col g4 t-base"><span>The booking is cancelled and refunded under the policy.</span></div></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-destructive btn-lg btn-block" type="button">Reject sample</button></div></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1240, "height": 900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

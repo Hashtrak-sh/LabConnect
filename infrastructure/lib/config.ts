@@ -23,7 +23,7 @@ export interface InfraConfig {
   /** Unset while the account is not known: the stacks are then environment-agnostic and still synthesise. */
   account: string | undefined;
   region: string;
-  /** Base domain of the web app, for example `uat.labconnect.example`. The API is `api.<domainName>`. */
+  /** Base domain, for example `uat.labconnect.example`: the web app is `<domainName>`, the API is `api.<domainName>`. */
   domainName: string | undefined;
   hostedZoneId: string | undefined;
   hostedZoneName: string | undefined;
@@ -35,6 +35,7 @@ export interface InfraConfig {
   apiImageTag: string;
   workerImageTag: string;
   migrateImageTag: string;
+  webImageTag: string;
   githubRepository: string;
   /** Reuse an OIDC provider that already exists in the account (one per URL is allowed). */
   githubOidcProviderArn: string | undefined;
@@ -44,15 +45,26 @@ export interface InfraConfig {
   dbAllocatedStorageGiB: number;
   apiDesiredCount: number;
   workerDesiredCount: number;
+  webDesiredCount: number;
   apiCpu: number;
   apiMemoryMiB: number;
   workerCpu: number;
   workerMemoryMiB: number;
+  webCpu: number;
+  webMemoryMiB: number;
   logRetentionDays: number;
   enableOpenSearch: boolean;
   /** Monthly budget in USD for the AWS Budgets alert; unset means no budget is created. */
   budgetMonthlyUsd: number | undefined;
+  /**
+   * Demo one-time code for the API (UAT demonstrations only), six digits. Unset (the default)
+   * sets nothing. See "Demo one-time codes" in infrastructure/README.md.
+   */
+  demoOtpCode: string | undefined;
 }
+
+/** The domain of the demo accounts: the demo seed's default, under a reserved top-level domain. */
+export const DEMO_OTP_EMAIL_DOMAIN = 'demo.labconnect.test';
 
 type Get = (key: string) => unknown;
 
@@ -164,6 +176,11 @@ export function loadConfig(get: Get): InfraConfig {
       ? 'LabConnect <no-reply@labconnect.invalid>'
       : `LabConnect <no-reply@${domainName}>`);
   senderParts(sesFromAddress);
+  const demoOtpCode = text(get, 'demoOtpCode');
+  if (demoOtpCode !== undefined && !/^\d{6}$/.test(demoOtpCode)) {
+    // Never repeats the value.
+    throw new RangeError('Context "demoOtpCode" must be exactly six digits.');
+  }
   const imageTag = text(get, 'imageTag') ?? 'bootstrap';
   const budget = text(get, 'budgetMonthlyUsd');
   return {
@@ -180,6 +197,7 @@ export function loadConfig(get: Get): InfraConfig {
     apiImageTag: text(get, 'apiImageTag') ?? imageTag,
     workerImageTag: text(get, 'workerImageTag') ?? imageTag,
     migrateImageTag: text(get, 'migrateImageTag') ?? imageTag,
+    webImageTag: text(get, 'webImageTag') ?? imageTag,
     githubRepository: text(get, 'githubRepository') ?? DEFAULT_GITHUB_REPOSITORY,
     githubOidcProviderArn: text(get, 'githubOidcProviderArn'),
     azCount: integer(get, 'azCount', 2, 2, 3),
@@ -188,18 +206,27 @@ export function loadConfig(get: Get): InfraConfig {
     dbAllocatedStorageGiB: integer(get, 'dbAllocatedStorageGiB', 50, 20, 65536),
     apiDesiredCount: integer(get, 'apiDesiredCount', 1, 0, 10),
     workerDesiredCount: integer(get, 'workerDesiredCount', 1, 0, 10),
+    webDesiredCount: integer(get, 'webDesiredCount', 1, 0, 10),
     apiCpu: integer(get, 'apiCpu', 512, 256, 4096),
     apiMemoryMiB: integer(get, 'apiMemoryMiB', 1024, 512, 30720),
     workerCpu: integer(get, 'workerCpu', 512, 256, 4096),
     workerMemoryMiB: integer(get, 'workerMemoryMiB', 1024, 512, 30720),
+    webCpu: integer(get, 'webCpu', 512, 256, 4096),
+    webMemoryMiB: integer(get, 'webMemoryMiB', 1024, 512, 30720),
     logRetentionDays: retentionDays(get),
     enableOpenSearch: flag(get, 'enableOpenSearch', false),
     budgetMonthlyUsd:
       budget === undefined ? undefined : integer(get, 'budgetMonthlyUsd', 0, 1, 1_000_000),
+    demoOtpCode,
   };
 }
 
-/** The public origin of the API. Without a domain the caller passes the load balancer's name. */
+/** The public host name of the API, with a domain. Without one the API shares the load balancer's own name (paths under `/v1/`). */
 export function apiHost(config: InfraConfig): string | undefined {
   return config.domainName === undefined ? undefined : `api.${config.domainName}`;
+}
+
+/** The public host name of the web app, with a domain: the base domain itself. */
+export function webHost(config: InfraConfig): string | undefined {
+  return config.domainName;
 }

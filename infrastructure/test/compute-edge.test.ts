@@ -6,9 +6,9 @@ import { resourcesOfType, single, synthesise } from './helpers.js';
 const { templates } = synthesise();
 
 describe('services', () => {
-  it('runs the API and the worker in private subnets without public addresses', () => {
+  it('runs the API, the web server and the worker in private subnets without public addresses', () => {
     const services = resourcesOfType(templates.compute, 'AWS::ECS::Service');
-    expect(services).toHaveLength(2);
+    expect(services).toHaveLength(3);
     for (const [, service] of services) {
       const awsvpc = service.Properties.NetworkConfiguration as {
         AwsvpcConfiguration: { AssignPublicIp: string };
@@ -25,15 +25,15 @@ describe('services', () => {
 
   it('gives each task a different task role and execution role, with fixed names', () => {
     const tasks = resourcesOfType(templates.compute, 'AWS::ECS::TaskDefinition');
-    expect(tasks).toHaveLength(3);
+    expect(tasks).toHaveLength(4);
     const roles = tasks.flatMap(([, t]) => [
       JSON.stringify(t.Properties.TaskRoleArn),
       JSON.stringify(t.Properties.ExecutionRoleArn),
     ]);
-    expect(new Set(roles).size).toBe(6);
+    expect(new Set(roles).size).toBe(8);
   });
 
-  it('puts the load balancer in the public subnets, drops invalid headers and checks /v1/health', () => {
+  it('puts the load balancer in the public subnets, drops invalid headers and checks /v1/health (API) and /health (web)', () => {
     templates.compute.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
       Scheme: 'internet-facing',
       LoadBalancerAttributes: Match.arrayWith([
@@ -45,6 +45,12 @@ describe('services', () => {
       Port: 3001,
       TargetType: 'ip',
     });
+    templates.compute.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+      HealthCheckPath: '/health',
+      Port: 3000,
+      TargetType: 'ip',
+    });
+    templates.compute.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
   });
 
   it('writes no access logs: the request line would record query strings (OQ-40)', () => {

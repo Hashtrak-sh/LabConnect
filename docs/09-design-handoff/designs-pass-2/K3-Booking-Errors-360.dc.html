@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>K3 Booking errors, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 2040px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+<div class="col g12"><span class="stripcap">K3.1 · SLOT_UNAVAILABLE</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Book tests</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="alert a-danger" role="alert"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg><div class="col g4 t-base"><b>That slot was just taken</b><span>Someone booked the last place in Thu 26 Nov, 10 AM–12 PM IST. Pick another slot; everything else you entered is kept.</span><span class="spec">SLOT_UNAVAILABLE</span></div></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-block" type="button">Pick another slot</button></div></div></div>
+<div class="col g12"><span class="stripcap">K3.2 · SITE_NOT_BOOKABLE</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Book tests</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="alert a-danger" role="alert"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg><div class="col g4 t-base"><b>This lab can't take bookings right now</b><span>Vasundhara Testing Laboratories paused new bookings at this site. Your answers are saved as a draft.</span><span class="spec">SITE_NOT_BOOKABLE</span></div></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-block" type="button">Find another lab</button></div></div></div>
+<div class="col g12"><span class="stripcap">K3.3 · SCOPE_LINE_NOT_BOOKABLE</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Book tests</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="alert a-danger" role="alert"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg><div class="col g4 t-base"><b>One test is not available</b><span>"Carbon black content" is temporarily unavailable at this lab. Remove it to continue, or book it elsewhere.</span><span class="spec">SCOPE_LINE_NOT_BOOKABLE</span></div></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-block" type="button">Remove the test and continue</button></div></div></div>
+<div class="col g12"><span class="stripcap">K3.4 · OPEN_BOOKING_LIMIT</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Book tests</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="alert a-warn" role="alert"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg><div class="col g4 t-base"><b>Too many open bookings</b><span>Your organisation has 20 bookings waiting for labs. Finish or withdraw one before sending a new request.</span><span class="spec">OPEN_BOOKING_LIMIT</span></div></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-secondary btn-block" type="button">See open bookings</button></div></div></div>
+<div class="col g12"><span class="stripcap">K3.5 · CONCURRENT_MODIFICATION</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Book tests</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="alert a-warn" role="alert"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg><div class="col g4 t-base"><b>This booking changed while you were editing</b><span>The lab or someone in your organisation updated it. Refresh to see the latest; your edits are shown so you can apply them again.</span><span class="spec">CONCURRENT_MODIFICATION</span></div></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-block" type="button">Refresh</button></div></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 2040, "height": 900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
