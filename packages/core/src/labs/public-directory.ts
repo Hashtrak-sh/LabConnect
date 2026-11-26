@@ -1,0 +1,195 @@
+import { Prisma, type PrismaClient } from '@labconnect/database';
+import { istDateKey } from '../platform/business-calendar.js';
+import type { Clock } from '../platform/clock.js';
+import { withPublicReadContext } from '../platform/public-context.js';
+import { accreditationVerificationUrl } from './accreditation-url.js';
+import type {
+  PublicSiteAccreditation,
+  PublicSiteAddress,
+  PublicSiteLabCategory,
+  PublicSiteListingStatus,
+  PublicSiteProfile,
+} from './model.js';
+
+/*
+ * The public read side of the lab directory (`LabDirectoryService`, MODULE_BOUNDARIES: the labs
+ * module owns `lab_site`, `accreditation`, `scope_line` and `receiving_hours`). Every read runs
+ * as an anonymous visitor (`withPublicReadContext`), so the database hands over public reference
+ * data only.
+ *
+ * Which sites are public is the same rule as search's `visibleLinesSql` (SEARCH.md section 4):
+ * a site is public when it is `LISTED` or `BOOKABLE` and `ACTIVE`, its organisation is an
+ * `ACTIVE` lab, and it has at least one public line, which means an `ACTIVE` scope line in its
+ * dates under an accreditation that is `VALID`, in date, and `TESTING` or `CALIBRATION` (BR-002,
+ * BR-005). A site search cannot find therefore has no profile either (404). The database test
+ * holds the two definitions to the same answer for every site of the search world; when search
+ * moves onto this service (OQ-152) the copy goes away.
+ */
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+interface SiteRow {
+  id: string;
+  site_code: string;
+  name: string;
+  address: unknown;
+  pincode: string;
+  state_code: string;
+  listing_status: string;
+  rating_avg: number | null;
+  rating_count: number;
+  lat: number | null;
+  lng: number | null;
+}
+
+interface AccreditationRow {
+  certificate_no: string;
+  body_code: string;
+  body_name: string;
+  verification_url_template: string | null;
+  standard_code: string;
+  standard_name: string;
+  lab_category: string;
+  valid_from: string;
+  valid_to: string;
+  status_as_of: string;
+}
+
+interface HoursRow {
+  weekday: number;
+  opens_at: string;
+  closes_at: string;
+  cutoff_at: string | null;
+}
+
+/** An accreditation in force today with at least one scope line in force today. */
+function publicAccreditationSql(today: string): Prisma.Sql {
+  return Prisma.sql`
+    a.status = 'VALID'
+    AND a.valid_from <= ${today}::date AND a.valid_to >= ${today}::date
+    AND a.lab_category IN ('TESTING', 'CALIBRATION')
+    AND EXISTS (
+      SELECT 1 FROM scope_line sl
+       WHERE sl.accreditation_id = a.id AND sl.lab_site_id = a.lab_site_id
+         AND sl.status = 'ACTIVE'
+         AND (sl.effective_from IS NULL OR sl.effective_from <= ${today}::date)
+         AND (sl.effective_to IS NULL OR sl.effective_to >= ${today}::date))`;
+}
+
+function text(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value : null;
+}
+
+/** `lab_site.address` is `{line1, line2, city, district, state_code, pincode}` (SCHEMA_SPECIFICATION §5.1). */
+function address(row: SiteRow): PublicSiteAddress {
+  const raw =
+    typeof row.address === 'object' && row.address !== null
+      ? (row.address as Record<string, unknown>)
+      : {};
+  return {
+    line1: text(raw.line1) ?? row.name,
+    line2: text(raw.line2),
+    city: text(raw.city) ?? '',
+    district: text(raw.district),
+    // The columns are authoritative for state and pincode (they carry the constraints).
+    stateCode: row.state_code,
+    pincode: row.pincode,
+  };
+}
+
+function accreditation(row: AccreditationRow): PublicSiteAccreditation {
+  return {
+    certificateNo: row.certificate_no,
+    bodyCode: row.body_code,
+    bodyName: row.body_name,
+    standardCode: row.standard_code,
+    standardName: row.standard_name,
+    labCategory: row.lab_category as PublicSiteLabCategory,
+    validFrom: row.valid_from,
+    validTo: row.valid_to,
+    status: 'VALID',
+    statusAsOf: row.status_as_of,
+    verificationUrl: accreditationVerificationUrl(
+      row.verification_url_template,
+      row.certificate_no,
+    ),
+  };
+}
+
+export interface LabDirectoryDeps {
+  prisma: Pick<PrismaClient, '$transaction'>;
+  clock: Clock;
+}
+
+export class LabDirectoryService {
+  constructor(private readonly deps: LabDirectoryDeps) {}
+
+  /**
+   * The public profile of a site (FR-DIS-06), or `null` when the site does not exist or is not
+   * public (`HIDDEN`, inactive, organisation not active, or no accreditation in force). The
+   * caller answers `null` with 404, so a hidden site and a missing one look the same.
+   */
+  async getPublicSite(siteId: string): Promise<PublicSiteProfile | null> {
+    if (!UUID.test(siteId)) return null;
+    const today = istDateKey(this.deps.clock.now());
+
+    return withPublicReadContext(this.deps.prisma, async (tx) => {
+      const sites = await tx.$queryRaw<SiteRow[]>(Prisma.sql`
+        SELECT s.id, s.site_code, s.name, s.address, s.pincode::text AS pincode, s.state_code,
+               s.listing_status::text AS listing_status,
+               s.rating_avg::float8 AS rating_avg, s.rating_count,
+               CASE WHEN s.geo_point IS NOT NULL AND s.geocode_status IN ('AUTO_OK', 'MANUAL_APPROVED')
+                    THEN ST_Y(s.geo_point::geometry) END AS lat,
+               CASE WHEN s.geo_point IS NOT NULL AND s.geocode_status IN ('AUTO_OK', 'MANUAL_APPROVED')
+                    THEN ST_X(s.geo_point::geometry) END AS lng
+          FROM lab_site s
+          JOIN organisation o ON o.id = s.organisation_id
+         WHERE s.id = ${siteId}::uuid
+           AND s.listing_status IN ('LISTED', 'BOOKABLE')
+           AND s.status = 'ACTIVE'
+           AND o.org_type = 'LAB' AND o.status = 'ACTIVE'`);
+      const site = sites[0];
+      if (!site) return null;
+
+      const accreditations = await tx.$queryRaw<AccreditationRow[]>(Prisma.sql`
+        SELECT a.certificate_no, b.code AS body_code, b.name AS body_name,
+               b.verification_url_template, st.code AS standard_code, st.name AS standard_name,
+               a.lab_category::text AS lab_category,
+               a.valid_from::text AS valid_from, a.valid_to::text AS valid_to,
+               a.status_as_of::text AS status_as_of
+          FROM accreditation a
+          JOIN accreditation_body b ON b.id = a.accreditation_body_id
+          JOIN accreditation_standard st ON st.id = a.standard_id
+         WHERE a.lab_site_id = ${siteId}::uuid AND ${publicAccreditationSql(today)}
+         ORDER BY a.lab_category, a.certificate_no`);
+      if (accreditations.length === 0) return null;
+
+      const hours = await tx.$queryRaw<HoursRow[]>(Prisma.sql`
+        SELECT weekday::int AS weekday,
+               to_char(opens_at, 'HH24:MI') AS opens_at,
+               to_char(closes_at, 'HH24:MI') AS closes_at,
+               to_char(cutoff_at, 'HH24:MI') AS cutoff_at
+          FROM receiving_hours
+         WHERE lab_site_id = ${siteId}::uuid
+         ORDER BY weekday, opens_at`);
+
+      return {
+        labSiteId: site.id,
+        siteCode: site.site_code,
+        name: site.name,
+        address: address(site),
+        location: site.lat === null || site.lng === null ? null : { lat: site.lat, lng: site.lng },
+        listingStatus: site.listing_status as PublicSiteListingStatus,
+        ratingAverage: site.rating_avg,
+        ratingCount: site.rating_count,
+        accreditations: accreditations.map(accreditation),
+        receivingHours: hours.map((row) => ({
+          weekday: row.weekday,
+          opensAt: row.opens_at,
+          closesAt: row.closes_at,
+          cutoffAt: row.cutoff_at,
+        })),
+      };
+    });
+  }
+}

@@ -1,5 +1,5 @@
 import { isIP } from 'node:net';
-import { type Prisma, uuidv7 } from '@labconnect/database';
+import { type OtpPurpose, type Prisma, uuidv7 } from '@labconnect/database';
 import { normaliseEmail } from './email.js';
 import { constantTimeEqual, generateDigits } from './hasher.js';
 import { IDENTITY_POLICY } from './policy.js';
@@ -25,11 +25,38 @@ export type OtpRequestOutcome =
  * The code must be sent after the caller's transaction commits, and must never be logged,
  * audited or written to the outbox (OQ-65).
  */
-export async function requestLoginOtp(
+export function requestLoginOtp(
   tx: Prisma.TransactionClient,
   deps: IdentityDeps,
   input: { email: string; ipAddress?: string },
 ): Promise<OtpRequestOutcome> {
+  return requestOtp(tx, deps, { ...input, purpose: 'LOGIN' });
+}
+
+export interface OtpRequestInput {
+  purpose: OtpPurpose;
+  email: string;
+  ipAddress?: string;
+  /**
+   * What the code is for (`otp_challenge.context_id`), for example the id of a lab claim. A new
+   * code closes only the open codes of the same purpose, destination and context, so one
+   * request cannot cancel another's code for a shared address.
+   */
+  contextId?: string;
+  /** The signed-in user who asked, when there is one. */
+  createdByUserId?: string;
+}
+
+/**
+ * `requestLoginOtp` for any purpose: the same hashing, limits and storage. The per-destination
+ * limit counts the codes of the same purpose; the per-IP limit counts every purpose.
+ */
+export async function requestOtp(
+  tx: Prisma.TransactionClient,
+  deps: IdentityDeps,
+  input: OtpRequestInput,
+): Promise<OtpRequestOutcome> {
+  const { purpose, contextId } = input;
   const now = deps.clock.now();
   const destinationHash = deps.hasher.destination(normaliseEmail(input.email));
   const ipAddress =
@@ -38,7 +65,7 @@ export async function requestLoginOtp(
   const perDestination = IDENTITY_POLICY.otpRequestsPerDestination;
   const destinationSince = new Date(now.getTime() - perDestination.windowSeconds * 1000);
   const recent = await tx.otpChallenge.findMany({
-    where: { destinationHash, purpose: 'LOGIN', createdAt: { gt: destinationSince } },
+    where: { destinationHash, purpose, createdAt: { gt: destinationSince } },
     orderBy: { createdAt: 'desc' },
     take: perDestination.max,
     select: { createdAt: true },
@@ -78,7 +105,12 @@ export async function requestLoginOtp(
   // A new code replaces the old one: open challenges of this destination are closed, so
   // exactly one can be checked and a tie in `created_at` cannot pick the wrong one.
   await tx.otpChallenge.updateMany({
-    where: { destinationHash, purpose: 'LOGIN', consumedAt: null },
+    where: {
+      destinationHash,
+      purpose,
+      consumedAt: null,
+      ...(contextId !== undefined && { contextId }),
+    },
     data: { consumedAt: now },
   });
   const id = uuidv7(now.getTime());
@@ -89,7 +121,9 @@ export async function requestLoginOtp(
       id,
       channel: 'EMAIL',
       destinationHash,
-      purpose: 'LOGIN',
+      purpose,
+      contextId: contextId ?? null,
+      createdByUserId: input.createdByUserId ?? null,
       codeHash: deps.hasher.otpCode(id, code),
       expiresAt,
       ipAddress: ipAddress ?? null,
@@ -115,15 +149,50 @@ export type OtpConsumeOutcome =
  * challenge is one conditional UPDATE (`consumed_at IS NULL AND attempts < 5 AND not
  * expired`), so of two simultaneous correct submissions exactly one succeeds.
  */
-export async function consumeLoginOtp(
+export function consumeLoginOtp(
   tx: Prisma.TransactionClient,
   deps: IdentityDeps,
   input: { email: string; code: string },
 ): Promise<OtpConsumeOutcome> {
+  return consumeOtp(tx, deps, {
+    purpose: 'LOGIN',
+    code: input.code,
+    destinationHash: deps.hasher.destination(normaliseEmail(input.email)),
+  });
+}
+
+/** Which open challenge a code is checked against. */
+export interface OtpConsumeInput {
+  purpose: OtpPurpose;
+  code: string;
+  /** The HMAC of the normalised address (`IdentityHasher.destination`), to find the newest open code of an address. */
+  destinationHash?: Uint8Array<ArrayBuffer>;
+  /** The context the code was issued for (`otp_challenge.context_id`), for example a lab claim id. */
+  contextId?: string;
+}
+
+/**
+ * `consumeLoginOtp` for any purpose, with the same attempt count, lockout, expiry and single
+ * use. The challenge is found by `destinationHash`, by `contextId`, or both; one of them is
+ * required, so a call can never match every open code of a purpose.
+ */
+export async function consumeOtp(
+  tx: Prisma.TransactionClient,
+  deps: IdentityDeps,
+  input: OtpConsumeInput,
+): Promise<OtpConsumeOutcome> {
+  if (input.destinationHash === undefined && input.contextId === undefined) {
+    throw new TypeError('An OTP is checked against a destination or a context.');
+  }
   const now = deps.clock.now();
-  const destinationHash = deps.hasher.destination(normaliseEmail(input.email));
   const challenge = await tx.otpChallenge.findFirst({
-    where: { destinationHash, purpose: 'LOGIN', channel: 'EMAIL', consumedAt: null },
+    where: {
+      purpose: input.purpose,
+      channel: 'EMAIL',
+      consumedAt: null,
+      ...(input.destinationHash !== undefined && { destinationHash: input.destinationHash }),
+      ...(input.contextId !== undefined && { contextId: input.contextId }),
+    },
     orderBy: { createdAt: 'desc' },
   });
   if (!challenge) {

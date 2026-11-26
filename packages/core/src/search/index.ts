@@ -10,7 +10,6 @@ export * from './opensearch-index.js';
 export * from './opensearch-mapping.js';
 export * from './postgres-index.js';
 export * from './projector.js';
-export * from './public-context.js';
 export * from './query.js';
 export * from './result-mapping.js';
 export * from './runtime.js';

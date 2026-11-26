@@ -3,10 +3,11 @@ import { FixedClock, LazySearchService, SearchQueryError } from '@labconnect/cor
 import { Test } from '@nestjs/testing';
 import { describe, expect, it } from 'vitest';
 import { CLOCK } from '../platform/platform.providers.js';
+import { SearchController } from './search.controller.js';
 import { SearchModule } from './search.module.js';
 
 describe('SearchModule', () => {
-  it('boots with no database and no OpenSearch, and has no controller', async () => {
+  it('boots with no database and no OpenSearch, and serves only the public search', async () => {
     const previous = { ...process.env };
     delete process.env.OPENSEARCH_URL;
     delete process.env.API_DATABASE_URL;
@@ -15,7 +16,9 @@ describe('SearchModule', () => {
       const service = moduleRef.get(LazySearchService);
       expect(service).toBeInstanceOf(LazySearchService);
       expect(service.circuit()).toBe('closed');
-      expect(Reflect.getMetadata('controllers', SearchModule) as unknown).toBeUndefined();
+      expect(Reflect.getMetadata('controllers', SearchModule) as unknown).toEqual([
+        SearchController,
+      ]);
       await moduleRef.close();
     } finally {
       process.env = previous;
