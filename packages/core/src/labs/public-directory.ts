@@ -3,7 +3,16 @@ import { istDateKey } from '../platform/business-calendar.js';
 import type { Clock } from '../platform/clock.js';
 import { withPublicReadContext } from '../platform/public-context.js';
 import { accreditationVerificationUrl } from './accreditation-url.js';
+import { LabDirectoryQueryError } from './errors.js';
 import type {
+  PublicCodeName,
+  PublicPageQuery,
+  PublicPricePage,
+  PublicScopeLineItem,
+  PublicScopePage,
+  PublicScopeQuery,
+  PublicSlotPage,
+  PublicSlotQuery,
   PublicSiteAccreditation,
   PublicSiteAddress,
   PublicSiteLabCategory,
@@ -192,4 +201,420 @@ export class LabDirectoryService {
       };
     });
   }
+
+  /**
+   * A page of the site's public scope lines (FR-DIS-06, `listPublicScopeLines`), ordered along the
+   * scope tree by name (discipline, group, product, parameter, method), then by line id, or `null`
+   * when the site is not public (404, as for the profile).
+   *
+   * `text` keeps the lines whose text matches it with the lab search's rule (SEARCH.md section 3):
+   * a substring, or for four characters or more a `word_similarity` of at least 0.6, against the
+   * same fields (parameter, product, group, discipline, method and standard, and their aliases).
+   * Admin synonyms are not applied here yet: they live in `search`, which `labs` may not import
+   * (OQ-224). The order stays the tree order; matches are not ranked.
+   */
+  async listPublicScope(siteId: string, query: PublicScopeQuery): Promise<PublicScopePage | null> {
+    if (!UUID.test(siteId)) return null;
+    const today = istDateKey(this.deps.clock.now());
+    const after = query.cursor === null ? null : decodeScopeCursor(query.cursor);
+    const term = query.text === null ? null : query.text.toLowerCase();
+
+    return withPublicReadContext(this.deps.prisma, async (tx) => {
+      const visible = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+        SELECT s.id
+          FROM lab_site s
+          JOIN organisation o ON o.id = s.organisation_id
+         WHERE s.id = ${siteId}::uuid
+           AND s.listing_status IN ('LISTED', 'BOOKABLE')
+           AND s.status = 'ACTIVE'
+           AND o.org_type = 'LAB' AND o.status = 'ACTIVE'
+           AND EXISTS (SELECT 1 FROM accreditation a
+                        WHERE a.lab_site_id = s.id AND ${publicAccreditationSql(today)})`);
+      if (visible.length === 0) return null;
+
+      const textFilter =
+        term === null
+          ? Prisma.sql`TRUE`
+          : Prisma.sql`(position(${term} IN x.blob) > 0
+                        OR (length(${term}) >= ${MIN_FUZZY_LENGTH}
+                            AND word_similarity(${term}, x.blob) >= ${TEXT_MATCH_THRESHOLD}))`;
+      const afterFilter =
+        after === null
+          ? Prisma.sql`TRUE`
+          : Prisma.sql`(x.k1, x.k2, x.k3, x.k4, x.k5, x.id::text)
+                        > (${after[0]}, ${after[1]}, ${after[2]}, ${after[3]}, ${after[4]}, ${after[5]})`;
+
+      const rows = await tx.$queryRaw<ScopeRow[]>(Prisma.sql`
+        SELECT x.* FROM (
+          SELECT sl.id, a.certificate_no,
+                 d.code AS d_code, d.name AS d_name, g.code AS g_code, g.name AS g_name,
+                 p.code AS p_code, p.name AS p_name, pa.code AS pa_code, pa.name AS pa_name,
+                 m.code AS m_code, m.name AS m_name,
+                 sl.method_text, sl.range_text, sl.site_type::text AS site_type,
+                 sl.temporarily_unavailable,
+                 left(d.name, 200) AS k1, left(COALESCE(g.name, ''), 200) AS k2,
+                 left(COALESCE(p.name, ''), 200) AS k3,
+                 left(pa.name, 200) AS k4, left(COALESCE(m.name, sl.method_text, ''), 200) AS k5,
+                 lower(concat_ws(' | ', pa.name, array_to_string(pa.aliases, ' '), p.name,
+                                 array_to_string(p.aliases, ' '), g.name, d.name, m.name,
+                                 m.attributes->>'standard_code', sl.method_text)) AS blob
+            FROM scope_line sl
+            JOIN accreditation a ON a.id = sl.accreditation_id
+            JOIN md_node d ON d.id = sl.discipline_node_id
+            JOIN md_node pa ON pa.id = sl.parameter_node_id
+            LEFT JOIN md_node g ON g.id = sl.group_node_id
+            LEFT JOIN md_node p ON p.id = sl.product_node_id
+            LEFT JOIN md_node m ON m.id = sl.method_node_id
+           WHERE sl.lab_site_id = ${siteId}::uuid
+             AND sl.status = 'ACTIVE'
+             AND (sl.effective_from IS NULL OR sl.effective_from <= ${today}::date)
+             AND (sl.effective_to IS NULL OR sl.effective_to >= ${today}::date)
+             AND a.status = 'VALID'
+             AND a.valid_from <= ${today}::date AND a.valid_to >= ${today}::date
+             AND a.lab_category IN ('TESTING', 'CALIBRATION')
+        ) x
+         WHERE ${textFilter} AND ${afterFilter}
+         ORDER BY x.k1, x.k2, x.k3, x.k4, x.k5, x.id::text
+         LIMIT ${query.limit + 1}`);
+
+      const page = rows.slice(0, query.limit);
+      const last = page.at(-1);
+      return {
+        lines: page.map(scopeLine),
+        nextCursor:
+          rows.length > query.limit && last !== undefined
+            ? encodeScopeCursor([last.k1, last.k2, last.k3, last.k4, last.k5, last.id])
+            : null,
+      };
+    });
+  }
+
+  /**
+   * A page of a bookable site's effective published price list with sample requirements
+   * (FR-DIS-06, CD-06, `getPublicPriceList`), in the scope's tree order, or `null` when the site
+   * is not public or not bookable (404, API_CONTRACTS section 2). Drafts are never read.
+   *
+   * Bookable is the rule search uses for prices (SEARCH.md section 4, `visibleLinesSql`): the
+   * site's flag and `BOOKABLE` listing, organisation claimed with KYC verified, a `TESTING`
+   * accreditation in date and a `PUBLISHED` price list in effect now. Only items of public
+   * `TESTING` lines are listed (BR-003); an item the lab marked unavailable is listed with
+   * `isAvailable: false`.
+   */
+  async listPublicPrices(siteId: string, query: PublicPageQuery): Promise<PublicPricePage | null> {
+    if (!UUID.test(siteId)) return null;
+    const now = this.deps.clock.now();
+    const today = istDateKey(now);
+    const after =
+      query.cursor === null ? null : decodeScopeCursor(query.cursor, PRICE_CURSOR_PREFIX);
+
+    return withPublicReadContext(this.deps.prisma, async (tx) => {
+      const list = await bookablePriceList(tx, siteId, now, today);
+      if (!list) return null;
+
+      const afterFilter =
+        after === null
+          ? Prisma.sql`TRUE`
+          : Prisma.sql`(x.k1, x.k2, x.k3, x.k4, x.k5, x.id::text)
+                        > (${after[0]}, ${after[1]}, ${after[2]}, ${after[3]}, ${after[4]}, ${after[5]})`;
+
+      const rows = await tx.$queryRaw<PriceRow[]>(Prisma.sql`
+        SELECT x.* FROM (
+          SELECT sl.id, a.certificate_no,
+                 d.code AS d_code, d.name AS d_name, g.code AS g_code, g.name AS g_name,
+                 p.code AS p_code, p.name AS p_name, pa.code AS pa_code, pa.name AS pa_name,
+                 m.code AS m_code, m.name AS m_name,
+                 sl.method_text, sl.range_text, sl.site_type::text AS site_type,
+                 sl.temporarily_unavailable,
+                 pi.price_paise, pi.sample_prep_paise, pi.gst_rate_bp,
+                 pi.sample_qty::float8 AS sample_qty, u.code AS u_code, u.name AS u_name,
+                 pi.packaging_instructions, pi.tat_days, pi.is_available,
+                 left(d.name, 200) AS k1, left(COALESCE(g.name, ''), 200) AS k2,
+                 left(COALESCE(p.name, ''), 200) AS k3,
+                 left(pa.name, 200) AS k4, left(COALESCE(m.name, sl.method_text, ''), 200) AS k5
+            FROM price_item pi
+            JOIN scope_line sl ON sl.id = pi.scope_line_id AND sl.lab_site_id = ${siteId}::uuid
+            JOIN accreditation a ON a.id = sl.accreditation_id
+            JOIN md_node u ON u.id = pi.sample_unit_node_id
+            JOIN md_node d ON d.id = sl.discipline_node_id
+            JOIN md_node pa ON pa.id = sl.parameter_node_id
+            LEFT JOIN md_node g ON g.id = sl.group_node_id
+            LEFT JOIN md_node p ON p.id = sl.product_node_id
+            LEFT JOIN md_node m ON m.id = sl.method_node_id
+           WHERE pi.price_list_id = ${list.id}::uuid
+             AND sl.status = 'ACTIVE'
+             AND (sl.effective_from IS NULL OR sl.effective_from <= ${today}::date)
+             AND (sl.effective_to IS NULL OR sl.effective_to >= ${today}::date)
+             AND a.status = 'VALID' AND a.lab_category = 'TESTING'
+             AND a.valid_from <= ${today}::date AND a.valid_to >= ${today}::date
+        ) x
+         WHERE ${afterFilter}
+         ORDER BY x.k1, x.k2, x.k3, x.k4, x.k5, x.id::text
+         LIMIT ${query.limit + 1}`);
+
+      const page = rows.slice(0, query.limit);
+      const last = page.at(-1);
+      return {
+        priceList: { versionNo: list.version_no, effectiveFrom: list.effective_from },
+        items: page.map((row) => ({
+          scopeLine: scopeLine(row),
+          pricePaise: row.price_paise,
+          samplePrepPaise: row.sample_prep_paise,
+          gstRateBp: row.gst_rate_bp,
+          sampleQty: row.sample_qty,
+          sampleUnit: { code: row.u_code, name: row.u_name },
+          packagingInstructions: row.packaging_instructions,
+          tatDays: row.tat_days,
+          isAvailable: row.is_available,
+        })),
+        nextCursor:
+          rows.length > query.limit && last !== undefined
+            ? encodeScopeCursor(
+                [last.k1, last.k2, last.k3, last.k4, last.k5, last.id],
+                PRICE_CURSOR_PREFIX,
+              )
+            : null,
+      };
+    });
+  }
+
+  /**
+   * A page of a bookable site's open slots with capacity left, between `from` and `to` (slot date
+   * in IST, inclusive), ordered by start (FR-BKG-04, `listPublicSlots`), or `null` when the site
+   * is not public or not bookable (404). Only slots that start in the future. With `discipline`,
+   * that discipline's slots and the slots open to every discipline; an unknown discipline is 422.
+   * Capacity figures are never returned (the public deny-list).
+   */
+  async listPublicSlots(siteId: string, query: PublicSlotQuery): Promise<PublicSlotPage | null> {
+    if (!UUID.test(siteId)) return null;
+    const now = this.deps.clock.now();
+    const today = istDateKey(now);
+    const after = query.cursor === null ? null : decodeSlotCursor(query.cursor);
+
+    return withPublicReadContext(this.deps.prisma, async (tx) => {
+      if (!(await bookablePriceList(tx, siteId, now, today))) return null;
+
+      if (query.discipline !== null) {
+        const known = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+          SELECT n.id FROM md_node n JOIN md_node_type t ON t.id = n.node_type_id
+           WHERE n.code = ${query.discipline} AND t.code = 'DISCIPLINE' AND n.status = 'ACTIVE'
+           LIMIT 1`);
+        if (known.length === 0) throw new LabDirectoryQueryError('The discipline is not known.');
+      }
+      const disciplineFilter =
+        query.discipline === null
+          ? Prisma.sql`TRUE`
+          : Prisma.sql`(sx.discipline_node_id IS NULL OR dn.code = ${query.discipline})`;
+      const afterFilter =
+        after === null
+          ? Prisma.sql`TRUE`
+          : Prisma.sql`(sx.starts_at, sx.id::text) > (${after[0]}::timestamptz, ${after[1]})`;
+
+      const rows = await tx.$queryRaw<SlotRow[]>(Prisma.sql`
+        SELECT sx.id, sx.slot_date::text AS slot_date, sx.starts_at, sx.ends_at,
+               to_char(sx.starts_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS starts_key,
+               dn.code AS d_code, dn.name AS d_name
+          FROM slot sx
+          LEFT JOIN md_node dn ON dn.id = sx.discipline_node_id
+         WHERE sx.lab_site_id = ${siteId}::uuid
+           AND sx.status = 'OPEN'
+           AND sx.capacity > sx.held_count + sx.booked_count
+           AND sx.starts_at > ${now}::timestamptz
+           AND sx.slot_date >= ${query.from}::date AND sx.slot_date <= ${query.to}::date
+           AND ${disciplineFilter} AND ${afterFilter}
+         ORDER BY sx.starts_at, sx.id::text
+         LIMIT ${query.limit + 1}`);
+
+      const page = rows.slice(0, query.limit);
+      const last = page.at(-1);
+      return {
+        slots: page.map((row) => ({
+          slotId: row.id,
+          date: row.slot_date,
+          startsAt: row.starts_at,
+          endsAt: row.ends_at,
+          discipline: pair(row.d_code, row.d_name),
+        })),
+        nextCursor:
+          rows.length > query.limit && last !== undefined
+            ? encodeSlotCursor([last.starts_key, last.id])
+            : null,
+      };
+    });
+  }
+}
+
+/**
+ * The effective published price list of a site that is bookable now, or `null` (SEARCH.md
+ * section 4, the rule `visibleLinesSql` uses for prices): the flag and `BOOKABLE` listing, the
+ * organisation claimed with KYC verified, a `TESTING` accreditation in force, and a `PUBLISHED`
+ * list in effect.
+ */
+async function bookablePriceList(
+  tx: Prisma.TransactionClient,
+  siteId: string,
+  now: Date,
+  today: string,
+): Promise<{ id: string; version_no: number; effective_from: Date } | null> {
+  const lists = await tx.$queryRaw<{ id: string; version_no: number; effective_from: Date }[]>(
+    Prisma.sql`
+    SELECT pl.id, pl.version_no, pl.effective_from
+      FROM lab_site s
+      JOIN organisation o ON o.id = s.organisation_id
+      JOIN price_list pl
+        ON pl.lab_site_id = s.id AND pl.status = 'PUBLISHED' AND pl.effective_from IS NOT NULL
+       AND pl.effective_from <= ${now}::timestamptz
+       AND (pl.effective_to IS NULL OR pl.effective_to > ${now}::timestamptz)
+     WHERE s.id = ${siteId}::uuid
+       AND s.status = 'ACTIVE' AND s.is_bookable AND s.listing_status = 'BOOKABLE'
+       AND o.org_type = 'LAB' AND o.status = 'ACTIVE'
+       AND o.claim_status = 'CLAIMED' AND o.kyc_status = 'VERIFIED'
+       AND EXISTS (SELECT 1 FROM accreditation a
+                    WHERE a.lab_site_id = s.id AND a.lab_category = 'TESTING'
+                      AND ${publicAccreditationSql(today)})`,
+  );
+  return lists[0] ?? null;
+}
+
+interface SlotRow {
+  id: string;
+  slot_date: string;
+  starts_at: Date;
+  /** `starts_at` at full (microsecond) precision; a JS Date keeps milliseconds only. */
+  starts_key: string;
+  ends_at: Date;
+  d_code: string | null;
+  d_name: string | null;
+}
+
+const SLOT_CURSOR_PREFIX = 'sl1.';
+
+function encodeSlotCursor(position: [string, string]): string {
+  return SLOT_CURSOR_PREFIX + Buffer.from(JSON.stringify(position), 'utf8').toString('base64url');
+}
+
+function decodeSlotCursor(cursor: string): [string, string] {
+  const invalid = new LabDirectoryQueryError(
+    'The cursor is not valid. Start again from the first page.',
+  );
+  if (!cursor.startsWith(SLOT_CURSOR_PREFIX)) throw invalid;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(
+      Buffer.from(cursor.slice(SLOT_CURSOR_PREFIX.length), 'base64url').toString('utf8'),
+    );
+  } catch {
+    throw invalid;
+  }
+  if (
+    !Array.isArray(parsed) ||
+    parsed.length !== 2 ||
+    typeof parsed[0] !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(parsed[0]) ||
+    typeof parsed[1] !== 'string' ||
+    !UUID.test(parsed[1])
+  ) {
+    throw invalid;
+  }
+  return [parsed[0], parsed[1]];
+}
+
+const PRICE_CURSOR_PREFIX = 'pr1.';
+
+interface PriceRow extends ScopeRow {
+  price_paise: bigint;
+  sample_prep_paise: bigint;
+  gst_rate_bp: number;
+  sample_qty: number;
+  u_code: string;
+  u_name: string;
+  packaging_instructions: string | null;
+  tat_days: number;
+  is_available: boolean;
+}
+
+/** The lab search's text rule (SEARCH.md section 3), kept equal to search's `TEXT_MATCH_THRESHOLD`. */
+const TEXT_MATCH_THRESHOLD = 0.6;
+const MIN_FUZZY_LENGTH = 4;
+
+interface ScopeRow {
+  id: string;
+  certificate_no: string;
+  d_code: string;
+  d_name: string;
+  g_code: string | null;
+  g_name: string | null;
+  p_code: string | null;
+  p_name: string | null;
+  pa_code: string;
+  pa_name: string;
+  m_code: string | null;
+  m_name: string | null;
+  method_text: string | null;
+  range_text: string | null;
+  site_type: string;
+  temporarily_unavailable: boolean;
+  k1: string;
+  k2: string;
+  k3: string;
+  k4: string;
+  k5: string;
+}
+
+const pair = (code: string | null, name: string | null): PublicCodeName | null =>
+  code === null || name === null ? null : { code, name };
+
+function scopeLine(row: ScopeRow): PublicScopeLineItem {
+  return {
+    scopeLineId: row.id,
+    certificateNo: row.certificate_no,
+    discipline: { code: row.d_code, name: row.d_name },
+    group: pair(row.g_code, row.g_name),
+    product: pair(row.p_code, row.p_name),
+    parameter: { code: row.pa_code, name: row.pa_name },
+    method: pair(row.m_code, row.m_name),
+    methodText: row.method_text,
+    rangeText: row.range_text,
+    siteType: row.site_type,
+    temporarilyUnavailable: row.temporarily_unavailable,
+  };
+}
+
+/**
+ * Cursors are opaque to the client (API_CONVENTIONS §3): base64url JSON of the last line's tree
+ * position (public taxonomy names) and its id, behind a version prefix. No search text.
+ */
+type ScopePosition = [string, string, string, string, string, string];
+const SCOPE_CURSOR_PREFIX = 'sc1.';
+/**
+ * Sort keys are cut to this many characters in SQL (`left(..., 200)`), so a cursor never carries
+ * an unbounded free-text method and the decoder can refuse anything longer.
+ */
+const SORT_KEY_LENGTH = 200;
+
+function encodeScopeCursor(position: ScopePosition, prefix = SCOPE_CURSOR_PREFIX): string {
+  return prefix + Buffer.from(JSON.stringify(position), 'utf8').toString('base64url');
+}
+
+function decodeScopeCursor(cursor: string, prefix = SCOPE_CURSOR_PREFIX): ScopePosition {
+  const invalid = new LabDirectoryQueryError(
+    'The cursor is not valid. Start again from the first page.',
+  );
+  if (!cursor.startsWith(prefix)) throw invalid;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(cursor.slice(prefix.length), 'base64url').toString('utf8'));
+  } catch {
+    throw invalid;
+  }
+  if (
+    !Array.isArray(parsed) ||
+    parsed.length !== 6 ||
+    !parsed.every(
+      (value) => typeof value === 'string' && Array.from(value).length <= SORT_KEY_LENGTH,
+    ) ||
+    !UUID.test(parsed[5] as string)
+  ) {
+    throw invalid;
+  }
+  return parsed as ScopePosition;
 }

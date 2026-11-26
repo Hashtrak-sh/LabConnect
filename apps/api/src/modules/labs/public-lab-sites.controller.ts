@@ -1,7 +1,17 @@
-import { Controller, Get, Inject, Param } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
 import { LabDirectoryService } from '@labconnect/core';
 import { DomainError } from '../../common/domain-error.js';
-import { type PublicLabSite, toPublicLabSite } from './public-lab-site-response.js';
+import { parsePageQuery, parseScopeQuery, parseSlotQuery } from './public-lab-sites.dto.js';
+import {
+  type PublicLabSite,
+  type PublicPriceList,
+  type PublicScopeLineList,
+  type PublicSlotList,
+  toPublicLabSite,
+  toPublicPriceList,
+  toPublicScopeLineList,
+  toPublicSlotList,
+} from './public-lab-site-response.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -32,5 +42,59 @@ export class PublicLabSitesController {
       throw new DomainError('NOT_FOUND', { detail: 'No listed lab site has this id.' });
     }
     return toPublicLabSite(profile);
+  }
+
+  /**
+   * `listPublicScopeLines` (FR-DIS-06, I1-CUS-03): the site's public scope lines in tree order,
+   * optionally narrowed by `q` with the lab search's text rule (no synonyms yet, OQ-224).
+   */
+  @Get(':siteId/scope')
+  async listPublicScopeLines(
+    @Param('siteId') siteId: string,
+    @Query() query: Record<string, unknown>,
+  ): Promise<PublicScopeLineList> {
+    const id = requireSiteId(siteId);
+    const scopeQuery = parseScopeQuery(query);
+    const page = await this.directory.listPublicScope(id, scopeQuery);
+    if (page === null) {
+      throw new DomainError('NOT_FOUND', { detail: 'No listed lab site has this id.' });
+    }
+    return toPublicScopeLineList(page, scopeQuery.limit);
+  }
+
+  /**
+   * `getPublicPriceList` (FR-DIS-06, CD-06, I1-CUS-04): the effective published price list with
+   * sample requirements, for bookable sites only; any other site is 404.
+   */
+  @Get(':siteId/prices')
+  async getPublicPriceList(
+    @Param('siteId') siteId: string,
+    @Query() query: Record<string, unknown>,
+  ): Promise<PublicPriceList> {
+    const id = requireSiteId(siteId);
+    const pageQuery = parsePageQuery(query);
+    const page = await this.directory.listPublicPrices(id, pageQuery);
+    if (page === null) {
+      throw new DomainError('NOT_FOUND', { detail: 'No bookable lab site has this id.' });
+    }
+    return toPublicPriceList(page, pageQuery.limit);
+  }
+
+  /**
+   * `listPublicSlots` (FR-BKG-04, EC-13, I1-CUS-05): open slots with capacity left, never their
+   * capacity; bookable sites only.
+   */
+  @Get(':siteId/slots')
+  async listPublicSlots(
+    @Param('siteId') siteId: string,
+    @Query() query: Record<string, unknown>,
+  ): Promise<PublicSlotList> {
+    const id = requireSiteId(siteId);
+    const slotQuery = parseSlotQuery(query);
+    const page = await this.directory.listPublicSlots(id, slotQuery);
+    if (page === null) {
+      throw new DomainError('NOT_FOUND', { detail: 'No bookable lab site has this id.' });
+    }
+    return toPublicSlotList(page, slotQuery.limit);
   }
 }

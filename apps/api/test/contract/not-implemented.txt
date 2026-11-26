@@ -48,7 +48,6 @@ createLabPriceListImport
 createLabPriceListImportUploadUrl
 createLabProposal
 createLabSiteClosure
-createLead
 createPaymentOrder
 createReceiptPhotoUploadUrl
 createReportDownloadUrl
@@ -94,7 +93,6 @@ getLabRetentionRules
 getLabSite
 getLabSlotTemplates
 getPaymentReturnStatus
-getPublicPriceList
 importAdminSettlementReport
 listAdminAttributeDefinitions
 listAdminBookings
@@ -129,9 +127,6 @@ listLabSiteClosures
 listLabSlots
 listLabUsers
 listPaymentOrders
-listPublicScopeLines
-listPublicSlots
-listTaxonomyNodes
 placeAdminPayoutHold
 publishAdminChangeSet
 publishLabPriceList
@@ -166,7 +161,6 @@ startBookingTesting
 submitAdminChangeSet
 submitReceipt
 submitReportVersion
-suggestSearch
 syncCustodyScanBatch
 updateAdminLead
 updateAdminMappingTemplate
