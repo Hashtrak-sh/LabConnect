@@ -677,7 +677,7 @@ describe('lab claim: abuse limits (I1-LAB-06)', () => {
       const results = await Promise.allSettled(labs.map((lab) => start(who, lab.siteId)));
       expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(MAX_OPEN);
       for (const lost of results.filter((r) => r.status === 'rejected')) {
-        expect((lost).reason).toMatchObject({ code: 'RATE_LIMITED' });
+        expect(lost.reason).toMatchObject({ code: 'RATE_LIMITED' });
       }
     });
   });

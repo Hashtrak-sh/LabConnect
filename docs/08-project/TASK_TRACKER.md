@@ -128,7 +128,7 @@ Kicked off 2026-11-26 by H. Backend first: the claim screens wait for the second
 | I1-LAB-03 | `POST /lab/claims/{id}/manual/upload-url` (`createLabClaimLetterheadUploadUrl`): first HTTP use of the file service | FR-DAT-07, FILES_AND_REPORTS §1 | I1-LAB-01 | In review |
 | I1-LAB-04 | `POST /lab/claims/{id}/manual` (`submitLabClaimLetterhead`) | FR-DAT-07 | I1-LAB-03 | In review |
 | I1-LAB-05 | Put `@Idempotent()` on the claim operations; decide how a replay and "send a new code" fit together (OQ-200) | API_CONVENTIONS §5 | I1-SHR-01, I1-LAB-01 | ☐ |
-| I1-LAB-06 | Decide and build what stops a claim from blocking a lab for ever (expiry of an unverified claim, a cap per user) | OQ-206 | product owner | ☐ |
+| I1-LAB-06 | Decide and build what stops a claim from blocking a lab for ever (expiry of an unverified claim, a cap per user) | OQ-206 | product owner | In review |
 | I1-LAB-07 | Claim screens | L1 | second design pass, D-04 | ☐ |
 
 ## Phase 6–7
