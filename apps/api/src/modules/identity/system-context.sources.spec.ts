@@ -49,6 +49,17 @@ describe('who may open the system database context', () => {
       // Before a user is known: OTP request, OTP verification and sign-in, refresh by token, and
       // the session lookup of AuthGuard. Each call states its reason.
       'apps/api/src/modules/identity/identity.service.ts': 4,
+      // Lab claim start and verify (I1-LAB-01, I1-LAB-02): the claimant is a signed-in user who
+      // belongs to no organisation, so the policies of lab_claim_request and lab_site_private
+      // (app_is_org) hide those rows from them, and otp_challenge is platform/system only. A tenant
+      // context carrying the claimed organisation would open every table of that organisation and
+      // take its id from a lookup, not a membership; so the core functions run as `system` in one
+      // transaction and scope each query by hand (requested_by_user_id = the caller). One call each.
+      // Lab claim letterhead upload URL and submit (I1-LAB-03, I1-LAB-04), same reason, and also:
+      // the letterhead `file_object` has no owning organisation (owner_org_id NULL), so its row
+      // policy lets only the platform or the system insert and read it, and no tenant can reach it.
+      // Every query is by claim + caller (+ uploader, purpose and file_link for the file). Two more.
+      'apps/api/src/modules/labs/lab-claims.service.ts': 4,
       // The gateway's server-to-server callback: no user, and no tenant until it is matched.
       'apps/api/src/modules/payments/payment-webhook.controller.ts': 1,
     });
@@ -60,10 +71,13 @@ describe('who may open the system database context', () => {
       'packages/database/src/db-context.ts': 1,
       // The scope: tenant, platform (also on behalf), user-only and the named system method.
       'packages/core/src/identity/tenant-scope.ts': 4,
-      // Anonymous public reads (search): the `public` kind, read-only. Never the system context.
-      'packages/core/src/search/public-context.ts': 1,
+      // Anonymous public reads (search, lab directory): the `public` kind, read-only. Never the system context.
+      'packages/core/src/platform/public-context.ts': 1,
       // Worker and job services that run as SYSTEM with an explicit scope (TENANT_ISOLATION rule 7).
       'packages/core/src/platform/audit-chain.ts': 3,
+      // Idempotency keys (I1-SHR-01): one user-only context (the request's own user, no system) and
+      // the worker's purge of expired records, the only system use.
+      'packages/core/src/platform/idempotency.ts': 2,
       'packages/core/src/platform/relay.ts': 1,
       'packages/core/src/platform/timers.ts': 2,
       // The worker's scan processor: decides a file from its scan result (P3-06). The dev-only
@@ -92,6 +106,8 @@ describe('who may open the system database context', () => {
       'packages/database/src/db-context.ts': 1,
       'packages/core/src/identity/tenant-scope.ts': 1,
       'packages/core/src/platform/audit-chain.ts': 3,
+      // The worker's purge of expired idempotency records (the API side uses the user context).
+      'packages/core/src/platform/idempotency.ts': 1,
       'packages/core/src/platform/relay.ts': 1,
       'packages/core/src/platform/timers.ts': 2,
       'packages/core/src/files/scan-processor.ts': 3,

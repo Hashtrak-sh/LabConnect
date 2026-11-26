@@ -172,3 +172,27 @@ export function createTimerJob(deps: TimerJobDeps): PollingJob {
     },
   };
 }
+
+export interface IdempotencyPurgeJobDeps {
+  purge: () => Promise<{ deleted: number }>;
+  batchSize: number;
+  intervalMs: number;
+  logger: JobLogger;
+}
+
+/** Deletes expired idempotency records in batches (API_CONVENTIONS.md section 5). Logs a count only. */
+export function createIdempotencyPurgeJob(deps: IdempotencyPurgeJobDeps): PollingJob {
+  return {
+    name: 'idempotency-purge',
+    intervalMs: deps.intervalMs,
+    async run() {
+      const deleted = await drain(
+        async () => ({ handled: (await deps.purge()).deleted }),
+        deps.batchSize,
+      );
+      if (deleted > 0) {
+        deps.logger.info(`idempotency purge: ${String(deleted)} expired records deleted`);
+      }
+    },
+  };
+}
