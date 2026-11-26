@@ -60,3 +60,91 @@ export interface PublicSiteProfile {
   /** Ordered by weekday, then opening time. */
   receivingHours: PublicSiteReceivingHours[];
 }
+
+export interface PublicCodeName {
+  code: string;
+  name: string;
+}
+
+/** One public line of a site's scope of accreditation (`PublicScopeLine`, FR-DAT-02). */
+export interface PublicScopeLineItem {
+  /** What a booking line references. */
+  scopeLineId: string;
+  certificateNo: string;
+  discipline: PublicCodeName;
+  group: PublicCodeName | null;
+  product: PublicCodeName | null;
+  parameter: PublicCodeName;
+  method: PublicCodeName | null;
+  methodText: string | null;
+  rangeText: string | null;
+  siteType: string;
+  temporarilyUnavailable: boolean;
+}
+
+export interface PublicScopeQuery {
+  /** Text to search inside the scope, already cleaned by the caller; `null` for the whole scope. */
+  text: string | null;
+  /** The `nextCursor` of the previous page. */
+  cursor: string | null;
+  /** 1 to 100. */
+  limit: number;
+}
+
+export interface PublicScopePage {
+  lines: PublicScopeLineItem[];
+  nextCursor: string | null;
+}
+
+/** One item of a bookable site's effective published price list (`PublicPriceItem`, CD-06). */
+export interface PublicPriceItemView {
+  scopeLine: PublicScopeLineItem;
+  pricePaise: bigint;
+  samplePrepPaise: bigint;
+  /** 1800 = 18.00 %. */
+  gstRateBp: number;
+  sampleQty: number;
+  sampleUnit: PublicCodeName;
+  packagingInstructions: string | null;
+  tatDays: number;
+  isAvailable: boolean;
+}
+
+export interface PublicPricePage {
+  priceList: { versionNo: number; effectiveFrom: Date };
+  items: PublicPriceItemView[];
+  nextCursor: string | null;
+}
+
+export interface PublicPageQuery {
+  cursor: string | null;
+  /** 1 to 100. */
+  limit: number;
+}
+
+/** An open drop-off slot with capacity left (`PublicSlot`). Capacity figures are never public. */
+export interface PublicSlotView {
+  slotId: string;
+  /** `YYYY-MM-DD`, IST. */
+  date: string;
+  startsAt: Date;
+  endsAt: Date;
+  /** `null` for a slot open to every discipline. */
+  discipline: PublicCodeName | null;
+}
+
+export interface PublicSlotQuery {
+  /** First slot date, `YYYY-MM-DD`. */
+  from: string;
+  /** Last slot date, `YYYY-MM-DD`, not before `from`. */
+  to: string;
+  /** Code of a DISCIPLINE node, or `null` for every slot. */
+  discipline: string | null;
+  cursor: string | null;
+  limit: number;
+}
+
+export interface PublicSlotPage {
+  slots: PublicSlotView[];
+  nextCursor: string | null;
+}

@@ -17,3 +17,4 @@ export * from './service.js';
 export * from './synonyms.js';
 export * from './sync.js';
 export * from './visible-lines.js';
+export * from './suggest.js';

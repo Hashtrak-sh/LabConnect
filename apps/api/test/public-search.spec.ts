@@ -8,7 +8,9 @@ import {
   LazySearchService,
   normaliseSearchQuery,
   type SearchRequest,
+  SearchQueryError,
   type SearchResult,
+  type Suggestion,
 } from '@labconnect/core';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -93,6 +95,15 @@ class MemorySearchService {
   async search(request: SearchRequest): Promise<SearchResult> {
     this.requests.push(request);
     return { ...(await this.index.search(normaliseSearchQuery(request, AT))), backend: 'memory' };
+  }
+  readonly suggested: string[] = [];
+  suggest(text: string): Promise<Suggestion[]> {
+    this.suggested.push(text);
+    if (text.trim() === '!!') return Promise.reject(new SearchQueryError('q must not be empty.'));
+    return Promise.resolve([
+      { kind: 'PARAMETER', label: 'Tensile strength', code: 'TENSILE', labSiteId: null },
+      { kind: 'LAB_SITE', label: 'Example Testing Noida', code: null, labSiteId: NEAR },
+    ]);
   }
   circuit(): 'closed' {
     return 'closed';
@@ -266,5 +277,45 @@ describe('GET /v1/public/search/labs with a pincode locator', () => {
   it('still answers an unknown pincode with 422', async () => {
     const response = await contractRequest(app).get('/v1/public/search/labs?pincode=999999');
     expect(response.status).toBe(422);
+  });
+});
+
+describe('GET /v1/public/search/suggest', () => {
+  let app: INestApplication<Server>;
+  let service: MemorySearchService;
+
+  beforeAll(async () => {
+    service = new MemorySearchService(new InMemorySearchIndex());
+    app = await appWith(service);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('returns suggestions anonymously, in the contract shape', async () => {
+    const response = await contractRequest(app).get('/v1/public/search/suggest?q=tens');
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      suggestions: [
+        { kind: 'PARAMETER', label: 'Tensile strength', code: 'TENSILE', labSiteId: null },
+        { kind: 'LAB_SITE', label: 'Example Testing Noida', code: null, labSiteId: NEAR },
+      ],
+    });
+    expect(service.suggested).toEqual(['tens']);
+  });
+
+  it('requires q, refuses other parameters, and maps a refused text to 422', async () => {
+    const missing = await contractRequest(app).get('/v1/public/search/suggest', {
+      invalidRequest: 'q is required and must give 422',
+    });
+    expect(missing.status).toBe(422);
+    expect(missing.body).toMatchObject({ errors: [{ path: 'q', code: 'REQUIRED' }] });
+    const extra = await contractRequest(app).get('/v1/public/search/suggest?q=te&limit=5', {
+      invalidRequest: 'limit is not a parameter of suggestSearch and must give 422',
+    });
+    expect(extra.status).toBe(422);
+    const refused = await contractRequest(app).get('/v1/public/search/suggest?q=!!');
+    expect(refused.status).toBe(422);
   });
 });
