@@ -147,6 +147,15 @@ Started 2026-11-26 by H, on the lab claim flow of I1: the Ops side of FR-DAT-07.
 | I2-ADM-03 | `POST /admin/claims/{id}/reject` (`rejectAdminLabClaim`): claim `REJECTED` with notes, the organisation free again | FR-DAT-07 | I2-ADM-01 | In review |
 | I2-ADM-04 | `POST /admin/claims/{id}/letterhead/download-url` (`createAdminLabClaimLetterheadDownloadUrl`): Ops read the claim's letterhead, clean files only, audited (contract first, then implementation) | FR-DAT-07, OQ-225 | I2-ADM-01 | In review |
 
+### I2: Onboarding, customer slice (A)
+Started 2026-11-26 by A. The API side of sign-in (P3-04) already exists; these are the web pieces.
+
+| ID | Task | Refs | Depends | Status |
+|---|---|---|---|---|
+| I2-CUS-01 | Web sign-in (board G1) and the web session: email code, authenticator step, return to the same page, header with the user and "Sign out", silent refresh, G3 "Your session has ended" | FR-AUTH, AUTHENTICATION_AND_AUTHORISATION §1–2 | P3-04, I1-CUS-10 | ◐ In review |
+
+I2-CUS-01 is in review. The web app is the BFF: the browser only talks to Next.js, which keeps the access token (`lc_access`) and the API's rotating refresh token (`lc_web_refresh`) in HTTP-only cookies and sends `Authorization: Bearer` to the API. `apps/web/src/proxy.ts` refreshes the access token a minute before it expires; a refused refresh clears both cookies and shows G3's notice once. The page to return to after sign-in is kept in a 30-minute cookie, never in the address. Left out: authenticator enrolment (board G2: a user who must enrol is told so), sign-up (I2-CUS-02) and the session-expiry warning dialog of G3.
+
 ## Phase 6–7
 | ID | Task | Owner | Status |
 |---|---|---|---|
