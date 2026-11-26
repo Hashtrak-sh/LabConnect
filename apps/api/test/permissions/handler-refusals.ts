@@ -41,4 +41,10 @@ export const HANDLER_REFUSALS: readonly HandlerRefusal[] = [
     permission: 'kyc.verify',
     reason: FINANCE_BANK_ONLY,
   },
+  {
+    route: 'POST /v1/admin/claims/:id/letterhead/download-url',
+    role: 'PLATFORM_FINANCE',
+    permission: 'kyc.verify',
+    reason: FINANCE_BANK_ONLY,
+  },
 ];

@@ -139,6 +139,7 @@ Started 2026-11-26 by H, on the lab claim flow of I1: the Ops side of FR-DAT-07.
 | I2-ADM-01 | `GET /admin/claims` (`listAdminLabClaims`): oldest first, cursor, `status` filter, the 24-hour rule applied to stale `PENDING_OTP` claims | FR-DAT-07, OQ-220 | I1-LAB-06 | In review |
 | I2-ADM-02 | `POST /admin/claims/{id}/approve` (`approveAdminLabClaim`): claim `APPROVED`, organisation `CLAIMED`, the claimant the first `LAB_CHECKER` | FR-DAT-07, RR-2, RR-5, OQ-208 | I2-ADM-01 | In review |
 | I2-ADM-03 | `POST /admin/claims/{id}/reject` (`rejectAdminLabClaim`): claim `REJECTED` with notes, the organisation free again | FR-DAT-07 | I2-ADM-01 | In review |
+| I2-ADM-04 | `POST /admin/claims/{id}/letterhead/download-url` (`createAdminLabClaimLetterheadDownloadUrl`): Ops read the claim's letterhead, clean files only, audited (contract first, then implementation) | FR-DAT-07, OQ-225 | I2-ADM-01 | In review |
 
 ## Phase 6–7
 | ID | Task | Owner | Status |

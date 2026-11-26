@@ -52,11 +52,12 @@ describe('permission matrix of the real app', () => {
     }
   });
 
-  it('expects the three lab claim operations to be open to PLATFORM_OPS alone, as the contract says', () => {
+  it('expects the four lab claim operations to be open to PLATFORM_OPS alone, as the contract says', () => {
     const claimRoutes = routes.filter((route) => route.path.startsWith('/v1/admin/claims'));
     expect(claimRoutes.map((route) => route.key).sort()).toEqual([
       'GET /v1/admin/claims',
       'POST /v1/admin/claims/:id/approve',
+      'POST /v1/admin/claims/:id/letterhead/download-url',
       'POST /v1/admin/claims/:id/reject',
     ]);
     for (const cell of matrixCells(claimRoutes)) {
