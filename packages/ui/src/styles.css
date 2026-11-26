@@ -1,0 +1,139 @@
+/*
+ * LabConnect design tokens for Tailwind CSS 4 (D-04).
+ *
+ * Source: docs/09-design-handoff/designs-pass-2/lc.css (the approved token sheet, pass 2 A-01),
+ * with the additions DESIGN_REVIEW_PASS_2 asked for in D-04 (section "decisions", item 4): the
+ * alert text colours and the danger hover as `--color-*-strong` tokens instead of literals.
+ *
+ * How to use: the app's stylesheet does
+ *   @import "tailwindcss";
+ *   @import "@labconnect/ui/styles.css";
+ *   @source "<path to>/packages/ui/src";
+ *
+ * Two layers, as DESIGN_SYSTEM.md section 1 says:
+ * 1. Brand primitives (`--qci-*`, `--gray-*`) in :root. PROVISIONAL stand-ins until the QCI brand
+ *    values are settled (OQ-19, D-01). Changing the brand means changing these lines only.
+ * 2. Semantic tokens in @theme. Tailwind's default palette is cleared (`--color-*: initial`), so
+ *    components can use only these semantic colours (`bg-brand-primary`, `text-muted`, ...) and
+ *    never a raw shade (DR-13).
+ */
+
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+:root {
+  --qci-blue-50: #eef5fb;
+  --qci-blue-100: #d6e8f5;
+  --qci-blue-200: #a9cde8;
+  --qci-blue-400: #4596c4;
+  --qci-blue-600: #1f6fa8;
+  --qci-blue-700: #185a8a;
+  --qci-blue-800: #13476d;
+  --qci-blue-900: #0e3450;
+  --qci-black: #1a1a1a;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-900: #111827;
+}
+
+@theme {
+  --color-*: initial;
+
+  --color-bg: #ffffff;
+  --color-surface: var(--gray-50);
+  --color-surface-raised: #ffffff;
+  --color-text: var(--gray-900);
+  --color-text-muted: var(--gray-600);
+  --color-text-subtle: var(--gray-700);
+  --color-text-inverse: #ffffff;
+  --color-border: var(--gray-200);
+  --color-border-strong: var(--gray-500);
+  --color-border-disabled: var(--gray-300);
+
+  --color-brand-primary: var(--qci-blue-600);
+  --color-brand-primary-hover: var(--qci-blue-700);
+  --color-brand-primary-active: var(--qci-blue-800);
+  --color-brand-primary-contrast: #ffffff;
+  --color-brand-secondary: var(--qci-black);
+  --color-brand-tint: var(--qci-blue-50);
+  --color-brand-on-tint: var(--qci-blue-800);
+  --color-brand-tint-border: var(--qci-blue-200);
+
+  --color-success: #15803d;
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-success-strong: #14532d;
+  --color-warning: #b45309;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-warning-strong: #78350f;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-danger-strong: #7f1d1d;
+  --color-danger-hover: #991b1b;
+  --color-info: #1d4ed8;
+  --color-info-bg: #eff6ff;
+  --color-info-border: #bfdbfe;
+  --color-info-strong: #1e3a8a;
+  --color-neutral: #4b5563;
+  --color-neutral-bg: #f3f4f6;
+  --color-neutral-border: #e5e7eb;
+  --color-neutral-strong: #374151;
+
+  --color-focus-ring: var(--qci-blue-600);
+  --color-scrim: rgb(17 24 39 / 0.45);
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --shadow-card: 0 1px 2px rgb(17 24 39 / 0.06), 0 1px 3px rgb(17 24 39 / 0.08);
+  --shadow-overlay: 0 10px 30px rgb(17 24 39 / 0.18), 0 2px 6px rgb(17 24 39 / 0.08);
+
+  --font-sans:
+    'Poppins', 'Noto Sans', 'Noto Sans Devanagari', system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+
+@layer base {
+  html {
+    color: var(--color-text);
+    background: var(--color-bg);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  a {
+    color: var(--color-brand-primary);
+  }
+
+  a:hover {
+    color: var(--color-brand-primary-hover);
+  }
+
+  /* One focus rule for every focusable element (pass 2 A-01b, DR-26): 3 px ring, 2 px offset. */
+  :focus-visible {
+    outline: 3px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* A sticky footer must not hide a focused field (DP2-29, WCAG 2.2 SC 2.4.11). */
+  html {
+    scroll-padding-bottom: 96px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
