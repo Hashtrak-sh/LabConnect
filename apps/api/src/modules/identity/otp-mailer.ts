@@ -57,6 +57,7 @@ export class EmailOtpMailer implements OtpMailer {
         subject: LAB_CLAIM_OTP_SUBJECT,
         text:
           `Your lab claim code is ${message.code}. It is valid for ${String(message.validForMinutes)} minutes. ` +
+          'Enter it on LabConnect yourself and do not give it to anyone who asks for it: LabConnect staff never ask for this code. ' +
           'If you did not ask to claim this lab on LabConnect, ignore this message.',
       });
     } catch (error) {

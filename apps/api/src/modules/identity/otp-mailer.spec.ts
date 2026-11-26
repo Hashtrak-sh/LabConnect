@@ -92,6 +92,7 @@ describe('EmailOtpMailer', () => {
         subject: LAB_CLAIM_OTP_SUBJECT,
         text:
           'Your lab claim code is 482915. It is valid for 10 minutes. ' +
+          'Enter it on LabConnect yourself and do not give it to anyone who asks for it: LabConnect staff never ask for this code. ' +
           'If you did not ask to claim this lab on LabConnect, ignore this message.',
       },
     ]);

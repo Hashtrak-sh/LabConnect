@@ -116,6 +116,21 @@ Kicked off 2026-11-25 by A. Backend first: screens (`apps/web`) wait for the D-0
 
 I1-CUS-02 builds the first piece of the `labs` module, which @Hashtrak-sh owns: the public read side of `LabDirectoryService` (`packages/core/src/labs/`, `apps/api/src/modules/labs/`). A built it at the owner's agreement to review, so it is a shared change. It also moves `withPublicReadContext` from `search` to `platform` and the accreditation verification URL helper into `labs`, because MODULE_BOUNDARIES rule 5 forbids importing `search`. The rule for which sites are public repeats search's `visibleLinesSql` until search reads through this service (OQ-152); the database test checks both give the same answer for every site of the search world.
 
+### I1: Directory, lab slice (H) and shared pieces
+Kicked off 2026-11-26 by H. Backend first: the claim screens wait for the second design pass (D-03 was approved in part; lab onboarding is not in the approved set). The lab slice of I1 is the claim flow up to "waiting for review"; approval by Ops is the admin slice of I2 (ROADMAP).
+
+| ID | Task | Refs | Depends | Status |
+|---|---|---|---|---|
+| I1-SHR-01 | `Idempotency-Key` service, `@Idempotent()` interceptor and the purge job (shared) | API_CONVENTIONS §5, OQ-87 | — | In review (PR #54) |
+| I1-SHR-02 | `ETag` and `If-Match` helper (`apps/api/src/common/etag.ts`, shared) | API_CONVENTIONS §4 | — | In review (with I1-LAB-01) |
+| I1-LAB-01 | `POST /lab/claims` (`startLabClaim`): find the lab by certificate number, code to the NABL address only | FR-DAT-07, RR-5 | I1-CUS-02 (the `labs` module) | In review |
+| I1-LAB-02 | `POST /lab/claims/{id}/verify-otp` (`verifyLabClaimOtp`): `PENDING_OTP` to `PENDING_REVIEW` | FR-DAT-07 | I1-LAB-01 | In review |
+| I1-LAB-03 | `POST /lab/claims/{id}/manual/upload-url` (`createLabClaimLetterheadUploadUrl`): first HTTP use of the file service | FR-DAT-07, FILES_AND_REPORTS §1 | I1-LAB-01 | ☐ |
+| I1-LAB-04 | `POST /lab/claims/{id}/manual` (`submitLabClaimLetterhead`) | FR-DAT-07 | I1-LAB-03 | ☐ |
+| I1-LAB-05 | Put `@Idempotent()` on the claim operations; decide how a replay and "send a new code" fit together (OQ-200) | API_CONVENTIONS §5 | I1-SHR-01, I1-LAB-01 | ☐ |
+| I1-LAB-06 | Decide and build what stops a claim from blocking a lab for ever (expiry of an unverified claim, a cap per user) | OQ-206 | product owner | ☐ |
+| I1-LAB-07 | Claim screens | L1 | second design pass, D-04 | ☐ |
+
 ## Phase 6–7
 | ID | Task | Owner | Status |
 |---|---|---|---|
