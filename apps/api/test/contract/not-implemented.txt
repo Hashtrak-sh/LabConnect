@@ -167,7 +167,6 @@ submitAdminChangeSet
 submitLabClaimLetterhead
 submitReceipt
 submitReportVersion
-suggestSearch
 syncCustodyScanBatch
 updateAdminLead
 updateAdminMappingTemplate
