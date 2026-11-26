@@ -69,8 +69,9 @@ describe('who may open the system database context', () => {
     expect(scan(ALL_SOURCES, /\bwithDbContext\s*(?:<[^>]*>)?\(/g)).toEqual({
       // The one place that sets the policy settings.
       'packages/database/src/db-context.ts': 1,
-      // The scope: tenant, platform (also on behalf), user-only and the named system method.
-      'packages/core/src/identity/tenant-scope.ts': 4,
+      // The scope: tenant, platform (also on behalf), user-only, the named system method, and the
+      // tenant context of an organisation being created (customer sign-up, I2-CUS-02).
+      'packages/core/src/identity/tenant-scope.ts': 5,
       // Anonymous visitors (search, lab directory, leads): the `public` kind, read-only for reads,
       // and the write variant only for inserts a policy allows anyone (lead_request). Never system.
       'packages/core/src/platform/public-context.ts': 2,

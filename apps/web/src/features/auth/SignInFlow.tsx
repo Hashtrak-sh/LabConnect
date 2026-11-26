@@ -1,7 +1,7 @@
 'use client';
 
 import { Alert, Button, Field, fieldProps, Input } from '@labconnect/ui';
-import { useActionState, useEffect, useState } from 'react';
+import { type ReactNode, useActionState, useEffect, useState } from 'react';
 import { type SignInState, signInAction } from './sign-in-actions';
 
 export type SignInText = Record<
@@ -88,7 +88,17 @@ function CodeInput({
  * are announced. The tokens never reach this component: the server action keeps them in
  * HTTP-only cookies and redirects back to where the user came from.
  */
-export function SignInFlow({ text }: { text: SignInText }) {
+export function SignInFlow({
+  text,
+  next,
+  footer,
+}: {
+  text: SignInText;
+  /** Where to go after sign-in instead of the page the user came from (sign-up only). */
+  next?: '/sign-up';
+  /** Shown under the email step, for example the link to the other of sign-in and sign-up. */
+  footer?: ReactNode;
+}) {
   const [state, action, pending] = useActionState<SignInState, FormData>(signInAction, {
     step: 'email',
     email: '',
@@ -246,10 +256,11 @@ export function SignInFlow({ text }: { text: SignInText }) {
           autoFocus
         />
       </Field>
+      {next !== undefined && <input type="hidden" name="next" value={next} />}
       <Button type="submit" name="intent" value="send" loading={pending} className="self-start">
         {pending ? text.sending : text.sendCode}
       </Button>
-      <p className="text-sm text-text-muted">{text.newHere}</p>
+      {footer}
     </form>
   );
 }

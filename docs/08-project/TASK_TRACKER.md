@@ -153,8 +153,13 @@ Started 2026-11-26 by A. The API side of sign-in (P3-04) already exists; these a
 | ID | Task | Refs | Depends | Status |
 |---|---|---|---|---|
 | I2-CUS-01 | Web sign-in (board G1) and the web session: email code, authenticator step, return to the same page, header with the user and "Sign out", silent refresh, G3 "Your session has ended" | FR-AUTH, AUTHENTICATION_AND_AUTHORISATION §1–2 | P3-04, I1-CUS-10 | ◐ In review |
+| I2-CUS-02 | Customer sign-up: `POST /customer/organisations` (`createCustomerOrganisation`) and board J1 steps 1 to 4 with "Your account is ready" | FR-ONB-01, RR-5 | I2-CUS-01 | ◐ In review |
+| I2-CUS-03 | Customer sites: the site API and J1 step 5 (default site, map pin) | FR-ONB-03, FR-DIS-02 | I2-CUS-02 | ☐ |
+| I2-CUS-04 | Customer users: invitations, the user list and J1 step 6, J2 customer admin | FR-ONB-02 | I2-CUS-02 | ☐ |
 
 I2-CUS-01 is in review. The web app is the BFF: the browser only talks to Next.js, which keeps the access token (`lc_access`) and the API's rotating refresh token (`lc_web_refresh`) in HTTP-only cookies and sends `Authorization: Bearer` to the API. `apps/web/src/proxy.ts` refreshes the access token a minute before it expires; a refused refresh clears both cookies and shows G3's notice once. The page to return to after sign-in is kept in a 30-minute cookie, never in the address. Left out: authenticator enrolment (board G2: a user who must enrol is told so), sign-up (I2-CUS-02) and the session-expiry warning dialog of G3.
+
+I2-CUS-02 is in review. `POST /v1/customer/organisations` creates the organisation (claim status `NOT_APPLICABLE`), its private row and settings, and makes the caller its first `CUSTOMER_ADMIN`; audited as `organisation.create` and `role.change`. Any signed-in user may call it (`noPermissionRequired`); platform staff get 403 (RR-5); a GSTIN is required for every segment but `INDIVIDUAL` and must not be used by another customer organisation (422 with `GSTIN_TAKEN` on the field). It runs in the tenant context of the new organisation, whose id the server generates (`TenantScope.runForNewOrganisation`, a shared change in `packages/core`), not as `system`. The web page `/sign-up` reuses the G1 code steps, then asks individual or organisation and the details, switches the session to the new membership and shows "Your account is ready". Left out: `Idempotency-Key` is not honoured yet (OQ-87: a repeated individual sign-up makes a second organisation; the web form submits once); the user's own name is not asked (the header shows the email's local part); the state list uses ISO 3166-2:IN codes, to check against what the master data will use.
 
 ## Phase 6–7
 | ID | Task | Owner | Status |

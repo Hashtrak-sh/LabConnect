@@ -171,6 +171,11 @@ export async function signInAction(previous: SignInState, form: FormData): Promi
   const email = field('email') || previous.email;
   switch (intent) {
     case 'send':
+      // Sign-up starts with the same code steps and carries on at /sign-up (board J1).
+      if (field('next') === '/sign-up') {
+        (await cookies()).set(RETURN_COOKIE, '/sign-up', cookieOptions(30 * 60));
+      }
+      return sendCode(email);
     case 'resend':
       return sendCode(email);
     case 'verify':

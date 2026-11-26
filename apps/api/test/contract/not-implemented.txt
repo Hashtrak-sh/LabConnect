@@ -36,7 +36,6 @@ createBooking
 createBookingAttachmentUploadUrl
 createBreakGlassDownloadUrl
 createCustomerInvitation
-createCustomerOrganisation
 createCustomerSite
 createDisputeEvidenceUploadUrl
 createLabBankAccount
