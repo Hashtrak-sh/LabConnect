@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LabConnect design pass 2: cover</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0} .cv td{height:32px;font-size:13px} .cv th{padding:6px 10px} .cv td{padding:0 10px}</style>
+</helmet>
+<div style="width: 1280px; min-height: 2700px; background: var(--color-surface-raised); display: flex; flex-direction: column; font-family: var(--font-sans); position: relative">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar" style="padding: 0 40px; gap: 16px">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span>
+    <span class="prodname">LabConnect</span>
+    <span class="prov" style="margin-left: auto">Provisional brand values · OQ-19</span>
+  </header>
+  <main id="main" style="display: flex; flex-direction: column">
+  <div style="padding: 48px 40px 0; display: flex; gap: 48px">
+    <div style="flex: 1 1 0; display: flex; flex-direction: column; gap: 20px">
+      <p class="sectitle">Design handoff · pass 2 · 26 Nov 2026</p>
+      <h1 style="font-size: 44px; line-height: 52px; font-weight: 700; letter-spacing: -0.02em; color: var(--color-brand-secondary)">LabConnect design, pass 2: corrections and the missing boards</h1>
+      <p class="t-lg muted" style="max-width: 640px">This run corrects the first-run boards named in Part A of the pass-2 prompt and adds the boards for stages G to N. It does not start again: the first run in <span class="mono">designs/</span> stays the approved baseline.</p>
+      <div class="alert a-warn" style="max-width: 660px">
+        <svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>
+        <div class="t-base"><b>Provisional brand.</b> The blue and Poppins are stand-ins, not QCI-approved values (OQ-19). Swap the <span class="mono">--qci-*</span> primitives only. This run adds three semantic tokens (A-01) and no brand value.</div>
+      </div>
+    </div>
+    <div class="panel" style="width: 440px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+      <h2 class="sectitle">How to read this canvas</h2>
+      <p class="t-base">Pages A to F hold the first-run boards: <b>corrected</b> where a Part A entry names them, <b>unchanged</b> apart from the token clean-up (A-40) otherwise. Pages G to N hold the new boards, in build order.</p>
+      <p class="t-base">Blue notes under each board list the operations, fields, validation messages and proposed i18n keys (<span class="mono">area.screen.element</span>; D-04 confirms them).</p>
+      <p class="t-base">Clickable prototype J1: start at <a href="B1-Search-1280.dc.html">B1 Search</a>. Counter-offer now goes through payment (<a href="L1-Pay-States-1280.dc.html">L1</a>).</p>
+    </div>
+  </div>
+
+  <section style="padding: 32px 40px 0; display: flex; flex-direction: column; gap: 12px" aria-labelledby="h-boards">
+    <h2 id="h-boards" class="t-xl w6">Every board in this run</h2>
+    <div class="row wrap g8">
+      <span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New · 89</span>
+      <span class="badge b-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>Corrected · 37 boards + lc.css</span>
+      <span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Unchanged · 5 (A-40 clean-up only)</span>
+      <span class="badge b-danger"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>Not re-issued · F9 (replaced by N6 and N7)</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: start">
+      <table class="tbl cv">
+        <caption>Stages A to F (first run)</caption>
+        <thead><tr><th scope="col">Board</th><th scope="col">Widths</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+          <tr><td>lc.css</td><td>—</td><td>Corrected</td></tr>
+          <tr><td>Main (this cover)</td><td>1280</td><td>Corrected</td></tr>
+          <tr><td>A1 Tokens</td><td>sheet</td><td>Corrected</td></tr>
+          <tr><td>A2 Controls</td><td>sheet</td><td>Corrected</td></tr>
+          <tr><td>A3 Booking components</td><td>sheet</td><td>Corrected</td></tr>
+          <tr><td>A4 Feedback and data</td><td>sheet</td><td>Unchanged</td></tr>
+          <tr><td>B1 Search</td><td>1280 · 768 · 360</td><td>Corrected</td></tr>
+          <tr><td>B2 Lab site</td><td>1280 · 360</td><td>Corrected</td></tr>
+          <tr><td>B2 Lab site</td><td>768</td><td>Unchanged</td></tr>
+          <tr><td>B3 Verify</td><td>1280 · 768 · 360</td><td>Corrected</td></tr>
+          <tr><td>B4 Public edge states</td><td>360</td><td>Corrected</td></tr>
+          <tr><td>C3 Booking, Review</td><td>1280 · 360</td><td>Corrected</td></tr>
+          <tr><td>C4 Counter, C4–C5</td><td>1280 · 360</td><td>Corrected</td></tr>
+          <tr><td>C6 Handover</td><td>1280 · 360</td><td>Corrected</td></tr>
+          <tr><td>C7 Detail, Hold</td><td>1280 · 360</td><td>Corrected</td></tr>
+          <tr><td>D1 Scanner</td><td>360</td><td>Corrected</td></tr>
+          <tr><td>D2 Approve receipt</td><td>1280</td><td>Corrected</td></tr>
+          <tr><td>D3 Review report</td><td>1280</td><td>Corrected</td></tr>
+          <tr><td>E1 Customer</td><td>1280 · 360</td><td>Corrected</td></tr>
+          <tr><td>E2 Maker · E3 Checker · E4 Ops</td><td>360 · 1280</td><td>Corrected</td></tr>
+          <tr><td>F1 Sign-up · F2 Report · F3 Finance</td><td>360 · 1280</td><td>Corrected</td></tr>
+          <tr><td>F4 Lab onboarding</td><td>1280</td><td>Unchanged</td></tr>
+          <tr><td>F5 Inbox · F6 Report upload</td><td>1280</td><td>Corrected</td></tr>
+          <tr><td>F7 Catalogue · F8 Master data</td><td>1280</td><td>Unchanged</td></tr>
+          <tr><td>F9 Disputes and payouts</td><td>1280</td><td>Not re-issued</td></tr>
+          <tr><td>F10 Onboarding and config</td><td>1280</td><td>Corrected</td></tr>
+        </tbody>
+      </table>
+      <table class="tbl cv">
+        <caption>Stages G to K (new)</caption>
+        <thead><tr><th scope="col">Board</th><th scope="col">Widths</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+          <tr><td>G1 Sign-in</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>G2 MFA enrol</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>G3 Session and access</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>G4 Components added</td><td>sheet</td><td>New</td></tr>
+          <tr><td>H1 Search home</td><td>360 · 768 · 1280</td><td>New</td></tr>
+          <tr><td>H2 Filters and map</td><td>360 · 768</td><td>New</td></tr>
+          <tr><td>H3 Request a lab</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>H4 Lab claim</td><td>1280</td><td>New</td></tr>
+          <tr><td>H5 Admin import</td><td>1280</td><td>New</td></tr>
+          <tr><td>H6 Admin master data</td><td>1280</td><td>New</td></tr>
+          <tr><td>H7 Geocode queue</td><td>1280</td><td>New</td></tr>
+          <tr><td>J1 Sign-up</td><td>360 · 768 · 1280</td><td>New</td></tr>
+          <tr><td>J2 Customer Admin</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>J3 KYC · J4 Bank · J5 Users</td><td>1280</td><td>New</td></tr>
+          <tr><td>J6 Hours and slots · J7 Scope</td><td>1280</td><td>New</td></tr>
+          <tr><td>J8 Price-list import</td><td>1280</td><td>New</td></tr>
+          <tr><td>J9 Admin claims, KYC, bank</td><td>1280</td><td>New</td></tr>
+          <tr><td>J10 Bookable</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>K1 Booking steps</td><td>768 · 1280</td><td>New</td></tr>
+          <tr><td>K2 TRF step 2</td><td>360</td><td>New</td></tr>
+          <tr><td>K3 Booking errors</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>K4 Requested · K5 Cancel · K6 Closed</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>K7 Accepted</td><td>768 · 1280</td><td>New</td></tr>
+          <tr><td>K8 Inbox tabs · K9 Decisions</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>K10 Ops drill-down · K11 Booking</td><td>1280</td><td>New</td></tr>
+        </tbody>
+      </table>
+      <table class="tbl cv">
+        <caption>Stages L to N (new)</caption>
+        <thead><tr><th scope="col">Board</th><th scope="col">Widths</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+          <tr><td>L1 Pay states</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>L2 Unpaid, no-show</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>L3 Label reprint</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>L4 Label print</td><td>1280 · A4 · thermal</td><td>New</td></tr>
+          <tr><td>L5 Refunds · L6 Reconciliation</td><td>1280</td><td>New</td></tr>
+          <tr><td>M1 Detail states</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>M2 Scanner outcomes</td><td>360 · 768</td><td>New</td></tr>
+          <tr><td>M3 Receipt reasons</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>M4 Testing · M5 Upload errors</td><td>1280</td><td>New</td></tr>
+          <tr><td>M6 Bind by scan</td><td>360</td><td>New</td></tr>
+          <tr><td>M7 Review amendment · M8 Create</td><td>1280</td><td>New</td></tr>
+          <tr><td>M9 Customer report</td><td>360 · 768 · 1280</td><td>New</td></tr>
+          <tr><td>M10 Break-glass and audit</td><td>1280</td><td>New</td></tr>
+          <tr><td>N1 Dispute</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>N2 Rating · N3 Finance docs</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>N4 Finance dashboard</td><td>360 · 1280</td><td>New</td></tr>
+          <tr><td>N5 Lab dispute response</td><td>1280</td><td>New</td></tr>
+          <tr><td>N6 Ops disputes</td><td>1280</td><td>New</td></tr>
+          <tr><td>N7 Payouts and holds</td><td>1280</td><td>New</td></tr>
+          <tr><td>N8 Config · N9 Users and leads</td><td>1280</td><td>New</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section style="padding: 32px 40px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px" aria-label="Rules and clean-up">
+    <div class="col g12">
+      <h2 class="t-xl w6">Token clean-up (A-40): done</h2>
+      <p class="t-base">Every first-run board was re-issued with each literal hex colour in <span class="mono">style="…"</span> replaced by the token of the same value. Rendering is unchanged except: the switch OFF track (A-01c), avatars on the brand tint (blue-100 has no semantic token), and a 4 px brighter background on eight strip frames (#EEF0F3 had no token; now <span class="mono">--color-neutral-bg</span>).</p>
+      <p class="t-base"><b>Not tokenised, for review:</b> the alert text colours (#7F1D1D, #78350F, #14532D, #1E3A8A), the danger hover (#991B1B), the <span class="mono">.prov</span> tag, the dark scanner and map placeholders, and the diff colours. No existing token holds these values and this run may add only the three tokens of A-01. Gray primitives (<span class="mono">--gray-300/400/700</span>) are used where no semantic token has the value.</p>
+    </div>
+    <div class="col g12">
+      <h2 class="t-xl w6">Never in the UI</h2>
+      <div class="row wrap g8">
+        <span class="badge b-neutral">Pickup, delivery, riders</span><span class="badge b-neutral">Logistics, GPS, tracking</span><span class="badge b-neutral">Transport, cold chain</span><span class="badge b-neutral">Subcontracting</span><span class="badge b-neutral">Price quotations, revisions</span><span class="badge b-neutral">Purchase orders, credit terms</span><span class="badge b-neutral">Medical labs, patient data</span><span class="badge b-neutral">Calibration booking</span><span class="badge b-neutral">Native apps</span><span class="badge b-neutral">Platform fees</span>
+      </div>
+      <p class="t-base muted">Deferred, also not drawn: chat, compare labs, saved searches, cart, SMS, WhatsApp, phone OTP, Hindi interface. The payment gateway is opaque: no gateway name, logo, colour or screen.</p>
+    </div>
+  </section>
+
+  <section style="padding: 32px 40px 48px; display: flex; flex-direction: column; gap: 12px" aria-labelledby="h-open">
+    <h2 id="h-open" class="t-xl w6">Open: not designed yet (prompt section 8)</h2>
+    <table class="tbl cv">
+      <caption class="sr-only">Open items and what is drawn for each</caption>
+      <thead><tr><th scope="col" style="width: 300px">Item</th><th scope="col">What is drawn</th><th scope="col" style="width: 180px">Tag</th></tr></thead>
+      <tbody>
+        <tr><td>Refund or fee amounts before booking (BR-070–075, BR-042)</td><td>"Refund amount: shown once confirmed", no figure (K5, L2)</td><td>Placeholder</td></tr>
+        <tr><td>Tax invoice issuer and tax split (OQ-08)</td><td>Layout kept; issuer and CGST + SGST lines tagged</td><td>Provisional</td></tr>
+        <tr><td>Terms and consent text (OQ-04)</td><td>Nothing; checkbox removed from C3 Review</td><td>—</td></tr>
+        <tr><td>Self-approval blocked state (OQ-59)</td><td>D2, D3, M3 only: "Your role changed after you recorded this…"</td><td>Provisional (OQ-59)</td></tr>
+        <tr><td>Revoked report wording (OQ-72)</td><td>One sentence and a contact hint (B3)</td><td>Provisional wording</td></tr>
+        <tr><td>Brand (OQ-19, OQ-12)</td><td>Existing provisional tokens</td><td>Provisional brand</td></tr>
+        <tr><td>Money format</td><td>₹1,00,000.00, always two decimals (A2)</td><td>Proposed</td></tr>
+        <tr><td>Alternatives on a rejected or expired booking</td><td>Block kept as drawn (two labs)</td><td>Source not in the contract</td></tr>
+        <tr><td>Customer-side reprint request (OQ-50)</td><td>"Call or visit the desk"; Maker requests, Checker approves; no decline</td><td>—</td></tr>
+        <tr><td>Hold option "reduce lines" (EC-34)</td><td>Three options only: Proceed, Replace, Cancel</td><td>—</td></tr>
+        <tr><td>Gateway cancel versus failure</td><td>One "not completed" state beside "failed" (L1)</td><td>—</td></tr>
+        <tr><td>Lab settlement advice list (L10) · lab dispute list</td><td>Not drawn · lab disputes come from the inbox DISPUTED filter (N5)</td><td>—</td></tr>
+        <tr><td>Dispute sub-states (OQ-38)</td><td><span class="mono">DisputeStatus</span> values only, no transitions</td><td>—</td></tr>
+        <tr><td>Ops "request information", override, cancel after UNDER_TEST (OQ-24)</td><td>Not drawn; Ops cancel up to UNDER_TEST only (K11)</td><td>—</td></tr>
+        <tr><td>Admin operations with no contract</td><td>Not drawn; listed as "no operation" in each board's note</td><td>—</td></tr>
+        <tr><td>Payout holds (OQ-57a) · roles not names (OQ-60)</td><td>Ops places, Finance releases, no "extend" · customers see lab roles only</td><td>—</td></tr>
+        <tr><td>Controls "not asked for" (review §5)</td><td>"Notify Checkers" and the B2-360 "Share" left as drawn</td><td>Product owner decides</td></tr>
+        <tr><td>Hindi, GIGW 3.0 (OQ-13)</td><td>Nothing; layouts leave room for longer strings</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2700}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

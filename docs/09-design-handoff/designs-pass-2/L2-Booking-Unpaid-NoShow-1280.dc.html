@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>L2 Booking expired unpaid or no-show, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 100%; min-height: 1300px; background: var(--color-surface); display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <a class="skip" href="#main">Skip to content</a>
+<header class="topbar" style="padding: 0 32px; gap: 16px; flex-wrap: wrap"><img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India"><span class="vr"></span><span class="prodname">LabConnect</span><nav class="nav row g4" aria-label="Main" style="margin-left: 24px"><a href="E1-Customer-1280.dc.html">Dashboard</a><a href="K4-Booking-Requested-1280.dc.html" class="on" aria-current="page">Bookings</a><a href="M9-Customer-Report-1280.dc.html">Reports</a><a href="N3-Finance-Documents-1280.dc.html">Payments</a></nav><div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span class="row g8"><span style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-on-tint); display: inline-flex; align-items: center; justify-content: center; font-weight: 600; flex: none" aria-hidden="true">PS</span><span class="col"><b class="t-sm">Priya Sharma</b><span class="t-xs muted">Customer Admin · Aarav Polymers</span></span></span></div></header><main id="main" style="max-width: 1120px; width: 100%; margin: 0 auto; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 20px"><h1 class="t-2xl w7">Bookings that lapsed</h1><div class="grid2" style="align-items: start"><div class="card col g12" style="padding: 20px"><span class="statecap">EXPIRED_UNPAID detail (T-10)</span><span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Expired · not paid</span><b class="t-lg">The payment time ended</b><p class="t-base">This booking wasn't paid by 26 Nov 2026, 9:18 AM IST, so it expired and the slot was released. Nothing was charged.</p><a class="btn btn-primary" href="K1-Booking-Steps-1280.dc.html">Book the same tests again</a><span class="t-sm muted">Your test request form is copied.</span></div><div class="card col g12" style="padding: 20px"><span class="statecap">NO_SHOW detail (T-12)</span><span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>No-show</span><b class="t-lg">The sample wasn't dropped off in time</b><p class="t-base">The drop-off deadline (28 Nov 2026, 4:00 PM IST) and the grace period passed without the sample reaching the lab.</p><div class="row between panel" style="padding: 10px 12px"><span class="t-base">Fee or refund</span><span class="row g8"><span class="t-base muted">shown once confirmed</span><span class="placeholder">Placeholder</span></span></div><a class="btn btn-primary" href="K1-Booking-Steps-1280.dc.html">Book the same tests again</a><span class="t-sm muted">If you think this is wrong, contact LabConnect support from the help page.</span></div></div></main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1280, "height": 1300}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

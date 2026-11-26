@@ -8,12 +8,13 @@ LabConnect is a government-operated marketplace for discovering and booking accr
 
 ## 2. Current phase
 
-**Phase 3 (backend foundations) and Phase 4 (design).** Gates G1 (domain and database, 2026-11-24) and G2 (core API contracts, 2026-11-25) have passed.
+**Phase 5 (breadth-first increments), starting with increment I1 (Directory). Phase 4 (design) is still open.** Gates G1 (domain and database, 2026-11-24) and G2 (core API contracts, 2026-11-25) have passed. Phase 3 (backend foundations, P3-01 to P3-12) is complete as code and tests. **Nothing is deployed anywhere.**
 
-While Phases 3 and 4 are open:
-- **Backend:** build the platform services in the order of `docs/08-project/TASK_TRACKER.md` (Phase 3). The API contract in `packages/api-contract/` is the source of truth: change the contract first, then the implementation.
-- **Design:** the design phase follows `docs/09-design-handoff/`, starting with D-01 (brand guidelines) and D-02 (the Claude Design run). Screens are implemented in `packages/ui` and `apps/web` only from approved designs (D-03).
-- **Do not** build feature screens ahead of the designs, and do not start the breadth-first increments (Phase 5) before the Phase 3 foundations they depend on.
+While Phase 5 is open:
+- **Increments:** build in the order of `docs/08-project/ROADMAP.md` ("Breadth-first increments") and the task lists in `docs/08-project/TASK_TRACKER.md` (Phase 5). Each increment has a customer slice, a lab slice and a shared admin slice. The API contract in `packages/api-contract/` is the source of truth: change the contract first, then the implementation.
+- **Design:** the designs are approved in part (D-03, 2026-11-26; the scope is in `TASK_TRACKER.md`). Build screens only from the approved boards: `docs/09-design-handoff/designs-pass-2/`, with the corrections of `DESIGN_REVIEW_PASS_2.md` (and of `DESIGN_REVIEW_D-03.md` for the first-run boards). Where a board disagrees with the contract or the permission matrix, the contract and the matrix win. D-04 (tokens and core components in `packages/ui`) comes before feature screens.
+- **Do not** build a screen that has no approved board, and do not deploy: the UAT workflow stays off until a person enables it, and the hosting for UAT is not settled.
+- **Two developers work in parallel.** Every pull request needs the other developer's approval. Before adding an open question, check the highest OQ number in `main` **and** in the open pull requests.
 
 Check `docs/08-project/ROADMAP.md` at the start of every session to confirm which phase is current.
 

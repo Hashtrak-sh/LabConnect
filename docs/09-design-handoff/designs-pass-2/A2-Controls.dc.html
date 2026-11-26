@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A2 Controls and primitives</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1440px; min-height: 1820px; background: var(--color-surface-raised); padding: 48px; display: flex; flex-direction: column; gap: 36px; font-family: var(--font-sans)">
+  <div class="row between">
+    <div class="col g4"><p class="sectitle">Stage A · 2 of 4</p><h1 class="t-3xl w7">Controls & formatting primitives</h1><p class="muted t-sm">shadcn/ui (Radix) base. Every state drawn. Touch targets ≥ 44 px on mobile.</p></div>
+    <span class="prov">Provisional brand values · OQ-19</span>
+  </div>
+
+  <section class="col g16">
+    <h2 class="t-xl w6">Button</h2>
+    <div style="display: grid; grid-template-columns: 140px repeat(6, minmax(0, 1fr)); gap: 14px 16px; align-items: center">
+      <span></span><span class="spec">default</span><span class="spec">hover</span><span class="spec">focus</span><span class="spec">active</span><span class="spec">disabled</span><span class="spec">loading</span>
+      <b class="t-sm">Primary</b>
+      <button class="btn btn-primary" type="button">Pay ₹3,540.00</button>
+      <button class="btn btn-primary is-hover" type="button">Pay ₹3,540.00</button>
+      <button class="btn btn-primary is-focus" type="button">Pay ₹3,540.00</button>
+      <button class="btn btn-primary is-active" type="button">Pay ₹3,540.00</button>
+      <button class="btn btn-primary is-disabled" type="button" disabled>Pay ₹3,540.00</button>
+      <button class="btn btn-primary" type="button" aria-busy="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"></path></svg>Processing…</button>
+      <b class="t-sm">Secondary</b>
+      <button class="btn btn-secondary" type="button">Print labels</button>
+      <button class="btn btn-secondary is-hover" type="button">Print labels</button>
+      <button class="btn btn-secondary is-focus" type="button">Print labels</button>
+      <button class="btn btn-secondary" type="button" style="background: var(--color-neutral-bg)">Print labels</button>
+      <button class="btn btn-secondary is-disabled" type="button" disabled>Print labels</button>
+      <button class="btn btn-secondary" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"></path></svg>Preparing…</button>
+      <b class="t-sm">Ghost</b>
+      <button class="btn btn-ghost" type="button">View details</button>
+      <button class="btn btn-ghost is-hover" type="button">View details</button>
+      <button class="btn btn-ghost is-focus" type="button">View details</button>
+      <button class="btn btn-ghost" type="button" style="background: var(--color-border)">View details</button>
+      <button class="btn btn-ghost is-disabled" type="button" disabled>View details</button>
+      <span class="spec">—</span>
+      <b class="t-sm">Destructive</b>
+      <button class="btn btn-destructive" type="button">Cancel booking</button>
+      <button class="btn btn-destructive is-hover" type="button">Cancel booking</button>
+      <button class="btn btn-destructive is-focus" type="button">Cancel booking</button>
+      <button class="btn btn-destructive" type="button" style="background: #7F1D1D">Cancel booking</button>
+      <button class="btn btn-destructive is-disabled" type="button" disabled>Cancel booking</button>
+      <button class="btn btn-destructive" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"></path></svg>Cancelling…</button>
+      <b class="t-sm">Link</b>
+      <a class="btn btn-link" href="#">How fees work</a>
+      <a class="btn btn-link" href="#" style="color: var(--color-brand-primary-hover)">How fees work</a>
+      <a class="btn btn-link is-focus" href="#">How fees work</a>
+      <span class="spec">—</span><span class="spec">—</span><span class="spec">—</span>
+    </div>
+    <div class="row g16" style="margin-top: 8px">
+      <button class="btn btn-primary btn-sm" type="button">Small 32</button>
+      <button class="btn btn-primary" type="button">Medium 40</button>
+      <button class="btn btn-primary btn-lg" type="button">Large 48</button>
+      <button class="btn btn-primary btn-xl" type="button"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"></path><path d="M7 12h10"></path></svg>Scan sample · 56 counter</button>
+      <button class="btn btn-secondary btn-icon" type="button" aria-label="Notifications"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg></button>
+      <span class="spec">Icon-only buttons always carry aria-label.</span>
+    </div>
+  </section>
+
+  <section class="col g16">
+    <h2 class="t-xl w6">Text input · select · combobox · date (IST)</h2>
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 20px">
+      <div class="field"><label class="label" for="a2i1">Batch / lot number <span class="req">*</span></label><div class="input"><input class="bare" id="a2i1" placeholder="e.g. B-2611-07"></div><span class="help">As printed on the sample.</span><span class="spec">default</span></div>
+      <div class="field"><label class="label" for="a2i2">Batch / lot number <span class="req">*</span></label><div class="input is-focus"><input class="bare" id="a2i2" value="B-2611-07"></div><span class="help">As printed on the sample.</span><span class="spec">focus</span></div>
+      <div class="field"><label class="label" for="a2i3">GSTIN</label><div class="input is-error"><input class="bare" id="a2i3" aria-invalid="true" value="07AABCA1234"></div><span class="err"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>GSTIN has 15 characters. You entered 11.</span><span class="spec">error</span></div>
+      <div class="field"><label class="label" for="a2i4">Lab site</label><div class="input is-disabled"><input class="bare" id="a2i4" disabled value="Vasundhara Testing Laboratories"></div><span class="help">Chosen on the previous step.</span><span class="spec">disabled</span></div>
+      <div class="field"><label class="label" for="a2i5">Booking number</label><div class="input is-readonly mono"><input class="bare" id="a2i5" readonly value="LC-2611-0004821"></div><span class="help">Read-only.</span><span class="spec">read-only</span></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+      <div class="field"><label class="label" for="a2s">Discipline</label><div class="input between"><select class="bare" id="a2s"><option>Chemical</option></select></div><span class="spec">select</span></div>
+      <div class="field" style="position: relative">
+        <label class="label" for="a2c">Test, product or standard</label>
+        <div class="input is-focus"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg><input class="bare" id="a2c" value="melt flow"></div>
+        <div class="overlay" style="padding: 6px; display: flex; flex-direction: column" role="listbox">
+          <div class="row between" style="padding: 8px 10px; background: var(--color-brand-tint); border-radius: 6px"><span class="t-sm"><b>Melt flow</b> rate</span><span class="badge b-neutral">Parameter</span></div>
+          <div class="row between" style="padding: 8px 10px"><span class="t-sm">IS 2530 · <b>Melt flow</b> index</span><span class="badge b-neutral">Standard</span></div>
+          <div class="row between" style="padding: 8px 10px"><span class="t-sm">HDPE granules</span><span class="badge b-neutral">Product</span></div>
+        </div>
+        <span class="spec">combobox (taxonomy search) · open</span>
+      </div>
+      <div class="field">
+        <label class="label" for="a2d">Drop date</label>
+        <div class="input between"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg><input class="bare" id="a2d" value="28 Nov 2026"></div>
+        <div class="overlay" style="padding: 12px; width: 280px">
+          <div class="row between t-sm w6" style="margin-bottom: 8px"><span>November 2026</span><span class="muted t-xs">IST</span></div>
+          <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; font-size: 12px">
+            <span class="muted">M</span><span class="muted">T</span><span class="muted">W</span><span class="muted">T</span><span class="muted">F</span><span class="muted">S</span><span class="muted">S</span>
+            <span style="color: var(--gray-400); padding: 6px 0; text-decoration: line-through">23</span><span style="color: var(--gray-400); padding: 6px 0; text-decoration: line-through">24</span><span style="color: var(--gray-400); padding: 6px 0; text-decoration: line-through">25</span><span style="padding: 6px 0">26</span><span style="padding: 6px 0">27</span><span style="padding: 6px 0; background: var(--color-brand-primary); color: var(--color-text-inverse); border-radius: 6px; font-weight: 600">28</span><span style="color: var(--gray-400); padding: 6px 0">29</span>
+          </div>
+          <p class="t-xs muted" style="margin-top: 8px">Only dates with open slots are selectable. Sundays: lab closed.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px">
+    <div class="col g12">
+      <h2 class="t-xl w6">Checkbox · radio · switch</h2>
+      <label class="check"><input type="checkbox"><span class="t-sm">Statement of conformity required</span></label>
+      <div class="row g12"><span class="box on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; stroke-width: 3"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="t-sm">Seal intact</span></div>
+      <label class="check" style="opacity: 1"><input type="checkbox"><span class="t-sm">Disabled option</span></label>
+      <label class="radio"><input type="radio" name="r569" checked><span class="t-sm">Booking as an organisation</span></label>
+      <label class="radio"><input type="radio" name="r569"><span class="t-sm">Booking as an individual</span></label>
+      <div class="row g12"><button class="switch on" type="button" role="switch" aria-checked="true" aria-labelledby="sw1"></button><span id="sw1" class="t-base">Email me when the lab decides</span></div>
+      <div class="row g12"><button class="switch" type="button" role="switch" aria-checked="false" aria-labelledby="sw2"></button><span id="sw2" class="t-base">Temporarily unavailable</span></div>
+      <p class="t-xs muted">Pass 2 (A-01c): the OFF track is <span class="mono">--color-border-strong</span>, 4.8:1 on white (was gray-400, 2.5:1).</p>
+    </div>
+    <div class="col g12">
+      <h2 class="t-xl w6">Toggle chips (counter checks)</h2>
+      <div class="row wrap g8"><span class="chip on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Item matches</span><span class="chip on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Batch matches</span><span class="chip bad"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>Quantity short</span><span class="chip">Seal intact?</span></div>
+      <p class="t-xs muted">Three states: unset, yes (tick), no (cross). The icon and label change, not only the colour.</p>
+      <h3 class="t-base w6" style="margin-top: 8px">Segmented</h3>
+      <div class="seg"><span class="on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>List</span><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15"></path></svg>Map</span></div>
+    </div>
+    <div class="col g12">
+      <h2 class="t-xl w6">Formatting primitives</h2>
+      <table class="tbl compact">
+        <caption class="sr-only">Formatting primitives</caption>
+        <tbody>
+          <tr><th scope="row" class="muted t-sm" style="background: none; text-transform: none; letter-spacing: 0; font-weight: 400">Money</th><td class="num w6">₹1,00,000.00 · ₹3,540.00<br><span class="t-xs muted" style="font-weight: 400">Rule: Indian grouping, always two decimals, from integer paise. One format on every board.</span> <span class="prov">Proposed</span></td></tr>
+          <tr><th scope="row" class="muted t-sm" style="background: none; text-transform: none; letter-spacing: 0; font-weight: 400">DateTime</th><td class="num">28 Nov 2026, 10:00 AM IST<br><span class="t-xs muted">A time is always followed by "IST", deadlines also say "in 3 h".</span></td></tr>
+          <tr><td class="muted t-sm">Relative</td><td class="num">in 3 h · 2 days ago</td></tr>
+          <tr><td class="muted t-sm">BookingNo</td><td class="mono">LC-2611-0004821</td></tr>
+          <tr><td class="muted t-sm">Short code</td><td class="mono w6" style="letter-spacing: .12em">K7Q-4MX <span class="t-xs muted" style="letter-spacing: 0">package code: 6 Crockford base32 characters, shown in two groups of three</span></td></tr>
+          <tr><td class="muted t-sm">Masked phone</td><td class="mono">+91 98•••• ••210</td></tr>
+          <tr><td class="muted t-sm">Masked bank</td><td class="mono">A/c ••••••4417</td></tr>
+          <tr><td class="muted t-sm">Masked email</td><td class="mono">q•••••@v•••••labs.in</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="col g16">
+    <h2 class="t-xl w6">FileUpload · scan status</h2>
+    <div style="display: grid; grid-template-columns: 1.3fr repeat(5, minmax(0, 1fr)); gap: 16px">
+      <div class="panel col g8" style="border-style: dashed; border-width: 2px; border-color: var(--color-border-strong); align-items: center; justify-content: center; padding: 20px; text-align: center">
+        <svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>
+        <b class="t-sm">Drag a file here or <a href="#">choose a file</a></b>
+        <span class="t-xs muted">PDF, JPG or PNG · up to 20 MB</span>
+        <span class="spec">idle</span>
+      </div>
+      <div class="card col g8" style="padding: 14px"><div class="row g8 t-sm w5"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>spec-sheet.pdf</div><div class="bar"><i style="width: 62%"></i></div><span class="t-xs muted num">Uploading · 62%</span><span class="spec">uploading</span></div>
+      <div class="card col g8" style="padding: 14px"><div class="row g8 t-sm w5"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>spec-sheet.pdf</div><span class="badge b-info" style="align-self: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Pending scan</span><span class="t-xs muted">Checking for viruses…</span><span class="spec">scanning</span></div>
+      <div class="card col g8" style="padding: 14px"><div class="row g8 t-sm w5"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>spec-sheet.pdf</div><span class="badge b-ok" style="align-self: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Clean</span><span class="t-xs muted num">412 KB · 25 Nov 2026</span><span class="spec">clean</span></div>
+      <div class="card col g8" style="padding: 14px; border-color: var(--color-danger-border)"><div class="row g8 t-sm w5"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>invoice.pdf</div><span class="badge b-danger" style="align-self: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>Rejected</span><span class="t-xs" style="color: #7F1D1D">Threat found. The file was deleted. Upload a clean copy.</span><span class="spec">infected</span></div>
+      <div class="card col g8" style="padding: 14px; border-color: var(--color-danger-border)"><div class="row g8 t-sm w5"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>photo.heic</div><span class="badge b-danger" style="align-self: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>Not accepted</span><span class="t-xs" style="color: #7F1D1D">HEIC isn't supported. Use JPG, PNG or PDF.</span><span class="spec">invalid</span></div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1820}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
