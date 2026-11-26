@@ -1,14 +1,16 @@
 import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
 import { LabDirectoryService } from '@labconnect/core';
 import { DomainError } from '../../common/domain-error.js';
-import { parsePageQuery, parseScopeQuery } from './public-lab-sites.dto.js';
+import { parsePageQuery, parseScopeQuery, parseSlotQuery } from './public-lab-sites.dto.js';
 import {
   type PublicLabSite,
   type PublicPriceList,
   type PublicScopeLineList,
+  type PublicSlotList,
   toPublicLabSite,
   toPublicPriceList,
   toPublicScopeLineList,
+  toPublicSlotList,
 } from './public-lab-site-response.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -76,5 +78,23 @@ export class PublicLabSitesController {
       throw new DomainError('NOT_FOUND', { detail: 'No bookable lab site has this id.' });
     }
     return toPublicPriceList(page, pageQuery.limit);
+  }
+
+  /**
+   * `listPublicSlots` (FR-BKG-04, EC-13, I1-CUS-05): open slots with capacity left, never their
+   * capacity; bookable sites only.
+   */
+  @Get(':siteId/slots')
+  async listPublicSlots(
+    @Param('siteId') siteId: string,
+    @Query() query: Record<string, unknown>,
+  ): Promise<PublicSlotList> {
+    const id = requireSiteId(siteId);
+    const slotQuery = parseSlotQuery(query);
+    const page = await this.directory.listPublicSlots(id, slotQuery);
+    if (page === null) {
+      throw new DomainError('NOT_FOUND', { detail: 'No bookable lab site has this id.' });
+    }
+    return toPublicSlotList(page, slotQuery.limit);
   }
 }

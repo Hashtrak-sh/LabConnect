@@ -11,6 +11,8 @@ import type {
   PublicScopeLineItem,
   PublicScopePage,
   PublicScopeQuery,
+  PublicSlotPage,
+  PublicSlotQuery,
   PublicSiteAccreditation,
   PublicSiteAddress,
   PublicSiteLabCategory,
@@ -305,24 +307,7 @@ export class LabDirectoryService {
       query.cursor === null ? null : decodeScopeCursor(query.cursor, PRICE_CURSOR_PREFIX);
 
     return withPublicReadContext(this.deps.prisma, async (tx) => {
-      const lists = await tx.$queryRaw<{ id: string; version_no: number; effective_from: Date }[]>(
-        Prisma.sql`
-        SELECT pl.id, pl.version_no, pl.effective_from
-          FROM lab_site s
-          JOIN organisation o ON o.id = s.organisation_id
-          JOIN price_list pl
-            ON pl.lab_site_id = s.id AND pl.status = 'PUBLISHED' AND pl.effective_from IS NOT NULL
-           AND pl.effective_from <= ${now}::timestamptz
-           AND (pl.effective_to IS NULL OR pl.effective_to > ${now}::timestamptz)
-         WHERE s.id = ${siteId}::uuid
-           AND s.status = 'ACTIVE' AND s.is_bookable AND s.listing_status = 'BOOKABLE'
-           AND o.org_type = 'LAB' AND o.status = 'ACTIVE'
-           AND o.claim_status = 'CLAIMED' AND o.kyc_status = 'VERIFIED'
-           AND EXISTS (SELECT 1 FROM accreditation a
-                        WHERE a.lab_site_id = s.id AND a.lab_category = 'TESTING'
-                          AND ${publicAccreditationSql(today)})`,
-      );
-      const list = lists[0];
+      const list = await bookablePriceList(tx, siteId, now, today);
       if (!list) return null;
 
       const afterFilter =
@@ -389,6 +374,143 @@ export class LabDirectoryService {
       };
     });
   }
+
+  /**
+   * A page of a bookable site's open slots with capacity left, between `from` and `to` (slot date
+   * in IST, inclusive), ordered by start (FR-BKG-04, `listPublicSlots`), or `null` when the site
+   * is not public or not bookable (404). Only slots that start in the future. With `discipline`,
+   * that discipline's slots and the slots open to every discipline; an unknown discipline is 422.
+   * Capacity figures are never returned (the public deny-list).
+   */
+  async listPublicSlots(siteId: string, query: PublicSlotQuery): Promise<PublicSlotPage | null> {
+    if (!UUID.test(siteId)) return null;
+    const now = this.deps.clock.now();
+    const today = istDateKey(now);
+    const after = query.cursor === null ? null : decodeSlotCursor(query.cursor);
+
+    return withPublicReadContext(this.deps.prisma, async (tx) => {
+      if (!(await bookablePriceList(tx, siteId, now, today))) return null;
+
+      if (query.discipline !== null) {
+        const known = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+          SELECT n.id FROM md_node n JOIN md_node_type t ON t.id = n.node_type_id
+           WHERE n.code = ${query.discipline} AND t.code = 'DISCIPLINE' AND n.status = 'ACTIVE'
+           LIMIT 1`);
+        if (known.length === 0) throw new LabDirectoryQueryError('The discipline is not known.');
+      }
+      const disciplineFilter =
+        query.discipline === null
+          ? Prisma.sql`TRUE`
+          : Prisma.sql`(sx.discipline_node_id IS NULL OR dn.code = ${query.discipline})`;
+      const afterFilter =
+        after === null
+          ? Prisma.sql`TRUE`
+          : Prisma.sql`(sx.starts_at, sx.id::text) > (${after[0]}::timestamptz, ${after[1]})`;
+
+      const rows = await tx.$queryRaw<SlotRow[]>(Prisma.sql`
+        SELECT sx.id, sx.slot_date::text AS slot_date, sx.starts_at, sx.ends_at,
+               dn.code AS d_code, dn.name AS d_name
+          FROM slot sx
+          LEFT JOIN md_node dn ON dn.id = sx.discipline_node_id
+         WHERE sx.lab_site_id = ${siteId}::uuid
+           AND sx.status = 'OPEN'
+           AND sx.capacity > sx.held_count + sx.booked_count
+           AND sx.starts_at > ${now}::timestamptz
+           AND sx.slot_date >= ${query.from}::date AND sx.slot_date <= ${query.to}::date
+           AND ${disciplineFilter} AND ${afterFilter}
+         ORDER BY sx.starts_at, sx.id::text
+         LIMIT ${query.limit + 1}`);
+
+      const page = rows.slice(0, query.limit);
+      const last = page.at(-1);
+      return {
+        slots: page.map((row) => ({
+          slotId: row.id,
+          date: row.slot_date,
+          startsAt: row.starts_at,
+          endsAt: row.ends_at,
+          discipline: pair(row.d_code, row.d_name),
+        })),
+        nextCursor:
+          rows.length > query.limit && last !== undefined
+            ? encodeSlotCursor([last.starts_at.toISOString(), last.id])
+            : null,
+      };
+    });
+  }
+}
+
+/**
+ * The effective published price list of a site that is bookable now, or `null` (SEARCH.md
+ * section 4, the rule `visibleLinesSql` uses for prices): the flag and `BOOKABLE` listing, the
+ * organisation claimed with KYC verified, a `TESTING` accreditation in force, and a `PUBLISHED`
+ * list in effect.
+ */
+async function bookablePriceList(
+  tx: Prisma.TransactionClient,
+  siteId: string,
+  now: Date,
+  today: string,
+): Promise<{ id: string; version_no: number; effective_from: Date } | null> {
+  const lists = await tx.$queryRaw<{ id: string; version_no: number; effective_from: Date }[]>(
+    Prisma.sql`
+    SELECT pl.id, pl.version_no, pl.effective_from
+      FROM lab_site s
+      JOIN organisation o ON o.id = s.organisation_id
+      JOIN price_list pl
+        ON pl.lab_site_id = s.id AND pl.status = 'PUBLISHED' AND pl.effective_from IS NOT NULL
+       AND pl.effective_from <= ${now}::timestamptz
+       AND (pl.effective_to IS NULL OR pl.effective_to > ${now}::timestamptz)
+     WHERE s.id = ${siteId}::uuid
+       AND s.status = 'ACTIVE' AND s.is_bookable AND s.listing_status = 'BOOKABLE'
+       AND o.org_type = 'LAB' AND o.status = 'ACTIVE'
+       AND o.claim_status = 'CLAIMED' AND o.kyc_status = 'VERIFIED'
+       AND EXISTS (SELECT 1 FROM accreditation a
+                    WHERE a.lab_site_id = s.id AND a.lab_category = 'TESTING'
+                      AND ${publicAccreditationSql(today)})`,
+  );
+  return lists[0] ?? null;
+}
+
+interface SlotRow {
+  id: string;
+  slot_date: string;
+  starts_at: Date;
+  ends_at: Date;
+  d_code: string | null;
+  d_name: string | null;
+}
+
+const SLOT_CURSOR_PREFIX = 'sl1.';
+
+function encodeSlotCursor(position: [string, string]): string {
+  return SLOT_CURSOR_PREFIX + Buffer.from(JSON.stringify(position), 'utf8').toString('base64url');
+}
+
+function decodeSlotCursor(cursor: string): [string, string] {
+  const invalid = new LabDirectoryQueryError(
+    'The cursor is not valid. Start again from the first page.',
+  );
+  if (!cursor.startsWith(SLOT_CURSOR_PREFIX)) throw invalid;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(
+      Buffer.from(cursor.slice(SLOT_CURSOR_PREFIX.length), 'base64url').toString('utf8'),
+    );
+  } catch {
+    throw invalid;
+  }
+  if (
+    !Array.isArray(parsed) ||
+    parsed.length !== 2 ||
+    typeof parsed[0] !== 'string' ||
+    Number.isNaN(Date.parse(parsed[0])) ||
+    typeof parsed[1] !== 'string' ||
+    !UUID.test(parsed[1])
+  ) {
+    throw invalid;
+  }
+  return [parsed[0], parsed[1]];
 }
 
 const PRICE_CURSOR_PREFIX = 'pr1.';

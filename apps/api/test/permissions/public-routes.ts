@@ -47,4 +47,9 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
     reason:
       "A bookable site's effective published price list (FR-DIS-06, CD-06, contract security: []). Published prices are public; drafts are never read. Not bookable gives 404.",
   },
+  {
+    route: 'GET /v1/public/lab-sites/:siteId/slots',
+    reason:
+      "A bookable site's open drop-off slots (FR-BKG-04, contract security: []). Only slots with capacity left are listed and capacity figures are never returned.",
+  },
 ];

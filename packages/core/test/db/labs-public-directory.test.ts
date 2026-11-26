@@ -189,4 +189,65 @@ describe('LabDirectoryService (public read side)', () => {
       expect(await prices(site.id), why).toBeNull();
     }
   });
+
+  // ---------------------------------------------------------------- slots (I1-CUS-05)
+
+  const slots = (
+    siteId: string,
+    query: Partial<{ discipline: string; cursor: string; limit: number }> = {},
+  ) =>
+    directory().listPublicSlots(siteId, {
+      from: '2026-11-01',
+      to: '2026-12-31',
+      discipline: query.discipline ?? null,
+      cursor: query.cursor ?? null,
+      limit: query.limit ?? 100,
+    });
+
+  it('lists the open future slots of a bookable site, by start', async () => {
+    const page = await slots(world().a1.id);
+    const ids = page?.slots.map((slot) => slot.slotId) ?? [];
+    expect(ids.length).toBeGreaterThan(0);
+    expect(world().a1.slotIds).toEqual(expect.arrayContaining(ids));
+    const starts = page?.slots.map((slot) => slot.startsAt.getTime()) ?? [];
+    expect(starts).toEqual([...starts].sort((a, b) => a - b));
+    for (const slot of page?.slots ?? []) {
+      expect(slot.startsAt.getTime()).toBeGreaterThan(clock.now().getTime());
+      expect(slot.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Object.keys(slot).sort()).toEqual([
+        'date',
+        'discipline',
+        'endsAt',
+        'slotId',
+        'startsAt',
+      ]);
+    }
+  });
+
+  it('pages slots with a cursor and keeps to the date range', async () => {
+    const all = (await slots(world().a1.id))?.slots ?? [];
+    if (all.length >= 2) {
+      const first = await slots(world().a1.id, { limit: 1 });
+      const second = await slots(world().a1.id, { limit: 1, cursor: first?.nextCursor ?? '' });
+      expect(second?.slots[0]?.slotId).toBe(all[1]?.slotId);
+    }
+    const none = await directory().listPublicSlots(world().a1.id, {
+      from: '2030-01-01',
+      to: '2030-01-31',
+      discipline: null,
+      cursor: null,
+      limit: 25,
+    });
+    expect(none?.slots).toEqual([]);
+  });
+
+  it('refuses an unknown discipline, and has no slots for a site that is not bookable', async () => {
+    await expect(slots(world().a1.id, { discipline: 'NO_SUCH_DISCIPLINE' })).rejects.toBeInstanceOf(
+      LabDirectoryQueryError,
+    );
+    const { c, kycPending, calibration } = world();
+    for (const [why, site] of Object.entries({ c, kycPending, calibration })) {
+      expect(await slots(site.id), why).toBeNull();
+    }
+  });
 });

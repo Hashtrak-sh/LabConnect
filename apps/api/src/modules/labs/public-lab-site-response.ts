@@ -4,6 +4,7 @@ import type {
   PublicPricePage,
   PublicScopeLineItem,
   PublicScopePage,
+  PublicSlotPage,
   PublicSiteAccreditation,
   PublicSiteProfile,
 } from '@labconnect/core';
@@ -13,6 +14,7 @@ export type PublicLabSite = Schemas['PublicLabSite'];
 type PublicAccreditation = Schemas['PublicAccreditation'];
 export type PublicScopeLineList = Schemas['PublicScopeLineList'];
 export type PublicPriceList = Schemas['PublicPriceList'];
+export type PublicSlotList = Schemas['PublicSlotList'];
 type Money = Schemas['Money'];
 type PublicScopeLine = Schemas['PublicScopeLine'];
 type ScopeSiteType = PublicScopeLine['siteType'];
@@ -91,6 +93,20 @@ export function toPublicPriceList(page: PublicPricePage, limit: number): PublicP
       packagingInstructions: item.packagingInstructions,
       tatDays: item.tatDays,
       isAvailable: item.isAvailable,
+    })),
+    page: { nextCursor: page.nextCursor, limit },
+  };
+}
+
+/** The directory's slot page as the `listPublicSlots` response. No capacity figures exist to drop. */
+export function toPublicSlotList(page: PublicSlotPage, limit: number): PublicSlotList {
+  return {
+    data: page.slots.map((slot) => ({
+      id: slot.slotId,
+      date: slot.date,
+      startsAt: slot.startsAt.toISOString(),
+      endsAt: slot.endsAt.toISOString(),
+      discipline: slot.discipline,
     })),
     page: { nextCursor: page.nextCursor, limit },
   };

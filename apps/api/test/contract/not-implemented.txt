@@ -131,7 +131,6 @@ listLabSiteClosures
 listLabSlots
 listLabUsers
 listPaymentOrders
-listPublicSlots
 listTaxonomyNodes
 placeAdminPayoutHold
 publishAdminChangeSet

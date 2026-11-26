@@ -121,3 +121,30 @@ export interface PublicPageQuery {
   /** 1 to 100. */
   limit: number;
 }
+
+/** An open drop-off slot with capacity left (`PublicSlot`). Capacity figures are never public. */
+export interface PublicSlotView {
+  slotId: string;
+  /** `YYYY-MM-DD`, IST. */
+  date: string;
+  startsAt: Date;
+  endsAt: Date;
+  /** `null` for a slot open to every discipline. */
+  discipline: PublicCodeName | null;
+}
+
+export interface PublicSlotQuery {
+  /** First slot date, `YYYY-MM-DD`. */
+  from: string;
+  /** Last slot date, `YYYY-MM-DD`, not before `from`. */
+  to: string;
+  /** Code of a DISCIPLINE node, or `null` for every slot. */
+  discipline: string | null;
+  cursor: string | null;
+  limit: number;
+}
+
+export interface PublicSlotPage {
+  slots: PublicSlotView[];
+  nextCursor: string | null;
+}

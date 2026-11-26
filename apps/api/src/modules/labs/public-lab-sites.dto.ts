@@ -1,4 +1,4 @@
-import type { PublicPageQuery, PublicScopeQuery } from '@labconnect/core';
+import type { PublicPageQuery, PublicScopeQuery, PublicSlotQuery } from '@labconnect/core';
 import { DomainError, type ProblemIssue } from '../../common/domain-error.js';
 
 // Query strings of the public lab site lists (`paths/public-lab-sites.yaml`), checked by hand
@@ -87,6 +87,50 @@ export function parsePageQuery(query: Record<string, unknown>): PublicPageQuery 
   const issues: ProblemIssue[] = [];
   const values = single(query, PAGE_PARAMETERS, issues);
   const result: PublicPageQuery = {
+    cursor: values.get('cursor') ?? null,
+    limit: limitOf(values.get('limit'), issues),
+  };
+  if (issues.length > 0) fail(issues);
+  return result;
+}
+
+const SLOT_PARAMETERS = new Set(['from', 'to', 'discipline', 'cursor', 'limit']);
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function dateOf(name: 'from' | 'to', raw: string | undefined, issues: ProblemIssue[]): string {
+  if (raw === undefined) {
+    issues.push({ path: name, code: 'REQUIRED', message: 'This parameter is required.' });
+    return '';
+  }
+  const parsed = DATE.test(raw) ? new Date(`${raw}T00:00:00Z`) : null;
+  if (
+    parsed === null ||
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== raw
+  ) {
+    issues.push({ path: name, code: 'INVALID_VALUE', message: 'Give a date as YYYY-MM-DD.' });
+    return '';
+  }
+  return raw;
+}
+
+/** `listPublicSlots`: `from` and `to` (required, `to` not before `from`), `discipline`, `cursor`, `limit`. */
+export function parseSlotQuery(query: Record<string, unknown>): PublicSlotQuery {
+  const issues: ProblemIssue[] = [];
+  const values = single(query, SLOT_PARAMETERS, issues);
+  const from = dateOf('from', values.get('from'), issues);
+  const to = dateOf('to', values.get('to'), issues);
+  if (from !== '' && to !== '' && to < from) {
+    issues.push({ path: 'to', code: 'INVALID_VALUE', message: 'to must not be before from.' });
+  }
+  const discipline = values.get('discipline') ?? null;
+  if (discipline !== null && discipline.length > 100) {
+    issues.push({ path: 'discipline', code: 'INVALID_VALUE', message: 'Give a discipline code.' });
+  }
+  const result: PublicSlotQuery = {
+    from,
+    to,
+    discipline,
     cursor: values.get('cursor') ?? null,
     limit: limitOf(values.get('limit'), issues),
   };

@@ -8,6 +8,8 @@ import {
   type PublicPricePage,
   type PublicScopePage,
   type PublicScopeQuery,
+  type PublicSlotPage,
+  type PublicSlotQuery,
   type PublicSiteProfile,
 } from '@labconnect/core';
 import type { Server } from 'node:http';
@@ -97,13 +99,35 @@ const PRICE_PAGE: PublicPricePage = {
   nextCursor: null,
 };
 
+const SLOT_PAGE: PublicSlotPage = {
+  slots: [
+    {
+      slotId: '0190d6a2-7c4e-7a1b-9c3d-0123456789e1',
+      date: '2026-12-03',
+      startsAt: new Date('2026-12-03T04:30:00Z'),
+      endsAt: new Date('2026-12-03T06:30:00Z'),
+      discipline: null,
+    },
+  ],
+  nextCursor: null,
+};
+
 class StubDirectory {
   readonly asked: string[] = [];
   readonly scopeQueries: PublicScopeQuery[] = [];
   readonly pageQueries: PublicPageQuery[] = [];
+  readonly slotQueries: PublicSlotQuery[] = [];
   getPublicSite(siteId: string): Promise<PublicSiteProfile | null> {
     this.asked.push(siteId);
     return Promise.resolve(siteId === SITE ? PROFILE : null);
+  }
+  listPublicSlots(siteId: string, query: PublicSlotQuery): Promise<PublicSlotPage | null> {
+    this.asked.push(siteId);
+    this.slotQueries.push(query);
+    if (query.discipline === 'NOPE') {
+      return Promise.reject(new LabDirectoryQueryError('The discipline is not known.'));
+    }
+    return Promise.resolve(siteId === SITE ? SLOT_PAGE : null);
   }
   listPublicPrices(siteId: string, query: PublicPageQuery): Promise<PublicPricePage | null> {
     this.asked.push(siteId);
@@ -141,6 +165,7 @@ describe('GET /v1/public/lab-sites/{siteId}', () => {
     directory.asked.length = 0;
     directory.scopeQueries.length = 0;
     directory.pageQueries.length = 0;
+    directory.slotQueries.length = 0;
   });
 
   it('returns the public profile, anonymously', async () => {
@@ -258,5 +283,61 @@ describe('GET /v1/public/lab-sites/{siteId}', () => {
     });
     expect(response.status).toBe(422);
     expect(directory.asked).toEqual([]);
+  });
+
+  // ---------------------------------------------------------------- slots (I1-CUS-05)
+
+  it('lists open slots without any capacity figure', async () => {
+    const response = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/slots?from=2026-12-01&to=2026-12-07&discipline=MECH`,
+    );
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      data: [
+        {
+          id: '0190d6a2-7c4e-7a1b-9c3d-0123456789e1',
+          date: '2026-12-03',
+          startsAt: '2026-12-03T04:30:00.000Z',
+          endsAt: '2026-12-03T06:30:00.000Z',
+          discipline: null,
+        },
+      ],
+      page: { nextCursor: null, limit: 25 },
+    });
+    expect(directory.slotQueries).toEqual([
+      { from: '2026-12-01', to: '2026-12-07', discipline: 'MECH', cursor: null, limit: 25 },
+    ]);
+  });
+
+  it('refuses a missing or reversed date range before asking', async () => {
+    const missing = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/slots?from=2026-12-01`,
+      {
+        invalidRequest: 'to is required and must give 422',
+      },
+    );
+    expect(missing.status).toBe(422);
+    expect(missing.body).toMatchObject({ errors: [{ path: 'to', code: 'REQUIRED' }] });
+    const reversed = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/slots?from=2026-12-07&to=2026-12-01`,
+    );
+    expect(reversed.status).toBe(422);
+    const badDate = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/slots?from=2026-02-30&to=2026-03-01`,
+      { invalidRequest: 'an impossible date must give 422' },
+    );
+    expect(badDate.status).toBe(422);
+    expect(directory.asked).toEqual([]);
+  });
+
+  it('answers an unknown discipline with 422 and a site that is not bookable with 404', async () => {
+    const unknown = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/slots?from=2026-12-01&to=2026-12-07&discipline=NOPE`,
+    );
+    expect(unknown.status).toBe(422);
+    const missing = await contractRequest(app).get(
+      `/v1/public/lab-sites/${MISSING}/slots?from=2026-12-01&to=2026-12-07`,
+    );
+    expect(missing.status).toBe(404);
   });
 });
