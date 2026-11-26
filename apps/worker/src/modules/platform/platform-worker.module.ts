@@ -10,6 +10,7 @@ import {
   runDueTimers,
   TimerHandlerRegistry,
   sealAuditLog,
+  purgeExpiredIdempotencyRecords,
 } from '@labconnect/core';
 import type { PrismaClient } from '@labconnect/database';
 import {
@@ -20,7 +21,13 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { createRelayJob, createSealJob, createTimerJob, createVerifyJob } from './platform-jobs.js';
+import {
+  createIdempotencyPurgeJob,
+  createRelayJob,
+  createSealJob,
+  createTimerJob,
+  createVerifyJob,
+} from './platform-jobs.js';
 import { type PlatformJobsConfig, readPlatformJobsConfig } from './platform-jobs.config.js';
 import { PollingRunner, systemScheduler, type Scheduler } from './polling-runner.js';
 
@@ -107,6 +114,15 @@ export class PlatformJobsService implements OnApplicationBootstrap, OnApplicatio
           intervalMs: this.config.timerIntervalMs,
           logger,
         }),
+        createIdempotencyPurgeJob({
+          purge: () =>
+            purgeExpiredIdempotencyRecords(prisma, this.clock, {
+              batchSize: this.config.purgeBatchSize,
+            }),
+          batchSize: this.config.purgeBatchSize,
+          intervalMs: this.config.purgeIntervalMs,
+          logger,
+        }),
         createVerifyJob({
           verifyAll: () => verifyAllAuditChains(prisma, { clock: this.clock }),
           intervalMs: this.config.verifyIntervalMs,
@@ -118,7 +134,7 @@ export class PlatformJobsService implements OnApplicationBootstrap, OnApplicatio
     );
     this.runner.start();
     this.logger.log(
-      'Platform jobs started: outbox relay, audit sealing, timers, audit verification.',
+      'Platform jobs started: outbox relay, audit sealing, timers, idempotency purge, audit verification.',
     );
   }
 

@@ -117,12 +117,12 @@ PK (`consumer`, `event_id`). No STD `id`.
 |---|---|---|---|
 | `idempotency_key` | `varchar(100)` | no | From the header |
 | `actor_user_id` | `uuid` | yes | |
-| `route` | `varchar(200)` | no | Method + route template |
+| `route` | `varchar(200)` | no | Method + concrete path without the query (OQ-204); a longer path is cut and hashed |
 | `request_hash` | `bytea` | no | SHA-256 of the canonical body |
 | `status` | `idempotency_status` | no | `IN_PROGRESS`, `COMPLETED` |
 | `response_status` | `int` | yes | |
 | `response_body` | `jsonb` | yes | |
-| `expires_at` | `timestamptz` | no | default `now() + 24h` |
+| `expires_at` | `timestamptz` | no | `now() + 24h`, set by the service from its `Clock` (the column has no database default) |
 Unique `NULLS NOT DISTINCT`: (`idempotency_key`, `actor_user_id`, `route`).
 
 ### 1.8 `audit_log_chain` (AO)

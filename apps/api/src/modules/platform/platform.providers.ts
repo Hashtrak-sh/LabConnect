@@ -5,6 +5,7 @@ import {
   type Clock,
   ConfigParameters,
   createApiPrisma,
+  IdempotencyService,
   type LazyPrisma,
   OutboxService,
   SystemClock,
@@ -48,6 +49,11 @@ export const platformProviders: Provider[] = [
     provide: TimerService,
     useFactory: (clock: Clock) => new TimerService(clock),
     inject: [CLOCK],
+  },
+  {
+    provide: IdempotencyService,
+    useFactory: (prisma: PrismaClient, clock: Clock) => new IdempotencyService(prisma, clock),
+    inject: [PRISMA_CLIENT, CLOCK],
   },
   {
     provide: BusinessCalendarLoader,
