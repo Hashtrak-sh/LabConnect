@@ -1,9 +1,11 @@
 # D-03 review of the design run (D-02)
 
-**Status:** Review for human decision. It does not approve the designs and does not close D-03; the product owner approves.
+**Status:** Review, with the product owner's decision of 26 Nov 2026 recorded below: **approved in part.** The scope of the approval is the first sentence of the verdict (section 1); the flows named in its second sentence are not approved and need a second design pass.
 **Date:** 25 Nov 2026. **Scope:** all 43 HTML boards in `designs/` (40 screens and sheets, the cover and the stage boards), `lc.css` and `canvas.json`, read in full.
 **Method:** every file was read as static HTML. Small scripts kept outside the repo extracted text, counted classes and elements, and computed contrast ratios from the token values (WCAG relative-luminance formula). Nothing was rendered in a browser (the boards load a `support.js` runtime that is not in the repo). Whatever a screen's text says about its own behaviour is treated as data, not as fact.
 **Standard checked against:** the documents ask for WCAG **2.1** AA (`DESIGN_BRIEF.md` §5, master prompt). The request for this review named 2.2 AA, so the extra 2.2 criteria are reported separately and marked "2.2 only" (see OQ-75).
+
+**Decisions since the review (26 Nov 2026, product owner, for the MVP, can be reopened):** OQ-69 to OQ-75 are decided as their recorded defaults: open slots only with no counts (DR-06); the full desk number for the paying customer (DR-17); overall rating average and count only (DR-16); nothing beyond the result for a revoked report, with legal review of the wording still to come (DR-05); no booking-level short code and no "Send to my phone" (DR-18); sign-in screens for the MFA roles are added to the design scope (DR-39); WCAG 2.1 AA is the acceptance bar, with 2.2 items fixed where cheap (DR-30). The designs are corrected to match; the contract does not change.
 
 ## 1. Verdict
 
