@@ -57,4 +57,9 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
     reason:
       'Search filter values (FR-DIS-03, contract security: []). Taxonomies are public reference data (TENANT_ISOLATION section 1); only active values are listed.',
   },
+  {
+    route: 'POST /v1/public/leads',
+    reason:
+      '"Request a lab" (FR-DIS-07, AC-DIS-04, contract security: []): anyone may leave a lead. The insert runs as an anonymous visitor under the lead_write policy; leads can be read only by the platform team, and nothing is returned.',
+  },
 ];

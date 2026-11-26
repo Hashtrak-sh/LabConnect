@@ -32,3 +32,18 @@ export function withPublicReadContext<T>(
     { isolationLevel: 'RepeatableRead', ...options },
   );
 }
+
+/**
+ * Runs `work` as an anonymous visitor that may write: the same empty policy settings as
+ * `withPublicReadContext`, without the read-only flag. Only an insert that a row-level security
+ * policy explicitly allows for anyone can succeed here; today that is `lead_request`
+ * (`lead_write ... WITH CHECK (true)`, the "Request a lab" form of FR-DIS-07). The visitor still
+ * cannot read the row back (`lead_read` is privileged or the requester only), so insert without
+ * `RETURNING`. Never use it to work around a policy: add the policy first, in a reviewed migration.
+ */
+export function withPublicWriteContext<T>(
+  prisma: Pick<PrismaClient, '$transaction'>,
+  work: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return withDbContext(prisma, { kind: 'public' }, work);
+}

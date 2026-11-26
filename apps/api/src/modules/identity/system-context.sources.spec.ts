@@ -60,8 +60,9 @@ describe('who may open the system database context', () => {
       'packages/database/src/db-context.ts': 1,
       // The scope: tenant, platform (also on behalf), user-only and the named system method.
       'packages/core/src/identity/tenant-scope.ts': 4,
-      // Anonymous public reads (search, lab directory): the `public` kind, read-only. Never the system context.
-      'packages/core/src/platform/public-context.ts': 1,
+      // Anonymous visitors (search, lab directory, leads): the `public` kind, read-only for reads,
+      // and the write variant only for inserts a policy allows anyone (lead_request). Never system.
+      'packages/core/src/platform/public-context.ts': 2,
       // Worker and job services that run as SYSTEM with an explicit scope (TENANT_ISOLATION rule 7).
       'packages/core/src/platform/audit-chain.ts': 3,
       'packages/core/src/platform/relay.ts': 1,

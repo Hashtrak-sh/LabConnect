@@ -6,6 +6,7 @@ export * from './platform/index.js';
 export * from './identity/index.js';
 export * from './payments/index.js';
 export * from './notifications/index.js';
+export * from './customers/index.js';
 export * from './labs/index.js';
 export * from './masterdata/index.js';
 export * from './search/index.js';

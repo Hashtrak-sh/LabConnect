@@ -50,7 +50,6 @@ createLabPriceListImport
 createLabPriceListImportUploadUrl
 createLabProposal
 createLabSiteClosure
-createLead
 createPaymentOrder
 createReceiptPhotoUploadUrl
 createReportDownloadUrl

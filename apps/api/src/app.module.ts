@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CustomersModule } from './modules/customers/customers.module.js';
 import { FilesModule } from './modules/files/files.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { LabsModule } from './modules/labs/labs.module.js';
@@ -21,6 +22,7 @@ import { PlatformModule } from './modules/platform/platform.module.js';
     SearchModule,
     LabsModule,
     MasterdataModule,
+    CustomersModule,
   ],
 })
 export class AppModule {}
