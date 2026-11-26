@@ -273,3 +273,46 @@ describe('with OpenSearch', () => {
     }
   });
 });
+
+describe('demo one-time codes (UAT demonstrations only)', () => {
+  const DEMO_VARIABLES = ['DEMO_OTP_CODE', 'DEMO_OTP_EMAIL_DOMAIN'];
+  const DEMO = { demoOtpCode: '444444' };
+
+  it('is off by default: no task definition and no synthesised template mentions the variables', () => {
+    for (const service of ['api', 'worker', 'migrate']) {
+      const task = taskDefinition({}, `labconnect-uat-${service}`);
+      for (const name of DEMO_VARIABLES) expect(task.names.has(name)).toBe(false);
+    }
+    const text = JSON.stringify(synthesise({}).all);
+    expect(text).not.toContain('DEMO_OTP');
+    expect(text).not.toContain('444444');
+  });
+
+  it('sets both variables on the API task definition when the context parameter is given', () => {
+    const api = taskDefinition(DEMO, 'labconnect-uat-api');
+    expect(api.env.get('DEMO_OTP_CODE')).toBe('444444');
+    expect(api.env.get('DEMO_OTP_EMAIL_DOMAIN')).toBe('demo.labconnect.test');
+    // The API is a UAT process, which is the only place the API accepts them.
+    expect(api.env.get('APP_ENV')).toBe('uat');
+    expect(api.env.get('NODE_ENV')).toBe('production');
+  });
+
+  it('never sets them on the worker, the migration task or anything else', () => {
+    for (const service of ['worker', 'migrate']) {
+      const task = taskDefinition(DEMO, `labconnect-uat-${service}`);
+      for (const name of DEMO_VARIABLES) expect(task.names.has(name)).toBe(false);
+    }
+    const { templates } = synthesise(DEMO);
+    for (const [name, template] of Object.entries(templates)) {
+      for (const [, task] of resourcesOfType(template, 'AWS::ECS::TaskDefinition')) {
+        const isApi = task.Properties.Family === 'labconnect-uat-api';
+        const label = `${name} ${String(task.Properties.Family)}`;
+        expect(JSON.stringify(task).includes('DEMO_OTP'), label).toBe(isApi);
+      }
+    }
+  });
+
+  it('is listed as not set by default, with a reason, in the allow-list', () => {
+    for (const name of DEMO_VARIABLES) expect(NOT_SET_IN_UAT[name]).toMatch(/demoOtpCode/);
+  });
+});

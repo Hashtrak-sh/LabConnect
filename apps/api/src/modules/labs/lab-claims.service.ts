@@ -95,6 +95,7 @@ export class LabClaimsService {
       outbox: this.outbox,
       hasher: this.runtime.hasher,
       cipher: this.runtime.cipher,
+      demoOtp: this.runtime.demoOtp,
     };
   }
 
@@ -129,7 +130,8 @@ export class LabClaimsService {
       (tx) => startLabClaim(tx, this.deps(), { actor, siteId: site.siteId, meta }),
     );
 
-    if (result.delivery !== null) {
+    // A fixed demo code (UAT only) goes to an address that cannot receive mail: nothing to send.
+    if (result.delivery !== null && result.delivery.demo !== true) {
       try {
         // After the commit, outside the outbox, the audit log and every log (OQ-65).
         await this.mailer.sendLabClaimOtp(result.delivery);

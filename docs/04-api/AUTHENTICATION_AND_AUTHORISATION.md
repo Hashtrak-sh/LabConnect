@@ -87,7 +87,7 @@ Code: the logic is in `packages/core/src/identity/` (framework-free; functions t
 
 **Database contexts (RLS).** `otp_challenge` is `platform_only` and `app_user` writes need `id = app_user_id()`, so the flows before a user is known run with `withDbContext(prisma, { kind: 'system' })` as the `app_rw` login role: OTP request and verification, sign-in and user creation, refresh, and the session lookup of the guard (the case `db-context.ts` names: "finding a session by its token"). Once the access token has identified the user, the work runs as `{ kind: 'tenant', orgId: '', userId }`: no organisation, so the policies `own_user` (`user_session`, `mfa_factor`, `mfa_recovery_code`), `membership_visibility` and `user_visibility` apply and a user sees only their own rows. The organisation of a request is never taken from the client: `X-Active-Membership` and `membershipId` only choose among the user's own active memberships (`404 NOT_FOUND` otherwise), and the composite foreign key (C-06) backs that in the database.
 
-**Audit** (same transaction, no codes, tokens, secrets or addresses): `user.create`, `auth.signin`, `auth.session_revoke`, `auth.sessions_revoke_all`, `auth.refresh_reuse_detected`, `auth.mfa_enrol_started`, `auth.mfa_enrol_confirmed`, `auth.mfa_verified`, `auth.mfa_locked`, `auth.membership_switch`.
+**Audit** (same transaction, no codes, tokens, secrets or addresses): `user.create`, `auth.signin`, `auth.session_revoke`, `auth.sessions_revoke_all`, `auth.refresh_reuse_detected`, `auth.mfa_enrol_started`, `auth.mfa_enrol_confirmed`, `auth.mfa_verified`, `auth.mfa_locked`, `auth.membership_switch`, and, only when a fixed demo code is issued (section 9), `auth.otp_request`.
 
 **Tests.** Unit: `packages/core/src/identity/*.test.ts`, `apps/api/src/modules/identity/*.spec.ts`. Database (real tables, grants, RLS, `app_rw`): `packages/core/test/db/identity-*.test.ts` (`pnpm test:db`). HTTP (`contractRequest`, real database): `apps/api/test/integration/` (project `http-db`, run by `pnpm test:contract`; see TESTING_STRATEGY section 8).
 
@@ -118,3 +118,31 @@ Code: the framework-free part is in `packages/core/src/identity/` (`actor.ts`, `
 **Platform staff and `x-roles`.** A platform actor has `isPlatform` and `allSites`, and runs in the `platform` database context. Admin routes use the same `@Authorised({ permission })` as any other; the contract's `x-roles` is not enforced separately, because that would be a second source of truth for who may do what. `apps/api/test/admin-roles-permissions.spec.ts` compares the two and prints the operations where no permission is held by exactly the roles `x-roles` names (10 of 73 today, OQ-112); it does not fail. Acting on behalf of an organisation is `TenantScope.runOnBehalfOf` (see TENANT_ISOLATION section 5).
 
 **Not changed by P3-04:** `getMe` and `setActiveMembership` keep `AuthGuard` only (a user with no membership must be able to call them).
+
+## 9. Demo one-time codes (UAT only)
+
+**What it is.** A deliberately limited back door so the product can be shown to leadership on UAT without a mailbox (OQ-237, decided 2026-11-26). When `DEMO_OTP_CODE` is set, the one-time code of a *demo destination* is that fixed code instead of a random one, and no e-mail is sent for it. It is off unless the variable is present.
+
+**Settings** (`.env.example`, validated when the API starts, `IdentityRuntime.onModuleInit`, code in `packages/core/src/identity/demo-otp.ts`):
+
+| Variable | Rule |
+|---|---|
+| `DEMO_OTP_CODE` | Exactly six digits. Anything else (including an empty value) refuses start-up. |
+| `DEMO_OTP_EMAIL_DOMAIN` | A domain name of ASCII labels that **ends in `.test`, `.example`, `.invalid` or `.localhost`**. Default `demo.labconnect.test`, the domain of the demo seed. Anything else refuses start-up, so the setting can never point at a domain where real people have addresses. |
+
+**Production refuses it.** With either variable present the API does not start when `APP_ENV=production`, or when `NODE_ENV=production` and `APP_ENV` is not `uat` (the test of the fake payment gateway, `nonProductionDeployment`). It is allowed in development, in test and on UAT. The error names the variable, never its value. The worker and the migration task never read it, and the deployment sets it on the API task only.
+
+**Which destinations.** Only an address whose domain is *exactly* the demo domain after the usual normalisation (trimmed, lower case). A subdomain, a look-alike such as `x@demo.labconnect.test.evil.example`, a trailing dot, a second `@`, whitespace or a non-ASCII character does not match. It applies to both purposes:
+
+- **Sign-in** (`LOGIN`): only when a user with that address already exists. Sign-in creates an account for an unknown address, so without this rule anyone who knew the code could create accounts in the demo domain, or take an address before the demo seed does; an unknown demo-domain address gets an ordinary random code, which is mailed and so never reaches anyone.
+- **Lab claim** (`LAB_CLAIM`): the code goes to the imported address of the lab site (nothing in the request names it), so the domain test is all there is; only the demo labs have such an address.
+
+It never applies to any other address, platform staff outside the demo domain included.
+
+**What stays as it is.** The code is hashed at rest and bound to its challenge; it expires after 10 minutes; five wrong guesses lock it (the right code is refused afterwards, although it is known); the per-destination (5 per 15 minutes) and per-IP (20 per hour) request limits count it; the authenticator step (TOTP) is **not** bypassed: a demo Checker, Customer Finance or platform user still gets a partial session and must enrol and verify a real authenticator; sessions, refresh and step-up are untouched.
+
+**Visible.** At start-up the API logs one warning that demo one-time codes are enabled for the demo domain (the domain, never the code, and the settings object is not logged). Each demo code issued is marked `demoCode: true`, with no code and no address, in the audit entry of the request: `auth.otp_request` (written only for demo codes; there is none for ordinary sign-in codes) and `lab_claim.start` / `lab_claim.code_resend` for claims. The key avoids the word "otp", which the audit redactor blanks.
+
+**Turning it off.** Remove `DEMO_OTP_CODE` (and `DEMO_OTP_EMAIL_DOMAIN`) from the environment; on UAT, deploy without the CDK context `demoOtpCode` (`infrastructure/README.md`). Nothing else changes. UAT must hold no real personal data while it is on (`SECURITY_AND_PRIVACY.md`, OQ-238).
+
+**Demo accounts** (`seed:demo`, all `DEMO ...` names at `@demo.labconnect.test`): the platform team (Ops, Data Steward, Finance, Admin), three customers (an individual with one admin; a business and a government department each with an admin, a requester and a Customer Finance user), and the Makers and Checkers of three onboarded labs. Platform users, Customer Finance and Lab Checkers need the authenticator step; enrol theirs before the demo. The imported addresses of the unclaimed demo labs are in the same domain, so their claim code is the fixed code too.

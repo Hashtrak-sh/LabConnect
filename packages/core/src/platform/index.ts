@@ -4,6 +4,7 @@ export * from './business-calendar.js';
 export * from './canonical-json.js';
 export * from './clock.js';
 export * from './config-parameters.js';
+export * from './deployment-env.js';
 export * from './events.js';
 export * from './idempotency.js';
 export * from './outbox.js';

@@ -1,5 +1,6 @@
 import type { GatewayCode } from '@labconnect/database';
 import type { Clock } from '../platform/clock.js';
+import { nonProductionDeployment } from '../platform/deployment-env.js';
 import { FakePaymentGateway } from './fake-gateway.js';
 import type { PaymentGateway } from './gateway.js';
 
@@ -22,10 +23,7 @@ export class PaymentGatewayConfigError extends Error {
  * developer machine.
  */
 export function fakeGatewayAllowed(env: GatewayEnv): boolean {
-  const appEnv = env.APP_ENV?.trim().toLowerCase();
-  if (appEnv === 'production') return false;
-  if (env.NODE_ENV?.trim().toLowerCase() === 'production') return appEnv === 'uat';
-  return true;
+  return nonProductionDeployment(env);
 }
 
 /**
