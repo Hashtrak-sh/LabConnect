@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>K9 Lab decision dialogs, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 2040px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+<div class="col g12"><span class="stripcap">K9.1 · Request</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Request</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="col g4"><span class="mono t-base w6">LC-2611-0004844</span><span class="t-sm muted">Shivam Paints · Epoxy coating · 4 tests</span></div><span class="sla danger"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>Decide in 22 min · by 1:40 PM IST</span><div class="bar danger"><i style="width: 92%"></i></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Accept</button><button class="btn btn-secondary btn-block" type="button">Propose a change</button><button class="btn btn-ghost btn-block" type="button">Decline…</button></div></div></div>
+<div class="col g12"><span class="stripcap">K9.2 · Accept</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Accept</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><b class="t-xl">Accept this request?</b><p class="t-base">The customer is asked to pay ₹5,664.00 within 24 h.</p></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Accept request</button></div></div></div>
+<div class="col g12"><span class="stripcap">K9.3 · Decline</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Decline</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="field"><label class="label" for="k9mr">Reason <span class="req">*</span></label><select class="input" id="k9mr" aria-describedby="k9mrh"><option>Choose a reason</option><option selected>Equipment under maintenance</option><option>Outside current capacity</option></select><span id="k9mrh" class="help">Sample list.</span></div><div class="field"><label class="label" for="k9mn">Message to the customer <span class="req">*</span></label><textarea class="input" id="k9mn" required>Out for calibration until 5 Dec.</textarea></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-destructive btn-lg btn-block" type="button">Decline request</button></div></div></div>
+<div class="col g12"><span class="stripcap">K9.4 · Counter-offer</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Propose a change</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><p class="t-base">Slot and/or quantity only. No price change.</p><div class="field"><label class="label" for="k9ms">New slot</label><select class="input" id="k9ms"><option selected>Fri 27 Nov, 10 AM–12 PM IST</option></select></div><div class="field"><label class="label" for="k9mq">Melt flow rate · quantity</label><input class="input" id="k9mq" type="text" value="400 g" inputmode="decimal"></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Send counter-offer</button></div></div></div>
+<div class="col g12"><span class="stripcap">K9.5 · Site not bookable</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Accept</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="alert a-danger" role="alert"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg><div class="col g4 t-base"><b>Your site can't accept bookings right now</b><span>Accreditation suspended as of 20 Nov 2026.</span><span class="spec">SITE_NOT_BOOKABLE</span></div></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-secondary btn-lg btn-block" type="button">Open lab setup</button></div></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 2040, "height": 900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

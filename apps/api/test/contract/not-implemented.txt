@@ -11,7 +11,6 @@ addAdminChangeItem
 addDisputeEvidence
 addDisputeMessage
 approveAdminChangeSet
-approveAdminLabClaim
 approveAdminLabSitePin
 approveAdminRefund
 approveBreakGlassGrant
@@ -41,7 +40,6 @@ createCustomerOrganisation
 createCustomerSite
 createDisputeEvidenceUploadUrl
 createLabBankAccount
-createLabClaimLetterheadUploadUrl
 createLabInvitation
 createLabKycDocument
 createLabKycUploadUrl
@@ -105,7 +103,6 @@ listAdminChangeSets
 listAdminDisputes
 listAdminGeocodeQueue
 listAdminImportRows
-listAdminLabClaims
 listAdminLeads
 listAdminMappingTemplates
 listAdminNodeTypes
@@ -142,7 +139,6 @@ publishReportVersion
 raiseDispute
 rateBooking
 rejectAdminChangeSet
-rejectAdminLabClaim
 rejectBooking
 rejectBreakGlassGrant
 rejectUnfitSample
@@ -167,9 +163,7 @@ setLabRetentionRules
 setLabScopeLineAvailability
 setLabSlotTemplates
 startBookingTesting
-startLabClaim
 submitAdminChangeSet
-submitLabClaimLetterhead
 submitReceipt
 submitReportVersion
 suggestSearch
@@ -189,6 +183,5 @@ updateLabSlot
 updateLabUser
 verifyAdminBankAccount
 verifyAdminKycDocument
-verifyLabClaimOtp
 verifyReport
 withdrawDispute

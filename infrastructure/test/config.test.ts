@@ -55,6 +55,10 @@ describe('parameters', () => {
     [{ ingressCidrs: 'banana' }, /CIDR/],
     [{ logRetentionDays: '31' }, /logRetentionDays/],
     [{ enableOpenSearch: 'yes' }, /true or false/],
+    [{ demoOtpCode: '12345' }, /six digits/],
+    [{ demoOtpCode: '1234567' }, /six digits/],
+    [{ demoOtpCode: 'abcdef' }, /six digits/],
+    [{ demoOtpCode: '444 44' }, /six digits/],
   ])('rejects %j', (context, message) => {
     expect(() => config(context)).toThrow(message);
   });

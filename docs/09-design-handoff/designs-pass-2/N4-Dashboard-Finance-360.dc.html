@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>N4 Finance dashboard, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 840px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+<div class="col g12"><span class="stripcap">N4.1 · Finance dashboard</span><div class="phone"><div class="mhdr"><b class="t-base">Finance</b><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><h1 class="t-xl w7">Finance</h1><div class="grid2" style="gap: 8px"><a class="stat" href="#" style="padding: 12px"><span class="t-sm muted">To pay</span><b style="font-size: 24px">2</b></a><a class="stat" href="#" style="padding: 12px"><span class="t-sm muted">Refunds</span><b style="font-size: 24px">1</b></a></div><div class="card col g4" style="padding: 12px"><span class="mono t-base w6">LC-2611-0004829</span><span class="num w6">₹3,540.00</span><span class="sla warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Pay by 9:18 AM IST tomorrow</span><button class="btn btn-primary btn-block" type="button">Pay</button></div></main></div></div>
+<div class="col g12"><span class="stripcap">N4.2 · Empty</span><div class="phone"><div class="mhdr"><h1 class="t-base w6">Finance</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="col g8" style="align-items: center; text-align: center; padding: 24px 12px"><svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--color-text-muted)"><path d="M22 12h-6l-2 3h-4l-2-3H2"></path><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg><b class="t-lg">Nothing to pay</b><p class="t-base muted">Accepted bookings appear here.</p></div></main></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 840, "height": 900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

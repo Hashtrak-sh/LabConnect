@@ -104,6 +104,7 @@ export class IdentityService {
       audit: this.audit,
       hasher: this.runtime.hasher,
       cipher: this.runtime.cipher,
+      demoOtp: this.runtime.demoOtp,
     };
   }
 
@@ -131,6 +132,8 @@ export class IdentityService {
     if (!outcome.ok) {
       throw new IdentityError('RATE_LIMITED', { retryAfterSeconds: outcome.retryAfterSeconds });
     }
+    // A fixed demo code (UAT only) goes to an address that cannot receive mail: nothing to send.
+    if (outcome.demo === true) return;
     try {
       // After the commit, outside the outbox, the audit log and every log (OQ-65).
       await this.mailer.sendLoginOtp({

@@ -172,6 +172,62 @@ claim-reject:
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
+claim-letterhead-download-url:
+  post:
+    operationId: createAdminLabClaimLetterheadDownloadUrl
+    tags:
+      - Admin Onboarding
+    summary: Get a download URL for a claim's letterhead
+    description: >-
+      The letterhead authorisation of a manual claim, for review (FR-DAT-07, OQ-225): Ops gets a
+      15-minute signed URL for the file the claim was made with, as an attachment, never the file
+      itself (FILES_AND_REPORTS §2). The caller sends the claim id only; the file is the claim's
+      own letterhead and no other. Allowed for a claim in any status, so a decided claim can still
+      be looked at. A claim made by code has no letterhead. Only a file that has passed its scan
+      and validation (`CLEAN`) is ever handed out. Every call that gives a URL is audited
+      (`lab_claim.letterhead_download_url_created`, the claim, the file and the reviewer, never
+      the URL). No booking or claim transition. Roles: `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - $ref: '../components/parameters.yaml#/PathId'
+      - $ref: '../components/parameters.yaml#/IdempotencyKey'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A short-lived download URL.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/files.yaml#/FileDownloadUrl'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: >-
+          `NOT_FOUND`: no such claim, or the claim has no letterhead (it was made by code, or the
+          file is not bound to it).
+      '409':
+        $ref: '../components/responses.yaml#/Conflict'
+        description: '`REQUEST_IN_PROGRESS`.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: >-
+          `FILE_NOT_CLEAN` (the scan is pending, or the file is infected or invalid; retry once
+          the scan is done), `VALIDATION_FAILED` (the id is not a UUID), `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
 kyc-document-verify:
   post:
     operationId: verifyAdminKycDocument

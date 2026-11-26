@@ -1,9 +1,11 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import {
   AccessTokens,
   AesGcmSecretCipher,
   type Clock,
+  type DemoOtpSettings,
   IdentityHasher,
+  parseDemoOtpSettings,
   parseSecretBytes,
   type SecretCipher,
 } from '@labconnect/core';
@@ -39,12 +41,15 @@ function pem(value: string): string {
  * - `AUTH_ENCRYPTION_KEY`: 32 bytes (base64 or hex), AES-256-GCM key for TOTP secrets (local
  *   and test; deployed environments use the KMS adapter, task P3-11).
  * - `AUTH_ALLOWED_ORIGINS`: comma separated origins that may call `/auth/refresh`.
+ * - `DEMO_OTP_CODE` and `DEMO_OTP_EMAIL_DOMAIN`: demo one-time codes, UAT only. Unlike the secrets
+ *   above these are checked when the API starts, and production refuses them.
  */
 @Injectable()
-export class IdentityRuntime {
+export class IdentityRuntime implements OnModuleInit {
   private hasherInstance: IdentityHasher | undefined;
   private cipherInstance: SecretCipher | undefined;
   private tokensInstance: AccessTokens | undefined;
+  private readonly logger = new Logger(IdentityRuntime.name);
 
   constructor(
     @Inject(IDENTITY_ENV) private readonly env: IdentityEnv,
@@ -84,6 +89,31 @@ export class IdentityRuntime {
       );
     }
     return this.tokensInstance;
+  }
+
+  /**
+   * Demo one-time codes (UAT only): `DEMO_OTP_CODE` and `DEMO_OTP_EMAIL_DOMAIN`, see
+   * `parseDemoOtpSettings`. `undefined` (the default) means off. Read on every use, so an invalid
+   * setting can never be skipped; the API also reads it when it starts (`onModuleInit`) and
+   * refuses to start with a bad one, or with one in production.
+   */
+  get demoOtp(): DemoOtpSettings | undefined {
+    return parseDemoOtpSettings(this.env);
+  }
+
+  /**
+   * Start-up check for the demo codes. Throws (naming the variable, never a value) when the
+   * setting is invalid or present in production. When it is active, logs one warning with the
+   * domain; the code and the settings object are never logged.
+   */
+  onModuleInit(): void {
+    const settings = this.demoOtp;
+    if (settings === undefined) return;
+    this.logger.warn(
+      `Demo one-time codes are ENABLED for the demo domain ${settings.emailDomain}: ` +
+        'sign-in and lab claim codes of those addresses are fixed and not mailed. ' +
+        'This is for UAT demonstrations only; remove DEMO_OTP_CODE to turn it off.',
+    );
   }
 
   /** Origins allowed to call `/auth/refresh`. Empty (the default) allows none. */

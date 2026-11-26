@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>D2 Approve receipt, Checker, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 100%; min-height: 1160px; background: var(--color-surface); display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 24px; gap: 16px">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span><span class="badge b-brand">Lab</span>
+    <span class="t-sm" style="margin-left: 12px">Vasundhara Testing Laboratories · <b>Gurugram site</b></span>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span class="row g8"><span style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-on-tint); display: inline-flex; align-items: center; justify-content: center; font-weight: 600">{{ initials }}</span><span class="col"><b class="t-sm">{{ viewerName }}</b><span class="t-xs muted">{{ roleLabel }}</span></span></span></div>
+  </header>
+  <div style="display: flex; flex-wrap: wrap; flex: 1">
+    <nav class="sidenav" aria-label="Lab">
+      <a href="E3-Checker-1280.dc.html"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9.5 12 3l9 6.5V21H3z"></path></svg>Dashboard</a>
+      <a href="F5-Lab-Inbox-1280.dc.html"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"></path><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>Requests<span class="count">4</span></a>
+      <a class="on" href="#"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Approvals<span class="count">6</span></a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>Reports</a>
+      <a href="F7-Lab-Catalogue-1280.dc.html"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>Prices & capacity</a>
+      <a href="#"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"></path></svg>Disputes</a>
+    </nav>
+    <main style="flex: 999 1 640px; min-width: 0; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 20px">
+      <div class="tabs" role="tablist" aria-label="Approval queues"><button type="button" role="tab" id="D2-t1" aria-selected="true" aria-controls="D2-panel">Receipts <span class="count" style="margin-left: 4px">3</span></button><button type="button" role="tab" id="D2-t2" aria-selected="false" aria-controls="D2-panel" tabindex="-1">Reports <span class="badge b-neutral">2</span></button><a role="tab" id="D2-t3" aria-selected="false" tabindex="-1" href="L3-Label-Reprint-1280.dc.html">Label reprints <span class="badge b-neutral">1</span></a></div>
+      <div role="tabpanel" id="D2-panel" aria-labelledby="D2-t1" class="row between wrap g12">
+        <div class="col g4"><span class="crumbs">Approvals › Receipts › <span class="mono">LC-2611-0004821</span></span><div class="row g12"><h1 class="t-2xl w7">Approve sample receipt</h1><span class="badge b-info" style="height: 28px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Sample recorded</span></div></div>
+        <span class="sla warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Waiting 1 h 12 min · reminder sent</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section class="card col g16" style="flex: 999 1 460px; min-width: 0; padding: 24px">
+          <div class="grid3 t-sm" style="gap: 12px 20px">
+            <div class="col"><span class="t-xs muted">Customer</span><b>Aarav Polymers Pvt Ltd</b></div>
+            <div class="col"><span class="t-xs muted">Item · batch</span><b>HDPE pipe PE100 · B-2611-07</b></div>
+            <div class="col"><span class="t-xs muted">Recorded by</span><b>{{ makerName }} (Maker)</b><span class="t-xs muted">27 Nov 2026, 10:34 AM IST</span></div>
+          </div>
+          <hr class="hr">
+          <h2 class="t-base w6">Packages · 3 of 3 expected</h2>
+          <table class="tbl compact"><caption class="sr-only">Packages · 3 of 3 expected</caption>
+            <thead><tr><th scope="col">Package</th><th scope="col">Label</th><th scope="col">Scanned</th><th scope="col">Condition</th></tr></thead>
+            <tbody>
+              <tr><td>1 of 3</td><td class="mono">H2P-8RT · v1</td><td class="num">10:31 AM IST</td><td><span class="badge b-ok">Good</span></td></tr>
+              <tr><td>2 of 3</td><td class="mono">K7Q-4MX · v1</td><td class="num">10:32 AM IST</td><td><span class="badge b-ok">Good</span></td></tr>
+              <tr><td>3 of 3</td><td class="mono">W3C-9TD · v1</td><td class="num">10:33 AM IST</td><td><span class="badge b-ok">Good</span></td></tr>
+            </tbody>
+          </table>
+          <h2 class="t-base w6">Counter checks</h2>
+          <div class="row wrap g8"><span class="chip on">✓ Item matches</span><span class="chip on">✓ Batch matches</span><span class="chip on">✓ Quantity enough</span><span class="chip on">✓ Seal intact</span><span class="chip">No discrepancy flagged</span></div>
+          <h2 class="t-base w6">Photos</h2>
+          <div class="row g8"><div class="img" style="width: 120px; height: 90px">Photo 1</div><div class="img" style="width: 120px; height: 90px">Photo 2</div></div>
+          <a class="t-sm" href="#">Open test request form v1 (3 tests)</a>
+        </section>
+
+        <aside style="flex: 1 1 340px" aria-label="Decision">
+          <sc-if value="{{ allowed }}" hint-placeholder-val="{{ true }}">
+            <div class="card col g12" style="padding: 20px">
+              <b class="t-lg">Your decision</b>
+              <div class="field"><label class="label" for="lsid">Lab sample ID <span class="req">*</span></label><div class="input mono"><input class="bare" id="lsid" value="VTL/26/11/0932"></div><span class="help">Suggested from your numbering. You can change it.</span></div>
+              <button class="btn btn-primary btn-lg btn-block" type="button">Approve receipt</button>
+              <div class="row g8"><a class="btn btn-secondary grow" href="M3-Receipt-Reasons-1280.dc.html">Confirm discrepancy → hold…</a></div>
+              <a class="btn btn-ghost btn-block" href="M3-Receipt-Reasons-1280.dc.html" style="color: var(--color-danger)">Reject as unfit…</a>
+              <span class="t-sm muted">Hold and reject open a reason form (M3). The customer sees the reason and photos.</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ blocked }}" hint-placeholder-val="{{ false }}">
+            <div class="card col g12" style="padding: 20px">
+              <b class="t-lg">Your decision</b>
+              <div class="alert a-neutral"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><div class="col g4"><b class="t-base">Your role changed after you recorded this. Another Checker must approve it.</b><span class="t-sm">You recorded this receipt as Maker on 27 Nov 2026, 10:34 AM IST. You became a Checker later, so you can't approve your own record.</span><span class="prov" style="align-self: flex-start">Provisional (OQ-59)</span></div></div>
+              <button class="btn btn-primary btn-lg btn-block is-disabled" type="button" disabled aria-describedby="why">Approve receipt</button>
+              <span id="why" class="t-sm muted">Approve is off: the API answers SELF_APPROVAL_FORBIDDEN for your own record.</span>
+              <button class="btn btn-secondary btn-block" type="button">Notify other Checkers (2)</button>
+            </div>
+          </sc-if>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"viewerIsMaker":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":1400}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const self = this.props.viewerIsMaker ?? false;
+    return {
+      roleLabel: self ? 'Checker since 28 Nov 2026 (role changed)' : 'Checker',
+      allowed: !self,
+      blocked: self,
+      viewerName: self ? 'Sanjay Kumar' : 'Dr. Anita Mehta',
+      initials: self ? 'SK' : 'AM',
+      makerName: 'Sanjay Kumar'
+    };
+  }
+}
+</script>
+</body>
+</html>

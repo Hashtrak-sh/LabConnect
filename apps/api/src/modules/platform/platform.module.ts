@@ -6,6 +6,7 @@ import {
   AuditService,
   BusinessCalendarLoader,
   ConfigParameters,
+  IdempotencyService,
   OutboxService,
   TimerService,
 } from '@labconnect/core';
@@ -19,6 +20,7 @@ import {
     AuditService,
     OutboxService,
     ConfigParameters,
+    IdempotencyService,
     TimerService,
     BusinessCalendarLoader,
   ],

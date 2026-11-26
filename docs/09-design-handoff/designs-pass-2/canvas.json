@@ -1,0 +1,2434 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-11-26T09:00:00Z"
+ },
+ "title": "LabConnect Design · pass 2",
+ "launch": {
+  "view": "canvas",
+  "page": "a"
+ },
+ "pages": [
+  {
+   "id": "a",
+   "name": "A · Tokens & components (corrected)"
+  },
+  {
+   "id": "b",
+   "name": "B · Public (corrected)"
+  },
+  {
+   "id": "c",
+   "name": "C · Customer booking (corrected)"
+  },
+  {
+   "id": "d",
+   "name": "D · Lab counter & approvals (corrected)"
+  },
+  {
+   "id": "e",
+   "name": "E · Dashboards (corrected)"
+  },
+  {
+   "id": "f",
+   "name": "F · Remaining flows (corrected)"
+  },
+  {
+   "id": "g",
+   "name": "G · Sign-in & shared components"
+  },
+  {
+   "id": "h",
+   "name": "H · I1 Directory"
+  },
+  {
+   "id": "j",
+   "name": "J · I2 Onboarding"
+  },
+  {
+   "id": "k",
+   "name": "K · I3 Request & decide"
+  },
+  {
+   "id": "l",
+   "name": "L · I4 Pay & hand over"
+  },
+  {
+   "id": "m",
+   "name": "M · I5 Receive, test, report"
+  },
+  {
+   "id": "n",
+   "name": "N · I6 Close the loop"
+  }
+ ],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 2700,
+   "title": "Cover · pass 2 · read me first",
+   "page": "a",
+   "is_interactive": true
+  },
+  "A1-Tokens.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 1440,
+   "h": 2700,
+   "title": "A1 · Token sheet",
+   "page": "a"
+  },
+  "A2-Controls.dc.html": {
+   "x": 2880,
+   "y": 0,
+   "w": 1440,
+   "h": 1820,
+   "title": "A2 · Controls & formatting primitives",
+   "page": "a"
+  },
+  "A3-Booking-components.dc.html": {
+   "x": 4400,
+   "y": 0,
+   "w": 1440,
+   "h": 2560,
+   "title": "A3 · Booking & lab components",
+   "page": "a"
+  },
+  "A4-Feedback-data.dc.html": {
+   "x": 5920,
+   "y": 0,
+   "w": 1440,
+   "h": 1800,
+   "title": "A4 · Feedback, data & verification",
+   "page": "a"
+  },
+  "B1-Search-1280.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 1200,
+   "title": "B1 · Search results · 1280",
+   "page": "b",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "B1-Search-768.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 768,
+   "h": 1500,
+   "title": "B1 · Search results · 768",
+   "page": "b"
+  },
+  "B1-Search-360.dc.html": {
+   "x": 2208,
+   "y": 0,
+   "w": 360,
+   "h": 1700,
+   "title": "B1 · Search results · 360",
+   "page": "b"
+  },
+  "B2-Lab-1280.dc.html": {
+   "x": 2648,
+   "y": 0,
+   "w": 1280,
+   "h": 1760,
+   "title": "B2 · Lab site page · 1280",
+   "page": "b",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "B2-Lab-768.dc.html": {
+   "x": 4008,
+   "y": 0,
+   "w": 768,
+   "h": 2000,
+   "title": "B2 · Lab site page · 768",
+   "page": "b"
+  },
+  "B2-Lab-360.dc.html": {
+   "x": 4856,
+   "y": 0,
+   "w": 360,
+   "h": 2400,
+   "title": "B2 · Lab site page · 360",
+   "page": "b"
+  },
+  "B3-Verify-1280.dc.html": {
+   "x": 5296,
+   "y": 0,
+   "w": 1280,
+   "h": 1500,
+   "title": "B3 · Verify report · 1280",
+   "page": "b",
+   "expand": "fill"
+  },
+  "B3-Verify-768.dc.html": {
+   "x": 6656,
+   "y": 0,
+   "w": 768,
+   "h": 1060,
+   "title": "B3 · Verify report · 768",
+   "page": "b"
+  },
+  "B3-Verify-360-states.dc.html": {
+   "x": 7504,
+   "y": 0,
+   "w": 2440,
+   "h": 900,
+   "title": "B3 · Verify report · 360 · four results",
+   "page": "b"
+  },
+  "B4-Public-edge-states-360.dc.html": {
+   "x": 10024,
+   "y": 0,
+   "w": 1640,
+   "h": 900,
+   "title": "B4 · Public edge states · 360",
+   "page": "b"
+  },
+  "C3-Booking-1280.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 1200,
+   "title": "C3 · Booking form (TRF step 2) · 1280",
+   "page": "c",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "C3-Review-1280.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 1280,
+   "h": 1300,
+   "title": "C3 · Review & submit · 1280",
+   "page": "c",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "C3-Booking-360-strip.dc.html": {
+   "x": 2720,
+   "y": 0,
+   "w": 3240,
+   "h": 900,
+   "title": "C3 · Booking flow · 360",
+   "page": "c"
+  },
+  "C4-Counter-1280.dc.html": {
+   "x": 6040,
+   "y": 0,
+   "w": 1280,
+   "h": 1000,
+   "title": "C4 · Respond to counter-offer · 1280",
+   "page": "c",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "C4-C5-360-strip.dc.html": {
+   "x": 7400,
+   "y": 0,
+   "w": 2440,
+   "h": 900,
+   "title": "C4–C5 · Respond & pay · 360",
+   "page": "c"
+  },
+  "C6-Handover-1280.dc.html": {
+   "x": 9920,
+   "y": 0,
+   "w": 1280,
+   "h": 1300,
+   "title": "C5–C6 · Paid → handover · 1280",
+   "page": "c",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "C6-Handover-360-strip.dc.html": {
+   "x": 11280,
+   "y": 0,
+   "w": 1240,
+   "h": 900,
+   "title": "C6 · Handover · 360",
+   "page": "c"
+  },
+  "C7-Detail-1280.dc.html": {
+   "x": 12600,
+   "y": 0,
+   "w": 1280,
+   "h": 1300,
+   "title": "C7 · Booking detail · 1280",
+   "page": "c",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "C7-Hold-1280.dc.html": {
+   "x": 13960,
+   "y": 0,
+   "w": 1280,
+   "h": 1100,
+   "title": "C7 · On hold decision (J6) · 1280",
+   "page": "c",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "C7-Detail-360-strip.dc.html": {
+   "x": 15320,
+   "y": 0,
+   "w": 1240,
+   "h": 900,
+   "title": "C7 · Detail & hold · 360",
+   "page": "c"
+  },
+  "D1-Scanner-360-strip.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 3240,
+   "h": 900,
+   "title": "D1 · L3 Counter scanner (Maker) · 360",
+   "page": "d"
+  },
+  "D2-ApproveReceipt-1280.dc.html": {
+   "x": 3320,
+   "y": 0,
+   "w": 1280,
+   "h": 1400,
+   "title": "D2 · L4 Approve receipt (Checker) · 1280",
+   "page": "d",
+   "expand": "fill"
+  },
+  "D3-ReviewReport-1280.dc.html": {
+   "x": 4680,
+   "y": 0,
+   "w": 1280,
+   "h": 2000,
+   "title": "D3 · L7 Review & publish report (Checker) · 1280",
+   "page": "d",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "E1-Customer-1280.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 1160,
+   "title": "E1 · Customer dashboard · 1280",
+   "page": "e",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "E1-Customer-360.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 360,
+   "h": 1500,
+   "title": "E1 · Customer dashboard · 360",
+   "page": "e"
+  },
+  "E2-Maker-360.dc.html": {
+   "x": 1800,
+   "y": 0,
+   "w": 360,
+   "h": 1400,
+   "title": "E2 · Maker dashboard · 360",
+   "page": "e"
+  },
+  "E3-Checker-1280.dc.html": {
+   "x": 2240,
+   "y": 0,
+   "w": 1280,
+   "h": 1200,
+   "title": "E3 · Checker dashboard · 1280",
+   "page": "e",
+   "expand": "fill"
+  },
+  "E4-Ops-1280.dc.html": {
+   "x": 3600,
+   "y": 0,
+   "w": 1280,
+   "h": 1400,
+   "title": "E4 · Ops board · 1280",
+   "page": "e",
+   "expand": "fill"
+  },
+  "F1-Signup-360-strip.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 2440,
+   "h": 900,
+   "title": "F1 · C2 Sign-up & organisation · 360",
+   "page": "f"
+  },
+  "F2-Report-Dispute-1280.dc.html": {
+   "x": 2520,
+   "y": 0,
+   "w": 1280,
+   "h": 1300,
+   "title": "F2 · C8 Report & C9 dispute · 1280",
+   "page": "f",
+   "expand": "fill"
+  },
+  "F3-Finance-1280.dc.html": {
+   "x": 3880,
+   "y": 0,
+   "w": 1280,
+   "h": 1040,
+   "title": "F3 · C10 Finance views · 1280",
+   "page": "f",
+   "expand": "fill"
+  },
+  "F4-Lab-Onboarding-1280.dc.html": {
+   "x": 5240,
+   "y": 0,
+   "w": 1280,
+   "h": 1200,
+   "title": "F4 · L1 Claim & onboarding · 1280",
+   "page": "f",
+   "expand": "fill"
+  },
+  "F5-Lab-Inbox-1280.dc.html": {
+   "x": 6600,
+   "y": 0,
+   "w": 1280,
+   "h": 1160,
+   "title": "F5 · L2 Inbox & decision · 1280",
+   "page": "f",
+   "expand": "fill"
+  },
+  "F6-Lab-Report-Upload-1280.dc.html": {
+   "x": 7960,
+   "y": 0,
+   "w": 1280,
+   "h": 1700,
+   "title": "F6 · L5–L6 Testing & report upload · 1280",
+   "page": "f",
+   "expand": "fill"
+  },
+  "F7-Lab-Catalogue-1280.dc.html": {
+   "x": 9320,
+   "y": 0,
+   "w": 1280,
+   "h": 1160,
+   "title": "F7 · L9 Price lists & capacity · 1280",
+   "page": "f",
+   "expand": "fill"
+  },
+  "F8-Admin-MasterData-1280.dc.html": {
+   "x": 10680,
+   "y": 0,
+   "w": 1280,
+   "h": 1200,
+   "title": "F8 · A2–A3 Change set & import · 1280",
+   "page": "f",
+   "expand": "fill"
+  },
+  "F10-Admin-Onboarding-Config-1280.dc.html": {
+   "x": 12040,
+   "y": 0,
+   "w": 1280,
+   "h": 1600,
+   "title": "F10 · A4 & A7 Lab review & config · 1280",
+   "page": "f",
+   "expand": "fill"
+  },
+  "G1-Signin-360-strip.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 2840,
+   "h": 900,
+   "title": "G1 · Sign-in, code and authenticator challenge · 360",
+   "page": "g"
+  },
+  "G1-Signin-1280.dc.html": {
+   "x": 2920,
+   "y": 0,
+   "w": 1280,
+   "h": 1500,
+   "title": "G1 · Sign-in states · 1280",
+   "page": "g",
+   "expand": "fill"
+  },
+  "G2-Mfa-Enrol-360-strip.dc.html": {
+   "x": 4280,
+   "y": 0,
+   "w": 2440,
+   "h": 900,
+   "title": "G2 · Enrol an authenticator first · 360",
+   "page": "g"
+  },
+  "G2-Mfa-Enrol-1280.dc.html": {
+   "x": 6800,
+   "y": 0,
+   "w": 1280,
+   "h": 1300,
+   "title": "G2 · Enrol an authenticator · 1280",
+   "page": "g",
+   "expand": "fill"
+  },
+  "G3-Session-Access-states.dc.html": {
+   "x": 8160,
+   "y": 0,
+   "w": 1440,
+   "h": 1700,
+   "title": "G3 · Session expired, access changed, no permission",
+   "page": "g"
+  },
+  "G4-Components-added-states.dc.html": {
+   "x": 9680,
+   "y": 0,
+   "w": 1440,
+   "h": 3400,
+   "title": "G4 · Components added in pass 2, with states",
+   "page": "g"
+  },
+  "H1-Search-Home-1280.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 1500,
+   "title": "H1 · Home and test search · 1280",
+   "page": "h",
+   "expand": "fill"
+  },
+  "H1-Search-Home-768.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 768,
+   "h": 1700,
+   "title": "H1 · Home and test search · 768",
+   "page": "h"
+  },
+  "H1-Search-Home-360.dc.html": {
+   "x": 2208,
+   "y": 0,
+   "w": 1640,
+   "h": 900,
+   "title": "H1 · Home and test search · 360",
+   "page": "h"
+  },
+  "H2-Search-Filters-Map-360.dc.html": {
+   "x": 3928,
+   "y": 0,
+   "w": 1240,
+   "h": 900,
+   "title": "H2 · Filter sheet and map · 360",
+   "page": "h"
+  },
+  "H2-Search-Filters-Map-768.dc.html": {
+   "x": 5248,
+   "y": 0,
+   "w": 2128,
+   "h": 2000,
+   "title": "H2 · Filters, map toggle, states · 768 (+1280 states)",
+   "page": "h"
+  },
+  "H3-Request-A-Lab-360.dc.html": {
+   "x": 7456,
+   "y": 0,
+   "w": 1640,
+   "h": 900,
+   "title": "H3 · Request a lab · 360",
+   "page": "h"
+  },
+  "H3-Request-A-Lab-1280.dc.html": {
+   "x": 9176,
+   "y": 0,
+   "w": 1280,
+   "h": 1300,
+   "title": "H3 · Request a lab · 1280",
+   "page": "h",
+   "expand": "fill"
+  },
+  "H4-Lab-Claim-1280.dc.html": {
+   "x": 10536,
+   "y": 0,
+   "w": 1280,
+   "h": 2000,
+   "title": "H4 · L1 Claim a lab (Checker) · 1280",
+   "page": "h",
+   "expand": "fill"
+  },
+  "H5-Admin-Import-1280.dc.html": {
+   "x": 11896,
+   "y": 0,
+   "w": 1280,
+   "h": 2200,
+   "title": "H5 · A3 Import wizard (Data Steward) · 1280",
+   "page": "h",
+   "expand": "fill"
+  },
+  "H6-Admin-MasterData-1280.dc.html": {
+   "x": 13256,
+   "y": 0,
+   "w": 1280,
+   "h": 2200,
+   "title": "H6 · A2 Taxonomy, change sets, history · 1280",
+   "page": "h",
+   "expand": "fill"
+  },
+  "H7-Admin-Geocode-Queue-1280.dc.html": {
+   "x": 14616,
+   "y": 0,
+   "w": 1280,
+   "h": 1400,
+   "title": "H7 · A4 Geocode pin queue (Ops) · 1280",
+   "page": "h",
+   "expand": "fill"
+  },
+  "J1-Signup-1280.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 1800,
+   "title": "J1 · C2 Sign-up · 1280",
+   "page": "j",
+   "expand": "fill"
+  },
+  "J1-Signup-768.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 768,
+   "h": 2400,
+   "title": "J1 · C2 Sign-up · 768",
+   "page": "j"
+  },
+  "J1-Signup-Individual-360-strip.dc.html": {
+   "x": 2208,
+   "y": 0,
+   "w": 1640,
+   "h": 900,
+   "title": "J1 · C2 Individual path · 360",
+   "page": "j"
+  },
+  "J2-Customer-Admin-360.dc.html": {
+   "x": 3928,
+   "y": 0,
+   "w": 1640,
+   "h": 900,
+   "title": "J2 · Customer Admin · 360",
+   "page": "j"
+  },
+  "J2-Customer-Admin-1280.dc.html": {
+   "x": 5648,
+   "y": 0,
+   "w": 1280,
+   "h": 2000,
+   "title": "J2 · Customer Admin: users, sites, settings · 1280",
+   "page": "j",
+   "expand": "fill"
+  },
+  "J3-Lab-Kyc-1280.dc.html": {
+   "x": 7008,
+   "y": 0,
+   "w": 1280,
+   "h": 1500,
+   "title": "J3 · L1 KYC documents · 1280",
+   "page": "j",
+   "expand": "fill"
+  },
+  "J4-Lab-Bank-1280.dc.html": {
+   "x": 8368,
+   "y": 0,
+   "w": 1280,
+   "h": 1800,
+   "title": "J4 · L1 Bank account with step-up · 1280",
+   "page": "j",
+   "expand": "fill"
+  },
+  "J5-Lab-Users-1280.dc.html": {
+   "x": 9728,
+   "y": 0,
+   "w": 1280,
+   "h": 1700,
+   "title": "J5 · L1 Lab users and invitations · 1280",
+   "page": "j",
+   "expand": "fill"
+  },
+  "J6-Lab-Hours-Slots-1280.dc.html": {
+   "x": 11088,
+   "y": 0,
+   "w": 1280,
+   "h": 1900,
+   "title": "J6 · L1/L9 Hours, closures, slots · 1280",
+   "page": "j",
+   "expand": "fill"
+  },
+  "J7-Lab-Scope-Retention-1280.dc.html": {
+   "x": 12448,
+   "y": 0,
+   "w": 1280,
+   "h": 1700,
+   "title": "J7 · L1/L9 Scope, instructions, retention, pin · 1280",
+   "page": "j",
+   "expand": "fill"
+  },
+  "J8-Lab-PriceList-Import-1280.dc.html": {
+   "x": 13808,
+   "y": 0,
+   "w": 1280,
+   "h": 2000,
+   "title": "J8 · L1/L9 Price-list import · 1280",
+   "page": "j",
+   "expand": "fill"
+  },
+  "J9-Admin-Claims-Kyc-Bank-1280.dc.html": {
+   "x": 15168,
+   "y": 0,
+   "w": 1280,
+   "h": 2000,
+   "title": "J9 · A4 Claims, KYC, bank (Ops / Finance) · 1280",
+   "page": "j",
+   "expand": "fill"
+  },
+  "J10-Lab-Bookable-360.dc.html": {
+   "x": 16528,
+   "y": 0,
+   "w": 1240,
+   "h": 900,
+   "title": "J10 · Bookable checklist · 360",
+   "page": "j"
+  },
+  "J10-Lab-Bookable-1280.dc.html": {
+   "x": 17848,
+   "y": 0,
+   "w": 1280,
+   "h": 1500,
+   "title": "J10 · Bookable checklist and regression · 1280",
+   "page": "j",
+   "expand": "fill"
+  },
+  "K1-Booking-Steps-1280.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 2000,
+   "title": "K1 · C3 Booking steps · 1280",
+   "page": "k",
+   "expand": "fill"
+  },
+  "K1-Booking-Steps-768.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 768,
+   "h": 2600,
+   "title": "K1 · C3 Booking steps · 768",
+   "page": "k"
+  },
+  "K2-Booking-Step2-Full-360-strip.dc.html": {
+   "x": 2208,
+   "y": 0,
+   "w": 1640,
+   "h": 900,
+   "title": "K2 · C3 TRF step 2 in full · 360",
+   "page": "k"
+  },
+  "K3-Booking-Errors-360.dc.html": {
+   "x": 3928,
+   "y": 0,
+   "w": 2040,
+   "h": 900,
+   "title": "K3 · C3 Booking errors · 360",
+   "page": "k"
+  },
+  "K3-Booking-Errors-1280.dc.html": {
+   "x": 6048,
+   "y": 0,
+   "w": 1280,
+   "h": 1500,
+   "title": "K3 · C3 Booking errors · 1280",
+   "page": "k",
+   "expand": "fill"
+  },
+  "K4-Booking-Requested-360.dc.html": {
+   "x": 7408,
+   "y": 0,
+   "w": 1240,
+   "h": 900,
+   "title": "K4 · REQUESTED detail and edit · 360",
+   "page": "k"
+  },
+  "K4-Booking-Requested-1280.dc.html": {
+   "x": 8728,
+   "y": 0,
+   "w": 1280,
+   "h": 1500,
+   "title": "K4 · REQUESTED detail and edit · 1280",
+   "page": "k",
+   "expand": "fill"
+  },
+  "K5-Booking-Cancel-360.dc.html": {
+   "x": 10088,
+   "y": 0,
+   "w": 1640,
+   "h": 900,
+   "title": "K5 · Cancel and CANCELLED · 360",
+   "page": "k"
+  },
+  "K5-Booking-Cancel-1280.dc.html": {
+   "x": 11808,
+   "y": 0,
+   "w": 1280,
+   "h": 1700,
+   "title": "K5 · Cancel and CANCELLED · 1280",
+   "page": "k",
+   "expand": "fill"
+  },
+  "K6-Booking-Closed-360.dc.html": {
+   "x": 13168,
+   "y": 0,
+   "w": 1240,
+   "h": 900,
+   "title": "K6 · REJECTED and EXPIRED · 360",
+   "page": "k"
+  },
+  "K6-Booking-Closed-1280.dc.html": {
+   "x": 14488,
+   "y": 0,
+   "w": 1280,
+   "h": 1500,
+   "title": "K6 · REJECTED and EXPIRED · 1280",
+   "page": "k",
+   "expand": "fill"
+  },
+  "K7-Booking-Accepted-1280.dc.html": {
+   "x": 15848,
+   "y": 0,
+   "w": 1280,
+   "h": 1500,
+   "title": "K7 · ACCEPTED detail · 1280",
+   "page": "k",
+   "expand": "fill"
+  },
+  "K7-Booking-Accepted-768.dc.html": {
+   "x": 17208,
+   "y": 0,
+   "w": 768,
+   "h": 1800,
+   "title": "K7 · ACCEPTED detail · 768",
+   "page": "k"
+  },
+  "K8-Lab-Inbox-Tabs-360.dc.html": {
+   "x": 18056,
+   "y": 0,
+   "w": 1640,
+   "h": 900,
+   "title": "K8 · L2 Inbox tabs · 360",
+   "page": "k"
+  },
+  "K8-Lab-Inbox-Tabs-1280.dc.html": {
+   "x": 19776,
+   "y": 0,
+   "w": 1280,
+   "h": 2000,
+   "title": "K8 · L2 Inbox tabs, Maker read-only · 1280",
+   "page": "k",
+   "expand": "fill"
+  },
+  "K9-Lab-Decision-Dialogs-360.dc.html": {
+   "x": 21136,
+   "y": 0,
+   "w": 2040,
+   "h": 900,
+   "title": "K9 · L2 Accept, reject, counter · 360",
+   "page": "k"
+  },
+  "K9-Lab-Decision-Dialogs-1280.dc.html": {
+   "x": 23256,
+   "y": 0,
+   "w": 1280,
+   "h": 1800,
+   "title": "K9 · L2 Accept, reject, counter · 1280",
+   "page": "k",
+   "expand": "fill"
+  },
+  "K10-Admin-Ops-Drilldown-1280.dc.html": {
+   "x": 24616,
+   "y": 0,
+   "w": 1280,
+   "h": 1800,
+   "title": "K10 · A1 Ops board drill-down · 1280",
+   "page": "k",
+   "expand": "fill"
+  },
+  "K11-Admin-Booking-Detail-1280.dc.html": {
+   "x": 25976,
+   "y": 0,
+   "w": 1280,
+   "h": 1700,
+   "title": "K11 · A1 Booking detail and cancel (Ops) · 1280",
+   "page": "k",
+   "expand": "fill"
+  },
+  "L1-Pay-States-360-strip.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 3240,
+   "h": 900,
+   "title": "L1 · C5 Pay and return states · 360",
+   "page": "l"
+  },
+  "L1-Pay-States-1280.dc.html": {
+   "x": 3320,
+   "y": 0,
+   "w": 1280,
+   "h": 1800,
+   "title": "L1 · C5 Pay and return states · 1280",
+   "page": "l",
+   "expand": "fill"
+  },
+  "L2-Booking-Unpaid-NoShow-360.dc.html": {
+   "x": 4680,
+   "y": 0,
+   "w": 840,
+   "h": 900,
+   "title": "L2 · EXPIRED_UNPAID and NO_SHOW · 360",
+   "page": "l"
+  },
+  "L2-Booking-Unpaid-NoShow-1280.dc.html": {
+   "x": 5600,
+   "y": 0,
+   "w": 1280,
+   "h": 1300,
+   "title": "L2 · EXPIRED_UNPAID and NO_SHOW · 1280",
+   "page": "l",
+   "expand": "fill"
+  },
+  "L3-Label-Reprint-360.dc.html": {
+   "x": 6960,
+   "y": 0,
+   "w": 1640,
+   "h": 900,
+   "title": "L3 · L4 Label reprint · 360",
+   "page": "l"
+  },
+  "L3-Label-Reprint-1280.dc.html": {
+   "x": 8680,
+   "y": 0,
+   "w": 1280,
+   "h": 1500,
+   "title": "L3 · L4 Label reprint approval · 1280",
+   "page": "l",
+   "expand": "fill"
+  },
+  "L4-Label-Print-1280.dc.html": {
+   "x": 10040,
+   "y": 0,
+   "w": 1280,
+   "h": 1300,
+   "title": "L4 · C6 Print labels · 1280",
+   "page": "l",
+   "expand": "fill"
+  },
+  "L4-Label-Print-A4.dc.html": {
+   "x": 11400,
+   "y": 0,
+   "w": 794,
+   "h": 1123,
+   "title": "L4 · A4 label sheet (print)",
+   "page": "l",
+   "print": "flow",
+   "paper": "a4"
+  },
+  "L4-Label-Print-thermal.dc.html": {
+   "x": 12274,
+   "y": 0,
+   "w": 384,
+   "h": 576,
+   "title": "L4 · Thermal label (print)",
+   "page": "l"
+  },
+  "L5-Admin-Refunds-1280.dc.html": {
+   "x": 12738,
+   "y": 0,
+   "w": 1280,
+   "h": 1600,
+   "title": "L5 · A6 Refund approvals · 1280",
+   "page": "l",
+   "expand": "fill"
+  },
+  "L6-Admin-Reconciliation-1280.dc.html": {
+   "x": 14098,
+   "y": 0,
+   "w": 1280,
+   "h": 1700,
+   "title": "L6 · A6 Reconciliation · 1280",
+   "page": "l",
+   "expand": "fill"
+  },
+  "M1-Booking-Detail-States-360.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1240,
+   "h": 900,
+   "title": "M1 · C7 Track: recorded, in review, per line · 360",
+   "page": "m"
+  },
+  "M1-Booking-Detail-States-1280.dc.html": {
+   "x": 1320,
+   "y": 0,
+   "w": 1280,
+   "h": 1900,
+   "title": "M1 · C7 Track states · 1280",
+   "page": "m",
+   "expand": "fill"
+  },
+  "M2-Scanner-Outcomes-360-strip.dc.html": {
+   "x": 2680,
+   "y": 0,
+   "w": 2440,
+   "h": 900,
+   "title": "M2 · L3 Scan rejections and sync · 360",
+   "page": "m"
+  },
+  "M2-Scanner-Outcomes-768.dc.html": {
+   "x": 5200,
+   "y": 0,
+   "w": 768,
+   "h": 1100,
+   "title": "M2 · L3 Scanner at the counter · 768",
+   "page": "m"
+  },
+  "M3-Receipt-Reasons-360.dc.html": {
+   "x": 6048,
+   "y": 0,
+   "w": 1240,
+   "h": 900,
+   "title": "M3 · L4 Approve, hold, reject · 360",
+   "page": "m"
+  },
+  "M3-Receipt-Reasons-1280.dc.html": {
+   "x": 7368,
+   "y": 0,
+   "w": 1280,
+   "h": 1700,
+   "title": "M3 · L4 Hold and reject reasons · 1280",
+   "page": "m",
+   "expand": "fill"
+  },
+  "M4-Testing-Start-Eta-1280.dc.html": {
+   "x": 8728,
+   "y": 0,
+   "w": 1280,
+   "h": 1700,
+   "title": "M4 · L5 Start testing, ETA, per line · 1280",
+   "page": "m",
+   "expand": "fill"
+  },
+  "M5-Report-Upload-Errors-1280.dc.html": {
+   "x": 10088,
+   "y": 0,
+   "w": 1280,
+   "h": 1700,
+   "title": "M5 · L6 Upload errors · 1280",
+   "page": "m",
+   "expand": "fill"
+  },
+  "M6-Report-Bind-Scan-360-strip.dc.html": {
+   "x": 11448,
+   "y": 0,
+   "w": 1640,
+   "h": 900,
+   "title": "M6 · L6 Bind by scan · 360",
+   "page": "m"
+  },
+  "M7-Report-Review-Amendment-1280.dc.html": {
+   "x": 13168,
+   "y": 0,
+   "w": 1280,
+   "h": 1600,
+   "title": "M7 · L7 Review an amendment · 1280",
+   "page": "m",
+   "expand": "fill"
+  },
+  "M8-Report-Amendment-Create-1280.dc.html": {
+   "x": 14528,
+   "y": 0,
+   "w": 1280,
+   "h": 1600,
+   "title": "M8 · L8 Create an amendment · 1280",
+   "page": "m",
+   "expand": "fill"
+  },
+  "M9-Customer-Report-360.dc.html": {
+   "x": 15888,
+   "y": 0,
+   "w": 1640,
+   "h": 900,
+   "title": "M9 · C8 Report and share links · 360",
+   "page": "m"
+  },
+  "M9-Customer-Report-768.dc.html": {
+   "x": 17608,
+   "y": 0,
+   "w": 768,
+   "h": 1900,
+   "title": "M9 · C8 Report and share links · 768",
+   "page": "m"
+  },
+  "M9-Customer-Report-1280.dc.html": {
+   "x": 18456,
+   "y": 0,
+   "w": 1280,
+   "h": 1900,
+   "title": "M9 · C8 Report, share, superseded, custody · 1280",
+   "page": "m",
+   "expand": "fill"
+  },
+  "M10-Admin-BreakGlass-Audit-1280.dc.html": {
+   "x": 19816,
+   "y": 0,
+   "w": 1280,
+   "h": 2000,
+   "title": "M10 · A7 Break-glass and audit log · 1280",
+   "page": "m",
+   "expand": "fill"
+  },
+  "N1-Dispute-Customer-360.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 2040,
+   "h": 900,
+   "title": "N1 · C9 Dispute · 360",
+   "page": "n"
+  },
+  "N1-Dispute-Customer-1280.dc.html": {
+   "x": 2120,
+   "y": 0,
+   "w": 1280,
+   "h": 2000,
+   "title": "N1 · C9 Dispute, DISPUTED, COMPLETED · 1280",
+   "page": "n",
+   "expand": "fill"
+  },
+  "N2-Rating-360.dc.html": {
+   "x": 3480,
+   "y": 0,
+   "w": 1240,
+   "h": 900,
+   "title": "N2 · C8 Rate the lab · 360",
+   "page": "n"
+  },
+  "N2-Rating-1280.dc.html": {
+   "x": 4800,
+   "y": 0,
+   "w": 1280,
+   "h": 1300,
+   "title": "N2 · C8 Rate the lab · 1280",
+   "page": "n",
+   "expand": "fill"
+  },
+  "N3-Finance-Documents-360.dc.html": {
+   "x": 6160,
+   "y": 0,
+   "w": 1240,
+   "h": 900,
+   "title": "N3 · C10 Finance documents · 360",
+   "page": "n"
+  },
+  "N3-Finance-Documents-1280.dc.html": {
+   "x": 7480,
+   "y": 0,
+   "w": 1280,
+   "h": 1400,
+   "title": "N3 · C10 Finance documents · 1280",
+   "page": "n",
+   "expand": "fill"
+  },
+  "N4-Dashboard-Finance-360.dc.html": {
+   "x": 8840,
+   "y": 0,
+   "w": 840,
+   "h": 900,
+   "title": "N4 · Finance dashboard · 360",
+   "page": "n"
+  },
+  "N4-Dashboard-Finance-1280.dc.html": {
+   "x": 9760,
+   "y": 0,
+   "w": 1280,
+   "h": 1300,
+   "title": "N4 · Finance dashboard · 1280",
+   "page": "n",
+   "expand": "fill"
+  },
+  "N5-Lab-Dispute-Response-1280.dc.html": {
+   "x": 11120,
+   "y": 0,
+   "w": 1280,
+   "h": 1600,
+   "title": "N5 · L10 Dispute response (Checker) · 1280",
+   "page": "n",
+   "expand": "fill"
+  },
+  "N6-Admin-Disputes-1280.dc.html": {
+   "x": 12480,
+   "y": 0,
+   "w": 1280,
+   "h": 1900,
+   "title": "N6 · A5 Disputes (Ops) · 1280",
+   "page": "n",
+   "expand": "fill"
+  },
+  "N7-Admin-Payouts-Holds-1280.dc.html": {
+   "x": 13840,
+   "y": 0,
+   "w": 1280,
+   "h": 1900,
+   "title": "N7 · A6 Payouts and holds (Finance) · 1280",
+   "page": "n",
+   "expand": "fill"
+  },
+  "N8-Admin-Config-Templates-1280.dc.html": {
+   "x": 15200,
+   "y": 0,
+   "w": 1280,
+   "h": 1800,
+   "title": "N8 · A7 Configuration and templates (Admin) · 1280",
+   "page": "n",
+   "expand": "fill"
+  },
+  "N9-Admin-Platform-Users-Leads-1280.dc.html": {
+   "x": 16560,
+   "y": 0,
+   "w": 1280,
+   "h": 1800,
+   "title": "N9 · A7 Platform users and leads · 1280",
+   "page": "n",
+   "expand": "fill"
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "A1-Tokens.dc.html",
+  "A2-Controls.dc.html",
+  "A3-Booking-components.dc.html",
+  "A4-Feedback-data.dc.html",
+  "B1-Search-1280.dc.html",
+  "B1-Search-768.dc.html",
+  "B1-Search-360.dc.html",
+  "B2-Lab-1280.dc.html",
+  "B2-Lab-768.dc.html",
+  "B2-Lab-360.dc.html",
+  "B3-Verify-1280.dc.html",
+  "B3-Verify-768.dc.html",
+  "B3-Verify-360-states.dc.html",
+  "B4-Public-edge-states-360.dc.html",
+  "C3-Booking-1280.dc.html",
+  "C3-Review-1280.dc.html",
+  "C3-Booking-360-strip.dc.html",
+  "C4-Counter-1280.dc.html",
+  "C4-C5-360-strip.dc.html",
+  "C6-Handover-1280.dc.html",
+  "C6-Handover-360-strip.dc.html",
+  "C7-Detail-1280.dc.html",
+  "C7-Hold-1280.dc.html",
+  "C7-Detail-360-strip.dc.html",
+  "D1-Scanner-360-strip.dc.html",
+  "D2-ApproveReceipt-1280.dc.html",
+  "D3-ReviewReport-1280.dc.html",
+  "E1-Customer-1280.dc.html",
+  "E1-Customer-360.dc.html",
+  "E2-Maker-360.dc.html",
+  "E3-Checker-1280.dc.html",
+  "E4-Ops-1280.dc.html",
+  "F1-Signup-360-strip.dc.html",
+  "F2-Report-Dispute-1280.dc.html",
+  "F3-Finance-1280.dc.html",
+  "F4-Lab-Onboarding-1280.dc.html",
+  "F5-Lab-Inbox-1280.dc.html",
+  "F6-Lab-Report-Upload-1280.dc.html",
+  "F7-Lab-Catalogue-1280.dc.html",
+  "F8-Admin-MasterData-1280.dc.html",
+  "F10-Admin-Onboarding-Config-1280.dc.html",
+  "G1-Signin-360-strip.dc.html",
+  "G1-Signin-1280.dc.html",
+  "G2-Mfa-Enrol-360-strip.dc.html",
+  "G2-Mfa-Enrol-1280.dc.html",
+  "G3-Session-Access-states.dc.html",
+  "G4-Components-added-states.dc.html",
+  "H1-Search-Home-1280.dc.html",
+  "H1-Search-Home-768.dc.html",
+  "H1-Search-Home-360.dc.html",
+  "H2-Search-Filters-Map-360.dc.html",
+  "H2-Search-Filters-Map-768.dc.html",
+  "H3-Request-A-Lab-360.dc.html",
+  "H3-Request-A-Lab-1280.dc.html",
+  "H4-Lab-Claim-1280.dc.html",
+  "H5-Admin-Import-1280.dc.html",
+  "H6-Admin-MasterData-1280.dc.html",
+  "H7-Admin-Geocode-Queue-1280.dc.html",
+  "J1-Signup-1280.dc.html",
+  "J1-Signup-768.dc.html",
+  "J1-Signup-Individual-360-strip.dc.html",
+  "J2-Customer-Admin-360.dc.html",
+  "J2-Customer-Admin-1280.dc.html",
+  "J3-Lab-Kyc-1280.dc.html",
+  "J4-Lab-Bank-1280.dc.html",
+  "J5-Lab-Users-1280.dc.html",
+  "J6-Lab-Hours-Slots-1280.dc.html",
+  "J7-Lab-Scope-Retention-1280.dc.html",
+  "J8-Lab-PriceList-Import-1280.dc.html",
+  "J9-Admin-Claims-Kyc-Bank-1280.dc.html",
+  "J10-Lab-Bookable-360.dc.html",
+  "J10-Lab-Bookable-1280.dc.html",
+  "K1-Booking-Steps-1280.dc.html",
+  "K1-Booking-Steps-768.dc.html",
+  "K2-Booking-Step2-Full-360-strip.dc.html",
+  "K3-Booking-Errors-360.dc.html",
+  "K3-Booking-Errors-1280.dc.html",
+  "K4-Booking-Requested-360.dc.html",
+  "K4-Booking-Requested-1280.dc.html",
+  "K5-Booking-Cancel-360.dc.html",
+  "K5-Booking-Cancel-1280.dc.html",
+  "K6-Booking-Closed-360.dc.html",
+  "K6-Booking-Closed-1280.dc.html",
+  "K7-Booking-Accepted-1280.dc.html",
+  "K7-Booking-Accepted-768.dc.html",
+  "K8-Lab-Inbox-Tabs-360.dc.html",
+  "K8-Lab-Inbox-Tabs-1280.dc.html",
+  "K9-Lab-Decision-Dialogs-360.dc.html",
+  "K9-Lab-Decision-Dialogs-1280.dc.html",
+  "K10-Admin-Ops-Drilldown-1280.dc.html",
+  "K11-Admin-Booking-Detail-1280.dc.html",
+  "L1-Pay-States-360-strip.dc.html",
+  "L1-Pay-States-1280.dc.html",
+  "L2-Booking-Unpaid-NoShow-360.dc.html",
+  "L2-Booking-Unpaid-NoShow-1280.dc.html",
+  "L3-Label-Reprint-360.dc.html",
+  "L3-Label-Reprint-1280.dc.html",
+  "L4-Label-Print-1280.dc.html",
+  "L4-Label-Print-A4.dc.html",
+  "L4-Label-Print-thermal.dc.html",
+  "L5-Admin-Refunds-1280.dc.html",
+  "L6-Admin-Reconciliation-1280.dc.html",
+  "M1-Booking-Detail-States-360.dc.html",
+  "M1-Booking-Detail-States-1280.dc.html",
+  "M2-Scanner-Outcomes-360-strip.dc.html",
+  "M2-Scanner-Outcomes-768.dc.html",
+  "M3-Receipt-Reasons-360.dc.html",
+  "M3-Receipt-Reasons-1280.dc.html",
+  "M4-Testing-Start-Eta-1280.dc.html",
+  "M5-Report-Upload-Errors-1280.dc.html",
+  "M6-Report-Bind-Scan-360-strip.dc.html",
+  "M7-Report-Review-Amendment-1280.dc.html",
+  "M8-Report-Amendment-Create-1280.dc.html",
+  "M9-Customer-Report-360.dc.html",
+  "M9-Customer-Report-768.dc.html",
+  "M9-Customer-Report-1280.dc.html",
+  "M10-Admin-BreakGlass-Audit-1280.dc.html",
+  "N1-Dispute-Customer-360.dc.html",
+  "N1-Dispute-Customer-1280.dc.html",
+  "N2-Rating-360.dc.html",
+  "N2-Rating-1280.dc.html",
+  "N3-Finance-Documents-360.dc.html",
+  "N3-Finance-Documents-1280.dc.html",
+  "N4-Dashboard-Finance-360.dc.html",
+  "N4-Dashboard-Finance-1280.dc.html",
+  "N5-Lab-Dispute-Response-1280.dc.html",
+  "N6-Admin-Disputes-1280.dc.html",
+  "N7-Admin-Payouts-Holds-1280.dc.html",
+  "N8-Admin-Config-Templates-1280.dc.html",
+  "N9-Admin-Platform-Users-Leads-1280.dc.html"
+ ],
+ "notes": {
+  "tA": {
+   "x": 0,
+   "y": -300,
+   "text": "A · Tokens and core components (provisional brand)",
+   "kind": "title1",
+   "maxW": 7360,
+   "page": "a"
+  },
+  "nA1": {
+   "x": 1360,
+   "y": 2760,
+   "w": 560,
+   "fill": "blue",
+   "page": "a",
+   "text": "API / code mapping (pass 2)\n• Tokens ship as CSS variables in packages/ui. Components use SEMANTIC tokens only; --qci-* appear only in :root.\n• Pass 2 adds exactly three: --color-brand-primary-active, --color-brand-on-tint, --color-brand-tint-border (A-01).\n• Status groups beyond bookings (payment, dispute, report version, accreditation, payout, refund, claim, verification, file scan) are 'Proposed, for review'. ON_HOLD card = warning; suspended accreditation = warning.\n• Money ₹1,00,000.00 (Proposed) · every time ends with IST."
+  },
+  "nA2": {
+   "x": 2880,
+   "y": 1880,
+   "w": 560,
+   "fill": "blue",
+   "page": "a",
+   "text": "API / code mapping\n• Money = {amountPaise:int64, currency:'INR'} (common.yaml) → formatted en-IN: ₹1,00,000.00. Never float.\n• DateTime: API timestamps are UTC ISO-8601 → displayed IST with the 'IST' suffix; dates DD MMM YYYY.\n• BookingNo: bookingNo (LC-YYMM-NNNNNNN, OQ-22).\n• FileUpload state ← BookingAttachment.scanStatus.\n• Masked: phone/bank masked by the server (e.g. bankAccountNumberLast4); the client never unmasks."
+  },
+  "nA3": {
+   "x": 4400,
+   "y": 2620,
+   "w": 560,
+   "fill": "blue",
+   "page": "a",
+   "text": "API / code mapping\n• NextActionCard ← status + the matching deadline: labDecisionDueAt · paymentDueAt · dropDeadlineAt · holdCase.dueAt · counterOffer.expiresAt · disputeWindowEndsAt.\n• BookingTimeline ← GET /bookings/{id}/timeline: kind (STATUS_CHANGE | CUSTODY_EVENT), occurredAt, actorRole, actorName (own org only, OQ-29), fromStatus, toStatus, custodyEventType, packageSeqNo.\n• LabResultCard ← LabSearchResult.\n• ApprovalPanel 'blocked' ← LabInboxItem.viewerWasMaker (the API refuses as well).\n• CameraScanner ← POST /custody/scan → CustodyScanResult.result."
+  },
+  "nA4": {
+   "x": 5920,
+   "y": 1860,
+   "w": 560,
+   "fill": "blue",
+   "page": "a",
+   "text": "API / code mapping\n• VerificationResult ← ReportVerification.result: GENUINE_CURRENT | GENUINE_SUPERSEDED | NOT_FOUND | REVOKED.\n• DataTable pagination ← page (cursor) on every *List schema.\n• ErrorState copy comes from ERROR_HANDLING.md code → message map (e.g. 409 INVALID_STATE_TRANSITION → 'This booking has moved on. Refresh to see its current state.').\n• DiffViewer ← change-set items / price-list versions. ImportPreview ← import rows (create / update / no change / conflict / error)."
+  },
+  "tB": {
+   "x": 0,
+   "y": -300,
+   "text": "B · Public: search, lab site page, report verification",
+   "kind": "title1",
+   "maxW": 11664,
+   "page": "b"
+  },
+  "nB1": {
+   "x": 0,
+   "y": 1260,
+   "w": 560,
+   "fill": "blue",
+   "page": "b",
+   "text": "API fields: GET /public/search/labs → LabSearchResultList\n• Card: labSite.name, city, stateCode · labSite.accreditations[].certificateNo / status / statusAsOf · labSite.listingStatus (BOOKABLE | LISTED) · distanceKm · priceFrom · minTatDays · nextSlotAt · labSite.rating.average / count\n• Why matched: matchedLines[] (scopeLine.parameter, method, price, tatDays), matchedLineCount → 'max 3 + N more'\n• Map pins: labSite.location\n• Filters: radiusKm (5|10|25|50|100), discipline, tatMax, priceMax, category\n• Typeahead: GET /public/search/suggest → SearchSuggestion.kind / label"
+  },
+  "nB1m": {
+   "x": 1360,
+   "y": 1560,
+   "w": 480,
+   "fill": "blue",
+   "page": "b",
+   "text": "Same fields as B1 · 1280.\nBelow lg (1024): list/map toggle instead of split view. Filters move into a sheet. Card shows max 3 matched lines + 'N more'."
+  },
+  "nB2": {
+   "x": 2648,
+   "y": 1820,
+   "w": 560,
+   "fill": "blue",
+   "page": "b",
+   "text": "API fields\n• GET /public/lab-sites/{siteId} → PublicLabSite: name, siteCode, address, location, listingStatus, rating (PublicRating: average, count ONLY), receivingHours[]\n• Accreditation card ← accreditations[]\n• Scope tree ← PublicScopeLine · Prices ← PublicPriceItem · Next slots ← PublicSlot (open slots only)\n• Pass 2: sub-scores removed (DR-16, OQ-71)."
+  },
+  "nB3": {
+   "x": 5296,
+   "y": 1560,
+   "w": 560,
+   "fill": "blue",
+   "page": "b",
+   "text": "API fields: GET /public/verify/{verificationCode} → ReportVerification\n• result → the big state · report (VerifiedReport) is null for REVOKED and NOT_FOUND\n• accreditation status is as of the issue date\n• verification code: 16 characters (shown in groups of four)\n• 'Compare a copy' hashes the PDF in the browser; bad file and RATE_LIMITED (30/min) states added in pass 2."
+  },
+  "nB4": {
+   "x": 10024,
+   "y": 960,
+   "w": 560,
+   "fill": "blue",
+   "page": "b",
+   "text": "API fields\n• No results: data = [] → POST /public/leads (LeadCreate: kind, labSiteId, query, contactEmail)\n• Listed: listingStatus = LISTED → 'Request this lab' (lead)\n• Calibration: site is calibration-only → 'Calibration booking coming soon' (deferred feature, no booking UI)\n• Loading: skeleton cards while the request is in flight"
+  },
+  "tC": {
+   "x": 0,
+   "y": -300,
+   "text": "C · Customer booking flow C3–C6 and booking detail C7",
+   "kind": "title1",
+   "maxW": 16560,
+   "page": "c"
+  },
+  "nC3": {
+   "x": 0,
+   "y": 1260,
+   "w": 560,
+   "fill": "blue",
+   "page": "c",
+   "text": "API fields (BookingCreate)\n• lines[].scopeLineId (pre-selected from search matchedLines)\n• trf: BookingTrfInput {schemaVersion, form.* (item, grade, batch/lot, mfg date, condition, standard, special instructions), conformityRequired, decisionRule}\n• Sample qty per line ← PublicPriceItem.sampleQty + sampleUnit\n• declaredPackageCount (suggested from quantities)\n• Draft autosaves on the client; validation = Zod schemas generated from the contract."
+  },
+  "nC3r": {
+   "x": 1360,
+   "y": 1360,
+   "w": 560,
+   "fill": "blue",
+   "page": "c",
+   "text": "API fields\n• POST /bookings/estimate → BookingEstimate: lines[] (snapshot.parameter, unitPrice, samplePrep, gst, lineTotal), subtotal, gst, total\n• platformFee exists in the contract but is NEVER shown (platform fees are out of scope).\n• POST /bookings/duplicate-check {itemName, batchNo, lines} → duplicateFound, windowDays, matches[]\n• Submit: POST /bookings {labSiteId, customerSiteId, slotId, preferredDropDate, declaredPackageCount, lines, trf} → bookingNo, status REQUESTED, labDecisionDueAt"
+  },
+  "nC3m": {
+   "x": 2720,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "c",
+   "text": "Same fields as C3 · 1280.\n• Slot step: listPublicSlots → open PublicSlot rows only; no capacity, no 'Full' row (OQ-69).\n• Submit confirmation badge: Requested; 'Waiting for lab… IST' is NextActionCard text.\n• Edit links have 44 px targets."
+  },
+  "nC4": {
+   "x": 6040,
+   "y": 1060,
+   "w": 560,
+   "fill": "blue",
+   "page": "c",
+   "text": "API fields\n• counterOffer: status, proposedSlot, perLineQuantity[] (lineId, sampleQty, unitCode), message, expiresAt\n• Accept: POST /bookings/{id}/counter/accept (T-07). Decline: POST /bookings/{id}/counter/decline (T-08).\n• No price field anywhere in a counter-offer (BR-017)."
+  },
+  "nC45": {
+   "x": 7400,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "c",
+   "text": "API fields\n• Accepted: status ACCEPTED, total, paymentDueAt\n• Rejected: rejection {reason, notes}; alternatives from GET /public/search/labs with the same lines\n• Pay: POST /bookings/{id}/payments → PaymentCheckout {paymentOrder, gatewayCheckout}. Gateway page is opaque (FakePaymentGateway until ICICI docs land).\n• Return: /payments/return then poll the booking until PAID → HANDOVER_SET.\n• Receipt: GET /bookings/{id}/financial-documents"
+  },
+  "nC6": {
+   "x": 9920,
+   "y": 1360,
+   "w": 560,
+   "fill": "blue",
+   "page": "c",
+   "text": "API fields: GET /bookings/{id}/handover → BookingHandover\n• labContact (ContactPerson): full desk phone for the paying customer (OQ-70), as a tel: link\n• bookingQrPayload; packages[] (seqNo, totalPackages, shortCode 6 Crockford base32, labelVersion, qrPayload)\n• No booking-level short code, no 'Send to my phone' (OQ-73)\n• Lost label: call or visit the desk; only the lab's Maker requests a reprint (L3)."
+  },
+  "nC6m": {
+   "x": 11280,
+   "y": 960,
+   "w": 560,
+   "fill": "blue",
+   "page": "c",
+   "text": "Same fields as C6 · 1280. 'Show this QR' view: booking QR only, no short code."
+  },
+  "nC7": {
+   "x": 12600,
+   "y": 1360,
+   "w": 560,
+   "fill": "blue",
+   "page": "c",
+   "text": "API fields\n• GET /bookings/{id} → BookingForCustomer: bookingNo, status, statusChangedAt, labSnapshot, lines[] (snapshot.parameter, status), expectedReportDate, total, deviationNoted\n• Timeline ← GET /bookings/{id}/timeline: actorRole always; actorName only for your own organisation (OQ-29), so lab staff show as 'Lab Maker' / 'Lab Checker'.\n• Custody trail PDF: GET /bookings/{id}/custody-trail.pdf"
+  },
+  "nC7h": {
+   "x": 13960,
+   "y": 1160,
+   "w": 560,
+   "fill": "blue",
+   "page": "c",
+   "text": "API fields\n• holdCase: status, reason, details, dueAt (24 h), decision\n• POST /bookings/{id}/hold/decision {decision: PROCEED | REPLACE | CANCEL, reasonCode, notes}\n• Card tone warning (A-02). No decision in 24 h → Ops is told (BR-046, BR-047); the booking is not cancelled. 'No refund' removed."
+  },
+  "nC7m": {
+   "x": 15320,
+   "y": 960,
+   "w": 560,
+   "fill": "blue",
+   "page": "c",
+   "text": "Same fields as C7 · 1280 and C7 hold."
+  },
+  "tD": {
+   "x": 0,
+   "y": -300,
+   "text": "D · Lab Maker counter scanner (L3) and Checker approvals (L4, L7)",
+   "kind": "title1",
+   "maxW": 5960,
+   "page": "d"
+  },
+  "nD1": {
+   "x": 0,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "d",
+   "text": "API fields\n• POST /custody/scan {payload | shortCode, siteId, deviceId, clientRecordedAt, clientSeq} → CustodyScanResult {result, booking (bookingNo, status, dropDeadlineAt), package (seqNo, total), trf (itemName, batchNo, lines[]), expectedPackageCount, scannedPackages}\n• Wrong site → CustodyIntendedSite {name, addressLine, city}\n• Offline queue → POST /custody/scan-batch\n• Submit: POST /bookings/{id}/receipts → ReceiptSubmit {actualPackageCount, condition, itemMatches, batchMatches, quantitySufficient, sealIntact, observedBatchNo, discrepancyFlag, discrepancyNotes, packages[], photoFileIds}"
+  },
+  "nD2": {
+   "x": 3320,
+   "y": 1460,
+   "w": 560,
+   "fill": "blue",
+   "page": "d",
+   "text": "API fields\n• GET /lab/inbox → LabInboxItem {booking, pendingApproval, viewerWasMaker}\n• Approve: POST /receipts/{id}/approve {labSampleId, notes} (T-14)\n• Hold and reject open the reason forms (M3)\n• Blocked: only 'Your role changed after you recorded this. Another Checker must approve it.' Provisional (OQ-59); API SELF_APPROVAL_FORBIDDEN\n• Tab 'Label reprints' opens L3."
+  },
+  "nD3": {
+   "x": 4680,
+   "y": 2060,
+   "w": 560,
+   "fill": "blue",
+   "page": "d",
+   "text": "API fields\n• ReportVersion: versionNo, status IN_REVIEW, stampedSha256, verificationCode (16 chars)\n• Publish: step-up via verifyMfa (≤ 5 min) then publishReportVersion (T-21); refused until the stamped copy exists\n• Pass 2 states: stamp pending (Publish off), stamp failed (appended-page fallback), blocked (Provisional, OQ-59), MFA wrong code / expired / not enrolled."
+  },
+  "tE": {
+   "x": 0,
+   "y": -300,
+   "text": "E · Dashboards: customer, Maker, Checker, Ops",
+   "kind": "title1",
+   "maxW": 4880,
+   "page": "e"
+  },
+  "nE1": {
+   "x": 0,
+   "y": 1220,
+   "w": 560,
+   "fill": "blue",
+   "page": "e",
+   "text": "API fields\n• GET /bookings → BookingSummary[]: bookingNo, status, itemName, labSite.name, total, labDecisionDueAt, paymentDueAt, dropDeadlineAt, expectedReportDate\n• 'Needs your action' = COUNTERED, ACCEPTED, HANDOVER_SET, ON_HOLD (+ REPORT_RELEASED while disputeWindowEndsAt is in the future)\n• Notifications: GET /me/notifications"
+  },
+  "nE2": {
+   "x": 1800,
+   "y": 1460,
+   "w": 360,
+   "fill": "blue",
+   "page": "e",
+   "text": "API fields\nGET /lab/inbox, filtered: HANDOVER_SET with drop due today · UNDER_TEST with expectedReportDate · report versions RETURNED.\nScan now → D1 scanner."
+  },
+  "nE3": {
+   "x": 2240,
+   "y": 1260,
+   "w": 560,
+   "fill": "blue",
+   "page": "e",
+   "text": "API fields\n• GET /lab/inbox → pendingApproval (receipt | report | reprint) with SLA; REQUESTED with labDecisionDueAt\n• GET /lab/onboarding → bookability gaps\n• Disputes from /disputes for the lab org"
+  },
+  "nE4": {
+   "x": 3600,
+   "y": 1460,
+   "w": 560,
+   "fill": "blue",
+   "page": "e",
+   "text": "API fields\n• getAdminOpsBoard → AdminOpsBoard {generatedAt, bookingsByStatus[] (all 18 states, state-machine order), overdue[] (timerType, count)}\n• Every tile and row links to the drill-down list (K10)\n• No escalation or 'stuck' lists: no field behind them (A-29)."
+  },
+  "tF": {
+   "x": 0,
+   "y": -300,
+   "text": "F · Remaining flows: sign-up, reports & disputes, finance, lab setup, admin",
+   "kind": "title1",
+   "maxW": 13320,
+   "page": "f"
+  },
+  "nF1": {
+   "x": 0,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "f",
+   "text": "API fields\n• POST /auth/otp/request → POST /auth/otp/verify\n• POST /customer/organisations (CustomerOrganisationCreate: legal name, segment, GSTIN optional for INDIVIDUAL)\n• POST /customer/sites (address + geocode)\n• POST /customer/invitations (role)\n• Finance: POST /auth/mfa/enrol → /auth/mfa/enrol/confirm"
+  },
+  "nF2": {
+   "x": 2520,
+   "y": 1360,
+   "w": 560,
+   "fill": "blue",
+   "page": "f",
+   "text": "API fields\n• CustomerReportView, download, share links (M9 for the full flow)\n• Rate: POST /bookings/{id}/rating; the comment goes to the lab and Ops, not public (OQ-71)\n• Tax invoice mention tagged Provisional (OQ-08)."
+  },
+  "nF3": {
+   "x": 3880,
+   "y": 1100,
+   "w": 560,
+   "fill": "blue",
+   "page": "f",
+   "text": "API fields\n• PaymentOrder {attemptNo, status, amount, createdAt} · FinancialDocument {docType, docNo, issuer, cgst, sgst, igst, total}\n• Issuer and 'CGST 9% + SGST 9%' tagged Provisional (OQ-08). 'No platform fee' sentence removed (DR-21)."
+  },
+  "nF4": {
+   "x": 5240,
+   "y": 1260,
+   "w": 560,
+   "fill": "blue",
+   "page": "f",
+   "text": "API fields\n• GET /lab/onboarding → checklist + live bookability reasons\n• /lab/claims (+ /verify-otp or manual letterhead upload)\n• /lab/kyc-documents · /lab/bank-accounts (step-up MFA)\n• /lab/users + /lab/invitations (Checker ≠ Maker)\n• /lab/sites/{siteId}/receiving-hours · closures · slot-templates · retention-rules · price-lists"
+  },
+  "nF5": {
+   "x": 6600,
+   "y": 1220,
+   "w": 560,
+   "fill": "blue",
+   "page": "f",
+   "text": "API fields\n• GET /lab/inbox → LabInboxBookingSummary\n• Reject… opens the reason dialog (K9); Maker read-only view is K8.\n• Counter: no price field (BR-017)."
+  },
+  "nF6": {
+   "x": 7960,
+   "y": 1760,
+   "w": 560,
+   "fill": "blue",
+   "page": "f",
+   "text": "API fields\n• ReportVersionCreate {fileId, reportNo, ulrNo, issueDate, bindPackagePayload, parameterResults[], amendmentReason}\n• ULR_NOT_UNIQUE: 'This ULR is already used.' Names a booking only when it is the viewer's own (A-27)\n• After submit: preparing stamped copy, stamp pending, stamp failed (fallback page)."
+  },
+  "nF7": {
+   "x": 9320,
+   "y": 1220,
+   "w": 560,
+   "fill": "blue",
+   "page": "f",
+   "text": "API fields\n• GET /lab/sites/{siteId}/price-lists (draft / published / history); items: /lab/price-lists/{id}/items; publish: …/publish (immutable once published)\n• Import: …/price-lists/imports → rows → commit\n• Scope availability toggle: /lab/sites/{siteId}/scope-lines/{id}/availability\n• Slots: /lab/sites/{siteId}/slots"
+  },
+  "nF8": {
+   "x": 10680,
+   "y": 1260,
+   "w": 560,
+   "fill": "blue",
+   "page": "f",
+   "text": "API fields\n• /admin/change-sets (+ /items, /submit, /impact, /approve, /publish). The approver must be a different person.\n• /admin/imports (+ /rows, /commit, /discard); mapping: /admin/mapping-templates\n• Version history: /admin/records/{type}/{id}/versions"
+  },
+  "nF10": {
+   "x": 12040,
+   "y": 1660,
+   "w": 560,
+   "fill": "blue",
+   "page": "f",
+   "text": "API fields\n• Claims (Reject… opens the J9 reason dialog) · pin review with tap, arrow keys, latitude and longitude\n• Tweak 'viewer': PLATFORM_OPS omits configuration and break-glass; PLATFORM_ADMIN shows both (DR-31)\n• Full admin boards: J9, H7, N8, M10."
+  },
+  "nG1w0": {
+   "x": 0,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "g",
+   "text": "Operations: requestOtp (OtpRequest: email, purpose LOGIN) → verifyOtp (OtpVerifyRequest: email, code) → OtpVerifyResult = Session | MfaChallenge {mfaRequired, mfaEnrolled}. If mfaRequired: verifyMfa (MfaCodeRequest: code). mfaEnrolled false → G2.\nFields: OtpCode (6 digits). Rate: 5 codes per 15 min per email, 20 per hour per IP.\nErrors: OTP_INVALID, OTP_EXPIRED, OTP_LOCKED, RATE_LIMITED, VALIDATION_FAILED.\nValidation: 'Enter a valid email.' · 'Enter all 6 digits.'\ni18n: auth.signin.title · auth.signin.email.label · auth.signin.email.help · auth.signin.send · auth.code.label · auth.code.error.invalid · auth.code.error.expired · auth.code.locked · auth.code.rateLimited · auth.mfa.challenge.title · auth.mfa.challenge.body · auth.offline.banner · auth.signedIn.toast"
+  },
+  "nG1w1": {
+   "x": 2920,
+   "y": 1560,
+   "w": 640,
+   "fill": "blue",
+   "page": "g",
+   "text": "Same operations and errors as G1 · 360.\nThe TOTP step appears for LAB_CHECKER, CUSTOMER_FINANCE and every platform role (MfaChallenge.mfaRequired). Return page: kept in session storage, never in the URL.\nLoading: button aria-busy, label 'Sending code…'.\ni18n: auth.signin.* (as G1 360) · auth.signin.returnTo · auth.mfa.notEnrolled.title · auth.mfa.notEnrolled.action"
+  },
+  "nG2w0": {
+   "x": 4280,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "g",
+   "text": "Operations: startMfaEnrolment → MfaEnrolment {secret, otpauthUri} (QR from otpauthUri; key = secret) → confirmMfaEnrolment (MfaCodeRequest: code) → MfaRecoveryCodes {recoveryCodes[10]} shown once → then verifyMfa when it came from sign-in.\nErrors: MFA_ENROLMENT_REQUIRED (entry), OTP_INVALID, OTP_LOCKED, RATE_LIMITED.\nValidation: 'Enter the 6-digit code from your app.' · 'Tick the box to confirm you saved your recovery codes.'\ni18n: mfa.enrol.why.title · mfa.enrol.why.steps · mfa.enrol.scan.title · mfa.enrol.key.label · mfa.enrol.key.copy · mfa.enrol.confirm.label · mfa.enrol.confirm.error · mfa.enrol.codes.warning · mfa.enrol.codes.saved · mfa.enrol.done.title"
+  },
+  "nG2w1": {
+   "x": 6800,
+   "y": 1360,
+   "w": 640,
+   "fill": "blue",
+   "page": "g",
+   "text": "Same operations as G2 · 360. Reference: the Finance enrolment in F1 C2.6 is unchanged.\nThe secret and recovery codes are never logged and never put in a URL.\ni18n: mfa.enrol.* (as G2 360) · mfa.enrol.stepper.*"
+  },
+  "nG3w0": {
+   "x": 8160,
+   "y": 1760,
+   "w": 640,
+   "fill": "blue",
+   "page": "g",
+   "text": "Operations: refreshSession (fails → UNAUTHENTICATED → 'Session expired'); getMe (Me: user, memberships[] MembershipSummary {organisation, roles}, activeMembershipId, permissions) → roles differ from the page's role → 'Access changed'; any route the role may not open → FORBIDDEN page.\nNo personal data in the URL; return path in session storage.\ni18n: session.expired.title · session.expired.body · session.expired.action · access.changed.title · access.changed.body · access.denied.title · access.denied.body · access.denied.back"
+  },
+  "nG4w0": {
+   "x": 9680,
+   "y": 3460,
+   "w": 640,
+   "fill": "blue",
+   "page": "g",
+   "text": "Design reference only (no operations). Adds to COMPONENT_SPECIFICATION (DR-35): Tabs, Stepper, SideNav, BottomNav, Breadcrumb, Dialog, BottomSheet, RadioCard, ChecklistRow, SlotGrid, DisputeThread, StarRating, StatTile, ShareLinkTable, SelectablePayoutTable, LargerScreenNotice.\nClasses in lc.css (pass 2 section). Keyboard: tabs use arrow keys; dialogs trap focus and return it; radio cards and stars are real radios.\ni18n: ui.tabs.* · ui.stepper.stepOf · ui.dialog.close · ui.sheet.close · ui.largeScreen.title · ui.largeScreen.body"
+  },
+  "nH1w0": {
+   "x": 2208,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "h",
+   "text": "Operations: suggestSearch → SearchSuggestionList {suggestions[] SearchSuggestion: kind, label, code, labSiteId}; searchLabs (q, pincode or GeoPoint, radiusKm). Saved site from listCustomerSites (signed in).\nFields: Pincode (6 digits), GeoPoint, SearchRadiusKm (5|10|25|50|100).\nValidation: 'Enter a test, product, standard or lab.' · 'Enter a 6-digit PIN code.'\ni18n: home.title · home.subtitle · search.query.label · search.suggest.group.{test,product,standard,lab} · search.suggest.none · search.location.label · search.location.useMine · search.location.denied · search.radius.label · search.submit"
+  },
+  "nH1w1": {
+   "x": 1360,
+   "y": 1760,
+   "w": 640,
+   "fill": "blue",
+   "page": "h",
+   "text": "Same as H1 · 360. Loading uses skeleton cards with aria-busy. Search error: INTERNAL_ERROR copy from ERROR_HANDLING.md.\ni18n: as H1 360 · search.error.title · search.error.retry"
+  },
+  "nH1w2": {
+   "x": 0,
+   "y": 1560,
+   "w": 640,
+   "fill": "blue",
+   "page": "h",
+   "text": "Same operations as H1 · 360. Combobox: role=combobox, aria-expanded, aria-controls=listbox; arrow keys move; Enter picks.\nCalibration labs: listed with 'Calibration booking coming soon' (deferred feature, no booking UI).\ni18n: as H1 360 · search.calibration.comingSoon"
+  },
+  "nH2w0": {
+   "x": 3928,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "h",
+   "text": "Operations: searchLabs (filters: radiusKm, discipline, tatMax, priceMax, category); listTaxonomyNodes (PublicTaxonomyNode) for the discipline list.\nFields: LabSearchResult (labSite, distanceKm, priceFrom, minTatDays, nextSlotAt, matchedLines[] LabSearchMatchedLine {scopeLine, price, tatDays}, matchedLineCount), TatDays.\nMap pins: bookable = solid pin, listed = dashed white pin + legend (A-02).\ni18n: search.filters.title · search.filters.clear · search.filters.apply ('Show {count} labs') · search.view.list · search.view.map · search.chip.remove · lab.listedOnly · lab.requestThis"
+  },
+  "nH2w1": {
+   "x": 5248,
+   "y": 2060,
+   "w": 640,
+   "fill": "blue",
+   "page": "h",
+   "text": "Same fields as H2 · 360. At 768 the filter panel is a side sheet; list and map are a toggle (below lg). Result states: loading (aria-busy), no results (actions of B4: widen radius, request a lab → createLead NO_RESULT), error (INTERNAL_ERROR), drawn at 768 and 1280.\ni18n: search.empty.title · search.empty.widen · search.empty.requestLab · search.error.*"
+  },
+  "nH3w0": {
+   "x": 7456,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "h",
+   "text": "Operation: createLead (LeadCreate: kind LeadKind REQUEST_LAB | NO_RESULT, labSiteId (REQUEST_LAB only), query, contactEmail). Error: RATE_LIMITED, VALIDATION_FAILED.\nValidation: 'Tell us which test you need.' · 'Enter a full email address, like name@company.in.'\nThe email is not shared with the lab.\ni18n: lead.request.title · lead.request.listedNote · lead.query.label · lead.email.label · lead.email.help · lead.send · lead.sent.title · lead.rateLimited"
+  },
+  "nH3w1": {
+   "x": 9176,
+   "y": 1360,
+   "w": 640,
+   "fill": "blue",
+   "page": "h",
+   "text": "Same as H3 · 360. Entry points: a listed lab page (REQUEST_LAB, labSiteId set) and the no-results page (NO_RESULT, query prefilled).\ni18n: as H3 360"
+  },
+  "nH4w0": {
+   "x": 10536,
+   "y": 2060,
+   "w": 640,
+   "fill": "blue",
+   "page": "h",
+   "text": "Role: LAB_CHECKER (first user of the lab).\nOperations: startLabClaim (LabClaimCreate: certificateNo) → LabClaim {id, status ClaimRequestStatus, method ClaimMethod, labSite, otpSentTo (masked), createdAt, reviewedAt, decisionNotes}; verifyLabClaimOtp (code); manual: createLabClaimLetterheadUploadUrl → submitLabClaimLetterhead (LabClaimManual: fileId). File ScanStatus gates submit.\nErrors: NOT_FOUND (no certificate), INVALID_STATE_TRANSITION (already claimed), OTP_INVALID, OTP_EXPIRED, OTP_LOCKED.\ni18n: claim.title · claim.find.label · claim.find.notFound · claim.alreadyClaimed · claim.code.sentTo · claim.manual.title · claim.manual.scan.* · claim.pending · claim.approved · claim.rejected.notes"
+  },
+  "nH5w0": {
+   "x": 11896,
+   "y": 2260,
+   "w": 640,
+   "fill": "blue",
+   "page": "h",
+   "text": "Role: PLATFORM_DATA_STEWARD (others: permission denied).\nOperations: listAdminMappingTemplates, createAdminMappingTemplate, getAdminMappingTemplate, updateAdminMappingTemplate (columnMap, defaults), createAdminImportUploadUrl, createAdminImport (AdminImportCreate: kind, fileId, mappingTemplateId, sourceLabel), getAdminImport (AdminImportJob: status ImportStatus, rowCount, errorCount, warningCount, conflictCount, changeSetId), listAdminImportRows (AdminImportRow: rowNumber, raw, mapped, matchResult ImportMatchResult, action ImportRowAction, messages), commitAdminImport, discardAdminImport.\nNo operation: row edit in the preview; error CSV is built from the ERROR rows.\ni18n: import.steps.* · import.upload.drop · import.mapping.template · import.counts.* · import.rows.raw · import.rows.mapped · import.unknown.resolve · import.commit · import.discard · import.failed"
+  },
+  "nH6w0": {
+   "x": 13256,
+   "y": 2260,
+   "w": 640,
+   "fill": "blue",
+   "page": "h",
+   "text": "Roles: PLATFORM_DATA_STEWARD prepares; a different steward or PLATFORM_ADMIN approves and publishes.\nOperations: listAdminTaxonomies, getAdminTaxonomy, listAdminNodeTypes, listAdminAttributeDefinitions, listAdminChangeSets, getAdminChangeSet (AdminChangeSet: status ChangeSetStatus, preparedByUserId, approvedByUserId, rejectionReason), listAdminChangeItems, submit/sendBack/approve/reject/publish/cancelAdminChangeSet, getAdminChangeSetImpact (counts[], affectedOpenBookings[]), listAdminRecordVersions.\nError: FOUR_EYES_REQUIRED (approver = preparer), explained before the click.\ni18n: md.tree.title · md.changeSets.tabs.{mine,toReview} · md.changeSet.fourEyes · md.changeSet.actions.* · md.impact.title · md.history.title"
+  },
+  "nH7w0": {
+   "x": 14616,
+   "y": 1460,
+   "w": 640,
+   "fill": "blue",
+   "page": "h",
+   "text": "Role: PLATFORM_OPS.\nOperations: listAdminGeocodeQueue (AdminLabSiteGeocode: labSiteId, siteCode, name, address, geocodeStatus GeocodeStatus, geocodeConfidence, location, lockVersion); approveAdminLabSitePin (AdminPinApproval: location GeoPoint). Lab proposals (createLabProposal kind pin) show as proposals.\nPointer alternatives (OQ-75): tap to place, arrow keys, latitude and longitude fields.\nErrors: CONCURRENT_MODIFICATION.\ni18n: geocode.queue.title · geocode.review.legend · geocode.review.help · geocode.lat · geocode.lng · geocode.approve · geocode.proposal.label"
+  },
+  "nJ1w0": {
+   "x": 0,
+   "y": 1860,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Operations: requestOtp / verifyOtp (states as G1) → createCustomerOrganisation (CustomerOrganisationCreate: customerSegment CustomerSegment, legalName, displayName, gstin Gstin, registeredAddress) → createCustomerSite (CustomerSiteCreate: name, address, gstin, contact, isDefaultBilling) → createCustomerInvitation (email, roles).\nPin: tap, arrow keys, latitude and longitude (OQ-75).\nValidation: 'A GSTIN has 15 characters.' · 'Enter the legal name.' · 'Enter the registered address.'\ni18n: signup.title · signup.steps.* · signup.kind.{org,individual} · signup.org.* · signup.site.* · signup.invite.* · signup.done"
+  },
+  "nJ1w1": {
+   "x": 1360,
+   "y": 2460,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Same as J1 · 1280, two columns. i18n: as J1 1280"
+  },
+  "nJ1w2": {
+   "x": 2208,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "The individual path after 'Booking as an individual or an organisation?': createCustomerOrganisation with customerSegment INDIVIDUAL (legalName = the person's name, gstin optional) → createCustomerSite → done.\ni18n: signup.individual.details.title · signup.individual.name.help · signup.individual.gstin.optional · signup.site.home"
+  },
+  "nJ2w0": {
+   "x": 5648,
+   "y": 2060,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Role: CUSTOMER_ADMIN (a Requester sees permission denied).\nOperations: listCustomerUsers (CustomerUser: fullName, email, roles CustomerRoleCode[], status), deactivateCustomerUser, listCustomerInvitations / createCustomerInvitation (email, roles) / revokeCustomerInvitation, listCustomerSites / createCustomerSite / updateCustomerSite, getCustomerSettings / updateCustomerSettings (requesterCanPay, defaultCustomerSiteId), listBookings (whole organisation).\nUsers are deactivated, never deleted.\ni18n: custAdmin.title · custAdmin.dashboard.* · custAdmin.users.* · custAdmin.invite.* · custAdmin.sites.* · custAdmin.requesterCanPay.label · custAdmin.requesterCanPay.help · custAdmin.deactivate.confirm"
+  },
+  "nJ2w1": {
+   "x": 3928,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Same operations as J2 · 1280. Phone: dashboard tiles, people, settings switch, denied state.\ni18n: as J2 1280"
+  },
+  "nJ3w0": {
+   "x": 7008,
+   "y": 1560,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Role: LAB_CHECKER.\nOperations: getLabOnboarding (kycDocuments[] LabKycDocument: documentType, fileName, status VerificationStatus, reviewNotes, reviewedAt), createLabKycUploadUrl → createLabKycDocument (documentTypeCode, fileId). File states from ScanStatus.\nValidation: 'Only PDF, JPG or PNG up to 10 MB.' · FILE_NOT_CLEAN.\ni18n: kyc.title · kyc.table.* · kyc.upload.* · kyc.scan.{pending,clean,infected,rejected} · kyc.rejected.notes · kyc.allVerified"
+  },
+  "nJ4w0": {
+   "x": 8368,
+   "y": 1860,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Role: LAB_CHECKER. Step-up MFA (CD-25).\nOperations: createLabBankAccount (LabBankAccountCreate: siteId, accountHolderName, accountNumber, ifsc) → LabBankAccount (accountNumberLast4 only, status VerificationStatus, isPrimary, verifiedAt, retiredAt); verifyMfa.\nErrors: STEP_UP_REQUIRED, MFA_ENROLMENT_REQUIRED, OTP_INVALID, OTP_LOCKED, RATE_LIMITED, VALIDATION_FAILED. The full account number is never shown after typing and never logged.\nValidation: 'The two account numbers don't match.' · 'Enter an 11-character IFSC.'\ni18n: bank.title · bank.form.* · bank.mask · bank.status.* · bank.change.help · mfa.stepUp.*"
+  },
+  "nJ5w0": {
+   "x": 9728,
+   "y": 1760,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Role: LAB_CHECKER (a Maker sees permission denied).\nOperations: listLabUsers (LabUser: fullName, email, role LabRoleCode, sites, mfaEnrolled, status), updateLabUser (LabUserUpdate: role, siteIds, status), listLabInvitations, createLabInvitation (email, role, siteIds), revokeLabInvitation.\nRules: one lab role per person (RR-2); a role change is logged and not retroactive for pending items.\ni18n: labUsers.title · labUsers.invite.* · labUsers.oneRole.note · labUsers.changeRole.confirm · labUsers.noMaker.warning"
+  },
+  "nJ6w0": {
+   "x": 11088,
+   "y": 1960,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Role: LAB_CHECKER.\nOperations: setLabReceivingHours (LabReceivingHoursSet: hours), listLabSiteClosures / createLabSiteClosure (startsOn, endsOn, reason → LabSiteClosureResult: cancelledSlotCount, affectedBookingCount) / deleteLabSiteClosure, getLabSlotTemplates / setLabSlotTemplates (LabSlotTemplateInput: disciplineCode, weekday, startTime, endTime, capacity, active), listLabSlots (LabSlot: capacity, heldCount, bookedCount, status SlotStatus), updateLabSlot (capacity, status OPEN|CLOSED).\nCapacity is lab-only; customers never see it (OQ-69).\nValidation: 'Cut-off must be before closing time.' · 'Templates overlap.' · CONCURRENT_MODIFICATION.\ni18n: hours.* · closures.* · slotTemplates.* · slots.calendar.* · slots.close"
+  },
+  "nJ7w0": {
+   "x": 12448,
+   "y": 1760,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Role: LAB_CHECKER.\nOperations: listLabScopeLines (LabScopeLine: scopeLine, pricedInEffectiveList), setLabScopeLineAvailability (temporarilyUnavailable), updateLabSite (submissionInstructions), getLabRetentionRules / setLabRetentionRules (disciplineCode, retentionDays, maxSamplingToReceiptHours), createLabProposal (LabPinProposalCreate: kind, location, note) → shows 'Pending Ops review'.\ni18n: scope.unavailable.help · instructions.label · retention.* · pinProposal.* · pinProposal.pending"
+  },
+  "nJ8w0": {
+   "x": 13808,
+   "y": 2060,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Role: LAB_CHECKER.\nOperations: createLabPriceListImportUploadUrl, createLabPriceListImport (fileId) → LabPriceListImport (status, rowCount, errorCount, warningCount, conflictCount, priceListId), listLabPriceListImportRows (LabPriceListImportRow: rowNumber, raw, mapped, matchResult, action, messages[] LabImportMessage), commitLabPriceListImport, discardLabPriceListImport, createLabPriceListDraft, listLabPriceListItems, updateLabPriceListItems, publishLabPriceList, discardLabPriceList.\nNo operation: column mapping for lab imports (fixed template). Published lists are immutable; a change makes a new draft. Diff vs published: F7.\ni18n: priceImport.steps.* · priceImport.template.download · priceImport.counts.* · priceImport.publish · priceList.immutable.note"
+  },
+  "nJ9w0": {
+   "x": 15168,
+   "y": 2060,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Roles: PLATFORM_OPS for claims and KYC; PLATFORM_FINANCE for bank accounts (Ops sees 'Bank verification needs Finance').\nOperations: listAdminLabClaims (AdminLabClaim: method, status, authorisationFileId, decisionNotes), approveAdminLabClaim / rejectAdminLabClaim (decisionNotes), verifyAdminKycDocument (AdminVerificationRequest: decision AdminVerificationDecision, notes), verifyAdminBankAccount (step-up).\nGap: the reject reason list has no field; the chosen reason is written at the start of decisionNotes (tagged Provisional). Lab names are resolved from labSiteId.\ni18n: adminOnb.tabs.* · adminOnb.claim.reject.* · adminOnb.kyc.* · adminOnb.bank.financeOnly"
+  },
+  "nJ10w0": {
+   "x": 17848,
+   "y": 1560,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Role: LAB_CHECKER.\nOperation: getLabOnboarding → sites[] LabOnboardingSite {listingStatus, isBookable, bookabilityReasons, checklist LabOnboardingChecklist: claimApproved, kycVerified, bankAccountVerified, accreditationValid, testingCategory, makerAssigned, checkerAssigned, receivingHoursSet, slotTemplatesActive, retentionRuleSet, priceListPublished}. Each row links to J3–J8 (CD-24).\nRegression: a requirement stops being true (e.g. accreditation suspended) → not bookable, reason shown.\ni18n: bookable.title · bookable.progress · bookable.item.* · bookable.done.title · bookable.regression.*"
+  },
+  "nJ10w1": {
+   "x": 16528,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "j",
+   "text": "Same as J10 · 1280 at 360. i18n: as J10 1280"
+  },
+  "nK1w0": {
+   "x": 0,
+   "y": 2060,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Roles: CUSTOMER_ADMIN, CUSTOMER_REQUESTER.\nOperations: estimateBooking (BookingEstimateRequest → BookingEstimate: lines[] BookingEstimateLine, subtotal, gst, total; platformFee never shown), checkBookingDuplicates (itemName, batchNo, lines → duplicateFound, windowDays, matches[]), createBookingAttachmentUploadUrl (BookingAttachment.scanStatus), listPublicSlots (PublicSlot: open slots only, no capacity), createBooking (BookingCreate: labSiteId, customerSiteId, slotId, preferredDropDate, declaredPackageCount, lines[], trf BookingTrfInput) → bookingNo, status REQUESTED, labDecisionDueAt.\nValidation: 'Enter the batch or lot number.' · 'Choose a slot.' · FILE_NOT_CLEAN.\ni18n: booking.steps.* · booking.tests.* · booking.trf1.* · booking.trf3.* · booking.attach.* · booking.slot.openOnly · booking.submitted.* · booking.duplicate.* · booking.autosave"
+  },
+  "nK1w1": {
+   "x": 1360,
+   "y": 2660,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Same as K1 · 1280 at 768. i18n: as K1 1280"
+  },
+  "nK2w0": {
+   "x": 2208,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "TRF step 2 in full. Fields: BookingTrfInput {schemaVersion, form: quantity per line, condition, standard, special instructions, specification; conformityRequired, decisionRule}; declaredPackageCount (suggested from quantities); BookingEstimateLine.snapshot (sampleQty, sampleUnit).\nValidation: 'The lab needs at least {qty} for this test.' · 'Enter 1 or more.' · 'Choose a decision rule, or untick statement of conformity.'\ni18n: trf2.quantity.label · trf2.quantity.min · trf2.packages.* · trf2.condition · trf2.standard · trf2.instructions · trf2.more · trf2.spec · trf2.conformity · trf2.decisionRule.*"
+  },
+  "nK3w0": {
+   "x": 3928,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Operations: createBooking, updateBooking. Errors (ErrorCode): SLOT_UNAVAILABLE (pick another slot, form keeps its data), SITE_NOT_BOOKABLE, SCOPE_LINE_NOT_BOOKABLE, OPEN_BOOKING_LIMIT, CONCURRENT_MODIFICATION (If-Match on edit → refresh). Copy follows docs/04-api/ERROR_HANDLING.md.\ni18n: errors.SLOT_UNAVAILABLE.* · errors.SITE_NOT_BOOKABLE.* · errors.SCOPE_LINE_NOT_BOOKABLE.* · errors.OPEN_BOOKING_LIMIT.* · errors.CONCURRENT_MODIFICATION.*"
+  },
+  "nK3w1": {
+   "x": 6048,
+   "y": 1560,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Same as K3 · 360. i18n: as K3 360"
+  },
+  "nK4w0": {
+   "x": 8728,
+   "y": 1560,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Roles: booking owner, CUSTOMER_ADMIN.\nOperations: getBooking (BookingView: status REQUESTED, labDecisionDueAt, lines, total), updateBooking (BookingUpdate with If-Match; the decision timer restarts, T-02), withdraw → cancelBooking (K5). Deadline missed → EXPIRED (K6, T-06). Timeline: getBookingTimeline (actorRole; lab staff by role, OQ-60).\ni18n: booking.requested.nac.title · booking.requested.nac.body · booking.edit.timerRestarts · booking.withdraw · booking.expired.labMissed"
+  },
+  "nK4w1": {
+   "x": 7408,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Same as K4 · 1280. i18n: as K4 1280"
+  },
+  "nK5w0": {
+   "x": 11808,
+   "y": 1760,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Roles: owner, CUSTOMER_ADMIN.\nOperations: cancelBooking (BookingCancelRequest: reasonCode, notes); reasons from listTaxonomyNodes (cancellation reasons). Free: REQUESTED, COUNTERED, ACCEPTED (T-25). After payment: HANDOVER_SET to UNDER_TEST (T-26, T-27). Detail: BookingCancellation {reason, byParty, notes}.\nPlaceholder: the refund amount has no preview field (BR-070 to BR-075): 'Refund amount: shown once confirmed'.\nValidation: 'Choose a reason.'\ni18n: cancel.title · cancel.free.body · cancel.paid.body · cancel.reason.label · cancel.notes.label · cancel.refund.placeholder · cancelled.detail.*"
+  },
+  "nK5w1": {
+   "x": 10088,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Same as K5 · 1280. i18n: as K5 1280"
+  },
+  "nK6w0": {
+   "x": 14488,
+   "y": 1560,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Operations: getBooking (BookingView with BookingRejection {reason, notes} for REJECTED). EXPIRED: the lab didn't decide (T-06), the counter-offer was declined (T-08) or not answered in time. Rebook copies the TRF.\nAlternatives block: kept as the first run drew it (two labs), tagged 'Source not in the contract' (T-05 raises an event only).\ni18n: closed.rejected.* · closed.expired.* · closed.rebook · closed.alternatives.title"
+  },
+  "nK6w1": {
+   "x": 13168,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Same as K6 · 1280. i18n: as K6 1280"
+  },
+  "nK7w0": {
+   "x": 15848,
+   "y": 1560,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Roles: owner, CUSTOMER_ADMIN, payer.\nOperations: getBooking (ACCEPTED, paymentDueAt, total), acceptBookingCounter / declineBookingCounter (decline → EXPIRED, T-08), getCustomerSettings (requesterCanPay false → Requester sees who can pay).\ni18n: accepted.nac.title ('Pay {amount} by {deadline}') · accepted.finalPrice · counter.decline.confirm · accepted.requesterCannotPay.*"
+  },
+  "nK7w1": {
+   "x": 17208,
+   "y": 1860,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Same as K7 · 1280 at 768. i18n: as K7 1280"
+  },
+  "nK8w0": {
+   "x": 19776,
+   "y": 2060,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Roles: LAB_CHECKER decides; LAB_MAKER views read-only ('Only a Checker can decide').\nOperation: getLabInbox (LabInboxItem: booking LabInboxBookingSummary, pendingApproval, viewerWasMaker) with tabs New requests (REQUESTED, labDecisionDueAt SLA), Waiting for customer (COUNTERED, ACCEPTED), Paid expecting drop (HANDOVER_SET), Overdue drops (DROP_DEADLINE timer). TimerType drives the SLA colour.\ni18n: inbox.tabs.* · inbox.makerReadOnly · inbox.viewerWasMaker · inbox.empty.* · inbox.error"
+  },
+  "nK8w1": {
+   "x": 18056,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Same as K8 · 1280 at 360 (tabs scroll sideways). i18n: as K8 1280"
+  },
+  "nK9w0": {
+   "x": 23256,
+   "y": 1860,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Role: LAB_CHECKER.\nOperations: acceptBooking; rejectBooking (BookingRejectRequest: reasonCode, notes; the list is labelled 'sample list'); counterBooking (BookingCounterCreate: proposedSlotId, perLineQuantity[] {lineId, sampleQty, unitCode}, message; no price field, BR-017).\nErrors: COUNTER_FIELD_NOT_ALLOWED, SITE_NOT_BOOKABLE. SlaCountdown: warning at 50 %, danger at 90 % of labDecisionDueAt (BR-012).\nValidation: 'Choose a reason.' · 'Write a short message for the customer.'\ni18n: decide.accept.* · decide.reject.* · decide.counter.* · decide.counter.noPrice · sla.*"
+  },
+  "nK9w1": {
+   "x": 21136,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Same as K9 · 1280 at 360. i18n: as K9 1280"
+  },
+  "nK10w0": {
+   "x": 24616,
+   "y": 1860,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Role: PLATFORM_OPS (others: permission denied).\nOperations: getAdminOpsBoard (tiles, E4) → listAdminBookings (filters: status, labSiteId, overdue timerType; cursor paging) → AdminBookingSummary {bookingNo, status, statusChangedAt, customerOrgId, labOrgId, labSiteId, total, frozenAt, createdAt}. Org and site names are resolved from the ids. Filters stay out of the URL.\ni18n: ops.list.title · ops.list.filters.* · ops.list.loadMore · ops.list.empty"
+  },
+  "nK11w0": {
+   "x": 25976,
+   "y": 1760,
+   "w": 640,
+   "fill": "blue",
+   "page": "k",
+   "text": "Role: PLATFORM_OPS.\nOperations: getAdminBooking (AdminBooking, AdminReportMetadata {status, reportNo, ulrNo, versions[] metadata only}), getBookingTimeline, cancelAdminBooking (AdminBookingCancelRequest: cancellationCodeNodeId, notes) up to UNDER_TEST only. Report file only through break-glass (M10). Not drawn: override a decision (OQ-24, ROLES notes 2, 4, 7).\ni18n: opsBooking.title · opsBooking.reportMetadata.note · opsBooking.breakGlass · opsBooking.cancel.* · opsBooking.cancel.unavailable"
+  },
+  "nL1w0": {
+   "x": 0,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "l",
+   "text": "Roles: CUSTOMER_ADMIN, CUSTOMER_FINANCE, CUSTOMER_REQUESTER if allowed.\nOperations: createPaymentOrder → PaymentCheckout {paymentOrder, gatewayCheckout} (opaque hand-off; no gateway screen, name or logo), getPaymentReturnStatus (polling), listFinancialDocuments / getFinancialDocumentDownloadUrl (receipt).\nPaymentOrder: status PaymentOrderStatus (CREATED, PENDING, CAPTURED, FAILED, EXPIRED), attemptNo, checkoutExpiresAt. 'Not completed' = came back without paying (no gateway cancel status). Errors: GATEWAY_UNAVAILABLE, PAYMENT_AMOUNT_MISMATCH. Window ends → EXPIRED_UNPAID (L2).\ni18n: pay.summary.* · pay.handoff · pay.confirming · pay.paid.* · pay.failed.* · pay.notCompleted.* · pay.timedOut.* · pay.gatewayUnavailable · pay.amountMismatch"
+  },
+  "nL1w1": {
+   "x": 3320,
+   "y": 1860,
+   "w": 640,
+   "fill": "blue",
+   "page": "l",
+   "text": "Same as L1 · 360. i18n: as L1 360"
+  },
+  "nL2w0": {
+   "x": 5600,
+   "y": 1360,
+   "w": 640,
+   "fill": "blue",
+   "page": "l",
+   "text": "Operation: getBooking. EXPIRED_UNPAID (T-10) and NO_SHOW (T-12). Rebook copies the TRF.\nPlaceholder: no fee or refund amount is drawn (BR-042, OQ-07): 'shown once confirmed'.\ni18n: lapsed.expiredUnpaid.* · lapsed.noShow.* · lapsed.amount.placeholder · lapsed.rebook"
+  },
+  "nL2w1": {
+   "x": 4680,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "l",
+   "text": "Same as L2 · 1280. i18n: as L2 1280"
+  },
+  "nL3w0": {
+   "x": 8680,
+   "y": 1560,
+   "w": 640,
+   "fill": "blue",
+   "page": "l",
+   "text": "Roles: LAB_MAKER requests; LAB_CHECKER approves; the approver must not be the requester (ROLES note 6).\nOperations: requestLabelReprint (LabelReprintRequestCreate: reason) → LabelReprintRequest {package, reason, status LabelReprintRequestStatus PENDING|APPROVED, requestedByUserId, requestedAt, approvedByUserId}; approveLabelReprint (old label voided, new labelVersion issued; a scan of the old label → PACKAGE_VOIDED).\nNo decline or withdraw (OQ-50). Customers call or visit the desk (C6).\ni18n: reprint.request.* · reprint.pending · reprint.approve.* · reprint.selfBlocked · reprint.print"
+  },
+  "nL3w1": {
+   "x": 6960,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "l",
+   "text": "Same as L3 · 1280 at 360. i18n: as L3 1280"
+  },
+  "nL4w0": {
+   "x": 10040,
+   "y": 1360,
+   "w": 640,
+   "fill": "blue",
+   "page": "l",
+   "text": "Roles: customer (own bookings), LAB_MAKER, LAB_CHECKER.\nOperations: getBookingLabels, getBookingHandover (BookingHandoverPackage: seqNo, totalPackages, shortCode PackageShortCode, labelVersion, qrPayload QrPayload). Each label: booking number, package QR, package code. No booking-level code (OQ-73).\nPrint stylesheet in lc.css (@media print): hides chrome and .noprint, labels never split, A4 two columns, thermal one per page.\ni18n: labels.title · labels.format.* · labels.print · labels.printRules"
+  },
+  "nL4w1": {
+   "x": 11400,
+   "y": 1183,
+   "w": 640,
+   "fill": "blue",
+   "page": "l",
+   "text": "Print layout: A4 sheet (210 × 297 mm), two columns, dashed cut lines. Fields as L4 · 1280."
+  },
+  "nL4w2": {
+   "x": 12274,
+   "y": 636,
+   "w": 384,
+   "fill": "blue",
+   "page": "l",
+   "text": "Print layout: thermal label 50 × 25 mm (drawn enlarged), one per page. Fields as L4 · 1280."
+  },
+  "nL5w0": {
+   "x": 12738,
+   "y": 1660,
+   "w": 640,
+   "fill": "blue",
+   "page": "l",
+   "text": "Roles: PLATFORM_FINANCE (any amount); PLATFORM_OPS up to the threshold only (value not set, OQ-31, not drawn).\nOperations: listAdminRefunds (AdminRefund: bookingId, amount, policyRule, status RefundStatus, disputeId, creditNoteId), approveAdminRefund (step-up MFA above the threshold, A-04).\ni18n: refunds.title · refunds.status.* · refunds.approve.* · refunds.opsLimit"
+  },
+  "nL6w0": {
+   "x": 14098,
+   "y": 1760,
+   "w": 640,
+   "fill": "blue",
+   "page": "l",
+   "text": "Role: PLATFORM_FINANCE.\nOperations: createAdminSettlementUploadUrl, importAdminSettlementReport (AdminSettlementImportRequest: gateway, fileId), listAdminSettlementLines (AdminSettlementLine: settlementDate, gatewayTxnRef, gross, fee, tax, net, utr, matchStatus SettlementMatchStatus), listAdminReconciliationExceptions, exportAdminAccountingCsv (AdminExportKind).\nNo operation: resolve an exception (listed as a gap).\ni18n: recon.import.* · recon.lines.* · recon.exceptions.* · recon.export.*"
+  },
+  "nM1w0": {
+   "x": 1320,
+   "y": 1960,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Role: booking owner.\nOperations: getBooking (BookingView: status SAMPLE_RECORDED / REPORT_IN_REVIEW / UNDER_TEST, expectedReportDate, lines[] BookingLine {status BookingLineStatus, cancelledReason}), getBookingTimeline (BookingTimelineEntry: actorRole always; actorName only for the caller's own organisation, so lab staff show by role, OQ-60).\nPlaceholder: refund for a cancelled line is not previewed.\ni18n: track.sampleRecorded.* · track.reportInReview.* · track.etaChanged.* · track.line.status.* · timeline.role.{labMaker,labChecker}"
+  },
+  "nM1w1": {
+   "x": 0,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Same as M1 · 1280 at 360. i18n: as M1 1280"
+  },
+  "nM2w0": {
+   "x": 2680,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Role: LAB_MAKER.\nOperations: scanCustodyCode (CustodyScanRequest: payload | shortCode, siteId, deviceId, clientRecordedAt, clientSeq → CustodyScanResult {result, booking, package, trf, expectedPackageCount, scannedPackages}), syncCustodyScanBatch (CustodyScanBatchItemResult {clientSeq, result, error CustodyScanBatchError}), submitReceipt (discrepancyFlag, discrepancyNotes).\nRejections: PACKAGE_VOIDED, PACKAGE_ALREADY_RECEIVED, QR_INVALID_SIGNATURE, INVALID_STATE_TRANSITION. Wrong-site and unreadable QR stay in D1.\ni18n: scan.reject.{voided,alreadyReceived,invalidSignature,wrongState} · scan.discrepancy.reason · scan.discrepancy.details · scan.sync.failed.* · scan.manualCode"
+  },
+  "nM2w1": {
+   "x": 5200,
+   "y": 1160,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Same as M2 · 360 at 768 (tablet at the counter): camera left, package list right. i18n: as M2 360"
+  },
+  "nM3w0": {
+   "x": 7368,
+   "y": 1760,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Role: LAB_CHECKER.\nOperations: approveReceipt (ReceiptApprove: labSampleId, notes), confirmReceiptDiscrepancy (ReceiptConfirmDiscrepancy: reason, details, labSampleId → ON_HOLD, T-15), rejectUnfitSample (ReceiptRejectUnfit: reason → T-28). ReceiptDecision. Blocked: SELF_APPROVAL_FORBIDDEN, drawn as in D2 (Provisional, OQ-59).\nValidation: 'Choose a reason.' · 'Write the details the customer will see.'\ni18n: receipt.approve.labSampleId.* · receipt.hold.* · receipt.unfit.* · receipt.blocked"
+  },
+  "nM3w1": {
+   "x": 6048,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Same as M3 · 1280 at 360, plus the approvals queue. i18n: as M3 1280"
+  },
+  "nM4w0": {
+   "x": 8728,
+   "y": 1760,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Role: LAB_MAKER.\nOperations: startBookingTesting (BookingStartTestingRequest: expectedReportDate, T-18), updateBookingExpectedReportDate (expectedReportDate, reason), setBookingLineStatus (BookingLineStatusChange: status BookingLineTargetStatus IN_PROGRESS | DONE | CANCELLED, reason).\nNot allowed before RECEIVED (INVALID_STATE_TRANSITION).\nValidation: 'The date can't be in the past.' · 'Give a reason the customer will see.'\ni18n: testing.start.* · testing.eta.* · testing.line.* · testing.notYet"
+  },
+  "nM5w0": {
+   "x": 10088,
+   "y": 1760,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Role: LAB_MAKER.\nOperations: createReportUploadUrl, createReportVersion (ReportVersionCreate: fileId, reportNo, ulrNo, issueDate, bindPackagePayload, parameterResults[] {bookingLineId, conformity}), submitReportVersion.\nErrors: FILE_NOT_CLEAN, ULR_NOT_UNIQUE (no other organisation's data, A-27), REPORT_PARAMETER_NOT_BOOKED, VALIDATION_FAILED; one open draft per report; a package not received can't be bound.\ni18n: upload.file.* · upload.ulr.used · upload.paramNotBooked · upload.packageNotReceived · upload.openDraft"
+  },
+  "nM6w0": {
+   "x": 11448,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Role: LAB_MAKER.\nOperations: scanCustodyCode (to read the package), createReportVersion (bindPackagePayload). States: scan, pick from the matched list, wrong package, bound, offline.\ni18n: bind.scan.title · bind.pick · bind.wrongPackage · bind.done · bind.offline"
+  },
+  "nM7w0": {
+   "x": 13168,
+   "y": 1660,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Role: LAB_CHECKER.\nOperations: getBookingReport (LabReportView: versions[] ReportVersion {isAmendment, amendmentReason, status}), returnReportVersion (ReportReturn: comments, required; an amendment return changes no booking state), publishReportVersion (step-up MFA, T-21; supersedes the previous version).\ni18n: amend.review.reason · amend.review.compare · amend.return.* · amend.publish.*"
+  },
+  "nM8w0": {
+   "x": 14528,
+   "y": 1660,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Role: LAB_MAKER.\nOperations: createReportVersion (amendmentReason required, fileId, bindPackagePayload), submitReportVersion. One draft per report (INVALID_STATE_TRANSITION). The old version shows Superseded after release. The Checker sees it in the queue (M7).\ni18n: amend.create.reason · amend.create.submit · amend.oneDraft · amend.superseded"
+  },
+  "nM9w0": {
+   "x": 18456,
+   "y": 1960,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Roles: CUSTOMER_ADMIN, CUSTOMER_FINANCE, CUSTOMER_REQUESTER (own).\nOperations: getBookingReport (CustomerReportView: versions[] CustomerReportVersion {status, isAmendment, supersededByVersionId, verificationCode, shareLinks[]}), createReportDownloadUrl, createReportShareLink (ReportShareLinkCreate: expiresInDays 1–30, recipientNote ≤ 500 → ReportShareLinkCreated {shareLink, token} shown once), revokeReportShareLink, getBookingCustodyTrail (PDF; print stylesheet). Dispute countdown from disputeWindow.\nA superseded version can't be newly shared (INVALID_STATE_TRANSITION).\ni18n: report.released.* · report.dispute.countdown · share.create.* · share.list.* · share.superseded · custody.download"
+  },
+  "nM9w1": {
+   "x": 17608,
+   "y": 1960,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Same as M9 · 1280 at 768. i18n: as M9 1280"
+  },
+  "nM9w2": {
+   "x": 15888,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Same as M9 · 1280 at 360. i18n: as M9 1280"
+  },
+  "nM10w0": {
+   "x": 19816,
+   "y": 2060,
+   "w": 640,
+   "fill": "blue",
+   "page": "m",
+   "text": "Roles: PLATFORM_OPS requests; a different PLATFORM_ADMIN approves (FOUR_EYES_REQUIRED); only the requester downloads, with step-up MFA. Ops, Data Steward, Finance and Admin read the audit log.\nOperations: requestBreakGlassAccess (AdminBreakGlassRequestCreate: reportVersionId, disputeId, reason), listBreakGlassGrants, getBreakGlassGrant, approve/reject/revokeBreakGlassGrant, createBreakGlassDownloadUrl, searchAdminAuditLog (AdminAuditLogEntry: occurredAt, actorUserId, actorRole, action, entityType, entityId, reason).\ni18n: breakGlass.request.* · breakGlass.waiting · breakGlass.approve · breakGlass.download · audit.search.*"
+  },
+  "nN1w0": {
+   "x": 2120,
+   "y": 2060,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Roles: raiser (CUSTOMER_ADMIN, CUSTOMER_FINANCE, CUSTOMER_REQUESTER own).\nOperations: raiseDispute (DisputeCreate: typeCode, description), getDispute (Dispute: disputeNo, status DisputeStatus, labResponseDueAt, outcome DisputeOutcome, refundAmount, decisionRationale, messages[] DisputeMessage, evidence[] DisputeEvidence), addDisputeMessage, createDisputeEvidenceUploadUrl / addDisputeEvidence, withdrawDispute. DISPUTE_WINDOW_CLOSED. BR-080 to BR-083.\nDispute sub-states: DisputeStatus values only, no transitions (OQ-38).\ni18n: dispute.raise.* · dispute.window.* · dispute.thread.* · dispute.decision.* · dispute.withdraw.* · booking.disputed.* · booking.completed.*"
+  },
+  "nN1w1": {
+   "x": 0,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Same as N1 · 1280 at 360. i18n: as N1 1280"
+  },
+  "nN2w0": {
+   "x": 4800,
+   "y": 1360,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Role: customer.\nOperation: rateBooking (BookingRatingCreate: scoreOverall, scoreTat, scoreCommunication 1–5, comment ≤ 2,000). The comment goes to the lab and Ops, never public (OQ-71); the lab page shows average and count only.\nValidation: 'Choose 1 to 5 stars for overall.'\ni18n: rating.title · rating.{overall,tat,communication} · rating.comment.help · rating.submitted · rating.alreadyRated"
+  },
+  "nN2w1": {
+   "x": 3480,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Same as N2 · 1280 at 360. i18n: as N2 1280"
+  },
+  "nN3w0": {
+   "x": 7480,
+   "y": 1460,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Roles: CUSTOMER_ADMIN, CUSTOMER_FINANCE.\nOperations: listFinancialDocuments (FinancialDocument: docType FinDocType, docNo, issuer, taxable, cgst, sgst, igst, total, issuedAt, fileAvailable), getFinancialDocumentDownloadUrl, listPaymentOrders (Payments tab = F3, unchanged).\nTax invoice issuer and GST split tagged Provisional (OQ-08). No customer export (no operation).\ni18n: finDocs.tabs.* · finDocs.filters.* · finDocs.download · finDocs.empty"
+  },
+  "nN3w1": {
+   "x": 6160,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Same as N3 · 1280 at 360. i18n: as N3 1280"
+  },
+  "nN4w0": {
+   "x": 9760,
+   "y": 1360,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Role: CUSTOMER_FINANCE (MFA at sign-in: G1).\nOperations: listBookings (BookingSummary: ACCEPTED with paymentDueAt), listPaymentOrders, listFinancialDocuments (refunds from REFUND_NOTE).\ni18n: finDash.title · finDash.due.* · finDash.recent.* · finDash.refunds · finDash.empty"
+  },
+  "nN4w1": {
+   "x": 8840,
+   "y": 960,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Same as N4 · 1280 at 360. i18n: as N4 1280"
+  },
+  "nN5w0": {
+   "x": 11120,
+   "y": 1660,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Role: LAB_CHECKER.\nOperations: getLabInbox (status DISPUTED filter; there is no lab dispute list operation), getDispute, addDisputeMessage, addDisputeEvidence. Respond within 2 business days (BR-081).\nNot drawn: settlement advice list (L10), no lab operation.\ni18n: labDispute.list.* · labDispute.respond.* · labDispute.decided"
+  },
+  "nN6w0": {
+   "x": 12480,
+   "y": 1960,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Role: PLATFORM_OPS.\nOperations: listAdminDisputes (AdminDispute: status, labResponseDueAt, assignedToUserId), assignAdminDispute (assigneeUserId), getDispute, decideAdminDispute (AdminDisputeDecisionRequest: outcome DisputeOutcome, rationale, refundAmount for a refund outcome), placeAdminPayoutHold (AdminPayoutHoldCreate: reasonType AdminPayoutHoldPlaceReason, notes). Ops places holds, Finance releases (OQ-57a).\nNot drawn: Ops 'request information' (no operation).\ni18n: opsDispute.queue.* · opsDispute.assign · opsDispute.decide.* · opsDispute.hold.* · opsDispute.financeReleases"
+  },
+  "nN7w0": {
+   "x": 13840,
+   "y": 1960,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Role: PLATFORM_FINANCE (Ops: permission denied).\nOperations: listAdminPayouts (AdminPayout: bankAccountNumberLast4, amount, status PayoutStatus, eligibleAt, failureReason), releaseAdminPayout (AdminPayoutRelease: externalRef 1–100 chars; step-up MFA), releaseAdminPayoutHold, exportAdminAccountingCsv. Only ELIGIBLE rows can be ticked; the button count equals the ticked rows (DR-04).\nValidation: 'Enter the bank reference (1 to 100 characters).'\ni18n: payouts.filter · payouts.release.* · payouts.hold.release · payouts.failed · payouts.export"
+  },
+  "nN8w0": {
+   "x": 15200,
+   "y": 1860,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Role: PLATFORM_ADMIN.\nOperations: getAdminConfigValue / setAdminConfigValue (AdminConfigValueUpdate: value, changeReason; effective date as the contract stores effectiveFrom), listAdminNotificationTemplates, createAdminNotificationTemplate (eventCode, channel, locale, subject, body), getAdminNotificationTemplate, updateAdminNotificationTemplate (status). Platform-fee keys are not editable (CD-05).\nNo operation: template live preview.\ni18n: config.table.* · config.change.* · config.feeLocked · templates.* · templates.variables · templates.noPreview"
+  },
+  "nN9w0": {
+   "x": 16560,
+   "y": 1860,
+   "w": 640,
+   "fill": "blue",
+   "page": "n",
+   "text": "Roles: PLATFORM_ADMIN for users; PLATFORM_OPS for leads.\nOperations: listAdminPlatformUsers (AdminPlatformUser: roles, status, mfaEnrolledAt, lastLoginAt), createAdminPlatformUser, getAdminPlatformUser, updateAdminPlatformUser (status), setAdminPlatformUserRoles — each with step-up MFA; users are never deleted. RR-5: no customer or lab membership. listAdminLeads (AdminLead: kind, query, status LeadStatus), updateAdminLead (status, assignedToUserId, notes).\ni18n: platformUsers.* · platformUsers.rr5 · leads.table.* · leads.status.*"
+  },
+  "tG": {
+   "x": 0,
+   "y": -300,
+   "text": "G · Cross-cutting: sign-in, MFA enrolment, session and access states, added components",
+   "kind": "title1",
+   "maxW": 11120,
+   "page": "g"
+  },
+  "tH": {
+   "x": 0,
+   "y": -300,
+   "text": "H · I1 Directory: home search, filters and map, request a lab, claim, admin import, master data, geocode",
+   "kind": "title1",
+   "maxW": 15896,
+   "page": "h"
+  },
+  "tJ": {
+   "x": 0,
+   "y": -300,
+   "text": "J · I2 Onboarding: sign-up, customer admin, lab KYC, bank, users, hours, scope, price lists, admin review",
+   "kind": "title1",
+   "maxW": 19128,
+   "page": "j"
+  },
+  "tK": {
+   "x": 0,
+   "y": -300,
+   "text": "K · I3 Request and decide: booking steps, errors, REQUESTED, cancel, closed, accepted, lab inbox, Ops",
+   "kind": "title1",
+   "maxW": 27256,
+   "page": "k"
+  },
+  "tL": {
+   "x": 0,
+   "y": -300,
+   "text": "L · I4 Pay and hand over: payment states, lapses, label reprint and print, refunds, reconciliation",
+   "kind": "title1",
+   "maxW": 15378,
+   "page": "l"
+  },
+  "tM": {
+   "x": 0,
+   "y": -300,
+   "text": "M · I5 Receive, test, report: tracking, scanner outcomes, receipt reasons, testing, report upload and review, customer report, break-glass",
+   "kind": "title1",
+   "maxW": 21096,
+   "page": "m"
+  },
+  "tN": {
+   "x": 0,
+   "y": -300,
+   "text": "N · I6 Close the loop: disputes, rating, finance documents and dashboard, lab response, Ops decisions, payouts, configuration",
+   "kind": "title1",
+   "maxW": 17840,
+   "page": "n"
+  }
+ },
+ "designSystems": []
+}
