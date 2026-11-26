@@ -14,13 +14,13 @@ Deployed in this order (each uses the ones before it). The ids are what you pass
 
 | Id | CloudFormation name | Holds |
 |---|---|---|
-| `Delivery` | `LabConnect-uat-delivery` | ECR repositories (`labconnect/api`, `worker`, `migrate`: immutable tags, scan on push), the GitHub OIDC identity provider, the `uat-deployer` role |
-| `Network` | `LabConnect-uat-network` | VPC (public, private, isolated subnets), security groups, S3 gateway endpoint, interface endpoints (ECR, SQS, KMS, Secrets Manager, CloudWatch Logs), flow logs (rejected traffic) |
+| `Delivery` | `LabConnect-uat-delivery` | ECR repositories (`labconnect/api`, `worker`, `migrate`, `web`: immutable tags, scan on push), the GitHub OIDC identity provider, the `uat-deployer` role |
+| `Network` | `LabConnect-uat-network` | VPC (public, private, isolated subnets), security groups (load balancer, API, web, worker, migration, database, search), S3 gateway endpoint, interface endpoints (ECR, SQS, KMS, Secrets Manager, CloudWatch Logs), flow logs (rejected traffic) |
 | `Data` | `LabConnect-uat-data` | KMS keys (data, files), RDS PostgreSQL 16, files bucket, all application secrets, optional OpenSearch |
 | `Messaging` | `LabConnect-uat-messaging` | KMS key, five queues and dead-letter queues, EventBridge rule and GuardDuty Malware Protection plan, SES configuration set |
-| `Edge` | `LabConnect-uat-edge` | Web application firewall (managed rules, rate limits), ACM certificate (with a domain) |
-| `Compute` | `LabConnect-uat-compute` | ECS cluster, API and worker services, migration task definition, load balancer, DNS alias, firewall association, log groups |
-| `Observability` | `LabConnect-uat-observability` | SNS alarm topic, alarms, log metric filters, optional budget |
+| `Edge` | `LabConnect-uat-edge` | Web application firewall (managed rules, rate limits), ACM certificate for both names, `<domainName>` and `api.<domainName>` (with a domain) |
+| `Compute` | `LabConnect-uat-compute` | ECS cluster, API, web and worker services, migration task definition, load balancer and its routing, private DNS namespace (the API's private name), DNS aliases, firewall association, log groups |
+| `Observability` | `LabConnect-uat-observability` | SNS alarm topic, 22 alarms, log metric filters, optional budget |
 
 `Data` and `Delivery` have termination protection on, and the database, bucket, keys, repositories and log groups are
 retained when a stack is deleted.
@@ -35,14 +35,14 @@ Nothing organisational is in the code. Parameters are CDK context: `-c key=value
 | `stage` | `uat` | Only `uat` exists. `production` is refused. |
 | `account` | none | 12-digit account id. Unset: stacks are environment-agnostic (enough to synth and test). `cdk deploy` also takes it from your credentials. |
 | `region` | `ap-south-1` | Region (the docs name ap-south-1; OQ-171). |
-| `domainName` | none | Base domain, e.g. `uat.labconnect.example`. The API is `api.<domainName>`. With it: HTTPS listener with an ACM certificate, port 80 redirects. Without it: plain HTTP on the load balancer's own name, open only to `ingressCidrs`. |
-| `hostedZoneId`, `hostedZoneName` | none | Route 53 zone of the domain: creates the certificate validation record and the alias record. Without them both are manual. |
+| `domainName` | none | Base domain, e.g. `uat.labconnect.example`. The **web app is `<domainName>`, the API is `api.<domainName>`**. With it: HTTPS listener with one ACM certificate for both names, port 80 redirects. Without it: plain HTTP on the load balancer's own name (web on every path except `/v1/*`, the API under `/v1/*`), open only to `ingressCidrs`. |
+| `hostedZoneId`, `hostedZoneName` | none | Route 53 zone of the domain: creates the certificate validation records (two names, so two records) and the two alias records. Without them all four are manual. |
 | `ingressCidrs` | none | Comma-separated IPv4 CIDRs allowed to reach the load balancer. **Required to reach a deployment that has no domain**; empty means nobody can. `/0` is refused. |
 | `alarmEmail` | none | Subscribed to the alarm topic (and to the budget). The address must confirm the e-mail AWS sends. |
 | `sesFromAddress` | `LabConnect <no-reply@labconnect.invalid>` (or `no-reply@<domainName>`) | Sender of all mail. The default under the reserved `.invalid` domain can never send: set a real, verified one. |
-| `imageTag`, `apiImageTag`, `workerImageTag`, `migrateImageTag` | `bootstrap` | Image tags in ECR (tags are immutable: use the commit SHA). |
-| `apiDesiredCount`, `workerDesiredCount` | 1, 1 | Task counts. Use 0 for the first deploy (see below). |
-| `apiCpu`, `apiMemoryMiB`, `workerCpu`, `workerMemoryMiB` | 512 / 1024 | Fargate sizes. |
+| `imageTag`, `apiImageTag`, `workerImageTag`, `migrateImageTag`, `webImageTag` | `bootstrap` | Image tags in ECR (tags are immutable: use the commit SHA). |
+| `apiDesiredCount`, `workerDesiredCount`, `webDesiredCount` | 1, 1, 1 | Task counts. Use 0 for the first deploy (see below). |
+| `apiCpu`, `apiMemoryMiB`, `workerCpu`, `workerMemoryMiB`, `webCpu`, `webMemoryMiB` | 512 / 1024 | Fargate sizes. |
 | `dbInstanceClass`, `dbAllocatedStorageGiB` | `db.t4g.medium`, 50 | Database size (docs: UAT db.t4g.medium single-AZ). |
 | `azCount`, `natGateways` | 2, 1 | Availability zones and NAT gateways (UAT: 2 AZ, one NAT). |
 | `logRetentionDays` | 30 | One of 7, 14, 30, 60, 90, 180, 365, 400, 545, 731, 1827, 3653. |
@@ -79,14 +79,14 @@ You need an AWS account for UAT (OQ-18, OQ-170), credentials with enough rights 
    `--cloudformation-execution-policies` (OQ-179).
 2. **Deploy the repositories and the GitHub role:** `cdk deploy Delivery -c account=<account>`. Note the outputs
    (`DeployRoleArn`, repository URIs).
-3. **Build and push the images** (tag = the commit SHA; the repositories are immutable, so a tag is pushed once):
-   `aws ecr get-login-password | docker login ...`, then `docker build --target api|worker|migrate -t <repository-uri>:<tag> .`
+3. **Build and push the four images** (tag = the commit SHA; the repositories are immutable, so a tag is pushed once):
+   `aws ecr get-login-password | docker login ...`, then `docker build --target api|worker|migrate|web -t <repository-uri>:<tag> .`
    from the repository root and `docker push`. This first push is manual: `Compute` needs an image to exist. Later images are
    built and pushed by `deploy-uat.yml`.
 4. **Deploy everything else with no tasks running:**
-   `cdk deploy Network Data Messaging Edge Compute Observability -c imageTag=<tag> -c apiDesiredCount=0 -c workerDesiredCount=0 [other context]`.
-   With a domain and no hosted zone, the certificate stays `Pending validation` until you add the CNAME shown in the
-   ACM console; the Edge stack waits for it.
+   `cdk deploy Network Data Messaging Edge Compute Observability -c imageTag=<tag> -c apiDesiredCount=0 -c workerDesiredCount=0 -c webDesiredCount=0 [other context]`.
+   With a domain and no hosted zone, the certificate stays `Pending validation` until you add the **two** CNAMEs shown in the
+   ACM console (one for `<domainName>`, one for `api.<domainName>`: ACM needs both); the Edge stack waits for it.
 5. **Create the signing key** (the placeholder in the secret is random text, not a key). Generate an Ed25519 key and
    store it; nothing is written to disk in the repository:
    ```sh
@@ -108,15 +108,18 @@ You need an AWS account for UAT (OQ-18, OQ-170), credentials with enough rights 
 7. **First platform administrator:** run the same task definition with a command and environment override
    (`node dist/seed/cli.js platform-admin`, `PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_NAME`, optional `PLATFORM_ORG_NAME`
    in `--overrides`). The e-mail address is personal data: keep it out of shell history shared with others.
-8. **Start the services:** redeploy `Compute` without the two `...DesiredCount=0` overrides (or `aws ecs update-service --desired-count 1`
-   for each). After any later change to a secret, force a new deployment (`aws ecs update-service --force-new-deployment`):
+   **Demo data (optional, for a demonstration):** see "Loading the demo data" below.
+8. **Start the services:** redeploy `Compute` without the three `...DesiredCount=0` overrides (or `aws ecs update-service --desired-count 1`
+   for each). Start the API first and let it become healthy: the web server's pages call it. After any later change to a secret, force a new deployment (`aws ecs update-service --force-new-deployment`):
    ECS reads secrets when a task starts.
 9. **Mail (SES):** verify the sender identity (domain with DKIM, or one address) and leave the sandbox if real recipients
    need mail (the sign-in code too: in the sandbox only verified addresses can sign in). The stack creates the
    configuration set `labconnect-uat` and lets the worker and the API send as the address in `sesFromAddress`; it does
    not create the identity (that needs DNS you control).
-10. **DNS** (if no hosted zone was given): the alias record `api.<domainName>` to the load balancer (`LoadBalancerDnsName` output),
-    and the certificate validation record. Confirm the alarm e-mail subscription.
+10. **DNS** (if no hosted zone was given): two alias records to the load balancer (`LoadBalancerDnsName` output): `<domainName>`
+    (the web app) and `api.<domainName>` (the API), and the two certificate validation records. Confirm the alarm e-mail subscription.
+    Without a domain, open `http://<LoadBalancerDnsName>/` from an address in `ingressCidrs`: that is the web app; the API is
+    `http://<LoadBalancerDnsName>/v1/health` and the rest of `/v1/`.
 11. **Staging check of the scan path** (OQ-168, OQ-169): upload a harmless file and the standard EICAR test string under
     `quarantine/` of the files bucket and watch `lc-files` and the worker log: the first should arrive as a
     `NO_THREATS_FOUND` result, the second as `THREATS_FOUND`. Nothing in this package has proved the real events yet.
@@ -125,8 +128,9 @@ You need an AWS account for UAT (OQ-18, OQ-170), credentials with enough rights 
 
 ## The deploy role (`uat-deployer`) and the deployment workflow
 
-`.github/workflows/deploy-uat.yml` (P3-12) deploys the **application** to UAT: it builds and pushes the three images, runs
-the migration task and rolls the `api` and `worker` services. It **never changes infrastructure**: it runs no `cdk` and no
+`.github/workflows/deploy-uat.yml` (P3-12) deploys the **application** to UAT: it builds and pushes the four images, runs
+the migration task and rolls the `api`, `worker` and `web` services, in that order (the web app last, so that a new web app
+never runs against an old API). It **never changes infrastructure**: it runs no `cdk` and no
 CloudFormation deployment. You apply infrastructure changes yourself (the steps above), with your own credentials. The reason
 is OQ-179: `cdk deploy` works through the CDK bootstrap roles, whose CloudFormation role is an administrator by default, and
 a compromised workflow must not get that.
@@ -138,19 +142,20 @@ most, and has these statements and no others (a test lists them):
 |---|---|---|
 | `ReadComputeStackOutputs` | `cloudformation:DescribeStacks` | stack `LabConnect-uat-compute` (the ARN ends in the stack id, hence `/*`) |
 | `EcrLogin` | `ecr:GetAuthorizationToken` | `*` (cannot be narrowed) |
-| `EcrPush` | the layer upload, `PutImage`, `BatchGetImage`, `DescribeImages` actions | the three repositories |
+| `EcrPush` | the layer upload, `PutImage`, `BatchGetImage`, `DescribeImages` actions | the four repositories |
 | `EcsTaskDefinitions` | register and describe a task definition | `*` (cannot be narrowed) |
-| `EcsServices` | `ecs:UpdateService`, `ecs:DescribeServices` | the `api` and `worker` services |
+| `EcsServices` | `ecs:UpdateService`, `ecs:DescribeServices` | the `api`, `worker` and `web` services |
 | `EcsRunMigration` | `ecs:RunTask` | revisions of `labconnect-uat-migrate`, in the UAT cluster only |
 | `EcsWatchTasks` | `ecs:DescribeTasks` | tasks of the UAT cluster |
-| `PassTaskRoles` | `iam:PassRole` | the six task and execution roles, only to `ecs-tasks.amazonaws.com` |
+| `PassTaskRoles` | `iam:PassRole` | the eight task and execution roles (api, worker, migrate, web), only to `ecs-tasks.amazonaws.com` |
 
 Each statement is something the workflow calls; a test compares the two. It cannot assume any role, create IAM objects,
 deregister task definitions, stop or list tasks, read the log groups, or touch the database, the secrets, the queues or
 the bucket. Logs are left out on purpose: application logs can hold personal data and this repository's workflow logs are
 public, so a person reads the log groups in AWS. Its reach
-through `iam:PassRole` is the six container roles: a task definition it registers can run any command with those roles'
-permissions, so registering one is as powerful as the task roles are. That is why the `uat` environment and who may start
+through `iam:PassRole` is the eight container roles: a task definition it registers can run any command with those roles'
+permissions, so registering one is as powerful as the task roles are. The two web roles add nothing to that: the web task
+role has no permission at all and the web execution role reads no secret and uses no key. That is why the `uat` environment and who may start
 the workflow matter (OQ-185).
 
 ### Enabling the UAT deployment workflow
@@ -169,14 +174,111 @@ The workflow does nothing (its job is skipped) until you set the gate variable. 
    | `AWS_UAT_DEPLOY_ROLE_ARN` | repository or the `uat` environment | the `DeployRoleArn` output of the `Delivery` stack |
    | `AWS_REGION` | optional, **repository** variable (it is read before the job enters the environment) | default `ap-south-1` |
    | `UAT_API_BASE_URL` | optional, either | origin of the API, for example `https://api.<domainName>`. Unset: the smoke test is skipped |
+   | `UAT_WEB_BASE_URL` | optional, either | origin of the web app, for example `https://<domainName>`. Set: the workflow also fetches `<origin>/health` and expects `{"status":"ok"}`. Unset: that step is skipped |
 
 3. Run it once by hand (Actions, deploy-uat, Run workflow, on `main`) and read the job summary before relying on pushes.
 
 **Drift.** The workflow registers new task definition revisions outside CloudFormation, so the `Compute` stack still records
 the image tags it was last deployed with. Before the next `cdk deploy Compute`, read the tag now running
 (`aws ecs describe-task-definition --task-definition labconnect-uat-api --query 'taskDefinition.containerDefinitions[0].image'`,
-or the job summary of the last run) and pass it: `-c apiImageTag=<sha> -c workerImageTag=<sha> -c migrateImageTag=<sha>`
-(`-c imageTag=<sha>` sets all three). Without it the services roll back to the old image. Details: CI_CD.md "As built (P3-12)".
+or the job summary of the last run) and pass it: `-c apiImageTag=<sha> -c workerImageTag=<sha> -c migrateImageTag=<sha> -c webImageTag=<sha>`
+(`-c imageTag=<sha>` sets all four). Without it the services roll back to the old image. Details: CI_CD.md "As built (P3-12)".
+
+## The web app and the API: how they are connected
+
+**Visitors** reach both through the one load balancer, behind the one firewall:
+
+| | With `domainName` | Without it |
+|---|---|---|
+| Web app | `https://<domainName>` (the HTTPS listener's default action) | `http://<load balancer name>/` and every path except `/v1/*` |
+| API | `https://api.<domainName>` (listener rule on the host, priority 10) | `http://<load balancer name>/v1/*` (listener rule on the path, priority 10) |
+| Certificate | one ACM certificate, names `<domainName>` and `api.<domainName>` | none |
+| Port 80 | redirects to HTTPS | the only listener; only `ingressCidrs` can reach it |
+
+**The web server reaches the API server-side, inside the VPC, by a private name** (never through the load balancer, which without
+a domain admits only the listed client ranges). The browser never calls the API (API_CONVENTIONS section 4). The web task has
+`API_BASE_URL=http://api.labconnect-uat.internal:3001/v1`; the name is an `A` record (TTL 10 seconds) that ECS keeps current in a
+Cloud Map **private** DNS namespace (`labconnect-uat.internal`, resolvable only inside the VPC). The API's security group admits
+the web group on port 3001 and nothing else new (the load balancer group was already there).
+
+_Why Cloud Map DNS and not ECS Service Connect:_ both give a stable private name. Service Connect adds a proxy sidecar to every
+task (CPU, memory, a second log stream), a namespace of its own and a different way for the API to publish its port, and its
+behaviour (retries, outlier detection) cannot be asserted from a synthesised template. Cloud Map DNS is one namespace, one
+service registry entry and one environment variable, all visible in the template and asserted by the tests. What it does not
+give: no retries or connection draining at the name level (a request to a task that has just stopped fails once, and the
+application must handle it), and the web server may hold a stale address for up to the record TTL plus its own connection
+reuse. Moving to Service Connect later changes only the compute stack and the variable.
+
+**Firewall rules.** The rate rules of `RATE_LIMITS` match on the path: `/v1/auth/` and `/v1/webhooks/`, which the API serves
+on its own host (with a domain) or on the shared host (without). The web app's own calls to the API never pass the load
+balancer, so **sign-ins made through the web app are not counted by `RateLimitAuth`**: only by `RateLimitAll` (2000 requests per
+five minutes per address, which web pages and their assets now also count against) and by the API's own throttles. Those see the
+web task's address, not the visitor's, unless the web app forwards the client address (OQ-243).
+
+### Cookies and origins (what works and what does not; no application code was changed)
+
+The API sets its refresh cookie `lc_refresh` with `HttpOnly; Secure; SameSite=Lax; Path=/v1/auth` and **no `Domain`** (host-only), on
+`/v1/auth/otp/verify`, `/v1/auth/mfa/verify` and `/v1/auth/refresh`. `POST /v1/auth/refresh` also requires an `Origin` header equal to
+one of `AUTH_ALLOWED_ORIGINS`, which the stack sets to the web origin: `https://<domainName>`, or `http://<load balancer name>`
+without a domain. The API has **no CORS configuration** at all.
+
+- **Through the web server (the design of API_CONVENTIONS section 4), both layouts.** The API's `Set-Cookie` goes to the Next
+  server, which has no cookie jar: the browser never sees it. The web app must read the header, store the value in a cookie of its
+  own on the web origin, and for a refresh send `Cookie: lc_refresh=<value>` **and `Origin: <the web origin>`** to the API itself
+  (a server-side `fetch` sets no `Origin` of its own). Then the API's cookie scope (`Path=/v1/auth`, host-only) does not matter.
+  What the web app must get right: the `Origin` it sends is exactly the allowed origin (with a domain `https://<domainName>`;
+  without one `http://<load balancer name>`, no port), so it needs to know its own public origin (it has no `WEB_BASE_URL`
+  today: derive it from the forwarded headers, or give it the variable); and the cookie it sets must be `Secure` **only when
+  the site is HTTPS**.
+- **Browser straight to the API, with a domain (`uat.x` to `api.uat.x`).** Same site, different origins. The cookie would be sent
+  (`SameSite=Lax` is satisfied inside one site; host-only on `api.uat.x`, path `/v1/auth`, HTTPS so `Secure` is fine), but the
+  browser blocks the cross-origin `fetch` first: no CORS headers exist. Does not work without API code (CORS with credentials).
+- **Browser straight to the API, without a domain (one host, plain HTTP).** Same origin, so no CORS, and `/v1/auth` is routed to the
+  API. But the cookie is `Secure` and browsers refuse to store a `Secure` cookie set over plain HTTP (localhost excepted), so the
+  session can never be refreshed. Does not work; a certificate (a domain) is the fix. Through the web server it does work, as above.
+
+Sign-in screens must therefore go through the web server's route handlers (OQ-241).
+
+## Loading the demo data
+
+`seed demo` creates fictitious labs, customers and a platform team (clearly marked "DEMO"; 200 lab sites, 5,000 scope lines, 3
+onboarded labs, 3 customer organisations, a booking in every state). **The migration task can run it as it is.** The only guard,
+`assertNotProduction` in `packages/database/src/seed/env.ts`, refuses `APP_ENV=production` only; the task sets `NODE_ENV=production`
+(which the seed ignores) and `APP_ENV=uat`. It runs `seed reference` first, which needs the three QR key variables the task
+definition already sets, and then does nothing if the demo data is already there. One-off, with your own credentials, after the
+migration (step 6):
+
+```sh
+aws ecs run-task --cluster labconnect-uat --launch-type FARGATE --task-definition labconnect-uat-migrate \
+  --network-configuration "awsvpcConfiguration={subnets=[<PrivateSubnetIds>],securityGroups=[<MigrateSecurityGroupId>],assignPublicIp=DISABLED}" \
+  --overrides '{"containerOverrides":[{"name":"migrate","command":["node","dist/seed/cli.js","demo"]}]}'
+```
+
+The output (`Demo data created: ...` or `Demo data is already there. Nothing changed.`) is in the log group `/labconnect/uat/migrate`.
+Add `"environment":[{"name":"DEMO_EMAIL_DOMAIN","value":"<domain>"}]` inside the container override to change the e-mail domain of
+the demo people (default `demo.labconnect.test`: a `.test` name that no mail can reach). **Signing in as a demo user needs a
+code sent by SES**, so before a demonstration decide which addresses the demo people have and make them verified in SES (OQ-244).
+Not run against a real database in this task; the override shape is from the ECS API reference, from memory.
+
+## What a first deployment of the web service could trip over
+
+Things offline tests cannot show, and what was done about each:
+
+| Risk | What was done |
+|---|---|
+| The image does not start under ECS (wrong bind address, root file system, port) | Built and run locally as the `node` user: `/health` answers 200, the container health command exits 0. Next is told `--hostname 0.0.0.0` explicitly (a container's `HOSTNAME` is its own id). Under ECS: untested. |
+| The private name does not resolve, or resolves too early | The record exists only while an API task is registered; until then the web server's calls fail (`ENOTFOUND`; locally, the search page still rendered and `/api/suggest` answered 500). Start the API first (step 8). VPC DNS support is on by default in the VPC construct. Untested. |
+| Health-check timing | `/health` does not call the API. Container start period 60 s, service grace period 60 s, load balancer check every 30 s (two good checks to be healthy). Next was ready in under a second locally. Untested under ECS. |
+| Listener rule priorities | One rule (priority 10) per listener, default action the web app; asserted by tests in both layouts. |
+| Certificate with two names and manual DNS validation | One certificate, `<domainName>` plus `api.<domainName>`; ACM shows two CNAMEs and both must exist, or `cdk deploy Edge` waits (step 4 says so). With a hosted zone both records are created. Untested. |
+| Cookie scope across the two host names | Analysed above, no code changed; sign-in must go through the web server (OQ-241). |
+| Outbound access at build or run time | The web task needs none at run time except the API (private) and AWS endpoints (443). Telemetry is switched off (`NEXT_TELEMETRY_DISABLED=1`); the pages on the customer branch use a system font stack and no remote assets; `apps/web` fetched nothing at build time (the build ran with no API and no environment). The image build downloads npm packages, as the others do. |
+| Pages that bake the API address in at build time | None today (`API_BASE_URL` is read per request; the build succeeded without it). A page that fetched while being prerendered would call the wrong address at build: use dynamic APIs (Next docs, self-hosting). |
+| Static assets, redirects and the Host header | Next builds redirect URLs from `Host`; the load balancer passes it unchanged. Assets are served by the Next server itself (no CDN). |
+| Rate limit and managed rules meeting a real page load | `RateLimitAll` counts every asset request; a demonstration from one office address could hit 2000 per five minutes. Managed-rule false positives on Next requests (query-string size, bodies) are possible. Not changed; OQ-243. |
+| Security headers | Not set by anything (OQ-242). |
+| The deploy role and the first web rollout | The service must exist and have `webDesiredCount` of at least 1 before the workflow's rollout check passes (it fails for 0). Step 8. |
+| The ECS service-linked role and Cloud Map registration | ECS registers tasks in Cloud Map through its service-linked role, which AWS creates on first use; not checked. |
 
 ## What is manual or outside the code
 
@@ -199,16 +301,20 @@ SES-to-bounce handling (no destination is configured); the weekly restore drill 
   and a from-address, which the task definition sets.
 - **Database TLS verification is untested against RDS.** The images trust the RDS CA bundle (downloaded at image build) and
   the URLs say `sslmode=require`. `pg` and Prisma should both verify; confirm on the first migration run.
-- **No web application** is deployed: `apps/web` is a skeleton. No CloudFront either (OQ-173).
+- **The web app is the prototype that `apps/web` contains.** The service and image exist; what the pages show is whatever
+  `apps/web` has on the commit deployed (the search screens, from the customer branch, once merged). No CloudFront (OQ-173).
+  **No security headers** (HSTS, CSP) are set by anything yet: neither the load balancer nor the web app (OQ-242).
+  **Sign-in through the web app is not designed yet** and depends on how the web app handles the API's refresh cookie
+  (see "Cookies and origins" below, OQ-241).
 - **The signals the application does not emit yet** (outbox lag, due-timer backlog, stuck bookings, webhook signature failures)
   have no alarm; only what the worker logs today is alarmed.
 
 ## Cost drivers (no prices given: look them up for your region)
 
 Always on, in rough order of weight: the **NAT gateway** (hours and data), the **interface endpoints** (six, in each AZ),
-the **RDS instance** and its storage and backups, the **load balancer**, the **Fargate tasks** (API and worker, vCPU and memory
-hours), the **web application firewall** (web ACL, six rules and requests), **KMS keys** (three, plus requests), **Secrets
-Manager** (about a dozen secrets), **CloudWatch** (logs, 20 alarms, metric filters). Usage-based: S3 and
+the **RDS instance** and its storage and backups, the **load balancer**, the **Fargate tasks** (API, web and worker, vCPU and memory
+hours; `webCpu`/`webMemoryMiB` size the web task), the **Cloud Map private DNS namespace** (one private hosted zone and its queries), the **web application firewall** (web ACL, six rules and requests), **KMS keys** (three, plus requests), **Secrets
+Manager** (about a dozen secrets), **CloudWatch** (logs, 22 alarms, metric filters). Usage-based: S3 and
 GuardDuty Malware Protection (per object and per gigabyte scanned), SQS, SES (per message), ECR storage, data transfer. Optional:
 OpenSearch (instance and storage) and the budget. The docs allow stopping UAT at night; that schedule is not built.
 
