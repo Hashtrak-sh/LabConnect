@@ -4,6 +4,8 @@ import { Test } from '@nestjs/testing';
 import {
   LabDirectoryQueryError,
   LabDirectoryService,
+  type PublicPageQuery,
+  type PublicPricePage,
   type PublicScopePage,
   type PublicScopeQuery,
   type PublicSiteProfile,
@@ -77,12 +79,36 @@ const SCOPE_PAGE: PublicScopePage = {
   nextCursor: 'sc1.next',
 };
 
+const PRICE_PAGE: PublicPricePage = {
+  priceList: { versionNo: 3, effectiveFrom: new Date('2026-11-01T00:00:00Z') },
+  items: [
+    {
+      scopeLine: SCOPE_PAGE.lines[0] as PublicScopePage['lines'][number],
+      pricePaise: 125_000n,
+      samplePrepPaise: 0n,
+      gstRateBp: 1800,
+      sampleQty: 3,
+      sampleUnit: { code: 'PIECE', name: 'Piece' },
+      packagingInstructions: 'Bundle and tag each bar.',
+      tatDays: 5,
+      isAvailable: true,
+    },
+  ],
+  nextCursor: null,
+};
+
 class StubDirectory {
   readonly asked: string[] = [];
   readonly scopeQueries: PublicScopeQuery[] = [];
+  readonly pageQueries: PublicPageQuery[] = [];
   getPublicSite(siteId: string): Promise<PublicSiteProfile | null> {
     this.asked.push(siteId);
     return Promise.resolve(siteId === SITE ? PROFILE : null);
+  }
+  listPublicPrices(siteId: string, query: PublicPageQuery): Promise<PublicPricePage | null> {
+    this.asked.push(siteId);
+    this.pageQueries.push(query);
+    return Promise.resolve(siteId === SITE ? PRICE_PAGE : null);
   }
   listPublicScope(siteId: string, query: PublicScopeQuery): Promise<PublicScopePage | null> {
     this.asked.push(siteId);
@@ -114,6 +140,7 @@ describe('GET /v1/public/lab-sites/{siteId}', () => {
   beforeEach(() => {
     directory.asked.length = 0;
     directory.scopeQueries.length = 0;
+    directory.pageQueries.length = 0;
   });
 
   it('returns the public profile, anonymously', async () => {
@@ -196,6 +223,40 @@ describe('GET /v1/public/lab-sites/{siteId}', () => {
     expect(response.status).toBe(422);
     const paths = (response.body as { errors: { path: string }[] }).errors.map((e) => e.path);
     expect(paths.sort()).toEqual(['limit', 'q', 'sort']);
+    expect(directory.asked).toEqual([]);
+  });
+
+  // ---------------------------------------------------------------- prices (I1-CUS-04)
+
+  it('returns the price list with money in paise', async () => {
+    const response = await contractRequest(app).get(`/v1/public/lab-sites/${SITE}/prices?limit=5`);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      priceList: { versionNo: 3, effectiveFrom: '2026-11-01T00:00:00.000Z' },
+      data: [
+        {
+          price: { amountPaise: 125_000, currency: 'INR' },
+          samplePrep: { amountPaise: 0, currency: 'INR' },
+          gstRateBp: 1800,
+          sampleUnit: { code: 'PIECE' },
+          isAvailable: true,
+        },
+      ],
+      page: { nextCursor: null, limit: 5 },
+    });
+    expect(directory.pageQueries).toEqual([{ cursor: null, limit: 5 }]);
+  });
+
+  it('answers a site that is not bookable with 404', async () => {
+    const response = await contractRequest(app).get(`/v1/public/lab-sites/${MISSING}/prices`);
+    expect(response.status).toBe(404);
+  });
+
+  it('refuses a search text on the price list (not a contract parameter)', async () => {
+    const response = await contractRequest(app).get(`/v1/public/lab-sites/${SITE}/prices?q=x`, {
+      invalidRequest: 'q is not a parameter of getPublicPriceList and must give 422',
+    });
+    expect(response.status).toBe(422);
     expect(directory.asked).toEqual([]);
   });
 });

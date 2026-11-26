@@ -1,5 +1,7 @@
 import type { components } from '@labconnect/api-contract';
+import { CURRENCY, paiseToJson } from '@labconnect/shared';
 import type {
+  PublicPricePage,
   PublicScopeLineItem,
   PublicScopePage,
   PublicSiteAccreditation,
@@ -10,6 +12,8 @@ type Schemas = components['schemas'];
 export type PublicLabSite = Schemas['PublicLabSite'];
 type PublicAccreditation = Schemas['PublicAccreditation'];
 export type PublicScopeLineList = Schemas['PublicScopeLineList'];
+export type PublicPriceList = Schemas['PublicPriceList'];
+type Money = Schemas['Money'];
 type PublicScopeLine = Schemas['PublicScopeLine'];
 type ScopeSiteType = PublicScopeLine['siteType'];
 
@@ -66,4 +70,28 @@ function scopeLine(line: PublicScopeLineItem): PublicScopeLine {
 /** The directory's scope page as the `listPublicScopeLines` response. `limit` is the request's. */
 export function toPublicScopeLineList(page: PublicScopePage, limit: number): PublicScopeLineList {
   return { data: page.lines.map(scopeLine), page: { nextCursor: page.nextCursor, limit } };
+}
+
+const money = (paise: bigint): Money => ({ amountPaise: paiseToJson(paise), currency: CURRENCY });
+
+/** The directory's price page as the `getPublicPriceList` response. `limit` is the request's. */
+export function toPublicPriceList(page: PublicPricePage, limit: number): PublicPriceList {
+  return {
+    priceList: {
+      versionNo: page.priceList.versionNo,
+      effectiveFrom: page.priceList.effectiveFrom.toISOString(),
+    },
+    data: page.items.map((item) => ({
+      scopeLine: scopeLine(item.scopeLine),
+      price: money(item.pricePaise),
+      samplePrep: money(item.samplePrepPaise),
+      gstRateBp: item.gstRateBp,
+      sampleQty: item.sampleQty,
+      sampleUnit: item.sampleUnit,
+      packagingInstructions: item.packagingInstructions,
+      tatDays: item.tatDays,
+      isAvailable: item.isAvailable,
+    })),
+    page: { nextCursor: page.nextCursor, limit },
+  };
 }

@@ -6,6 +6,8 @@ import { accreditationVerificationUrl } from './accreditation-url.js';
 import { LabDirectoryQueryError } from './errors.js';
 import type {
   PublicCodeName,
+  PublicPageQuery,
+  PublicPricePage,
   PublicScopeLineItem,
   PublicScopePage,
   PublicScopeQuery,
@@ -283,6 +285,124 @@ export class LabDirectoryService {
       };
     });
   }
+
+  /**
+   * A page of a bookable site's effective published price list with sample requirements
+   * (FR-DIS-06, CD-06, `getPublicPriceList`), in the scope's tree order, or `null` when the site
+   * is not public or not bookable (404, API_CONTRACTS section 2). Drafts are never read.
+   *
+   * Bookable is the rule search uses for prices (SEARCH.md section 4, `visibleLinesSql`): the
+   * site's flag and `BOOKABLE` listing, organisation claimed with KYC verified, a `TESTING`
+   * accreditation in date and a `PUBLISHED` price list in effect now. Only items of public
+   * `TESTING` lines are listed (BR-003); an item the lab marked unavailable is listed with
+   * `isAvailable: false`.
+   */
+  async listPublicPrices(siteId: string, query: PublicPageQuery): Promise<PublicPricePage | null> {
+    if (!UUID.test(siteId)) return null;
+    const now = this.deps.clock.now();
+    const today = istDateKey(now);
+    const after =
+      query.cursor === null ? null : decodeScopeCursor(query.cursor, PRICE_CURSOR_PREFIX);
+
+    return withPublicReadContext(this.deps.prisma, async (tx) => {
+      const lists = await tx.$queryRaw<{ id: string; version_no: number; effective_from: Date }[]>(
+        Prisma.sql`
+        SELECT pl.id, pl.version_no, pl.effective_from
+          FROM lab_site s
+          JOIN organisation o ON o.id = s.organisation_id
+          JOIN price_list pl
+            ON pl.lab_site_id = s.id AND pl.status = 'PUBLISHED' AND pl.effective_from IS NOT NULL
+           AND pl.effective_from <= ${now}::timestamptz
+           AND (pl.effective_to IS NULL OR pl.effective_to > ${now}::timestamptz)
+         WHERE s.id = ${siteId}::uuid
+           AND s.status = 'ACTIVE' AND s.is_bookable AND s.listing_status = 'BOOKABLE'
+           AND o.org_type = 'LAB' AND o.status = 'ACTIVE'
+           AND o.claim_status = 'CLAIMED' AND o.kyc_status = 'VERIFIED'
+           AND EXISTS (SELECT 1 FROM accreditation a
+                        WHERE a.lab_site_id = s.id AND a.lab_category = 'TESTING'
+                          AND ${publicAccreditationSql(today)})`,
+      );
+      const list = lists[0];
+      if (!list) return null;
+
+      const afterFilter =
+        after === null
+          ? Prisma.sql`TRUE`
+          : Prisma.sql`(x.k1, x.k2, x.k3, x.k4, x.k5, x.id::text)
+                        > (${after[0]}, ${after[1]}, ${after[2]}, ${after[3]}, ${after[4]}, ${after[5]})`;
+
+      const rows = await tx.$queryRaw<PriceRow[]>(Prisma.sql`
+        SELECT x.* FROM (
+          SELECT sl.id, a.certificate_no,
+                 d.code AS d_code, d.name AS d_name, g.code AS g_code, g.name AS g_name,
+                 p.code AS p_code, p.name AS p_name, pa.code AS pa_code, pa.name AS pa_name,
+                 m.code AS m_code, m.name AS m_name,
+                 sl.method_text, sl.range_text, sl.site_type::text AS site_type,
+                 sl.temporarily_unavailable,
+                 pi.price_paise, pi.sample_prep_paise, pi.gst_rate_bp,
+                 pi.sample_qty::float8 AS sample_qty, u.code AS u_code, u.name AS u_name,
+                 pi.packaging_instructions, pi.tat_days, pi.is_available,
+                 d.name AS k1, COALESCE(g.name, '') AS k2, COALESCE(p.name, '') AS k3,
+                 pa.name AS k4, COALESCE(m.name, sl.method_text, '') AS k5
+            FROM price_item pi
+            JOIN scope_line sl ON sl.id = pi.scope_line_id AND sl.lab_site_id = ${siteId}::uuid
+            JOIN accreditation a ON a.id = sl.accreditation_id
+            JOIN md_node u ON u.id = pi.sample_unit_node_id
+            JOIN md_node d ON d.id = sl.discipline_node_id
+            JOIN md_node pa ON pa.id = sl.parameter_node_id
+            LEFT JOIN md_node g ON g.id = sl.group_node_id
+            LEFT JOIN md_node p ON p.id = sl.product_node_id
+            LEFT JOIN md_node m ON m.id = sl.method_node_id
+           WHERE pi.price_list_id = ${list.id}::uuid
+             AND sl.status = 'ACTIVE'
+             AND (sl.effective_from IS NULL OR sl.effective_from <= ${today}::date)
+             AND (sl.effective_to IS NULL OR sl.effective_to >= ${today}::date)
+             AND a.status = 'VALID' AND a.lab_category = 'TESTING'
+             AND a.valid_from <= ${today}::date AND a.valid_to >= ${today}::date
+        ) x
+         WHERE ${afterFilter}
+         ORDER BY x.k1, x.k2, x.k3, x.k4, x.k5, x.id::text
+         LIMIT ${query.limit + 1}`);
+
+      const page = rows.slice(0, query.limit);
+      const last = page.at(-1);
+      return {
+        priceList: { versionNo: list.version_no, effectiveFrom: list.effective_from },
+        items: page.map((row) => ({
+          scopeLine: scopeLine(row),
+          pricePaise: row.price_paise,
+          samplePrepPaise: row.sample_prep_paise,
+          gstRateBp: row.gst_rate_bp,
+          sampleQty: row.sample_qty,
+          sampleUnit: { code: row.u_code, name: row.u_name },
+          packagingInstructions: row.packaging_instructions,
+          tatDays: row.tat_days,
+          isAvailable: row.is_available,
+        })),
+        nextCursor:
+          rows.length > query.limit && last !== undefined
+            ? encodeScopeCursor(
+                [last.k1, last.k2, last.k3, last.k4, last.k5, last.id],
+                PRICE_CURSOR_PREFIX,
+              )
+            : null,
+      };
+    });
+  }
+}
+
+const PRICE_CURSOR_PREFIX = 'pr1.';
+
+interface PriceRow extends ScopeRow {
+  price_paise: bigint;
+  sample_prep_paise: bigint;
+  gst_rate_bp: number;
+  sample_qty: number;
+  u_code: string;
+  u_name: string;
+  packaging_instructions: string | null;
+  tat_days: number;
+  is_available: boolean;
 }
 
 /** The lab search's text rule (SEARCH.md section 3), kept equal to search's `TEXT_MATCH_THRESHOLD`. */
@@ -339,20 +459,18 @@ function scopeLine(row: ScopeRow): PublicScopeLineItem {
 type ScopePosition = [string, string, string, string, string, string];
 const SCOPE_CURSOR_PREFIX = 'sc1.';
 
-function encodeScopeCursor(position: ScopePosition): string {
-  return SCOPE_CURSOR_PREFIX + Buffer.from(JSON.stringify(position), 'utf8').toString('base64url');
+function encodeScopeCursor(position: ScopePosition, prefix = SCOPE_CURSOR_PREFIX): string {
+  return prefix + Buffer.from(JSON.stringify(position), 'utf8').toString('base64url');
 }
 
-function decodeScopeCursor(cursor: string): ScopePosition {
+function decodeScopeCursor(cursor: string, prefix = SCOPE_CURSOR_PREFIX): ScopePosition {
   const invalid = new LabDirectoryQueryError(
     'The cursor is not valid. Start again from the first page.',
   );
-  if (!cursor.startsWith(SCOPE_CURSOR_PREFIX)) throw invalid;
+  if (!cursor.startsWith(prefix)) throw invalid;
   let parsed: unknown;
   try {
-    parsed = JSON.parse(
-      Buffer.from(cursor.slice(SCOPE_CURSOR_PREFIX.length), 'base64url').toString('utf8'),
-    );
+    parsed = JSON.parse(Buffer.from(cursor.slice(prefix.length), 'base64url').toString('utf8'));
   } catch {
     throw invalid;
   }

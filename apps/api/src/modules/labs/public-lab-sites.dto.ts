@@ -1,4 +1,4 @@
-import type { PublicScopeQuery } from '@labconnect/core';
+import type { PublicPageQuery, PublicScopeQuery } from '@labconnect/core';
 import { DomainError, type ProblemIssue } from '../../common/domain-error.js';
 
 // Query strings of the public lab site lists (`paths/public-lab-sites.yaml`), checked by hand
@@ -73,6 +73,20 @@ export function parseScopeQuery(query: Record<string, unknown>): PublicScopeQuer
   const values = single(query, SCOPE_PARAMETERS, issues);
   const result: PublicScopeQuery = {
     text: textOf(values.get('q'), issues),
+    cursor: values.get('cursor') ?? null,
+    limit: limitOf(values.get('limit'), issues),
+  };
+  if (issues.length > 0) fail(issues);
+  return result;
+}
+
+const PAGE_PARAMETERS = new Set(['cursor', 'limit']);
+
+/** `cursor` and `limit` only (`getPublicPriceList`). The cursor's content is checked by the directory. */
+export function parsePageQuery(query: Record<string, unknown>): PublicPageQuery {
+  const issues: ProblemIssue[] = [];
+  const values = single(query, PAGE_PARAMETERS, issues);
+  const result: PublicPageQuery = {
     cursor: values.get('cursor') ?? null,
     limit: limitOf(values.get('limit'), issues),
   };

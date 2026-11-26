@@ -42,4 +42,9 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
     reason:
       "A lab site's public scope of accreditation (FR-DIS-06, contract security: []). Public reference data only, read as an anonymous visitor; same 404 rule as the profile.",
   },
+  {
+    route: 'GET /v1/public/lab-sites/:siteId/prices',
+    reason:
+      "A bookable site's effective published price list (FR-DIS-06, CD-06, contract security: []). Published prices are public; drafts are never read. Not bookable gives 404.",
+  },
 ];

@@ -95,3 +95,29 @@ export interface PublicScopePage {
   lines: PublicScopeLineItem[];
   nextCursor: string | null;
 }
+
+/** One item of a bookable site's effective published price list (`PublicPriceItem`, CD-06). */
+export interface PublicPriceItemView {
+  scopeLine: PublicScopeLineItem;
+  pricePaise: bigint;
+  samplePrepPaise: bigint;
+  /** 1800 = 18.00 %. */
+  gstRateBp: number;
+  sampleQty: number;
+  sampleUnit: PublicCodeName;
+  packagingInstructions: string | null;
+  tatDays: number;
+  isAvailable: boolean;
+}
+
+export interface PublicPricePage {
+  priceList: { versionNo: number; effectiveFrom: Date };
+  items: PublicPriceItemView[];
+  nextCursor: string | null;
+}
+
+export interface PublicPageQuery {
+  cursor: string | null;
+  /** 1 to 100. */
+  limit: number;
+}

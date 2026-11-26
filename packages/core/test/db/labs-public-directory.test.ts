@@ -134,4 +134,59 @@ describe('LabDirectoryService (public read side)', () => {
       expect(await scope(site.id), why).toBeNull();
     }
   });
+
+  // ---------------------------------------------------------------- prices (I1-CUS-04)
+
+  const prices = (siteId: string, query: Partial<{ cursor: string; limit: number }> = {}) =>
+    directory().listPublicPrices(siteId, {
+      cursor: query.cursor ?? null,
+      limit: query.limit ?? 25,
+    });
+
+  it('lists the effective published prices of a bookable site in tree order', async () => {
+    const page = await prices(world().a1.id);
+    expect(page?.items.map((item) => item.scopeLine.parameter.name)).toEqual([
+      'Hardness',
+      'Tensile strength',
+      'Yield strength',
+    ]);
+    // A1's prices are 1000, 1250 and 1500 rupees for tensile, yield and hardness.
+    expect(page?.items.map((item) => item.pricePaise)).toEqual([150_000n, 100_000n, 125_000n]);
+    expect(page?.priceList.versionNo).toBeGreaterThanOrEqual(1);
+    for (const item of page?.items ?? []) {
+      expect(item.tatDays).toBeGreaterThanOrEqual(1);
+      expect(item.sampleUnit.code.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('never shows the draft price list', async () => {
+    const page = await prices(world().a1.id, { limit: 100 });
+    expect(page?.items.map((item) => item.pricePaise)).not.toContain(world().draftPricePaise);
+  });
+
+  it('pages the price list with its own cursor', async () => {
+    const first = await prices(world().a1.id, { limit: 2 });
+    expect(first?.items).toHaveLength(2);
+    const second = await prices(world().a1.id, { limit: 2, cursor: first?.nextCursor ?? '' });
+    expect(second?.items.map((item) => item.scopeLine.parameter.name)).toEqual(['Yield strength']);
+    expect(second?.nextCursor).toBeNull();
+    // A scope cursor is not a price cursor.
+    const scopePage = await scope(world().a1.id, { limit: 1 });
+    await expect(
+      prices(world().a1.id, { cursor: scopePage?.nextCursor ?? '' }),
+    ).rejects.toBeInstanceOf(LabDirectoryQueryError);
+  });
+
+  it('has no price list for a site that is listed but not bookable', async () => {
+    const { c, noPriceList, kycPending, calibration, hidden } = world();
+    for (const [why, site] of Object.entries({
+      c,
+      noPriceList,
+      kycPending,
+      calibration,
+      ...hidden,
+    })) {
+      expect(await prices(site.id), why).toBeNull();
+    }
+  });
 });

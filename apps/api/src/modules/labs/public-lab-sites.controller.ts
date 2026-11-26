@@ -1,11 +1,13 @@
 import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
 import { LabDirectoryService } from '@labconnect/core';
 import { DomainError } from '../../common/domain-error.js';
-import { parseScopeQuery } from './public-lab-sites.dto.js';
+import { parsePageQuery, parseScopeQuery } from './public-lab-sites.dto.js';
 import {
   type PublicLabSite,
+  type PublicPriceList,
   type PublicScopeLineList,
   toPublicLabSite,
+  toPublicPriceList,
   toPublicScopeLineList,
 } from './public-lab-site-response.js';
 
@@ -56,5 +58,23 @@ export class PublicLabSitesController {
       throw new DomainError('NOT_FOUND', { detail: 'No listed lab site has this id.' });
     }
     return toPublicScopeLineList(page, scopeQuery.limit);
+  }
+
+  /**
+   * `getPublicPriceList` (FR-DIS-06, CD-06, I1-CUS-04): the effective published price list with
+   * sample requirements, for bookable sites only; any other site is 404.
+   */
+  @Get(':siteId/prices')
+  async getPublicPriceList(
+    @Param('siteId') siteId: string,
+    @Query() query: Record<string, unknown>,
+  ): Promise<PublicPriceList> {
+    const id = requireSiteId(siteId);
+    const pageQuery = parsePageQuery(query);
+    const page = await this.directory.listPublicPrices(id, pageQuery);
+    if (page === null) {
+      throw new DomainError('NOT_FOUND', { detail: 'No bookable lab site has this id.' });
+    }
+    return toPublicPriceList(page, pageQuery.limit);
   }
 }
