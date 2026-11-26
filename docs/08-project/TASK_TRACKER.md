@@ -73,9 +73,11 @@ P2-07 is implemented on `feature/P2-07-shared-domain`: `packages/shared/src/` ho
 | P3-09 | PaymentGateway interface + FakePaymentGateway + webhook intake | H | ☑ |
 | P3-10 | Search service: Postgres fallback + OpenSearch index + sync consumer | A | ☑ |
 | P3-11 | IaC: UAT environment | H | ☑ code and tests; not deployed |
-| P3-12 | `deploy-uat.yml` | H | ☐ |
+| P3-12 | `deploy-uat.yml` | H | ☑ code and tests; never run |
 
-P3-11 is ☑ as code and tests only; **nothing is deployed and no AWS account was used.** `infrastructure/` is a CDK v2 app with seven stacks (delivery, network, data, messaging, edge, compute, observability) and 150+ offline assertion tests, plus the root `Dockerfile` (targets `api`, `worker`, `migrate`) and `.dockerignore`. Left for people: the AWS account and its bootstrap, the first image push, the signing key, SES sender verification, DNS, the GitHub environment, and the staging check of the GuardDuty path (OQ-168, OQ-169). Not built: CloudFront and the web service (the web app is a skeleton), the dashboards, and alarms for signals the application does not emit yet. One application gap blocks sign-in on UAT: the API's e-mail code goes over SMTP only (OQ-172). Details: `infrastructure/README.md` and `AWS_ENVIRONMENTS_AND_DEPLOYMENT.md` "As built (P3-11)". P3-12 (`deploy-uat.yml`) is still open.
+P3-12 is ☑ as code and tests only; **the workflow has never run, and no AWS call was made.** `.github/workflows/deploy-uat.yml` builds and pushes the `api`, `worker` and `migrate` images (tag = commit SHA, skipped when the tag exists), runs the migration task and fails on a non-zero exit code, then rolls the `api` and `worker` services and fails if the primary deployment is not the new task definition with a completed rollout (a circuit-breaker rollback is a failure), then calls `/v1/health` when `UAT_API_BASE_URL` is set. It changes the application only: it runs no CDK, and the `uat-deployer` role lost its right to assume the CDK bootstrap roles (OQ-179). It does nothing until a person sets the repository variable `UAT_DEPLOY_ENABLED` and the role ARN variable. The logic is in Node scripts under `infrastructure/scripts/deploy/`, with offline tests of the scripts and of the workflow file's invariants. Not built: a `web` service and image (skeleton), Playwright against UAT, posting results anywhere, `release-production.yml`. Open: who may trigger UAT deployments (OQ-185), image-tag drift against CDK (OQ-186), no migration rollback (OQ-187), the first real run (OQ-188), the smoke test's public URL (OQ-189), pinning actions in `ci.yml` (OQ-196), task definition revisions (OQ-197). Details: `CI_CD.md` "As built (P3-12)" and `infrastructure/README.md`.
+
+P3-11 is ☑ as code and tests only; **nothing is deployed and no AWS account was used.** `infrastructure/` is a CDK v2 app with seven stacks (delivery, network, data, messaging, edge, compute, observability) and 150+ offline assertion tests, plus the root `Dockerfile` (targets `api`, `worker`, `migrate`) and `.dockerignore`. Left for people: the AWS account and its bootstrap, the first image push, the signing key, SES sender verification, DNS, the GitHub environment, and the staging check of the GuardDuty path (OQ-168, OQ-169). Not built: CloudFront and the web service (the web app is a skeleton), the dashboards, and alarms for signals the application does not emit yet. The API now sends the sign-in code through the SES sender the worker uses (its task role may `ses:SendEmail` on the same three resources); what stays open is a verified SES identity and leaving the SES sandbox, because in the sandbox only verified addresses can receive a sign-in code (OQ-172, OQ-175). Details: `infrastructure/README.md` and `AWS_ENVIRONMENTS_AND_DEPLOYMENT.md` "As built (P3-11)". `deploy-uat.yml` is P3-12.
 
 P3-10 is built, with these left out on purpose or by decision: the HTTP endpoints (the customer search increment), typeahead, AWS SigV4 signing (OQ-156), pincode to point (OQ-153), the nightly rebuild with an alias swap (OQ-157), and the emitters of the events the sync consumes (OQ-158). The OpenSearch suite runs by hand (`pnpm --filter @labconnect/core test:opensearch`), not in CI. See "As built (P3-10)" in `docs/05-integrations/SEARCH.md`.
 
@@ -95,6 +97,24 @@ P3-01 also adds the global exception filter (every error in the shared problem s
 
 ## Phase 5: Increments
 Task lists are expanded per increment at its kickoff, using the IDs `I<n>-CUS-xx`, `I<n>-LAB-xx`, `I<n>-ADM-xx`, `I<n>-SHR-xx`. Each task references FR, AC and EC IDs.
+
+### I1: Directory, customer slice (A)
+Kicked off 2026-11-25 by A. Backend first: screens (`apps/web`) wait for the D-03 approval of the designs (CLAUDE.md §2). Branch: `feature/I1-CUS-public-search` from `dev-customer`.
+
+| ID | Task | Refs | Depends | Status |
+|---|---|---|---|---|
+| I1-CUS-01 | `GET /public/search/labs` (`searchLabs`): query parsing, pincode port, controller over `LazySearchService` | FR-DIS-01..05, AC-DIS-01/02/05, EC-05 | P3-10, OQ-153 (pincode) | ☑ |
+| I1-CUS-02 | `GET /public/lab-sites/{siteId}` profile (`getPublicLabSite`) | FR-DIS-06, AC-DIS-03/04, EC-06 | P3-04 | ☑ |
+| I1-CUS-03 | `GET /public/lab-sites/{siteId}/scope` with search inside the scope | FR-DIS-06 | I1-CUS-02 | ☐ |
+| I1-CUS-04 | `GET /public/lab-sites/{siteId}/prices` (bookable sites only) | FR-DIS-06, FR-BKG-03 | I1-CUS-02 | ☐ |
+| I1-CUS-05 | `GET /public/lab-sites/{siteId}/slots` (no capacity counts) | FR-BKG-04, EC-13 | I1-CUS-02 | ☐ |
+| I1-CUS-06 | `GET /public/taxonomies/{code}/nodes` (filter values) | FR-DIS-03 | — | ☐ |
+| I1-CUS-07 | `POST /public/leads` (request a lab, no-result lead) | FR-DIS-07, AC-DIS-04, EC-05, EC-06 | OQ-194 | ☐ |
+| I1-CUS-08 | `GET /public/search/suggest` (typeahead) | FR-DIS-01 | I1-CUS-01 | ☐ |
+| I1-CUS-09 | Public rate limits (60/min search, leads per OQ-194) | API_CONVENTIONS §7 | OQ-88 (Redis limiter, shared with H) | ☐ |
+| I1-CUS-10 | Search, lab page and request-a-lab screens | FR-DIS-01..07 | D-03, D-04 | ☐ |
+
+I1-CUS-02 builds the first piece of the `labs` module, which @Hashtrak-sh owns: the public read side of `LabDirectoryService` (`packages/core/src/labs/`, `apps/api/src/modules/labs/`). A built it at the owner's agreement to review, so it is a shared change. It also moves `withPublicReadContext` from `search` to `platform` and the accreditation verification URL helper into `labs`, because MODULE_BOUNDARIES rule 5 forbids importing `search`. The rule for which sites are public repeats search's `visibleLinesSql` until search reads through this service (OQ-152); the database test checks both give the same answer for every site of the search world.
 
 ## Phase 6–7
 | ID | Task | Owner | Status |

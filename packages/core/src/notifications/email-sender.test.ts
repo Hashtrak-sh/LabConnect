@@ -14,12 +14,19 @@ import {
   SmtpEmailSender,
 } from './email-sender.js';
 
-const MESSAGE: EmailMessage = {
+const MESSAGE = {
   to: 'user@example.test',
   subject: 'Booking LC-1 accepted',
   text: 'Plain text body',
   html: '<p>Html body</p>',
   notificationId: '0190b1f2-0000-7000-8000-000000000001',
+} satisfies EmailMessage;
+
+/** A message of the same kind with no notification row, like the sign-in code. */
+const WITHOUT_ID: EmailMessage = {
+  to: MESSAGE.to,
+  subject: MESSAGE.subject,
+  text: MESSAGE.text,
 };
 
 /** A very small SMTP server: enough of RFC 5321 to accept one message and keep what it was sent. */
@@ -126,6 +133,14 @@ describe('SmtpEmailSender', () => {
     expect(raw).toContain('<p>Html body</p>');
   });
 
+  it('sends no notification header when the message has no notification row', async () => {
+    const smtp = await fakeSmtp();
+    closers.push(smtp.close);
+    const sender = new SmtpEmailSender({ host: '127.0.0.1', port: smtp.port, from: 'a@b.test' });
+    await sender.send(WITHOUT_ID);
+    expect((smtp.messages[0] ?? '').toLowerCase()).not.toContain(NOTIFICATION_HEADER.toLowerCase());
+  });
+
   it('treats a 5xx answer as permanent and a refused connection as temporary', async () => {
     const smtp = await fakeSmtp('550 no such user');
     closers.push(smtp.close);
@@ -179,6 +194,12 @@ describe('SesEmailSender', () => {
         },
       },
     });
+  });
+
+  it('sends no Headers entry when the message has no notification row', async () => {
+    const { client, commands } = stub({});
+    await new SesEmailSender(client, { from: 'a@b.test' }).send(WITHOUT_ID);
+    expect(commands[0]?.input.Content?.Simple).not.toHaveProperty('Headers');
   });
 
   it('leaves the configuration set out when none is configured', async () => {

@@ -96,7 +96,6 @@ getLabRetentionRules
 getLabSite
 getLabSlotTemplates
 getPaymentReturnStatus
-getPublicLabSite
 getPublicPriceList
 importAdminSettlementReport
 listAdminAttributeDefinitions
@@ -159,7 +158,6 @@ revokeLabInvitation
 revokeReportShareLink
 scanCustodyCode
 searchAdminAuditLog
-searchLabs
 sendBackAdminChangeSet
 setAdminConfigValue
 setAdminPlatformUserRoles

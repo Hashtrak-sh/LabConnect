@@ -64,7 +64,6 @@ describe('task roles', () => {
   it('keeps everything that only the worker needs away from the API role', () => {
     const everything = text(api);
     expect(everything).not.toMatch(/sqs:/);
-    expect(everything).not.toMatch(/ses:/);
     expect(everything).not.toMatch(/s3:DeleteObject/);
     expect(everything).not.toMatch(/s3:ListBucket/);
     expect(everything).not.toMatch(/secretsmanager:/);
@@ -102,6 +101,22 @@ describe('task roles', () => {
     const resources = text(mail?.Resource);
     expect(resources).toContain('identity/no-reply@labconnect.invalid');
     expect(resources).toContain('configuration-set/labconnect-uat');
+  });
+
+  it("lets the API send mail (the sign-in code) with ses:SendEmail on the worker's three resources, and nothing else of SES", () => {
+    const sesActions = api.flatMap(actionsOf).filter((action) => action.startsWith('ses'));
+    expect(sesActions).toEqual(['ses:SendEmail']);
+    const mail = api.filter((s) => actionsOf(s).some((a) => a.startsWith('ses')));
+    expect(mail).toHaveLength(1);
+    const resources = resourcesOf(mail[0] as Statement);
+    expect(resources).toHaveLength(3);
+    expect(text(resources)).toContain('identity/no-reply@labconnect.invalid');
+    expect(text(resources)).toContain('identity/labconnect.invalid');
+    expect(text(resources)).toContain('configuration-set/labconnect-uat');
+    expect(text(resources)).not.toContain('*');
+    // The very same resources as the worker's statement: the API gets no wider sender.
+    const workerMail = worker.find((s) => actionsOf(s).includes('ses:SendEmail'));
+    expect(text(resources)).toBe(text(resourcesOf(workerMail as Statement)));
   });
 
   const keyStatements = (statements: Statement[]): Statement[] =>
@@ -280,8 +295,6 @@ describe('GitHub OIDC deploy role', () => {
       'ecr:GetAuthorizationToken',
       'ecs:RegisterTaskDefinition',
       'ecs:DescribeTaskDefinition',
-      'ecs:DeregisterTaskDefinition',
-      'ecs:ListTasks',
     ]);
     for (const statement of wildcardResources(deploy)) {
       for (const action of actionsOf(statement))
@@ -289,13 +302,49 @@ describe('GitHub OIDC deploy role', () => {
     }
   });
 
-  it('hands over to the CDK bootstrap roles and cannot create IAM users, roles or policies itself', () => {
-    const assume = deploy.find((s) => actionsOf(s).includes('sts:AssumeRole'));
-    expect(resourcesOf(assume as Statement)).toHaveLength(4);
-    expect(text(assume?.Resource)).toContain('cdk-hnb659fds-deploy-role-');
+  it('cannot assume any other role (no CDK bootstrap roles, no sts at all) or create IAM users, roles or policies', () => {
+    // The workflow changes the application only. Infrastructure is deployed by a person
+    // (OQ-179): a role that could hand over to the bootstrap roles would be an administrator.
     for (const action of deploy.flatMap(actionsOf)) {
+      expect(action).not.toMatch(/^sts:/);
       expect(action).not.toMatch(/^iam:(Create|Attach|Put|Update|Delete)/);
     }
+    expect(text(deploy)).not.toContain('cdk-');
+    expect(text(deploy)).not.toContain('sts:AssumeRole');
+  });
+
+  it('may read one stack and nothing else of CloudFormation', () => {
+    const stackReads = deploy.filter((s) =>
+      actionsOf(s).some((a) => a.startsWith('cloudformation:')),
+    );
+    expect(stackReads).toHaveLength(1);
+    const [read] = stackReads;
+    expect(actionsOf(read as Statement)).toEqual(['cloudformation:DescribeStacks']);
+    expect(resourcesOf(read as Statement)).toHaveLength(1);
+    const [resource] = resourcesOf(read as Statement);
+    expect(text(resource)).toContain(':stack/LabConnect-uat-compute/*');
+    expect(text(resource)).not.toContain('delivery');
+    expect(read?.Condition).toBeUndefined();
+  });
+
+  it('has exactly these statements, so that a new permission is a deliberate change', () => {
+    expect(deploy.map((s) => s.Sid).sort()).toEqual([
+      'EcrLogin',
+      'EcrPush',
+      'EcsRunMigration',
+      'EcsServices',
+      'EcsTaskDefinitions',
+      'EcsWatchTasks',
+      'PassTaskRoles',
+      'ReadComputeStackOutputs',
+    ]);
+    // Nothing the workflow does not call: it cannot deregister task definitions, stop or list
+    // tasks, or read application logs (they can hold personal data; the workflow log is public).
+    const actions = deploy.flatMap(actionsOf);
+    for (const unused of ['ecs:DeregisterTaskDefinition', 'ecs:StopTask', 'ecs:ListTasks']) {
+      expect(actions).not.toContain(unused);
+    }
+    expect(actions.filter((action) => action.startsWith('logs:'))).toEqual([]);
   });
 
   it('may pass only the six task and execution roles, and only to ECS tasks', () => {

@@ -12,7 +12,7 @@ import {
 import { QUEUES } from '../platform/routes.js';
 import type { SearchIndex } from './index-port.js';
 import { buildLabSearchDocuments, reindexAll } from './projector.js';
-import { withPublicReadContext } from './public-context.js';
+import { withPublicReadContext } from '../platform/public-context.js';
 
 /**
  * The events that change what search shows (SEARCH.md section 2, plus the two notification

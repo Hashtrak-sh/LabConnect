@@ -38,7 +38,6 @@ export interface InfraConfig {
   githubRepository: string;
   /** Reuse an OIDC provider that already exists in the account (one per URL is allowed). */
   githubOidcProviderArn: string | undefined;
-  cdkQualifier: string;
   azCount: number;
   natGateways: number;
   dbInstanceClass: string;
@@ -183,7 +182,6 @@ export function loadConfig(get: Get): InfraConfig {
     migrateImageTag: text(get, 'migrateImageTag') ?? imageTag,
     githubRepository: text(get, 'githubRepository') ?? DEFAULT_GITHUB_REPOSITORY,
     githubOidcProviderArn: text(get, 'githubOidcProviderArn'),
-    cdkQualifier: text(get, 'cdkQualifier') ?? 'hnb659fds',
     azCount: integer(get, 'azCount', 2, 2, 3),
     natGateways: integer(get, 'natGateways', 1, 1, 3),
     dbInstanceClass: text(get, 'dbInstanceClass') ?? 'db.t4g.medium',
