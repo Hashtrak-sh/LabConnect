@@ -43,6 +43,17 @@
 - Key scope: (`Idempotency-Key`, user, route). The first request stores `IN_PROGRESS`. A repeat with the same body hash returns the stored response. A repeat with a different body returns `422 IDEMPOTENCY_KEY_REUSED`. A concurrent duplicate returns `409 REQUEST_IN_PROGRESS`.
 - Retained for 24 h.
 
+**As built (I1-SHR-01).** `IdempotencyService` (`packages/core/src/platform/idempotency.ts`, framework-free) and the `@Idempotent()` decorator with its interceptor (`apps/api/src/common/idempotency.interceptor.ts`). No real route uses them yet; the feature routes adopt `@Idempotent()` one by one, always after `@Authorised()`, and are proved on test-only routes for now.
+- **Key.** 1 to 100 visible ASCII characters. A missing or malformed key is `400` (`VALIDATION_FAILED` with status 400, the transport-level answer of ERROR_HANDLING §3), checked after authentication, so a caller without a session gets `401` first.
+- **Scope.** (key, user, route). `route` is the method and the **concrete** path without the query (`POST /v1/lab/claims/<uuid>/verify-otp`), so one key used on two resources is two independent records (OQ-204). A path over 200 characters is cut and hashed. The user comes from the session (`CurrentActor`); there is no anonymous mode and `@Idempotent()` refuses (`500`, handler not run) a route without a user (OQ-203). Never use it on `/auth/*` (OQ-33).
+- **Request hash.** SHA-256 of the canonical JSON of the parsed body (key order does not matter; no body equals `{}`). Headers are not part of it.
+- **Claim.** An `INSERT ... ON CONFLICT DO NOTHING` on the unique index; the loser reads the row. Of N simultaneous identical requests exactly one runs and the others get `409`. Results: `started`, `replay`, `in_progress` (409), `reused` (422).
+- **Stored and replayed:** 2xx, and the `404`, `409` and `422` business answers of a handler. Everything else releases the key (OQ-199). A stored problem is replayed through the exception filter with the **current** request id (the stored row keeps only code, detail, meta and field errors). A replay repeats status and body only: no `ETag` or `Location` (OQ-200).
+- **Stale `IN_PROGRESS`.** After 60 seconds (`IDEMPOTENCY_LOCK_TIMEOUT_MS`) a repeat with the same body takes the row over; the operation can then run twice if the first attempt had already committed (OQ-198). The lock time (`created_at`) identifies the holder; a holder that lost the row cannot complete or abandon it.
+- **Release.** `abandon` expires the row, because `app_rw` cannot DELETE (OQ-202). `complete` and `abandon` accept a transaction client, so a handler can store the response in its own transaction (OQ-201).
+- **Purge.** The worker job `idempotency-purge` deletes expired rows hourly in batches of 500 (`IDEMPOTENCY_PURGE_INTERVAL_MS`, `IDEMPOTENCY_PURGE_BATCH_SIZE`), as `app_worker`, and logs a count only.
+- **Stored bodies are data at rest** and can hold personal data: no log line contains a request body, a response body or a hash input.
+
 ## 6. Status codes
 200 OK, 201 Created, 202 Accepted (async), 204 No Content, 400 malformed, 401 unauthenticated or step-up required, 403 forbidden (role or Maker=Checker), 404 not found or out of tenant scope, 409 state conflict, 412 precondition failed, 413 too large, 415 unsupported media, 422 validation or business rule, 429 rate limit, 5xx server. The error body is in `ERROR_HANDLING.md`.
 

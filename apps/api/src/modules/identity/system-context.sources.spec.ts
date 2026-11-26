@@ -64,6 +64,9 @@ describe('who may open the system database context', () => {
       'packages/core/src/search/public-context.ts': 1,
       // Worker and job services that run as SYSTEM with an explicit scope (TENANT_ISOLATION rule 7).
       'packages/core/src/platform/audit-chain.ts': 3,
+      // Idempotency keys (I1-SHR-01): one user-only context (the request's own user, no system) and
+      // the worker's purge of expired records, the only system use.
+      'packages/core/src/platform/idempotency.ts': 2,
       'packages/core/src/platform/relay.ts': 1,
       'packages/core/src/platform/timers.ts': 2,
       // The worker's scan processor: decides a file from its scan result (P3-06). The dev-only
@@ -92,6 +95,8 @@ describe('who may open the system database context', () => {
       'packages/database/src/db-context.ts': 1,
       'packages/core/src/identity/tenant-scope.ts': 1,
       'packages/core/src/platform/audit-chain.ts': 3,
+      // The worker's purge of expired idempotency records (the API side uses the user context).
+      'packages/core/src/platform/idempotency.ts': 1,
       'packages/core/src/platform/relay.ts': 1,
       'packages/core/src/platform/timers.ts': 2,
       'packages/core/src/files/scan-processor.ts': 3,
