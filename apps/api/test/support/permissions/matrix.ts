@@ -10,6 +10,7 @@
 // No token must get 401 UNAUTHENTICATED.
 import { type PermissionCode, ROLE_CODES, type RoleCode, grantOf } from '@labconnect/shared';
 import type { PermissionRequirement } from '../../../src/modules/identity/permission.guard.js';
+import { HANDLER_REFUSALS, type HandlerRefusal } from '../../permissions/handler-refusals.js';
 import type { Client } from '../isolation/world.js';
 import type { RouteDeclaration } from './route-declarations.js';
 
@@ -37,13 +38,24 @@ export const isMatrixRoute = (route: RouteDeclaration): boolean =>
   route.category === 'authorised-any' ||
   route.category === 'authorised-none';
 
-export function matrixCells(routes: readonly RouteDeclaration[]): MatrixCell[] {
+/**
+ * Every role against every route. A role the permission map lets through only as a conditional
+ * grant that the handler refuses is expected to be denied (`handler-refusals.ts`).
+ */
+export function matrixCells(
+  routes: readonly RouteDeclaration[],
+  refusals: readonly HandlerRefusal[] = HANDLER_REFUSALS,
+): MatrixCell[] {
   return routes.filter(isMatrixRoute).flatMap((route) => {
     const allowed = route.requirement ? rolesAllowedBy(route.requirement) : [];
     return ROLE_CODES.map((role) => ({
       route,
       role,
-      expected: allowed.includes(role) ? ('allow' as const) : ('deny' as const),
+      expected:
+        allowed.includes(role) &&
+        !refusals.some((entry) => entry.route === route.key && entry.role === role)
+          ? ('allow' as const)
+          : ('deny' as const),
     }));
   });
 }
