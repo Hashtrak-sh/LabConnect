@@ -39,6 +39,8 @@
 | `ETag` | Returned on aggregates (`"<lockVersion>"`) |
 | `X-Request-Id` | Echoed or generated, and propagated to logs and traces |
 
+**As built (I1-LAB-01).** `apps/api/src/common/etag.ts` formats the `ETag` (`formatEtag`), reads `If-Match` (`parseIfMatch`: one strong `"<digits>"`, else `400`; a missing header is also `400`, because the catalogue has no 428, OQ-209) and compares (`assertIfMatch`: `412 CONCURRENT_MODIFICATION`). The comparison is an early refusal only: the write must carry `lock_version` in its `WHERE` and bump it in the same statement.
+
 ## 5. Idempotency
 - Key scope: (`Idempotency-Key`, user, route). The first request stores `IN_PROGRESS`. A repeat with the same body hash returns the stored response. A repeat with a different body returns `422 IDEMPOTENCY_KEY_REUSED`. A concurrent duplicate returns `409 REQUEST_IN_PROGRESS`.
 - Retained for 24 h.

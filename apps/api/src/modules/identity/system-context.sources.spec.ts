@@ -49,6 +49,13 @@ describe('who may open the system database context', () => {
       // Before a user is known: OTP request, OTP verification and sign-in, refresh by token, and
       // the session lookup of AuthGuard. Each call states its reason.
       'apps/api/src/modules/identity/identity.service.ts': 4,
+      // Lab claim start and verify (I1-LAB-01, I1-LAB-02): the claimant is a signed-in user who
+      // belongs to no organisation, so the policies of lab_claim_request and lab_site_private
+      // (app_is_org) hide those rows from them, and otp_challenge is platform/system only. A tenant
+      // context carrying the claimed organisation would open every table of that organisation and
+      // take its id from a lookup, not a membership; so the core functions run as `system` in one
+      // transaction and scope each query by hand (requested_by_user_id = the caller). One call each.
+      'apps/api/src/modules/labs/lab-claims.service.ts': 2,
       // The gateway's server-to-server callback: no user, and no tenant until it is matched.
       'apps/api/src/modules/payments/payment-webhook.controller.ts': 1,
     });

@@ -11,6 +11,11 @@ import type { IdentityHasher } from './hasher.js';
  */
 export interface OtpMailer {
   sendLoginOtp(message: OtpMessage): Promise<void>;
+  /**
+   * Sends the code of a lab claim (I1-LAB-01) to the lab's NABL-registered address. Same rules as
+   * the sign-in code: direct, after the commit, never through the outbox or a template.
+   */
+  sendLabClaimOtp(message: OtpMessage): Promise<void>;
 }
 
 export interface OtpMessage {
@@ -22,6 +27,8 @@ export interface OtpMessage {
 /** Keeps messages in memory, for tests. */
 export class InMemoryOtpMailer implements OtpMailer {
   readonly sent: OtpMessage[] = [];
+  /** The lab claim codes, kept apart from the sign-in codes. */
+  readonly claimSent: OtpMessage[] = [];
   /** Set to make the next sends fail, to test the failure path. */
   failWith: Error | undefined;
 
@@ -29,6 +36,17 @@ export class InMemoryOtpMailer implements OtpMailer {
     if (this.failWith) return Promise.reject(this.failWith);
     this.sent.push({ ...message });
     return Promise.resolve();
+  }
+
+  sendLabClaimOtp(message: OtpMessage): Promise<void> {
+    if (this.failWith) return Promise.reject(this.failWith);
+    this.claimSent.push({ ...message });
+    return Promise.resolve();
+  }
+
+  /** The newest lab claim code sent to the address, or `undefined`. */
+  lastClaimCodeFor(email: string): string | undefined {
+    return this.claimSent.findLast((message) => message.to === email)?.code;
   }
 
   /** The newest code sent to the address, or `undefined`. */

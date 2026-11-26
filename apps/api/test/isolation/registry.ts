@@ -28,6 +28,10 @@ export const REAL_APP_CASES: readonly IsolationCase[] = [
     route: 'POST /v1/me/notifications/:id/read',
     spec: 'test/integration/isolation/notifications.spec.ts',
   },
+  {
+    route: 'POST /v1/lab/claims/:id/verify-otp',
+    spec: 'test/integration/isolation/lab-claims.spec.ts',
+  },
 ];
 
 /** Routes with an id that touch no tenant data (for example a public reference lookup). */

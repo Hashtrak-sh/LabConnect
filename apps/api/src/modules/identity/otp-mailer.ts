@@ -12,6 +12,7 @@ import {
 export const OTP_MAILER = Symbol('OTP_MAILER');
 
 export const OTP_SUBJECT = 'Your LabConnect sign-in code';
+export const LAB_CLAIM_OTP_SUBJECT = 'Your LabConnect lab claim code';
 
 /**
  * A sign-in e-mail that was not sent. The message is fixed and there is no `cause`: the error of
@@ -43,6 +44,20 @@ export class EmailOtpMailer implements OtpMailer {
         text:
           `Your sign-in code is ${message.code}. It is valid for ${String(message.validForMinutes)} minutes. ` +
           'If you did not ask for it, ignore this message.',
+      });
+    } catch (error) {
+      throw new OtpMailError(error instanceof EmailSendError && error.permanent);
+    }
+  }
+
+  async sendLabClaimOtp(message: OtpMessage): Promise<void> {
+    try {
+      await this.sender.send({
+        to: message.to,
+        subject: LAB_CLAIM_OTP_SUBJECT,
+        text:
+          `Your lab claim code is ${message.code}. It is valid for ${String(message.validForMinutes)} minutes. ` +
+          'If you did not ask to claim this lab on LabConnect, ignore this message.',
       });
     } catch (error) {
       throw new OtpMailError(error instanceof EmailSendError && error.permanent);

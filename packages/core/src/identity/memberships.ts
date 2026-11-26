@@ -61,3 +61,19 @@ export async function hasVerifiedTotp(
   });
   return factor !== null;
 }
+
+/**
+ * True when the user is platform staff (`app_user.is_platform_staff`, RR-5). Read from the user
+ * row, not from a membership, so staff without an active membership are recognised too. The
+ * user is the one the caller authenticated, never a value from the request.
+ */
+export async function isPlatformStaff(
+  tx: Prisma.TransactionClient,
+  userId: string,
+): Promise<boolean> {
+  const user = await tx.appUser.findUnique({
+    where: { id: userId },
+    select: { isPlatformStaff: true },
+  });
+  return user?.isPlatformStaff ?? false;
+}

@@ -167,7 +167,6 @@ setLabRetentionRules
 setLabScopeLineAvailability
 setLabSlotTemplates
 startBookingTesting
-startLabClaim
 submitAdminChangeSet
 submitLabClaimLetterhead
 submitReceipt
@@ -189,6 +188,5 @@ updateLabSlot
 updateLabUser
 verifyAdminBankAccount
 verifyAdminKycDocument
-verifyLabClaimOtp
 verifyReport
 withdrawDispute

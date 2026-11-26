@@ -14,6 +14,7 @@ import { IdentityModule } from './identity.module.js';
 import {
   createOtpMailer,
   EmailOtpMailer,
+  LAB_CLAIM_OTP_SUBJECT,
   OTP_MAILER,
   OTP_SUBJECT,
   OtpMailError,
@@ -80,6 +81,41 @@ describe('EmailOtpMailer', () => {
     expect(OTP_SUBJECT).toBe('Your LabConnect sign-in code');
     expect(sender.sent[0]).not.toHaveProperty('html');
     expect(sender.sent[0]).not.toHaveProperty('notificationId');
+  });
+
+  it('sends the lab claim code with its own subject and text, directly, with no notification id', async () => {
+    const sender = new InMemoryEmailSender();
+    await new EmailOtpMailer(sender).sendLabClaimOtp(MESSAGE);
+    expect(sender.sent).toEqual([
+      {
+        to: ADDRESS,
+        subject: LAB_CLAIM_OTP_SUBJECT,
+        text:
+          'Your lab claim code is 482915. It is valid for 10 minutes. ' +
+          'If you did not ask to claim this lab on LabConnect, ignore this message.',
+      },
+    ]);
+    expect(sender.sent[0]).not.toHaveProperty('html');
+    expect(sender.sent[0]).not.toHaveProperty('notificationId');
+  });
+
+  it('throws an error without the code or the address when the lab claim email fails, and logs nothing', async () => {
+    const sender = new InMemoryEmailSender();
+    sender.onSend = () => {
+      throw new EmailSendError(`refused ${ADDRESS}: lab claim code ${CODE}`, false, {
+        cause: new Error(`550 ${ADDRESS} ${CODE}`),
+      });
+    };
+    const error = await new EmailOtpMailer(sender)
+      .sendLabClaimOtp(MESSAGE)
+      .catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(OtpMailError);
+    const everything = `${(error as OtpMailError).message} ${(error as OtpMailError).stack ?? ''}`;
+    expect(everything).not.toContain(CODE);
+    expect(everything).not.toContain(ADDRESS);
+    expect((error as OtpMailError).cause).toBeUndefined();
+    expect(output.lines.join('\n')).not.toContain(CODE);
+    expect(output.lines.join('\n')).not.toContain(ADDRESS);
   });
 
   it('sends no notification header through SES', async () => {
