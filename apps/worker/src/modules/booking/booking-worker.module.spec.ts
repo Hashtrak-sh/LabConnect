@@ -20,6 +20,8 @@ const off: PlatformJobsConfig = {
   verifyIntervalMs: 30,
   timerIntervalMs: 25,
   timerBatchSize: 5,
+  purgeIntervalMs: 35,
+  purgeBatchSize: 5,
 };
 
 /** Every timer type `createBookingTimerHandlers` handles when it is given the payments check. */

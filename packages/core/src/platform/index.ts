@@ -6,6 +6,7 @@ export * from './clock.js';
 export * from './config-parameters.js';
 export * from './deployment-env.js';
 export * from './events.js';
+export * from './idempotency.js';
 export * from './outbox.js';
 export * from './prisma.js';
 export * from './process-once.js';

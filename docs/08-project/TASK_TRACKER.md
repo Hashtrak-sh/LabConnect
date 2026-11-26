@@ -92,8 +92,10 @@ P3-01 also adds the global exception filter (every error in the shared problem s
 |---|---|---|---|
 | D-01 | Finalise BRAND_GUIDELINES from the QCI PDF | H | ☐ |
 | D-02 | Run Claude Design with DESIGN_MASTER_PROMPT (output: `09-design-handoff/designs/`, provisional brand values) | S | ☑ |
-| D-03 | Review designs against the user flows and accessibility | S | ☐ |
+| D-03 | Review designs against the user flows and accessibility | S | ☑ partial approval (H, 2026-11-26) |
 | D-04 | Implement design tokens and core components in `packages/ui` | A | ☐ |
+
+D-03 is approved in part by the product owner (H, 2026-11-26), for the MVP, with changes to come later. **Approved to build from:** the token sheet, the control and booking components, the public search, lab and verification pages, the C3 to C7 customer booking journey, the Maker scanner, receipt approval and the dashboards, each with the corrections of `DESIGN_REVIEW_D-03.md` (the Major findings DR-01 to DR-07, DR-12 and DR-13 apply to these screens) and the decisions OQ-69 to OQ-75. **Not approved yet:** lab onboarding and the catalogue flows (L1, L5, L8, L9, L10), the admin console (A1, A3, A5 to A7), and the customer states and screens that are not drawn (DR-07 to DR-11). They need a second design pass before their screens are built.
 
 ## Phase 5: Increments
 Task lists are expanded per increment at its kickoff, using the IDs `I<n>-CUS-xx`, `I<n>-LAB-xx`, `I<n>-ADM-xx`, `I<n>-SHR-xx`. Each task references FR, AC and EC IDs.
@@ -139,6 +141,7 @@ Started 2026-11-26 by H, on the lab claim flow of I1: the Ops side of FR-DAT-07.
 | I2-ADM-01 | `GET /admin/claims` (`listAdminLabClaims`): oldest first, cursor, `status` filter, the 24-hour rule applied to stale `PENDING_OTP` claims | FR-DAT-07, OQ-220 | I1-LAB-06 | In review |
 | I2-ADM-02 | `POST /admin/claims/{id}/approve` (`approveAdminLabClaim`): claim `APPROVED`, organisation `CLAIMED`, the claimant the first `LAB_CHECKER` | FR-DAT-07, RR-2, RR-5, OQ-208 | I2-ADM-01 | In review |
 | I2-ADM-03 | `POST /admin/claims/{id}/reject` (`rejectAdminLabClaim`): claim `REJECTED` with notes, the organisation free again | FR-DAT-07 | I2-ADM-01 | In review |
+| I2-ADM-04 | `POST /admin/claims/{id}/letterhead/download-url` (`createAdminLabClaimLetterheadDownloadUrl`): Ops read the claim's letterhead, clean files only, audited (contract first, then implementation) | FR-DAT-07, OQ-225 | I2-ADM-01 | In review |
 
 ## Phase 6–7
 | ID | Task | Owner | Status |

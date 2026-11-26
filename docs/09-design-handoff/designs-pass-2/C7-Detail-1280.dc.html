@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>C7 Booking detail, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 100%; min-height: 1300px; background: var(--color-surface); display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar" style="padding: 0 32px; gap: 16px; flex-wrap: wrap">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span>
+    <nav class="nav row g4" aria-label="Main" style="margin-left: 24px"><a href="E1-Customer-1280.dc.html">Dashboard</a><a class="on" href="#">Bookings</a><a href="#">Reports</a><a href="#">Payments</a><a href="B1-Search-1280.dc.html">Find a lab</a></nav>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-on-tint); display: inline-flex; align-items: center; justify-content: center; font-weight: 600" aria-label="Priya Sharma">PS</span></div>
+  </header>
+  <main id="main" style="display: contents">
+  <div style="max-width: 1280px; width: 100%; margin: 0 auto; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 20px">
+    <div class="row between wrap g12">
+      <div class="col g4"><span class="crumbs"><a href="E1-Customer-1280.dc.html">Bookings</a> › <span class="mono">LC-2611-0004821</span></span><div class="row g12 wrap"><h1 class="t-2xl w7">HDPE pipe PE100 · batch B-2611-07</h1><span class="badge b-info" style="height: 28px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Under test</span></div><span class="t-sm muted">Vasundhara Testing Laboratories, Gurugram · requested by Priya Sharma</span></div>
+      <div class="row g8"><a class="btn btn-secondary btn-sm" href="#"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Custody trail (PDF)</a><button class="btn btn-ghost btn-sm" type="button">More ▾</button></div>
+    </div>
+    <div class="nac info row between wrap g12">
+      <div class="col g4"><b class="t-lg">The lab is testing your sample</b><span class="t-sm">Report expected by <b>Thu 3 Dec 2026</b>. Nothing to do now. We'll notify you when it's released.</span></div>
+      <span class="sla ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>in 6 days · waiting on lab</span>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <section class="card" style="flex: 999 1 560px; min-width: 0; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+        <h2 class="t-lg w6">Timeline</h2>
+        <div class="tl">
+          <div class="tli"><span class="tlm" style="background: var(--color-surface-raised)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg></span><div class="col"><b class="t-sm muted">Report released</b><span class="t-xs muted">Expected by 3 Dec 2026</span></div></div>
+          <div class="tli"><span class="tlm now"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></span><div class="col g4"><b class="t-sm">Testing started</b><span class="t-xs muted">Lab Maker · 27 Nov 2026, 11:20 AM IST</span><div class="row wrap g8"><span class="badge b-info">Melt flow rate · in progress</span><span class="badge b-ok">Density · done</span><span class="badge b-neutral">Carbon black · not started</span></div></div></div>
+          <div class="tli"><span class="tlm done"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><div class="col g4"><b class="t-sm">Sample received and approved</b><span class="t-xs muted">Recorded by Lab Maker · approved by Lab Checker · 27 Nov 2026, 10:42 AM IST</span><span class="t-xs">Lab sample ID <span class="mono">VTL/26/11/0932</span> · 3 of 3 packages · seals intact</span>
+            <details open style="margin-top: 4px"><summary class="t-xs" style="color: var(--color-brand-primary); cursor: pointer">Custody events (4)</summary>
+              <div class="col g4 t-xs muted" style="padding: 8px 0 0 12px; border-left: 2px solid var(--color-border); margin-top: 6px"><span>10:31 AM IST · Package 1 of 3 scanned at Vasundhara</span><span>10:32 AM IST · Package 2 of 3 scanned</span><span>10:33 AM IST · Package 3 of 3 scanned</span><span>10:42 AM IST · Receipt approved, packages marked received</span></div>
+            </details></div></div>
+          <div class="tli"><span class="tlm done"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><div class="col"><b class="t-sm">QR labels issued · ready for drop-off</b><span class="t-xs muted">System · 25 Nov 2026, 2:10 PM IST</span></div></div>
+          <div class="tli"><span class="tlm done"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><div class="col"><b class="t-sm">Paid ₹3,540.00</b><span class="t-xs muted">Priya Sharma · 25 Nov 2026, 2:10 PM IST</span></div></div>
+          <div class="tli"><span class="tlm done"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><div class="col"><b class="t-sm">Accepted by the lab</b><span class="t-xs muted">Lab Checker · 25 Nov 2026, 11:05 AM IST</span></div></div>
+          <div class="tli"><span class="tlm done"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><div class="col"><b class="t-sm">Request submitted</b><span class="t-xs muted">Priya Sharma · 24 Nov 2026, 4:48 PM IST</span></div></div>
+        </div>
+        <p class="t-xs muted">Lab staff appear by role. Their names are visible only inside the lab (OQ-29).</p>
+      </section>
+      <aside style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 16px">
+        <section class="card col g8" style="padding: 20px">
+          <b class="t-base">Tests</b>
+          <div class="row between t-sm"><span>Melt flow rate</span><span class="badge b-info">In progress</span></div>
+          <div class="row between t-sm"><span>Density</span><span class="badge b-ok">Done</span></div>
+          <div class="row between t-sm"><span>Carbon black content</span><span class="badge b-neutral">Not started</span></div>
+        </section>
+        <section class="card col g8" style="padding: 20px">
+          <b class="t-base">Booking</b>
+          <div class="row between t-sm"><span class="muted">Booking no.</span><span class="mono">LC-2611-0004821</span></div>
+          <div class="row between t-sm"><span class="muted">Dropped</span><span>27 Nov 2026</span></div>
+          <div class="row between t-sm"><span class="muted">Packages</span><span>3</span></div>
+          <div class="row between t-sm"><span class="muted">Total paid</span><b class="num">₹3,540.00</b></div>
+        </section>
+        <section class="card col g8" style="padding: 20px">
+          <b class="t-base">Documents</b>
+          <a class="row g8 t-sm" href="#"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Payment receipt</a>
+          <a class="row g8 t-sm" href="#"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Test request form (v1)</a>
+          <span class="t-xs muted">The tax invoice appears when the report is released. <span class="prov">Provisional</span></span>
+        </section>
+        <a class="btn btn-ghost" href="C7-Hold-1280.dc.html">See the on-hold variant (J6)<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+      </aside>
+    </div>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1300}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

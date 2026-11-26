@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>D3 Review and publish report, Checker, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 100%; min-height: 1160px; background: var(--color-surface); display: flex; flex-direction: column; position: relative; font-family: var(--font-sans)">
+  <header class="topbar" style="padding: 0 24px; gap: 16px">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span><span class="badge b-brand">Lab</span>
+    <span class="t-sm" style="margin-left: 12px">Vasundhara Testing Laboratories · <b>Gurugram site</b></span>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span class="row g8"><span style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-on-tint); display: inline-flex; align-items: center; justify-content: center; font-weight: 600">AM</span><span class="col"><b class="t-sm">Dr. Anita Mehta</b><span class="t-xs muted">Checker</span></span></span></div>
+  </header>
+  <main style="max-width: 1280px; width: 100%; margin: 0 auto; padding: 20px 32px 40px; display: flex; flex-direction: column; gap: 16px">
+    <div class="row between wrap g12">
+      <div class="col g4"><span class="crumbs">Approvals › Reports › <span class="mono">LC-2611-0004821</span></span><div class="row g12"><h1 class="t-2xl w7">Review report before release</h1><span class="badge b-info" style="height: 28px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Report in review</span></div><span class="t-sm muted">Uploaded by Sanjay Kumar (Maker) · 3 Dec 2026, 9:40 AM IST · version 1</span></div>
+      <div class="row g8"><button class="btn btn-secondary btn-lg" type="button" onClick="{{ openReturn }}">Return to Maker</button><button class="btn btn-primary btn-lg" type="button" onClick="{{ openMfa }}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Publish report</button></div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+      <section class="card col" style="flex: 999 1 520px; min-width: 0; overflow: hidden">
+        <div class="row between" style="padding: 10px 16px; border-bottom: 1px solid var(--color-border)"><span class="t-sm w6">Stamped copy · preview</span><span class="t-xs muted">Page 1 of 4 · original kept unchanged</span></div>
+        <div style="background: var(--color-border); padding: 20px; display: flex; justify-content: center">
+          <div style="width: 440px; height: 600px; background: var(--color-surface-raised); box-shadow: 0 2px 8px rgba(0,0,0,.15); padding: 28px; display: flex; flex-direction: column; gap: 10px; position: relative" aria-label="Report page preview">
+            <div class="row between"><div class="sk" style="width: 120px; height: 30px"></div><span class="t-xs mono">TC104822600009321F</span></div>
+            <b class="t-sm" style="text-align: center">TEST REPORT</b>
+            <div class="sk" style="height: 10px; width: 80%"></div><div class="sk" style="height: 10px; width: 65%"></div><div class="sk" style="height: 10px; width: 72%"></div>
+            <div style="border: 1px solid var(--gray-300); margin-top: 8px"><div class="row" style="background: var(--color-neutral-bg); padding: 6px; font-size: 12px; font-weight: 600"><span style="flex: 2">Parameter</span><span style="flex: 1">Result</span><span style="flex: 1">Requirement</span></div><div class="row" style="padding: 6px; font-size: 12px"><span style="flex: 2">Melt flow rate</span><span style="flex: 1">0.32 g/10 min</span><span style="flex: 1">0.2–1.4</span></div><div class="row" style="padding: 6px; font-size: 12px"><span style="flex: 2">Density</span><span style="flex: 1">0.958 g/cm³</span><span style="flex: 1">≥ 0.950</span></div><div class="row" style="padding: 6px; font-size: 12px"><span style="flex: 2">Carbon black</span><span style="flex: 1">2.3 %</span><span style="flex: 1">2.0–2.5</span></div></div>
+            <div class="sk" style="height: 10px; width: 70%; margin-top: 8px"></div><div class="sk" style="height: 10px; width: 50%"></div>
+            <div style="position: absolute; right: 24px; bottom: 24px; display: flex; gap: 8px; align-items: center; border: 2px solid var(--color-brand-primary); border-radius: 6px; padding: 6px"><div class="qr" style="width: 56px; height: 56px; border-width: 4px; outline: none"></div><span style="font-size: 12px; line-height: 12px; color: var(--color-brand-on-tint)">Verify at<br>LabConnect<br><b class="mono">7GQ2 X9KD<br>4M1T RV8B</b></span></div>
+            <span style="position: absolute; left: 24px; bottom: 30px; font-size: 12px" class="muted">Stamp added by LabConnect</span>
+          </div>
+        </div>
+      </section>
+      <aside style="flex: 1 1 360px; display: flex; flex-direction: column; gap: 16px">
+        <section class="card col g8" style="padding: 20px">
+          <b class="t-base">Report details (from Maker)</b>
+          <div class="row between t-sm"><span class="muted">Report no.</span><span class="mono">VTL/R/26/11/0932</span></div>
+          <div class="row between t-sm"><span class="muted">ULR</span><span class="mono">TC104822600009321F</span></div>
+          <div class="row between t-sm"><span class="muted">Issue date</span><span>3 Dec 2026</span></div>
+          <div class="row between t-sm"><span class="muted">File scan</span><span class="badge b-ok">Clean</span></div>
+        </section>
+        <section class="card col g8" style="padding: 20px">
+          <b class="t-base">Checks against the booking</b>
+          <div class="row g8 t-sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--color-success)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Bound to package 1 of 3 · H2P-8RT · this booking</div>
+          <div class="row g8 t-sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--color-success)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>3 parameters, all booked</div>
+          <div class="row g8 t-sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--color-success)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>ULR is unique</div>
+          <div class="row g8 t-sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--color-success)"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Lab sample ID VTL/26/11/0932</div>
+          <hr class="hr">
+          <span class="t-xs w6 muted upper">Conformity entered</span>
+          <div class="row between t-sm"><span>Melt flow rate</span><span class="badge b-ok">Conforms</span></div>
+          <div class="row between t-sm"><span>Density</span><span class="badge b-ok">Conforms</span></div>
+          <div class="row between t-sm"><span>Carbon black content</span><span class="badge b-ok">Conforms</span></div>
+        </section>
+        <div class="alert a-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg><span class="t-base">Publishing releases the report to the customer and starts the 72-hour dispute window. You'll confirm with your authenticator code.</span></div>
+        <sc-if value="{{ showReturn }}" hint-placeholder-val="{{ false }}">
+          <section class="card col g12" style="padding: 20px; border: 2px solid var(--color-brand-primary)">
+            <b class="t-base">Return to Maker</b>
+            <div class="field"><label class="label" for="rc">What needs fixing? <span class="req">*</span></label><div class="input textarea is-focus"><textarea class="bare" id="rc">Issue date should be 3 Dec 2026 on page 1 header; it shows 2 Dec.</textarea></div><span class="help">The Maker sees this comment. The booking goes back to Under test.</span></div>
+            <div class="row g8"><button class="btn btn-primary grow" type="button" onClick="{{ close }}">Return report</button><button class="btn btn-ghost" type="button" onClick="{{ close }}">Cancel</button></div>
+          </section>
+        </sc-if>
+      </aside>
+    </div>
+
+    <section class="col g16" style="margin-top: 8px" aria-labelledby="d3states">
+      <h2 id="d3states" class="t-xl w6">States of this screen (pass 2)</h2>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start">
+        <div class="card col g12" style="padding: 20px"><span class="statecap">Stamp pending</span>
+          <div class="row g8 wrap"><button class="btn btn-secondary btn-lg" type="button">Return to Maker</button><button class="btn btn-primary btn-lg is-disabled" type="button" disabled aria-describedby="sp1"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Publish report</button></div>
+          <p id="sp1" class="t-base"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg> The stamped copy is not ready. LabConnect is adding the QR stamp; this usually takes under a minute. Publish turns on when it is ready.</p>
+          <div class="sk" style="height: 120px" aria-busy="true" aria-label="Stamped copy loading"></div>
+        </div>
+        <div class="card col g12" style="padding: 20px"><span class="statecap">Stamp failed · fallback</span>
+          <div class="alert a-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg><span class="t-base"><b>We couldn't place the stamp on the report page.</b> The stamp was added as a separate last page instead. Check the preview before you publish.</span></div>
+          <div class="row g8 wrap"><button class="btn btn-secondary btn-lg" type="button">Return to Maker</button><button class="btn btn-primary btn-lg" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Publish report</button></div>
+          <span class="t-sm muted">Page 5 of 5 · verification page added by LabConnect</span>
+        </div>
+        <div class="card col g12" style="padding: 20px"><span class="statecap">Blocked · your own record</span>
+          <div class="alert a-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><div class="col g4"><b class="t-base">Your role changed after you recorded this. Another Checker must approve it.</b><span class="t-sm">You uploaded this report as Maker. The API answers SELF_APPROVAL_FORBIDDEN.</span><span class="prov" style="align-self: flex-start">Provisional (OQ-59)</span></div></div>
+          <div class="row g8 wrap"><button class="btn btn-primary btn-lg is-disabled" type="button" disabled aria-describedby="bl1"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Publish report</button></div><span id="bl1" class="t-sm muted">Publish is off for a report you uploaded.</span>
+          <button class="btn btn-secondary" type="button">Notify other Checkers (2)</button>
+        </div>
+        <div class="overlay col g12" style="padding: 20px" role="dialog" aria-labelledby="mw1"><span class="statecap">MFA · wrong code (OTP_INVALID)</span>
+          <b id="mw1" class="t-lg">Confirm it's you</b>
+          <label class="label" for="mw1d">6-digit code</label><div class="otp" role="group" aria-label="6-digit code" aria-describedby="mw1e"><input inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-invalid="true" id="mw1d" aria-label="Digit 1" value="5"><input inputmode="numeric" maxlength="1" aria-invalid="true" aria-label="Digit 2" value="1"><input inputmode="numeric" maxlength="1" aria-invalid="true" aria-label="Digit 3" value="9"><input inputmode="numeric" maxlength="1" aria-invalid="true" aria-label="Digit 4" value="0"><input inputmode="numeric" maxlength="1" aria-invalid="true" aria-label="Digit 5" value="2"><input inputmode="numeric" maxlength="1" aria-invalid="true" aria-label="Digit 6" value="7"></div>
+          <p id="mw1e" class="err" role="alert"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4M12 17h.01"></path></svg>That code didn't match. Try the newest code in your app. 4 tries left.</p>
+          <div class="row g8"><button class="btn btn-primary grow" type="button">Verify and publish</button><button class="btn btn-ghost" type="button">Cancel</button></div>
+        </div>
+        <div class="overlay col g12" style="padding: 20px" role="dialog" aria-labelledby="mw2"><span class="statecap">MFA · step-up expired during publish</span>
+          <b id="mw2" class="t-lg">Confirm it's you again</b>
+          <p id="mw2e" class="alert a-warn t-base" role="alert">More than 5 minutes passed since you confirmed, so the report was not published. Enter a new code to publish.</p>
+          <label class="label" for="mw2d">6-digit code</label><div class="otp" role="group" aria-label="6-digit code"><input inputmode="numeric" maxlength="6" autocomplete="one-time-code" id="mw2d" aria-label="Digit 1" value=""><input inputmode="numeric" maxlength="1" aria-label="Digit 2" value=""><input inputmode="numeric" maxlength="1" aria-label="Digit 3" value=""><input inputmode="numeric" maxlength="1" aria-label="Digit 4" value=""><input inputmode="numeric" maxlength="1" aria-label="Digit 5" value=""><input inputmode="numeric" maxlength="1" aria-label="Digit 6" value=""></div>
+          <div class="row g8"><button class="btn btn-primary grow" type="button">Verify and publish</button><button class="btn btn-ghost" type="button">Cancel</button></div>
+        </div>
+        <div class="overlay col g12" style="padding: 20px" role="dialog" aria-labelledby="mw3"><span class="statecap">MFA · not enrolled (MFA_ENROLMENT_REQUIRED)</span>
+          <b id="mw3" class="t-lg">Set up your authenticator first</b>
+          <p class="alert a-warn t-base" role="alert">Publishing needs a code from an authenticator app, and your account doesn't have one yet. Set it up, then come back to publish. The report stays in review.</p>
+          <div class="row g8"><a class="btn btn-primary grow" href="G2-Mfa-Enrol-1280.dc.html">Set up authenticator</a><button class="btn btn-ghost" type="button">Cancel</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <sc-if value="{{ showMfa }}" hint-placeholder-val="{{ false }}">
+    <div class="scrim" style="position: absolute; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 200px">
+      <div class="overlay col g16" role="dialog" aria-modal="true" aria-labelledby="mfat" style="width: 440px; padding: 28px">
+        <div class="row g12"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--color-brand-primary)"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><b id="mfat" class="t-xl">Confirm it's you</b></div>
+        <p class="t-base">Enter the 6-digit code from your authenticator app to publish report <span class="mono">VTL/R/26/11/0932</span>.</p>
+        <label class="label" for="mfa1">6-digit code</label><div class="otp" role="group" aria-label="6-digit code"><input inputmode="numeric" maxlength="6" autocomplete="one-time-code" id="mfa1" aria-label="Digit 1" value="4"><input inputmode="numeric" maxlength="1" aria-label="Digit 2" value="8"><input inputmode="numeric" maxlength="1" aria-label="Digit 3" value="1"><input inputmode="numeric" maxlength="1" aria-label="Digit 4" value="0"><input inputmode="numeric" maxlength="1" aria-label="Digit 5" value="2"><input inputmode="numeric" maxlength="1" aria-label="Digit 6" value=""></div>
+        <span class="t-xs muted">After you verify, you can publish for 5 minutes without another code.</span>
+        <div class="row g8"><button class="btn btn-primary btn-lg grow" type="button" onClick="{{ close }}">Verify and publish</button><button class="btn btn-ghost btn-lg" type="button" onClick="{{ close }}">Cancel</button></div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2000}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { mode: 'mfa' }; }
+  renderVals() {
+    const m = this.state.mode;
+    return {
+      showMfa: m === 'mfa',
+      showReturn: m === 'return',
+      openMfa: () => this.setState({ mode: 'mfa' }),
+      openReturn: () => this.setState({ mode: 'return' }),
+      close: () => this.setState({ mode: 'none' })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -13,6 +13,11 @@ export interface DomainErrorOptions {
   /** Code-specific details, for example `{ currentState }`. */
   meta?: Record<string, unknown>;
   errors?: readonly ProblemIssue[];
+  /**
+   * Overrides the catalogue status. Only for a transport-level 400 the catalogue has no code for:
+   * the filter then writes it as `VALIDATION_FAILED` with this status (ERROR_HANDLING.md section 3).
+   */
+  status?: 400;
   cause?: unknown;
 }
 
@@ -35,7 +40,7 @@ export class DomainError extends Error {
       options.detail ?? code,
       options.cause === undefined ? undefined : { cause: options.cause },
     );
-    this.status = httpStatusOf(code);
+    this.status = options.status ?? httpStatusOf(code);
     this.detail = options.detail;
     this.meta = options.meta;
     this.errors = options.errors;

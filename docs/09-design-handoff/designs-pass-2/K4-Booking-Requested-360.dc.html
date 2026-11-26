@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>K4 Booking requested, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1240px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+<div class="col g12"><span class="stripcap">K4.1 · REQUESTED detail</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-base"><span class="mono">LC-2611-0004821</span></b><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><h1 class="t-xl w7">Request sent</h1><span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Requested</span><div class="nac info col g8" style="padding: 14px"><b class="t-lg">Waiting for the lab</b><span class="sla ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Decides by 1:18 PM IST · in 4 h</span><span class="t-base">We'll email you.</span></div><div class="col g4 t-base"><b>HDPE pipe PE100</b><span class="t-sm muted">3 tests · ₹3,540.00 · Thu 26 Nov, 10 AM–12 PM IST</span></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-secondary btn-block" type="button">Edit request</button><button class="btn btn-ghost btn-block" type="button">Withdraw request…</button></div></div></div>
+<div class="col g12"><span class="stripcap">K4.2 · Edit · timer restarts</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6"><span class="mono">LC-2611-0004821</span></h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><div class="alert a-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg><div class="col g4 t-base"><b>Editing restarts the lab's decision time</b><span>The lab gets a fresh 4 working hours.</span></div></div><div class="field"><label class="label" for="k4mi">Item name</label><input class="input" id="k4mi" type="text" value="HDPE pipe PE100"></div><div class="field"><label class="label" for="k4mp">Packages</label><input class="input" id="k4mp" type="text" value="3" inputmode="numeric"></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Save changes</button></div></div></div>
+<div class="col g12"><span class="stripcap">K4.3 · Lab missed the deadline</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><b class="t-base"><span class="mono">LC-2611-0004821</span></b><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><h1 class="t-xl w7">Request expired</h1><span class="badge b-neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>Expired</span><p class="t-base">The lab didn't decide in time, so the request expired. Nothing was charged.</p></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Book again elsewhere</button></div></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1240, "height": 900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>F2 Report and dispute, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 100%; min-height: 1300px; background: var(--color-surface); display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar" style="padding: 0 32px; gap: 16px; flex-wrap: wrap">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span>
+    <nav class="nav row g4" aria-label="Main" style="margin-left: 24px"><a href="E1-Customer-1280.dc.html">Dashboard</a><a href="#">Bookings</a><a class="on" href="#">Reports</a><a href="F3-Finance-1280.dc.html">Payments</a></nav>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-on-tint); display: inline-flex; align-items: center; justify-content: center; font-weight: 600" aria-label="Priya Sharma">PS</span></div>
+  </header>
+  <main id="main" style="display: contents">
+  <div style="max-width: 1280px; width: 100%; margin: 0 auto; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 20px">
+    <div class="row between wrap g12">
+      <div class="col g4"><span class="crumbs">Bookings › <span class="mono">LC-2611-0004712</span></span><div class="row g12"><h1 class="t-2xl w7">Steel rebar Fe500D · report</h1><span class="badge b-ok" style="height: 28px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Report released</span></div><span class="t-sm muted">Indraprastha Materials Lab, New Delhi</span></div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+        <section class="card col g16" style="padding: 24px">
+          <div class="row between wrap g12">
+            <div class="col g4"><b class="t-lg">Report <span class="mono">IML/R/26/11/2210</span></b><span class="t-sm muted">ULR <span class="mono">TC880622600022105F</span> · issued 24 Nov 2026 · v1 (current)</span></div>
+            <a class="btn btn-primary btn-lg" href="#"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Download report (PDF)</a>
+          </div>
+          <div class="row wrap g8"><span class="badge b-ok">Yield strength · conforms</span><span class="badge b-ok">Tensile strength · conforms</span><span class="badge b-ok">Elongation · conforms</span></div>
+          <div class="row g12 wrap t-sm"><a href="#">Custody trail (PDF)</a><span class="muted">·</span><a href="#">Tax invoice</a> <span class="prov">Provisional</span><span class="muted">·</span><a href="B3-Verify-1280.dc.html">How others verify this report</a></div>
+        </section>
+        <section class="card col g12" style="padding: 24px">
+          <div class="row between"><h2 class="t-lg w6">Share links</h2><button class="btn btn-secondary btn-sm" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New link</button></div>
+          <table class="tbl compact"><caption class="sr-only">Share links</caption>
+            <thead><tr><th scope="col">Shared with (note)</th><th scope="col">Expires</th><th scope="col">Opened</th><th scope="col"></th></tr></thead>
+            <tbody>
+              <tr><td>Buyer QA · Mahindra project</td><td class="num">8 Dec 2026</td><td class="num">3 times · last 25 Nov</td><td><button class="btn btn-ghost btn-sm" type="button" style="color: var(--color-danger)">Revoke</button></td></tr>
+              <tr style="color: var(--color-border-strong)"><td>Consultant</td><td>Revoked 24 Nov</td><td class="num">1 time</td><td></td></tr>
+            </tbody>
+          </table>
+        </section>
+        <section class="card col g12" style="padding: 24px">
+          <h2 class="t-lg w6">Rate the lab</h2>
+          <div class="row g24 wrap t-sm"><span>Overall <span class="star t-lg">★★★★☆</span></span><span>Turnaround <span class="star t-lg">★★★★★</span></span><span>Communication <span class="star t-lg">★★★★☆</span></span></div>
+          <div class="input textarea"><textarea class="bare" id="f18" placeholder="Optional comment"></textarea></div>
+          <p class="help t-sm">Your comment goes to the lab and to LabConnect Ops. It is not shown publicly; the lab page shows only the average rating and the number of ratings.</p>
+          <button class="btn btn-secondary" type="button" style="align-self: flex-start">Submit rating</button>
+        </section>
+      </div>
+      <aside style="flex: 1 1 380px; display: flex; flex-direction: column; gap: 16px">
+        <div class="nac warn col g8"><span class="badge b-warn" style="align-self: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Dispute window open</span><b class="t-base">You can raise a dispute until 27 Nov, 9:40 AM IST</b><div class="bar warn"><i style="width: 58%"></i></div><span class="t-xs">2 days left of 72 hours. After that the lab is paid.</span></div>
+        <section class="card col g12" style="padding: 20px; border: 2px solid var(--color-brand-primary)">
+          <b class="t-lg">Raise a dispute</b>
+          <div class="field"><label class="label" for="dt">What's the problem? <span class="req">*</span></label><div class="input between"><select class="bare" id="dt"><option>Result seems wrong</option></select></div></div>
+          <div class="field"><label class="label" for="dd">Describe it <span class="req">*</span></label><div class="input textarea"><textarea class="bare" id="dd">Elongation 14.2% conflicts with our in-house 18.5% on the same heat number.</textarea></div></div>
+          <div class="card row g8" style="padding: 8px 12px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg><span class="t-sm grow">inhouse-test.pdf</span><span class="badge b-ok">Clean</span></div>
+          <span class="t-xs muted">The lab must respond. LabConnect reviews and decides; the lab's payment is held meanwhile.</span>
+          <button class="btn btn-primary btn-block" type="button">Raise dispute</button>
+        </section>
+        <section class="card col g8" style="padding: 20px">
+          <div class="row between"><b class="t-base">Dispute <span class="mono">DSP-2611-0031</span></b><span class="badge b-info">Awaiting lab</span></div>
+          <span class="t-xs muted">Example of the status thread after raising one</span>
+          <div class="col g4 t-sm" style="padding: 8px 0; border-bottom: 1px solid var(--color-border)"><b>You</b><span>Elongation conflicts with our in-house test.</span><span class="t-xs muted">25 Nov, 11:02 AM IST</span></div>
+          <div class="col g4 t-sm" style="padding: 8px 0"><b>LabConnect support</b><span>We've asked the lab to respond by 27 Nov.</span><span class="t-xs muted">25 Nov, 11:30 AM IST</span></div>
+        </section>
+      </aside>
+    </div>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1300}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

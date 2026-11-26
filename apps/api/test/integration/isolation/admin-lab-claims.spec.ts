@@ -98,6 +98,8 @@ describe('tenant isolation on the Ops claim routes', () => {
       body: { decisionNotes: 'No.' },
       headers: { 'If-Match': '"1"' },
     });
+  const letterhead = (id: string) => (client: Client) =>
+    client.post(`/v1/admin/claims/${id}/letterhead/download-url`);
   const stateOfClaim = async () =>
     (
       await t
@@ -147,6 +149,28 @@ describe('tenant isolation on the Ops claim routes', () => {
         refusal: 'FORBIDDEN',
       });
     }
+    expect(await stateOfClaim()).toEqual({ status: 'PENDING_REVIEW', lock_version: 1 });
+  });
+
+  it('POST /admin/claims/{id}/letterhead/download-url: a lab or customer user is refused with 403, the same answer as for an unknown claim, no URL is made and no audit entry is written', async () => {
+    const audit = () =>
+      t.db().query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM audit_log WHERE action IN
+           ('lab_claim.letterhead_download_url_created', 'file.download_url')`,
+      );
+    const before = (await audit()).rows[0]?.n;
+    for (const as of tenantClients()) {
+      await expectIsolated({
+        route: 'POST /v1/admin/claims/:id/letterhead/download-url',
+        as,
+        resourceOf: resource,
+        resourceId: claimId,
+        request: letterhead(claimId),
+        unknownRequest: letterhead(randomUUID()),
+        refusal: 'FORBIDDEN',
+      });
+    }
+    expect((await audit()).rows[0]?.n).toBe(before);
     expect(await stateOfClaim()).toEqual({ status: 'PENDING_REVIEW', lock_version: 1 });
   });
 

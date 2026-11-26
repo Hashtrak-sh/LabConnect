@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>C4 Respond to counter-offer, desktop</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 100%; min-height: 1000px; background: var(--color-surface); display: flex; flex-direction: column; font-family: var(--font-sans)">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar" style="padding: 0 32px; gap: 16px; flex-wrap: wrap">
+    <img class="logo" src="../reference/Logos_QCI.png" alt="Quality Council of India">
+    <span class="vr"></span><span class="prodname">LabConnect</span>
+    <nav class="nav row g4" aria-label="Main" style="margin-left: 24px"><a href="E1-Customer-1280.dc.html">Dashboard</a><a class="on" href="#">Bookings</a><a href="#">Reports</a><a href="#">Payments</a><a href="B1-Search-1280.dc.html">Find a lab</a></nav>
+    <div class="row g12" style="margin-left: auto"><span class="prov">Provisional brand</span><span style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-on-tint); display: inline-flex; align-items: center; justify-content: center; font-weight: 600" aria-label="Priya Sharma">PS</span></div>
+  </header>
+  <main id="main" style="display: contents">
+  <div style="max-width: 1040px; width: 100%; margin: 0 auto; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 20px">
+    <div class="row between wrap g12">
+      <div class="col g4"><span class="crumbs"><a href="E1-Customer-1280.dc.html">Bookings</a> › <span class="mono">LC-2611-0004821</span></span><h1 class="t-2xl w7">Counter-offer from the lab</h1></div>
+      <span class="badge b-warn" style="height: 28px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Counter-offer · your decision</span>
+    </div>
+    <div class="nac warn row between wrap g12">
+      <div class="col g4"><b class="t-lg">Accept or decline by 26 Nov, 11:05 AM IST</b><span class="sla warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>in 23 h · if you don't answer, the request expires and the slot is released</span></div>
+    </div>
+    <section class="card col g16" style="padding: 24px">
+      <div class="col g4"><h2 class="t-lg w6">What changes</h2><span class="t-sm muted">Message from the lab: "Our Thursday morning slots are full. We also need 10 g more for carbon black to allow a repeat."</span></div>
+      <table class="tbl"><caption class="sr-only">What changes</caption>
+        <thead><tr><th scope="col" style="width: 30%"></th><th scope="col">Your request</th><th scope="col">Lab's proposal</th></tr></thead>
+        <tbody>
+          <tr><td><b>Drop-off slot</b></td><td>Thu 26 Nov · 10:00 AM – 12:00 PM IST</td><td style="background: var(--color-warning-bg)"><span class="row g8"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--color-warning)"><path d="M5 12h14M12 5l7 7-7 7"></path></svg><b>Fri 27 Nov · 10:00 AM – 12:00 PM IST</b><span class="badge b-warn">Changed</span></span></td></tr>
+          <tr><td><b>Carbon black content</b> · sample</td><td class="num">30 g</td><td style="background: var(--color-warning-bg)"><span class="row g8"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--color-warning)"><path d="M5 12h14M12 5l7 7-7 7"></path></svg><b class="num">40 g</b><span class="badge b-warn">+10 g</span></span></td></tr>
+          <tr><td><b>Melt flow rate</b> · sample</td><td class="num">60 g</td><td class="muted">No change</td></tr>
+          <tr><td><b>Density</b> · sample</td><td class="num">20 g</td><td class="muted">No change</td></tr>
+          <tr><td><b>Price</b></td><td class="num">₹3,540.00</td><td class="muted"><span class="num">₹3,540.00</span> · no change</td></tr>
+        </tbody>
+      </table>
+      <div class="alert a-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg><span class="t-base">A counter-offer can change only the slot or the sample quantity. The price stays as published.</span></div>
+    </section>
+    <div class="row between wrap g12">
+      <button class="btn btn-secondary btn-lg" type="button">Decline · request expires</button>
+      <a class="btn btn-primary btn-lg" href="L1-Pay-States-1280.dc.html">Accept and continue to payment</a>
+    </div>
+    <p class="t-xs muted">If you decline, the booking ends with no charge. You can book another lab from the same details.</p>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

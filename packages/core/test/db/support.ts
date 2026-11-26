@@ -49,7 +49,13 @@ export function usePlatform(): Platform {
   let worker: PrismaClient | undefined;
 
   const connect = (connectionString: string, max: number): PrismaClient => {
-    const client = new PrismaClient({ adapter: new PrismaPg({ connectionString, max }) });
+    const client = new PrismaClient({
+      adapter: new PrismaPg({ connectionString, max }),
+      // Many test files share one database server. Prisma's default wait for a transaction to
+      // start is two seconds, which a loaded machine exceeds now and then ("Unable to start a
+      // transaction in the given time"). Waiting longer changes no behaviour under test.
+      transactionOptions: { maxWait: 30_000 },
+    });
     clients.push(client);
     return client;
   };

@@ -39,7 +39,8 @@ import { requireClaimId } from './lab-claims.dto.js';
  * user with no membership, do not hold the permission and are refused by the guard (OQ-135).
  *
  * `Idempotency-Key` is required by the contract and not yet honoured, as on the lab side (OQ-87):
- * a repeated approval or rejection of a decided claim is `409` by its own rule.
+ * a repeated approval or rejection of a decided claim is `409` by its own rule, and a repeated
+ * letterhead URL request simply gives a new URL (and a new audit entry).
  */
 /**
  * First thing every handler does, before any header, body or query is read: only `PLATFORM_OPS`.
@@ -94,6 +95,29 @@ export class AdminLabClaimsController {
     response.setHeader('ETag', formatEtag(claim.lockVersion));
     response.setHeader('Cache-Control', 'no-store');
     return toAdminLabClaimBody(claim);
+  }
+
+  /**
+   * `createAdminLabClaimLetterheadDownloadUrl`: a 15-minute attachment URL for the claim's own
+   * letterhead, of a claim in any status, for a `CLEAN` file only; audited. The caller names the
+   * claim and nothing else. No `If-Match`: nothing about the claim changes.
+   */
+  @Post(':id/letterhead/download-url')
+  @HttpCode(200)
+  @Authorised({ permission: 'kyc.verify' })
+  // TODO(I1-SHR-01): put the shared idempotency decorator here (key, user and route; OQ-87).
+  async createAdminLabClaimLetterheadDownloadUrl(
+    @Param('id') id: string,
+    @CurrentActor() actor: CurrentActor,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ downloadUrl: string; expiresAt: string }> {
+    requireOps(actor);
+    const claimId = requireClaimId(id);
+    const url = await this.claims.letterheadDownloadUrl(actor, claimId, requestMeta(request));
+    // The URL is a secret for its lifetime: no cache keeps the answer.
+    response.setHeader('Cache-Control', 'no-store');
+    return url;
   }
 
   /** `rejectAdminLabClaim`. Needs `If-Match`. */

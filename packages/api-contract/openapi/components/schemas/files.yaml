@@ -223,8 +223,9 @@ FileDownloadUrl:
   type: object
   description: >-
     A short-lived download URL (FILES_AND_REPORTS §2), never the file itself: a financial
-    document, the stamped copy of a shared report version (FILES_AND_REPORTS §4), or a report
-    file under a break-glass grant (issuing it is logged).
+    document, the stamped copy of a shared report version (FILES_AND_REPORTS §4), a report
+    file under a break-glass grant (issuing it is logged), or the letterhead of a lab claim for
+    Ops review (issuing it is audited).
   required:
     - downloadUrl
     - expiresAt

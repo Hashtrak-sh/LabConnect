@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>L3 Label reprint, phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="lc.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 1640px; height: 900px; background: var(--color-neutral-bg); padding: 40px; display: flex; gap: 40px; font-family: var(--font-sans)">
+<div class="col g12"><span class="stripcap">L3.1 · Maker requests</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Reprint label</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><span class="mono t-sm">LC-2611-0004821 · pkg 2 of 3 · K7Q-4MX</span><div class="field"><label class="label" for="l3mr">Reason <span class="req">*</span></label><textarea class="input" id="l3mr" required>Label torn at the counter.</textarea></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Request reprint</button></div></div></div>
+<div class="col g12"><span class="stripcap">L3.2 · Pending</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Reprint label</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><span class="badge b-info"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Waiting for a Checker</span><p class="t-base">You can print once a Checker approves.</p></main></div></div>
+<div class="col g12"><span class="stripcap">L3.3 · Checker approves</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Approve reprint</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><p class="t-base"><b>Sanjay Kumar</b> asks to reprint package 2 of 3: "Label torn at the counter."</p><div class="alert a-warn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg><div class="col g4 t-base"><span>Label v1 becomes void; v2 is issued.</span></div></div></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button">Approve reprint</button></div></div></div>
+<div class="col g12"><span class="stripcap">L3.4 · Maker prints</span><div class="phone"><div class="mhdr"><button class="btn btn-ghost btn-icon" type="button" aria-label="Back"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7M19 12H5"></path></svg></button><h1 class="t-base w6">Print label</h1><span style="margin-left: auto" class="row g8"></span></div><main class="mbody" style=""><span class="badge b-ok"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>Approved</span><div class="qr" style="width: 160px; height: 160px; align-self: center" role="img" aria-label="Package 2 QR, label v2"></div><span class="t-base" style="text-align: center">Package 2 of 3 · <span class="mono">K7Q-4MX</span> · v2</span></main><div class="mfoot" style="flex-direction: column"><button class="btn btn-primary btn-lg btn-block" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>Print label</button></div></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1640, "height": 900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
