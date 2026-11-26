@@ -25,11 +25,19 @@ function criteria(raw: unknown, issues: ProblemIssue[]): LeadSearchCriteria | nu
   };
   for (const [field, value] of Object.entries(raw)) {
     switch (field) {
-      case 'q':
-        if (typeof value === 'string' && value.trim().length >= 1 && value.length <= 200) {
-          result.q = value.normalize('NFKC').replaceAll(/\s+/g, ' ').trim();
-        } else bad(field, 'Give 1 to 200 characters.');
+      case 'q': {
+        // Cleaned exactly as the search cleans its text (`cleanText`): control characters are
+        // refused, then NFKC, white space collapsed, and the length checked last.
+        const text =
+          typeof value === 'string' &&
+          // eslint-disable-next-line no-control-regex -- refusing control characters is the point
+          !/[\u0000-\u001f\u007f]/.test(value.replaceAll(/[\t\n\r]/g, ' '))
+            ? value.normalize('NFKC').replaceAll(/\s+/g, ' ').trim()
+            : '';
+        if (text.length >= 1 && text.length <= 200) result.q = text;
+        else bad(field, 'Give 1 to 200 characters, without control characters.');
         break;
+      }
       case 'pincode':
         if (typeof value === 'string' && /^\d{6}$/.test(value)) result.pincode = value;
         else bad(field, 'A pincode has 6 digits.');

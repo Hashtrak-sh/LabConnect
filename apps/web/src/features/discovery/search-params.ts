@@ -1,6 +1,10 @@
 import { rupeesToPaise } from '@/lib/format';
 
-/** The search page's own URL parameters (what the form submits). Prices are typed in rupees. */
+/**
+ * The search page's own URL parameters (what the form submits). Prices are typed in rupees. The
+ * device location is deliberately NOT one of them: personal data never goes into a URL
+ * (CLAUDE.md §5). It travels in a short-lived cookie instead (`search-location.ts`).
+ */
 export interface SearchForm {
   q: string;
   discipline: string;
@@ -8,8 +12,12 @@ export interface SearchForm {
   tat: string;
   maxPrice: string;
   radius: string;
-  lat: string;
-  lng: string;
+}
+
+/** A search location, already validated and rounded. */
+export interface SearchPoint {
+  lat: number;
+  lng: number;
 }
 
 /** The query of `GET /v1/public/search/labs` (`searchLabs`). Money is integer paise. */
@@ -28,6 +36,9 @@ export interface SearchLabsParams {
 
 export const RADII = [5, 10, 25, 50, 100] as const;
 
+/** Longest node code the API accepts (`NodeCode`). */
+const MAX_CODE_LENGTH = 100;
+
 type RawParams = Record<string, string | string[] | undefined>;
 
 function first(raw: RawParams, name: string): string {
@@ -35,7 +46,7 @@ function first(raw: RawParams, name: string): string {
   return (Array.isArray(value) ? value[0] : value)?.trim() ?? '';
 }
 
-/** The form values echoed back into the inputs. */
+/** The form values echoed back into the inputs. Any `lat`/`lng` in the URL is ignored. */
 export function readSearchForm(raw: RawParams): SearchForm {
   return {
     q: first(raw, 'q'),
@@ -44,29 +55,45 @@ export function readSearchForm(raw: RawParams): SearchForm {
     tat: first(raw, 'tat'),
     maxPrice: first(raw, 'maxPrice'),
     radius: first(raw, 'radius'),
-    lat: first(raw, 'lat'),
-    lng: first(raw, 'lng'),
   };
 }
 
+/**
+ * A location from untrusted input (the cookie, or the browser via the server action), rounded to
+ * 3 decimals (about 100 m: enough for distance and radius, less precise than the device gives).
+ * `null` when it is not a point on Earth.
+ */
+export function parsePoint(lat: unknown, lng: unknown): SearchPoint | null {
+  const a = typeof lat === 'number' ? lat : Number(lat);
+  const b = typeof lng === 'number' ? lng : Number(lng);
+  if (lat === '' || lng === '' || lat === null || lng === null) return null;
+  if (!Number.isFinite(a) || !Number.isFinite(b) || Math.abs(a) > 90 || Math.abs(b) > 180) {
+    return null;
+  }
+  return { lat: Math.round(a * 1e3) / 1e3, lng: Math.round(b * 1e3) / 1e3 };
+}
+
 /** Whether the user asked for anything; an empty form shows no results yet. */
-export function hasCriteria(form: SearchForm): boolean {
-  return Object.values(form).some((value) => value !== '');
+export function hasCriteria(form: SearchForm, point: SearchPoint | null): boolean {
+  return point !== null || Object.values(form).some((value) => value !== '');
 }
 
 /**
  * The API query for a form. Values the API would refuse are dropped rather than sent, so a stray
  * character in a box never turns the page into an error: a radius only with a location, a
- * turnaround only as a whole number of days, a price only as rupees.
+ * turnaround only as a whole number of days, a price only as rupees, a discipline only as a code.
  */
 export function toSearchLabsParams(
   form: SearchForm,
+  point: SearchPoint | null,
   cursor: string,
   limit: number,
 ): SearchLabsParams {
   const params: SearchLabsParams = { limit };
   if (form.q !== '') params.q = form.q.slice(0, 200);
-  if (form.discipline !== '') params.discipline = form.discipline;
+  if (form.discipline !== '' && form.discipline.length <= MAX_CODE_LENGTH) {
+    params.discipline = form.discipline;
+  }
   if (form.category === 'TESTING' || form.category === 'CALIBRATION') {
     params.category = form.category;
   }
@@ -74,18 +101,9 @@ export function toSearchLabsParams(
   const paise = form.maxPrice === '' ? null : rupeesToPaise(form.maxPrice);
   if (paise !== null) params.priceMax = paise;
 
-  const lat = Number(form.lat);
-  const lng = Number(form.lng);
-  const located =
-    form.lat !== '' &&
-    form.lng !== '' &&
-    Number.isFinite(lat) &&
-    Number.isFinite(lng) &&
-    Math.abs(lat) <= 90 &&
-    Math.abs(lng) <= 180;
-  if (located) {
-    params.lat = Math.round(lat * 1e5) / 1e5;
-    params.lng = Math.round(lng * 1e5) / 1e5;
+  if (point !== null) {
+    params.lat = point.lat;
+    params.lng = point.lng;
     const radius = Number(form.radius);
     if ((RADII as readonly number[]).includes(radius)) {
       params.radiusKm = radius as SearchLabsParams['radiusKm'];
@@ -95,7 +113,7 @@ export function toSearchLabsParams(
   return params;
 }
 
-/** The page URL for the next page: the same form plus the cursor. */
+/** The page URL for another page: the same form plus the cursor, never the location. */
 export function pageHref(form: SearchForm, cursor: string | null): string {
   const query = new URLSearchParams();
   for (const name of Object.keys(form) as (keyof SearchForm)[]) {
@@ -105,8 +123,12 @@ export function pageHref(form: SearchForm, cursor: string | null): string {
   return `/search?${query.toString()}`;
 }
 
-/** The search that found nothing, for a `NO_RESULT` lead: the API criteria without the location. */
-export function leadCriteria(params: SearchLabsParams): Record<string, string | number> {
+/**
+ * The search that found nothing, for a `NO_RESULT` lead: the API criteria without the location.
+ * `null` when nothing is left to describe the search (for example a radius alone), so no empty
+ * lead is offered.
+ */
+export function leadCriteria(params: SearchLabsParams): Record<string, string | number> | null {
   const criteria: Record<string, string | number> = {};
   if (params.q !== undefined) criteria.q = params.q;
   if (params.radiusKm !== undefined) criteria.radiusKm = params.radiusKm;
@@ -114,5 +136,6 @@ export function leadCriteria(params: SearchLabsParams): Record<string, string | 
   if (params.tatMax !== undefined) criteria.tatMax = params.tatMax;
   if (params.priceMax !== undefined) criteria.priceMax = params.priceMax;
   if (params.category !== undefined) criteria.category = params.category;
-  return criteria;
+  const describing = ['q', 'discipline', 'tatMax', 'priceMax', 'category'];
+  return describing.some((name) => name in criteria) ? criteria : null;
 }

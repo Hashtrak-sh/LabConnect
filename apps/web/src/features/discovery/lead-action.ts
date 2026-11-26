@@ -24,12 +24,17 @@ export async function createLeadAction(_previous: LeadState, form: FormData): Pr
   if (kind === 'REQUEST_LAB') {
     body = { kind, labSiteId: field('labSiteId'), ...contactEmail } as const;
   } else if (kind === 'NO_RESULT') {
-    let query: Record<string, unknown>;
+    let parsed: unknown;
     try {
-      query = JSON.parse(field('query') || '{}') as Record<string, unknown>;
+      parsed = JSON.parse(field('query') || '{}');
     } catch {
       return { status: 'failed' };
     }
+    // Only a plain object is a search; `null`, an array or a string is refused, not posted.
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return { status: 'failed' };
+    }
+    const query = { ...(parsed as Record<string, unknown>) };
     delete query.lat;
     delete query.lng;
     body = { kind, query, ...contactEmail } as const;

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LeadForm } from '@/features/discovery/LeadForm';
 import { LocationPicker } from '@/features/discovery/LocationPicker';
+import { readSearchLocation } from '@/features/discovery/search-location-cookie';
 import { SearchTextInput } from '@/features/discovery/SearchTextInput';
 import {
   hasCriteria,
@@ -32,16 +33,11 @@ export default async function SearchPage({ searchParams }: Props) {
   const form = readSearchForm(raw);
   const cursor = typeof raw.cursor === 'string' ? raw.cursor : '';
   const client = api();
+  const point = await readSearchLocation();
+  const disciplines = await loadDisciplines();
 
-  const disciplines = await client
-    .GET('/public/taxonomies/{code}/nodes', {
-      params: { path: { code: 'SCOPE' }, query: { limit: 100 } },
-    })
-    .then(({ data }) => data?.data ?? [])
-    .catch(() => []);
-
-  const query = toSearchLabsParams(form, cursor, PAGE_SIZE);
-  const searched = hasCriteria(form);
+  const query = toSearchLabsParams(form, point, cursor, PAGE_SIZE);
+  const searched = hasCriteria(form, point);
   const result = searched
     ? await client.GET('/public/search/labs', { params: { query } }).catch(() => null)
     : null;
@@ -107,8 +103,7 @@ export default async function SearchPage({ searchParams }: Props) {
             </select>
           </div>
           <LocationPicker
-            defaultLat={form.lat}
-            defaultLng={form.lng}
+            located={point !== null}
             labels={{
               use: t('search.useLocation'),
               set: t('search.locationSet'),
@@ -133,19 +128,21 @@ export default async function SearchPage({ searchParams }: Props) {
           <p role="status">
             <strong>{t('search.noResults')}</strong> {t('search.noResultsHint')}
           </p>
-          <LeadForm
-            kind="NO_RESULT"
-            query={criteria}
-            text={{
-              title: t('lead.noResultTitle'),
-              body: t('lead.noResultText'),
-              email: t('lead.emailLabel'),
-              emailHint: t('lead.emailHint'),
-              submit: t('lead.submit'),
-              sent: t('lead.sent'),
-              failed: t('lead.failed'),
-            }}
-          />
+          {criteria !== null && (
+            <LeadForm
+              kind="NO_RESULT"
+              query={criteria}
+              text={{
+                title: t('lead.noResultTitle'),
+                body: t('lead.noResultText'),
+                email: t('lead.emailLabel'),
+                emailHint: t('lead.emailHint'),
+                submit: t('lead.submit'),
+                sent: t('lead.sent'),
+                failed: t('lead.failed'),
+              }}
+            />
+          )}
         </>
       )}
 
@@ -227,4 +224,24 @@ function ResultCard({ item }: { item: LabSearchResult }) {
       )}
     </article>
   );
+}
+
+/** The top-level disciplines for the filter, following the cursor (at most 10 pages). */
+async function loadDisciplines(): Promise<{ code: string; name: string }[]> {
+  const nodes: { code: string; name: string }[] = [];
+  let cursor: string | undefined;
+  try {
+    for (let page = 0; page < 10; page++) {
+      const { data } = await api().GET('/public/taxonomies/{code}/nodes', {
+        params: { path: { code: 'SCOPE' }, query: { limit: 100, ...(cursor ? { cursor } : {}) } },
+      });
+      if (!data) break;
+      nodes.push(...data.data);
+      if (data.page.nextCursor === null) break;
+      cursor = data.page.nextCursor;
+    }
+  } catch {
+    // The filter is optional: without it the search still works.
+  }
+  return nodes;
 }

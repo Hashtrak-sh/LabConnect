@@ -1,22 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
+import { clearSearchLocation, setSearchLocation } from './search-location';
 
 interface Props {
-  defaultLat: string;
-  defaultLng: string;
+  /** Whether a location is saved for this browser (read on the server). */
+  located: boolean;
   labels: { use: string; set: string; clear: string; denied: string };
 }
 
 /**
- * "Use my location": asks the browser for the device position and puts it in hidden form fields.
- * The position is sent with this search only and never stored (MAPS_AND_GEOCODING §3).
+ * "Use my location": asks the browser for the device position and saves it, rounded, in a short-
+ * lived cookie through a server action. It never goes into the page URL or onto the server
+ * (CLAUDE.md §5, MAPS_AND_GEOCODING §3). The page re-renders to use it.
  */
-export function LocationPicker({ defaultLat, defaultLng, labels }: Props) {
-  const [point, setPoint] = useState(
-    defaultLat !== '' && defaultLng !== '' ? { lat: defaultLat, lng: defaultLng } : null,
-  );
+export function LocationPicker({ located, labels }: Props) {
+  const router = useRouter();
   const [denied, setDenied] = useState(false);
+  const [pending, startTransition] = useTransition();
 
   const locate = (): void => {
     if (!('geolocation' in navigator)) {
@@ -25,10 +27,13 @@ export function LocationPicker({ defaultLat, defaultLng, labels }: Props) {
     }
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setDenied(false);
-        setPoint({
-          lat: position.coords.latitude.toFixed(5),
-          lng: position.coords.longitude.toFixed(5),
+        startTransition(async () => {
+          const saved = await setSearchLocation(
+            position.coords.latitude,
+            position.coords.longitude,
+          );
+          setDenied(!saved);
+          router.refresh();
         });
       },
       () => {
@@ -38,27 +43,36 @@ export function LocationPicker({ defaultLat, defaultLng, labels }: Props) {
     );
   };
 
+  const clear = (): void => {
+    startTransition(async () => {
+      await clearSearchLocation();
+      router.refresh();
+    });
+  };
+
   return (
     <div>
-      <input type="hidden" name="lat" value={point?.lat ?? ''} />
-      <input type="hidden" name="lng" value={point?.lng ?? ''} />
-      {point === null ? (
-        <button type="button" className="button button-secondary" onClick={locate}>
-          {labels.use}
-        </button>
-      ) : (
+      {located ? (
         <p>
           {labels.set}{' '}
           <button
             type="button"
             className="button button-secondary"
-            onClick={() => {
-              setPoint(null);
-            }}
+            onClick={clear}
+            disabled={pending}
           >
             {labels.clear}
           </button>
         </p>
+      ) : (
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={locate}
+          disabled={pending}
+        >
+          {labels.use}
+        </button>
       )}
       {denied && (
         <p className="muted" role="status">

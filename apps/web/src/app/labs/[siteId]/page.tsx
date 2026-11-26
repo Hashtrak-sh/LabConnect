@@ -23,11 +23,27 @@ function single(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value)?.trim() ?? '';
 }
 
+/**
+ * The lab's profile, or `null` when the API says it is not a listed lab (404, or 422 for an id
+ * that is not a UUID). Any other failure is thrown, so the error page shows instead of a false
+ * "not found".
+ */
 async function loadSite(siteId: string): Promise<PublicLabSite | null> {
-  const { data } = await api().GET('/public/lab-sites/{siteId}', {
+  const { data, response } = await api().GET('/public/lab-sites/{siteId}', {
     params: { path: { siteId } },
   });
-  return data ?? null;
+  if (data) return data;
+  if (response.status === 404 || response.status === 422) return null;
+  throw new Error(`The lab page could not be loaded (status ${String(response.status)}).`);
+}
+
+/** A tab's request failed for a reason other than "not found". */
+function ApiFailure({ status }: { status: number }) {
+  return (
+    <p className="notice-error" role="alert" data-status={status}>
+      {t('search.error')}
+    </p>
+  );
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -39,7 +55,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function LabPage({ params, searchParams }: Props) {
   const { siteId } = await params;
   const raw = await searchParams;
-  const site = await loadSite(siteId).catch(() => null);
+  const site = await loadSite(siteId);
   if (site === null) notFound();
 
   const tabValue = single(raw.tab);
@@ -194,13 +210,14 @@ async function ScopeTab({
   cursor: string;
   href: Href;
 }) {
-  const { data } = await api().GET('/public/lab-sites/{siteId}/scope', {
+  const { data, response } = await api().GET('/public/lab-sites/{siteId}/scope', {
     params: {
       path: { siteId },
       query: { limit: PAGE_SIZE, ...(q === '' ? {} : { q }), ...(cursor === '' ? {} : { cursor }) },
     },
   });
-  const lines = data?.data ?? [];
+  if (!data) return <ApiFailure status={response.status} />;
+  const lines = data.data;
   return (
     <>
       <form action={`/labs/${siteId}`} method="get" className="form-grid" role="search">
@@ -244,7 +261,7 @@ async function ScopeTab({
           </table>
         </div>
       )}
-      {data?.page.nextCursor != null && (
+      {data.page.nextCursor != null && (
         <p>
           <Link
             className="button button-secondary"
@@ -259,10 +276,16 @@ async function ScopeTab({
 }
 
 async function PricesTab({ siteId, cursor, href }: { siteId: string; cursor: string; href: Href }) {
-  const { data } = await api().GET('/public/lab-sites/{siteId}/prices', {
+  const { data, response } = await api().GET('/public/lab-sites/{siteId}/prices', {
     params: { path: { siteId }, query: { limit: PAGE_SIZE, ...(cursor === '' ? {} : { cursor }) } },
   });
-  if (!data) return <p>{t('lab.pricesNotBookable')}</p>;
+  if (!data) {
+    return response.status === 404 ? (
+      <p>{t('lab.pricesNotBookable')}</p>
+    ) : (
+      <ApiFailure status={response.status} />
+    );
+  }
   return (
     <>
       <p className="muted">
@@ -328,13 +351,20 @@ async function SlotsTab({ siteId, cursor, href }: { siteId: string; cursor: stri
   const now = new Date();
   const from = istDate(now);
   const to = istDate(now, SLOT_DAYS);
-  const { data } = await api().GET('/public/lab-sites/{siteId}/slots', {
+  const { data, response } = await api().GET('/public/lab-sites/{siteId}/slots', {
     params: {
       path: { siteId },
       query: { from, to, limit: PAGE_SIZE, ...(cursor === '' ? {} : { cursor }) },
     },
   });
-  const slots = data?.data ?? [];
+  if (!data) {
+    return response.status === 404 ? (
+      <p>{t('lab.slotsNotBookable')}</p>
+    ) : (
+      <ApiFailure status={response.status} />
+    );
+  }
+  const slots = data.data;
   return (
     <>
       <p className="muted">{t('lab.slotsRange', { from: formatDate(from), to: formatDate(to) })}</p>
@@ -350,7 +380,7 @@ async function SlotsTab({ siteId, cursor, href }: { siteId: string; cursor: stri
           ))}
         </ul>
       )}
-      {data?.page.nextCursor != null && (
+      {data.page.nextCursor != null && (
         <p>
           <Link
             className="button button-secondary"

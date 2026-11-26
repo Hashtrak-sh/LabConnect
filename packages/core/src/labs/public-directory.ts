@@ -252,8 +252,9 @@ export class LabDirectoryService {
                  m.code AS m_code, m.name AS m_name,
                  sl.method_text, sl.range_text, sl.site_type::text AS site_type,
                  sl.temporarily_unavailable,
-                 d.name AS k1, COALESCE(g.name, '') AS k2, COALESCE(p.name, '') AS k3,
-                 pa.name AS k4, COALESCE(m.name, sl.method_text, '') AS k5,
+                 left(d.name, 200) AS k1, left(COALESCE(g.name, ''), 200) AS k2,
+                 left(COALESCE(p.name, ''), 200) AS k3,
+                 left(pa.name, 200) AS k4, left(COALESCE(m.name, sl.method_text, ''), 200) AS k5,
                  lower(concat_ws(' | ', pa.name, array_to_string(pa.aliases, ' '), p.name,
                                  array_to_string(p.aliases, ' '), g.name, d.name, m.name,
                                  m.attributes->>'standard_code', sl.method_text)) AS blob
@@ -327,8 +328,9 @@ export class LabDirectoryService {
                  pi.price_paise, pi.sample_prep_paise, pi.gst_rate_bp,
                  pi.sample_qty::float8 AS sample_qty, u.code AS u_code, u.name AS u_name,
                  pi.packaging_instructions, pi.tat_days, pi.is_available,
-                 d.name AS k1, COALESCE(g.name, '') AS k2, COALESCE(p.name, '') AS k3,
-                 pa.name AS k4, COALESCE(m.name, sl.method_text, '') AS k5
+                 left(d.name, 200) AS k1, left(COALESCE(g.name, ''), 200) AS k2,
+                 left(COALESCE(p.name, ''), 200) AS k3,
+                 left(pa.name, 200) AS k4, left(COALESCE(m.name, sl.method_text, ''), 200) AS k5
             FROM price_item pi
             JOIN scope_line sl ON sl.id = pi.scope_line_id AND sl.lab_site_id = ${siteId}::uuid
             JOIN accreditation a ON a.id = sl.accreditation_id
@@ -409,6 +411,7 @@ export class LabDirectoryService {
 
       const rows = await tx.$queryRaw<SlotRow[]>(Prisma.sql`
         SELECT sx.id, sx.slot_date::text AS slot_date, sx.starts_at, sx.ends_at,
+               to_char(sx.starts_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS starts_key,
                dn.code AS d_code, dn.name AS d_name
           FROM slot sx
           LEFT JOIN md_node dn ON dn.id = sx.discipline_node_id
@@ -433,7 +436,7 @@ export class LabDirectoryService {
         })),
         nextCursor:
           rows.length > query.limit && last !== undefined
-            ? encodeSlotCursor([last.starts_at.toISOString(), last.id])
+            ? encodeSlotCursor([last.starts_key, last.id])
             : null,
       };
     });
@@ -476,6 +479,8 @@ interface SlotRow {
   id: string;
   slot_date: string;
   starts_at: Date;
+  /** `starts_at` at full (microsecond) precision; a JS Date keeps milliseconds only. */
+  starts_key: string;
   ends_at: Date;
   d_code: string | null;
   d_name: string | null;
@@ -504,7 +509,7 @@ function decodeSlotCursor(cursor: string): [string, string] {
     !Array.isArray(parsed) ||
     parsed.length !== 2 ||
     typeof parsed[0] !== 'string' ||
-    Number.isNaN(Date.parse(parsed[0])) ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(parsed[0]) ||
     typeof parsed[1] !== 'string' ||
     !UUID.test(parsed[1])
   ) {
@@ -580,6 +585,11 @@ function scopeLine(row: ScopeRow): PublicScopeLineItem {
  */
 type ScopePosition = [string, string, string, string, string, string];
 const SCOPE_CURSOR_PREFIX = 'sc1.';
+/**
+ * Sort keys are cut to this many characters in SQL (`left(..., 200)`), so a cursor never carries
+ * an unbounded free-text method and the decoder can refuse anything longer.
+ */
+const SORT_KEY_LENGTH = 200;
 
 function encodeScopeCursor(position: ScopePosition, prefix = SCOPE_CURSOR_PREFIX): string {
   return prefix + Buffer.from(JSON.stringify(position), 'utf8').toString('base64url');
@@ -599,7 +609,7 @@ function decodeScopeCursor(cursor: string, prefix = SCOPE_CURSOR_PREFIX): ScopeP
   if (
     !Array.isArray(parsed) ||
     parsed.length !== 6 ||
-    !parsed.every((value) => typeof value === 'string' && value.length <= 500) ||
+    !parsed.every((value) => typeof value === 'string' && Array.from(value).length <= SORT_KEY_LENGTH) ||
     !UUID.test(parsed[5] as string)
   ) {
     throw invalid;

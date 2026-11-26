@@ -60,6 +60,11 @@ describe('SuggestService.suggest', () => {
     expect(await service().suggest('chromatography')).toEqual([]);
   });
 
+  it('treats % and _ as ordinary characters, not wildcards', async () => {
+    expect(await service().suggest('%%')).toEqual([]);
+    expect(await service().suggest('%_')).toEqual([]);
+  });
+
   it('refuses empty text', async () => {
     await expect(service().suggest('   ')).rejects.toBeInstanceOf(SearchQueryError);
   });

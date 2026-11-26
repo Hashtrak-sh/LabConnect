@@ -250,4 +250,43 @@ describe('LabDirectoryService (public read side)', () => {
       expect(await slots(site.id), why).toBeNull();
     }
   });
+
+  // ---------------------------------------------------------------- paging edge cases (review of #58)
+  // These change data, so they run last.
+
+  it('pages through a scope line with a very long free-text method', async () => {
+    const { a1 } = world();
+    const line = a1.scopeLines[0];
+    if (!line) throw new Error('a1 has scope lines');
+    await platform.owner().$executeRaw`
+      UPDATE scope_line SET method_node_id = NULL, method_text = ${'M'.repeat(800)}
+       WHERE id = ${line.id}::uuid`;
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let i = 0; i < 10; i++) {
+      const page = await scope(a1.id, { limit: 1, ...(cursor ? { cursor } : {}) });
+      seen.push(...(page?.lines.map((l) => l.scopeLineId) ?? []));
+      if (!page?.nextCursor) break;
+      cursor = page.nextCursor;
+    }
+    expect([...seen].sort()).toEqual(a1.scopeLines.map((l) => l.id).sort());
+  });
+
+  it('does not repeat a slot whose start has microseconds', async () => {
+    const { a1 } = world();
+    const before = (await slots(a1.id))?.slots.map((s) => s.slotId) ?? [];
+    expect(before.length).toBeGreaterThan(1);
+    await platform.owner().$executeRaw`
+      UPDATE slot SET starts_at = starts_at + interval '123 microseconds'
+       WHERE lab_site_id = ${a1.id}::uuid`;
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let i = 0; i < 50; i++) {
+      const page = await slots(a1.id, { limit: 1, ...(cursor ? { cursor } : {}) });
+      seen.push(...(page?.slots.map((s) => s.slotId) ?? []));
+      if (!page?.nextCursor) break;
+      cursor = page.nextCursor;
+    }
+    expect(seen).toEqual(before);
+  });
 });

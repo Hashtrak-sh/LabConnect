@@ -76,7 +76,7 @@ export class SuggestService {
         ),
         scored AS (
           SELECT c.kind, c.label, c.code, c.lab_site_id,
-                 max(CASE WHEN c.blob LIKE t.term || '%' THEN 3.0
+                 max(CASE WHEN left(c.blob, length(t.term)) = t.term THEN 3.0
                           WHEN position(t.term IN c.blob) > 0 THEN 2.0
                           WHEN length(t.term) >= ${MIN_FUZZY_LENGTH}
                                THEN word_similarity(t.term, c.blob)
