@@ -1,5 +1,6 @@
-// Deliberately empty. No screens are built before gate G2 (CLAUDE.md section 2),
-// and user-facing text will come from messages/en.json, never from components.
-export default function HomePage() {
-  return null;
+import { redirect } from 'next/navigation';
+
+// The prototype starts at the lab search (I1-CUS-10). The approved home page replaces this later.
+export default function HomePage(): never {
+  redirect('/search');
 }

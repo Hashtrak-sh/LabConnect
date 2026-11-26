@@ -112,9 +112,11 @@ Kicked off 2026-11-25 by A. Backend first: screens (`apps/web`) wait for the D-0
 | I1-CUS-07 | `POST /public/leads` (request a lab, no-result lead) | FR-DIS-07, AC-DIS-04, EC-05, EC-06 | OQ-194 | ☑ |
 | I1-CUS-08 | `GET /public/search/suggest` (typeahead) | FR-DIS-01 | I1-CUS-01 | ☑ |
 | I1-CUS-09 | Public rate limits (60/min search, leads per OQ-194) | API_CONVENTIONS §7 | OQ-88 (Redis limiter, shared with H) | ☐ |
-| I1-CUS-10 | Search, lab page and request-a-lab screens | FR-DIS-01..07 | D-03, D-04 | ☐ |
+| I1-CUS-10 | Search, lab page and request-a-lab screens | FR-DIS-01..07 | D-03, D-04 | ◐ |
 
 I1-CUS-02 builds the first piece of the `labs` module, which @Hashtrak-sh owns: the public read side of `LabDirectoryService` (`packages/core/src/labs/`, `apps/api/src/modules/labs/`). A built it at the owner's agreement to review, so it is a shared change. It also moves `withPublicReadContext` from `search` to `platform` and the accreditation verification URL helper into `labs`, because MODULE_BOUNDARIES rule 5 forbids importing `search`. The rule for which sites are public repeats search's `visibleLinesSql` until search reads through this service (OQ-152); the database test checks both give the same answer for every site of the search world.
+
+I1-CUS-10 is ◐: rough prototype screens (`/search`, `/labs/[siteId]`) were built on 2026-11-26 ahead of the D-03 approval, at the owner's (A) decision, as a deliberate exception to CLAUDE.md §2 so the app can be used on localhost. They use semantic CSS tokens and `messages/en.json` only, and are replaced by the approved designs through `packages/ui` (D-04).
 
 ## Phase 6–7
 | ID | Task | Owner | Status |
