@@ -134,7 +134,9 @@ describe('search over the demo seed', () => {
         expect(
           item.matchedLines.some((line) =>
             /\bLED\b/i.test(
-              [line.product?.name, line.parameter.name, line.method?.name, line.methodText].join(' '),
+              [line.product?.name, line.parameter.name, line.method?.name, line.methodText].join(
+                ' ',
+              ),
             ),
           ),
           item.site.name,

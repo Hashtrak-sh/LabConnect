@@ -44,7 +44,23 @@ const QUERIES = [
   // added after the change, to attack it (not part of the first table)
   ...(process.env.SEARCH_MEASURE_EXTRA === undefined
     ? []
-    : ['t', 'te', 'ph', 'led', 'ts', 'nar', 'mad', 'sulph', 'hydrochloric', '(((', '50%', 'a_b', '[x', '.*', '\\']),
+    : [
+        't',
+        'te',
+        'ph',
+        'led',
+        'ts',
+        'nar',
+        'mad',
+        'sulph',
+        'hydrochloric',
+        '(((',
+        '50%',
+        'a_b',
+        '[x',
+        '.*',
+        '\\',
+      ]),
 ];
 
 describe.skipIf(OUT === undefined)('search measurement', () => {

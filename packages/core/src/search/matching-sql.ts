@@ -113,4 +113,3 @@ export function termScoreSql(terms: readonly string[], columns: WordColumns): Pr
        GROUP BY t.term
     ) ts), 0)::float8`;
 }
-

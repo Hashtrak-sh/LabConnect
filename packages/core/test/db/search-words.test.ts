@@ -32,9 +32,9 @@ describe('the words of a text, in SQL and in TypeScript', () => {
   const platform = usePlatform();
 
   it.each(TEXTS)('%j', async (text) => {
-    const rows = await platform.owner().$queryRaw<{ w: string }[]>(
-      Prisma.sql`SELECT ${wordsSql(Prisma.sql`${text}::text`)} AS w`,
-    );
+    const rows = await platform
+      .owner()
+      .$queryRaw<{ w: string }[]>(Prisma.sql`SELECT ${wordsSql(Prisma.sql`${text}::text`)} AS w`);
     const inSql = (rows[0]?.w ?? '').split(' ').filter((word) => word.length > 0);
     expect(inSql).toEqual(splitWords(text));
   });

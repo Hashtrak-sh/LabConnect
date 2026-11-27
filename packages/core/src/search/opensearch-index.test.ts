@@ -80,7 +80,10 @@ describe('buildSearchBody', () => {
     q.terms = ['ts', 'tensile strength'];
     const body = buildSearchBody(q);
     const clauses = dig(body, 'query.bool.must.0.bool.should') as unknown[];
-    expect(clauses.map((clause) => dig(clause, 'dis_max._name'))).toEqual(['line_text', 'site_name']);
+    expect(clauses.map((clause) => dig(clause, 'dis_max._name'))).toEqual([
+      'line_text',
+      'site_name',
+    ]);
     expect(dig(body, 'query.bool.must.0.bool.minimum_should_match')).toBe(1);
     // one alternative per term; every word of a term must match (a `must` per word)
     const alternatives = dig(clauses[0], 'dis_max.queries') as unknown[];
@@ -95,7 +98,9 @@ describe('buildSearchBody', () => {
       'parameter.name',
     ]);
     expect(dig(clauses[1], 'dis_max.queries.0.bool.must.0.dis_max.queries.0')).toMatchObject({
-      constant_score: { filter: { multi_match: { query: 'ts', fields: ['site_name', 'site_code'] } } },
+      constant_score: {
+        filter: { multi_match: { query: 'ts', fields: ['site_name', 'site_code'] } },
+      },
     });
   });
 
@@ -106,7 +111,10 @@ describe('buildSearchBody', () => {
       const queries = dig(clause, 'dis_max.queries.0.bool.must.0.dis_max.queries') as {
         constant_score: { boost: number; filter: Record<string, unknown> };
       }[];
-      return queries.map((entry) => `${Object.keys(entry.constant_score.filter)[0] ?? ''}:${String(entry.constant_score.boost)}`);
+      return queries.map(
+        (entry) =>
+          `${Object.keys(entry.constant_score.filter)[0] ?? ''}:${String(entry.constant_score.boost)}`,
+      );
     };
     // name word 5, product word 3, other word 2
     expect(kinds('ph')).toEqual(['multi_match:5', 'multi_match:3', 'multi_match:2']);

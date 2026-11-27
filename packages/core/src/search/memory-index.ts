@@ -156,11 +156,7 @@ export class InMemorySearchIndex implements SearchIndex {
         (query.category === null || doc.labCategory === query.category);
       const lineScore = textOn ? memoryLineScore(query.terms, doc) : 0;
       const nameScore = textOn ? memorySiteScore(query.terms, doc) : 0;
-      const matched = textOn
-        ? qualifies && lineScore > 0
-        : hasFilters
-          ? qualifies
-          : false;
+      const matched = textOn ? qualifies && lineScore > 0 : hasFilters ? qualifies : false;
       const list = bySite.get(doc.labSiteId) ?? [];
       list.push({ doc, qualifies, lineScore, nameScore, matched });
       bySite.set(doc.labSiteId, list);
@@ -220,9 +216,7 @@ export class InMemorySearchIndex implements SearchIndex {
         rel: Math.max(bestLine, nameScore),
       });
     }
-    ranked.sort(
-      (a, b) => a.sortKey - b.sortKey || b.rel - a.rel || (a.siteId < b.siteId ? -1 : 1),
-    );
+    ranked.sort((a, b) => a.sortKey - b.sortKey || b.rel - a.rel || (a.siteId < b.siteId ? -1 : 1));
     const after =
       position === null
         ? ranked

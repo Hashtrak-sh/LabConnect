@@ -125,7 +125,6 @@ const named = (
 
 const NO_MATCH: Json = { match_none: {} };
 
-
 /** Hard filters on a line (discipline, parameter, method, turnaround, price, category). */
 export function hasLineFilters(query: SearchQuery): boolean {
   return (

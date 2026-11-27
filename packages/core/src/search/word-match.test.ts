@@ -22,17 +22,10 @@ describe('what a word is', () => {
     ['Total hardness (as CaCO3)', ['total', 'hardness', 'as', 'caco3']],
     ['E. coli', ['e', 'coli']],
     ['IS 3025 (Part 11)', ['is', '3025', 'part', '11']],
-    ['Biochemical oxygen demand (BOD, 3 days at 27 °C)', [
-      'biochemical',
-      'oxygen',
-      'demand',
-      'bod',
-      '3',
-      'days',
-      'at',
-      '27',
-      'c',
-    ]],
+    [
+      'Biochemical oxygen demand (BOD, 3 days at 27 °C)',
+      ['biochemical', 'oxygen', 'demand', 'bod', '3', 'days', 'at', '27', 'c'],
+    ],
     ['re-bend test', ['re', 'bend', 'test']],
     ['  TENSILE   strength  ', ['tensile', 'strength']],
     ['a_b', ['a', 'b']],
@@ -113,7 +106,7 @@ describe('the score of a line', () => {
     const nameWord = score('hardness', 'Total hardness (as CaCO3)');
     const namePrefix = score('hard', 'Total hardness (as CaCO3)');
     const other = score('hardness', 'Brinell', 'Hardness of steel');
-    const mistake = score('hardnes', 'Brinell', 'Hardness of steel') /* prefix */;
+    const mistake = score('hardnes', 'Brinell', 'Hardness of steel'); /* prefix */
     const typo = score('hardnass', 'Total hardness (as CaCO3)');
     expect(nameWord).toBe(1);
     expect(nameWord).toBeGreaterThan(namePrefix);

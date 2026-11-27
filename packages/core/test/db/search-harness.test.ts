@@ -106,9 +106,7 @@ describe.skipIf(DIR === undefined)('search harness', () => {
           const rows = await api.$transaction(
             (tx) =>
               tx.$queryRawUnsafe<Record<string, unknown>[]>(
-                sql.startsWith('--explain')
-                  ? `EXPLAIN (ANALYZE, COSTS OFF) ${sql}`
-                  : sql,
+                sql.startsWith('--explain') ? `EXPLAIN (ANALYZE, COSTS OFF) ${sql}` : sql,
                 ...values,
               ),
             { timeout: 300_000, maxWait: 30_000 },
@@ -123,7 +121,11 @@ describe.skipIf(DIR === undefined)('search harness', () => {
         } catch (error) {
           out = `ERROR ${String(error)}`;
         }
-        writeFileSync(join(dir, 'cmd.out'), `${out}\n-- ${String(Date.now() - started)} ms`, 'utf8');
+        writeFileSync(
+          join(dir, 'cmd.out'),
+          `${out}\n-- ${String(Date.now() - started)} ms`,
+          'utf8',
+        );
         rmSync(cmd);
       }
       await new Promise((resolve) => setTimeout(resolve, 500));

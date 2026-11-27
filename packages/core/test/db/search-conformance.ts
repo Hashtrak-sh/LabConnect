@@ -70,7 +70,9 @@ export function defineSearchConformance(label: string, ctx: ConformanceContext):
 
       it('matches the beginning of a word of four letters or more, never the middle or the end', async () => {
         expect(lineNames(await run({ q: 'tens' })).length).toBeGreaterThan(0);
-        expect(new Set(lineNames(await run({ q: 'chlor' })))).toEqual(new Set(['Chloride content']));
+        expect(new Set(lineNames(await run({ q: 'chlor' })))).toEqual(
+          new Set(['Chloride content']),
+        );
         for (const q of ['loride', 'ride', 'ensile', 'ength', 'ulphat']) {
           expect((await run({ q })).items, q).toEqual([]);
         }
@@ -110,13 +112,37 @@ export function defineSearchConformance(label: string, ctx: ConformanceContext):
 
       it('treats punctuation, brackets and case as separators', async () => {
         const plain = ids(await run({ q: 'tensile strength' }));
-        for (const q of ['(Tensile) strength', 'TENSILE/strength', 'tensile-strength', ' tensile   strength.']) {
+        for (const q of [
+          '(Tensile) strength',
+          'TENSILE/strength',
+          'tensile-strength',
+          ' tensile   strength.',
+        ]) {
           expect(ids(await run({ q })), q).toEqual(plain);
         }
       });
 
       it('takes %, _, \\, [, ( and .* as plain text: no error, nothing matched by accident', async () => {
-        for (const q of ['%', '_', '\\', '[', '(', '.*', '%%', 'a%', '%%%%', '____', 'te%t', '%ens', '_ _', '[a-z]', '\\d', '(((', '...', '*']) {
+        for (const q of [
+          '%',
+          '_',
+          '\\',
+          '[',
+          '(',
+          '.*',
+          '%%',
+          'a%',
+          '%%%%',
+          '____',
+          'te%t',
+          '%ens',
+          '_ _',
+          '[a-z]',
+          '\\d',
+          '(((',
+          '...',
+          '*',
+        ]) {
           const page = await run({ q });
           expect(page.items, q).toEqual([]);
           expect(page.total, q).toBe(0);
