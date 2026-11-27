@@ -1,0 +1,2 @@
+# Scripts and config are run by bash or mounted into Linux containers: never CRLF.
+* text=auto eol=lf

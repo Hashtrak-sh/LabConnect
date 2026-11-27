@@ -1,0 +1,7 @@
+# The real settings (every secret), the generated gate password and database backups never go in git.
+.env
+.env.*
+.gate-password
+backups/
+.lock/
+*.dump
