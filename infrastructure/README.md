@@ -228,9 +228,10 @@ without a domain. The API has **no CORS configuration** at all.
   own on the web origin, and for a refresh send `Cookie: lc_refresh=<value>` **and `Origin: <the web origin>`** to the API itself
   (a server-side `fetch` sets no `Origin` of its own). Then the API's cookie scope (`Path=/v1/auth`, host-only) does not matter.
   What the web app must get right: the `Origin` it sends is exactly the allowed origin (with a domain `https://<domainName>`;
-  without one `http://<load balancer name>`, no port), so it needs to know its own public origin (it has no `WEB_BASE_URL`
-  today: derive it from the forwarded headers, or give it the variable); and the cookie it sets must be `Secure` **only when
-  the site is HTTPS**.
+  without one `http://<load balancer name>`, no port), so it needs to know its own public origin: the web task gets it as
+  `WEB_BASE_URL`, the same expression as the API's `AUTH_ALLOWED_ORIGINS` (a test keeps the two equal); and the cookie it
+  sets must be `Secure` **only when the site is HTTPS** (a `Secure` cookie set over plain HTTP is dropped by the browser,
+  so in the layout without a domain a web app that always sets `Secure` cannot keep anyone signed in).
 - **Browser straight to the API, with a domain (`uat.x` to `api.uat.x`).** Same site, different origins. The cookie would be sent
   (`SameSite=Lax` is satisfied inside one site; host-only on `api.uat.x`, path `/v1/auth`, HTTPS so `Secure` is fine), but the
   browser blocks the cross-origin `fetch` first: no CORS headers exist. Does not work without API code (CORS with credentials).
