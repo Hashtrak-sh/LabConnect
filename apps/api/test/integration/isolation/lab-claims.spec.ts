@@ -319,8 +319,7 @@ describe('tenant isolation on the lab claim routes', () => {
 
   // The reads (I2-LAB): a claim belongs to the user who started it, so "another organisation" is
   // again "another claimant", and an organisation's colleague is as foreign as a stranger.
-  const readOne = (id: string) => (client: Client) =>
-    client.get(`/v1/lab/claims/${id}`, {});
+  const readOne = (id: string) => (client: Client) => client.get(`/v1/lab/claims/${id}`, {});
 
   it("GET /lab/claims/{id} with another user's claim: 404, the same answer as for an unknown id, with nothing of the claim", async () => {
     await expectIsolated({
@@ -347,7 +346,9 @@ describe('tenant isolation on the lab claim routes', () => {
     expect(ids).toContain(claimId);
     const strangersList = await stranger.get('/v1/lab/claims', {});
     expect(strangersList.status).toBe(200);
-    const theirIds = (strangersList.body as { data: { id: string }[] }).data.map((claim) => claim.id);
+    const theirIds = (strangersList.body as { data: { id: string }[] }).data.map(
+      (claim) => claim.id,
+    );
     expect(theirIds).not.toContain(claimId);
     for (const id of ids) expect(theirIds).not.toContain(id);
     expectNoLeak(strangersList, resource, theirIds);

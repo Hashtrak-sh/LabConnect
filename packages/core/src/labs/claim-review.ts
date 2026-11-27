@@ -14,13 +14,7 @@ import type { AuditActor, AuditService } from '../platform/audit.js';
 import type { Clock } from '../platform/clock.js';
 import type { OutboxService } from '../platform/outbox.js';
 import { LabClaimError } from './claim-errors.js';
-import {
-  isStale,
-  LETTERHEAD_LINK,
-  LETTERHEAD_PURPOSE,
-  maskEmail,
-  staleCutoff,
-} from './claims.js';
+import { isStale, LETTERHEAD_LINK, LETTERHEAD_PURPOSE, maskEmail, staleCutoff } from './claims.js';
 
 /*
  * The Ops side of the lab claim flow (FR-DAT-07): `listLabClaimsForReview`, `approveLabClaim` and

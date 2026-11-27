@@ -4,12 +4,7 @@ import { isPlatformStaff } from '../identity/memberships.js';
 import { isUuid } from '../identity/repository.js';
 import type { Clock } from '../platform/clock.js';
 import { LabClaimError } from './claim-errors.js';
-import {
-  claimantView,
-  isStale,
-  type LabClaimView,
-  usableContactAddress,
-} from './claims.js';
+import { claimantView, isStale, type LabClaimView, usableContactAddress } from './claims.js';
 
 /*
  * The claimant's reads of their own claims: `listMyLabClaims` and `getLabClaim`

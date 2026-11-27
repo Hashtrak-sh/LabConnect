@@ -103,9 +103,7 @@ export class AdminLabClaimsService {
 
   /** `getAdminLabClaim`: one claim, in the `platform` context like the list. */
   async get(actor: CurrentActor, claimId: string): Promise<AdminLabClaimView> {
-    return this.scope.run(actor, (tx) =>
-      getLabClaimForReview(tx, this.deps(), { actor, claimId }),
-    );
+    return this.scope.run(actor, (tx) => getLabClaimForReview(tx, this.deps(), { actor, claimId }));
   }
 
   /** `approveAdminLabClaim`. */

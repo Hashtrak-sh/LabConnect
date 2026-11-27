@@ -190,7 +190,9 @@ describe('tenant isolation on the Ops claim routes', () => {
     }
     // The claimant is no reviewer either: their own claim is theirs to read on the lab side only.
     const claimant = await t.signIn(claimantEmail);
-    const response = await t.api.get(`/v1/admin/claims/${claimId}`, { token: claimant.accessToken });
+    const response = await t.api.get(`/v1/admin/claims/${claimId}`, {
+      token: claimant.accessToken,
+    });
     expect(response.status).toBe(403);
     expectNoLeak(response, resource, [claimId]);
     expect(await stateOfClaim()).toEqual({ status: 'PENDING_REVIEW', lock_version: 1 });

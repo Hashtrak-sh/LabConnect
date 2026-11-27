@@ -50,7 +50,13 @@ describe('lab claim reads', () => {
     );
   const reject = (claimId: string, ifMatch: number, decisionNotes: string) =>
     w.as(ops, (tx) =>
-      rejectLabClaim(tx, w.review, { actor: ops, claimId, ifMatch, decisionNotes, meta: CLAIM_META }),
+      rejectLabClaim(tx, w.review, {
+        actor: ops,
+        claimId,
+        ifMatch,
+        decisionNotes,
+        meta: CLAIM_META,
+      }),
     );
 
   /** A claim still awaiting its code (`PENDING_OTP`), made through the real start. */
@@ -73,7 +79,9 @@ describe('lab claim reads', () => {
   /** The same facts the claimant has, with a membership as a customer: the actor of that session. */
   const customerSession = async (claimant: Claimant): Promise<CurrentActor> => {
     const customer = await w.owner((tx) => createCustomer(tx, { segment: 'BUSINESS' }));
-    await w.owner((tx) => w.addMember(tx, claimant.id, customer.organisationId, 'CUSTOMER_REQUESTER'));
+    await w.owner((tx) =>
+      w.addMember(tx, claimant.id, customer.organisationId, 'CUSTOMER_REQUESTER'),
+    );
     return w.actorOf(claimant.id, customer.organisationId, ['CUSTOMER_REQUESTER'], 'CUSTOMER');
   };
 
@@ -118,7 +126,12 @@ describe('lab claim reads', () => {
       expect(Object.keys(one).sort()).toEqual(LAB_VIEW_KEYS);
       expect(Object.keys(one.labSite).sort()).toEqual(['id', 'name', 'siteCode']);
       const text = JSON.stringify(one);
-      for (const secret of [claim.organisationId, claim.fileId ?? 'none', 'authorisation', 'reviewedBy']) {
+      for (const secret of [
+        claim.organisationId,
+        claim.fileId ?? 'none',
+        'authorisation',
+        'reviewedBy',
+      ]) {
         expect(text).not.toContain(secret);
       }
       // The letterhead route has no address; the code route shows the NABL address masked, as the write does.
@@ -179,7 +192,9 @@ describe('lab claim reads', () => {
 
       expect((await mine(stranger.actor)).data).toEqual([]);
       // The cursor of another user's claim is refused like any unreadable cursor.
-      const cursor = Buffer.from(JSON.stringify({ i: owner.claimId }), 'utf8').toString('base64url');
+      const cursor = Buffer.from(JSON.stringify({ i: owner.claimId }), 'utf8').toString(
+        'base64url',
+      );
       const bad = await w.refused(mine(stranger.actor, { cursor }));
       const garbage = await w.refused(mine(stranger.actor, { cursor: 'garbage' }));
       expect(bad).toEqual(garbage);
@@ -261,7 +276,9 @@ describe('lab claim reads', () => {
           meta: CLAIM_META,
         }),
       );
-      expect(result.decisionNotes).toBe('INTERNAL: the head of the lab is known to us, skip the visit');
+      expect(result.decisionNotes).toBe(
+        'INTERNAL: the head of the lab is known to us, skip the visit',
+      );
       const checker = await w.actorOf(
         claim.claimant.id,
         claim.organisationId,
@@ -279,7 +296,11 @@ describe('lab claim reads', () => {
 
     it('shows the reason of a rejection, with the decision time, and the stored status of a decided claim', async () => {
       const claim = await w.reviewable();
-      const rejected = await reject(claim.claimId, 1, 'The letterhead does not name the laboratory.');
+      const rejected = await reject(
+        claim.claimId,
+        1,
+        'The letterhead does not name the laboratory.',
+      );
       const one = await mineOne(claim.claimant.actor, claim.claimId);
       expect(one).toMatchObject({
         status: 'REJECTED',
@@ -316,7 +337,10 @@ describe('lab claim reads', () => {
         status: 'PENDING_REVIEW',
       });
       // Nothing was written: the row still says PENDING_OTP, and no audit row or outbox event came.
-      expect(await w.claimRow(stale.claimId)).toMatchObject({ status: 'PENDING_OTP', lock_version: 0 });
+      expect(await w.claimRow(stale.claimId)).toMatchObject({
+        status: 'PENDING_OTP',
+        lock_version: 0,
+      });
       expect(
         (await w.db().query<{ n: string }>('SELECT count(*)::text AS n FROM audit_log')).rows[0]?.n,
       ).toBe(auditBefore);
@@ -524,7 +548,9 @@ describe('lab claim reads', () => {
 
     it('reads a claim of a user who was a claimant before joining the platform, and refuses that user the claimant reads', async () => {
       const lab = await w.lab();
-      const team = await w.owner(async (tx) => tx.appUser.findFirstOrThrow({ where: { id: ops.userId } }));
+      const team = await w.owner(async (tx) =>
+        tx.appUser.findFirstOrThrow({ where: { id: ops.userId } }),
+      );
       const claimId = await w.insertClaim({
         organisationId: lab.organisationId,
         siteId: lab.siteId,
@@ -567,7 +593,13 @@ describe('lab claim reads', () => {
 
     it('answers 404 for an unknown id, a malformed id and an id of another kind of record', async () => {
       const claim = await w.reviewable();
-      for (const id of [randomUUID(), 'nope', claim.siteId, claim.organisationId, claim.claimant.id]) {
+      for (const id of [
+        randomUUID(),
+        'nope',
+        claim.siteId,
+        claim.organisationId,
+        claim.claimant.id,
+      ]) {
         expect(await w.refused(opsOne(ops, id))).toMatchObject({ code: 'NOT_FOUND', status: 404 });
       }
     });
@@ -576,14 +608,39 @@ describe('lab claim reads', () => {
       const claim = await w.reviewable();
       const lab = await w.lab({ onboarded: true });
       const siteIds = lab.sites.map((site) => site.id);
-      const checker = await w.actorOf(lab.checkers[0] ?? '', lab.organisationId, ['LAB_CHECKER'], 'LAB', siteIds);
-      const maker = await w.actorOf(lab.makers[0] ?? '', lab.organisationId, ['LAB_MAKER'], 'LAB', siteIds);
+      const checker = await w.actorOf(
+        lab.checkers[0] ?? '',
+        lab.organisationId,
+        ['LAB_CHECKER'],
+        'LAB',
+        siteIds,
+      );
+      const maker = await w.actorOf(
+        lab.makers[0] ?? '',
+        lab.organisationId,
+        ['LAB_MAKER'],
+        'LAB',
+        siteIds,
+      );
       const customer = await customerSession(await w.claimant());
-      for (const actor of [finance, steward, admin, checker, maker, customer, claim.claimant.actor]) {
+      for (const actor of [
+        finance,
+        steward,
+        admin,
+        checker,
+        maker,
+        customer,
+        claim.claimant.actor,
+      ]) {
         // The claimant's own actor has no organisation at all: refused before a context is chosen.
-        const call = actor === claim.claimant.actor
-          ? w.refused(w.as(actor, (tx) => getLabClaimForReview(tx, w.review, { actor, claimId: claim.claimId })))
-          : w.refused(opsOne(actor, claim.claimId));
+        const call =
+          actor === claim.claimant.actor
+            ? w.refused(
+                w.as(actor, (tx) =>
+                  getLabClaimForReview(tx, w.review, { actor, claimId: claim.claimId }),
+                ),
+              )
+            : w.refused(opsOne(actor, claim.claimId));
         expect(await call).toMatchObject({ code: 'FORBIDDEN', status: 403 });
         expect(await w.refused(opsList(actor))).toMatchObject({ code: 'FORBIDDEN' });
       }
@@ -600,7 +657,9 @@ describe('lab claim reads', () => {
     });
 
     it('adds the site and the claimant with a constant number of queries for a page of 50', async () => {
-      const claimants = await Promise.all(Array.from({ length: 5 }, (_, i) => w.claimant(`page-${String(i)}`)));
+      const claimants = await Promise.all(
+        Array.from({ length: 5 }, (_, i) => w.claimant(`page-${String(i)}`)),
+      );
       const labs = await Promise.all([w.lab(), w.lab(), w.lab()]);
       for (let i = 0; i < 52; i += 1) {
         const lab = labs[i % labs.length];
@@ -619,17 +678,30 @@ describe('lab claim reads', () => {
           const counting = new Proxy(tx, {
             get(target, property, receiver) {
               const value: unknown = Reflect.get(target, property, receiver);
-              if (typeof property === 'string' && property.startsWith('$query') && typeof value === 'function') {
+              if (
+                typeof property === 'string' &&
+                property.startsWith('$query') &&
+                typeof value === 'function'
+              ) {
                 return (...args: unknown[]) => {
                   queries += 1;
                   return (value as (...a: unknown[]) => unknown).apply(target, args);
                 };
               }
-              if (typeof property === 'string' && typeof value === 'object' && value !== null && !property.startsWith('$')) {
+              if (
+                typeof property === 'string' &&
+                typeof value === 'object' &&
+                value !== null &&
+                !property.startsWith('$')
+              ) {
                 return new Proxy(value, {
                   get(inner, name, innerReceiver) {
                     const fn: unknown = Reflect.get(inner, name, innerReceiver);
-                    if (typeof name === 'string' && /^(find|count|aggregate)/.test(name) && typeof fn === 'function') {
+                    if (
+                      typeof name === 'string' &&
+                      /^(find|count|aggregate)/.test(name) &&
+                      typeof fn === 'function'
+                    ) {
                       return (...args: unknown[]) => {
                         queries += 1;
                         return (fn as (...a: unknown[]) => unknown).apply(inner, args);
