@@ -116,7 +116,7 @@ export function defineSearchConformance(label: string, ctx: ConformanceContext):
       });
 
       it('takes %, _, \\, [, ( and .* as plain text: no error, nothing matched by accident', async () => {
-        for (const q of ['%', '_', '\\', '[', '(', '.*', '%%', 'a%', '_ _', '[a-z]', '\\d', '(((', '...', '*']) {
+        for (const q of ['%', '_', '\\', '[', '(', '.*', '%%', 'a%', '%%%%', '____', 'te%t', '%ens', '_ _', '[a-z]', '\\d', '(((', '...', '*']) {
           const page = await run({ q });
           expect(page.items, q).toEqual([]);
           expect(page.total, q).toBe(0);
