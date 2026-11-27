@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   type ClaimRecord,
   checkLetterhead,
-  LETTERHEAD_MAX_BYTES,
   MAX_RECORDS,
   readCertificate,
   readClaimCode,
@@ -105,13 +104,19 @@ describe('the letterhead limits', () => {
     for (const contentType of ['application/pdf', 'image/jpeg', 'image/png'])
       expect(checkLetterhead({ contentType, sizeBytes: 1000 }).ok).toBe(true);
     expect(
-      checkLetterhead({ contentType: 'application/pdf', sizeBytes: LETTERHEAD_MAX_BYTES }).ok,
+      checkLetterhead({ contentType: 'application/pdf', sizeBytes: 10 * 1024 * 1024 }).ok,
     ).toBe(true);
   });
 
-  it('refuses one byte over 10 MB, an empty file and other types', () => {
+  it('refuses a 50 MB file, one byte over 10 MB, an empty file and other types', () => {
     expect(
-      checkLetterhead({ contentType: 'application/pdf', sizeBytes: LETTERHEAD_MAX_BYTES + 1 }),
+      checkLetterhead({ contentType: 'application/pdf', sizeBytes: 50 * 1024 * 1024 }),
+    ).toEqual({
+      ok: false,
+      reason: 'size',
+    });
+    expect(
+      checkLetterhead({ contentType: 'application/pdf', sizeBytes: 10 * 1024 * 1024 + 1 }),
     ).toEqual({ ok: false, reason: 'size' });
     expect(checkLetterhead({ contentType: 'application/pdf', sizeBytes: 0 })).toEqual({
       ok: false,
