@@ -27,13 +27,21 @@ createServer(async (req, res) => {
   const headers = { ...req.headers };
   delete headers.host;
   delete headers.connection;
+  delete headers['content-length'];
+  delete headers['transfer-encoding'];
   const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const body = Buffer.concat(chunks);
   const upstream = await fetch(new URL(req.url ?? '/', TARGET), {
     method: req.method,
     headers,
     redirect: 'manual',
-    ...(hasBody ? { body: req, duplex: 'half' } : {}),
-  }).catch(() => null);
+    ...(hasBody ? { body } : {}),
+  }).catch((error) => {
+    console.log(`upstream failed: ${req.method} ${url.pathname} ${String(error)}`);
+    return null;
+  });
   if (upstream === null) {
     res.writeHead(502).end();
     return;
@@ -45,6 +53,8 @@ createServer(async (req, res) => {
   }
   const cookies = upstream.headers.getSetCookie();
   if (cookies.length > 0) out['set-cookie'] = cookies;
+  if ((process.env.LOG === '1' && upstream.status >= 400) || process.env.LOG === 'all')
+    console.log(`${req.method} ${url.pathname} -> ${upstream.status}`);
   res.writeHead(upstream.status, out);
   res.end(Buffer.from(await upstream.arrayBuffer()));
 }).listen(PORT, () => console.log(`fault proxy on ${PORT} -> ${TARGET}`));

@@ -343,7 +343,6 @@ const noPersonalData = (browser, label) => {
   );
 };
 
-
 // ====================================================================================================
 const customer = new Browser('customer');
 const ops = new Browser('ops');
@@ -351,12 +350,15 @@ const visitor = new Browser('visitor');
 const device2 = new Browser('customer, second device');
 const other = new Browser('another claimant');
 
+/** The page without its inline scripts (they carry build and render ids that differ per request). */
+const stripScripts = (html) => html.replaceAll(/<script[\s\S]*?<\/script>/g, '');
 const maskedPattern = /\b\w\*\*\*@\*\*\*\.\w+/;
 const claimantName = psql(`select full_name from app_user where email='${CUSTOMER}'`);
 const customerLocal = CUSTOMER.split('@')[0];
 
 /** The lab's name as a claim page shows it (the card under the heading). */
-const labNameOf = (html) => /<p class="break-words font-medium">([^<]*)<\/p>/.exec(html)?.[1] ?? null;
+const labNameOf = (html) =>
+  /<p class="break-words font-medium">([^<]*)<\/p>/.exec(html)?.[1] ?? null;
 const reasonOf = (html) => /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/.exec(html)?.[1] ?? null;
 
 step('A. signed-out visitor, return page, access denied');
@@ -414,7 +416,10 @@ let formB1;
 let formB2;
 {
   // A browser that used the earlier build still holds its claims cookie: the server deletes it.
-  customer.cookies.set('lc_claims', { value: '%7B%22u%22%3A%22x%22%2C%22c%22%3A%5B%5D%7D', path: '/lab' });
+  customer.cookies.set('lc_claims', {
+    value: '%7B%22u%22%3A%22x%22%2C%22c%22%3A%5B%5D%7D',
+    path: '/lab',
+  });
   const swept = await customer.go('GET', '/lab/claim');
   check(
     customer.redirects.some((l) => l.startsWith('/lab/claim/forget-old-copy')) &&
@@ -424,8 +429,10 @@ let formB2;
     `${swept.url} cookies=${[...customer.cookies.keys()].join(',')}`,
   );
   check(
-    customer.cookieLines.some((l) => /^lc_claims=;/.test(l) && /path=\/lab/i.test(l) && /max-age=0/i.test(l)),
-    'the deletion carries the cookie\'s path and an immediate expiry',
+    customer.cookieLines.some(
+      (l) => /^lc_claims=;/.test(l) && /path=\/lab/i.test(l) && /max-age=0/i.test(l),
+    ),
+    "the deletion carries the cookie's path and an immediate expiry",
     customer.cookieLines.filter((l) => l.startsWith('lc_claims')).join(' | '),
   );
   const hostile = await customer.raw('GET', '/lab/claim/forget-old-copy?to=https://evil.example/');
@@ -466,7 +473,7 @@ let formB2;
   check(
     /^\/lab\/claim\/[0-9a-f-]{36}$/.test(pathA),
     "starting a claim leaves the form for the claim's own page (reload-safe)",
-    started.url,
+    `${started.url} ${textOf(started.html).slice(0, 600)}`,
   );
   labNameA = labNameOf(started.html);
   const text = textOf(started.html);
@@ -476,7 +483,9 @@ let formB2;
     String(labNameA),
   );
   check(
-    /We sent a 6-digit code to the email NABL has on record for this lab: \S+\*\*\*@\*\*\*\.\S+/.test(text),
+    /We sent a 6-digit code to the email NABL has on record for this lab: \S+\*\*\*@\*\*\*\.\S+/.test(
+      text,
+    ),
     'the code step shows the address exactly as the API masked it',
     text.slice(text.indexOf('We sent'), text.indexOf('We sent') + 120),
   );
@@ -503,7 +512,10 @@ let formB2;
     'a stale If-Match reloads the claim from the API and says "this claim changed"',
     `${stale.url} ${textOf(stale.html).slice(0, 160)}`,
   );
-  check(!/<button[^>]*value="reload"/.test(stale.html), 'there is no "restart the claim" button any more');
+  check(
+    !/<button[^>]*value="reload"/.test(stale.html),
+    'there is no "restart the claim" button any more',
+  );
 
   // A new code needs the certificate number again (the claim does not record it, OQ-266).
   const resendForm = formWith(stale.html, stale.url, 'Need a new code');
@@ -520,10 +532,14 @@ let formB2;
     textOf(wrongCert.html).includes("couldn't find a lab with this certificate"),
     'a new code for an unknown certificate says no lab was found',
   );
-  const resent = await submit(customer, formWith(wrongCert.html, wrongCert.url, 'Need a new code'), {
-    set: { certificateNo: CERT_A },
-    button: 'resend',
-  });
+  const resent = await submit(
+    customer,
+    formWith(wrongCert.html, wrongCert.url, 'Need a new code'),
+    {
+      set: { certificateNo: CERT_A },
+      button: 'resend',
+    },
+  );
   check(
     textOf(resent.html).includes('We sent a new code') && new URL(resent.url).pathname === pathA,
     'a new code for the same certificate stays on the same claim',
@@ -543,7 +559,10 @@ let formB2;
   formB1 = formWith(tab1.html, tab1.url, 'Verify and claim');
   formB2 = formWith(tab2.html, tab2.url, 'Verify and claim');
   const first = await submit(customer, formB1, { set: { code: CODE }, button: 'verify' });
-  check(textOf(first.html).includes('In review'), 'two tabs: the first code moves the claim to "In review"');
+  check(
+    textOf(first.html).includes('In review'),
+    'two tabs: the first code moves the claim to "In review"',
+  );
   const second = await submit(customer, formB2, { set: { code: CODE }, button: 'verify' });
   check(
     second.url.includes('?n=moved') &&
@@ -596,7 +615,7 @@ let formB2;
   check(
     [idA, idB, idC].every((id) => list.html.includes(`/lab/claim/${id}`)) &&
       (listText.match(/In review/g) ?? []).length >= 3,
-    'the claimant\'s list (from listMyLabClaims) shows the three claims, all in review',
+    "the claimant's list (from listMyLabClaims) shows the three claims, all in review",
   );
 }
 
@@ -634,13 +653,19 @@ let opsKey;
     "the Ops list shows the claimant's name",
     String(claimantName),
   );
-  check(maskedPattern.test(t), "the Ops list shows the claimant's address masked, as the API gives it");
+  check(
+    maskedPattern.test(t),
+    "the Ops list shows the claimant's address masked, as the API gives it",
+  );
   check(
     !t.includes(customerLocal) && !list.html.includes(CUSTOMER),
     "the claimant's full address is not in the Ops list",
   );
-  check(/Also in: Customer/.test(t), 'the Ops list shows the other organisations of the claimant by type');
-  check(/\b[A-Z]{2}\b/.test(t), 'the Ops list shows the lab\'s state code');
+  check(
+    /Also in: Customer/.test(t),
+    'the Ops list shows the other organisations of the claimant by type',
+  );
+  check(/\b[A-Z]{2}\b/.test(t), "the Ops list shows the lab's state code");
   check(!/Reference|requestedByUserId/.test(list.html), 'no reference code stands in for a name');
   check(/IST/.test(t), 'times are shown with IST');
   check(/no-store/.test(list.headers.get('cache-control') ?? ''), 'the Ops list is no-store');
@@ -663,8 +688,7 @@ let opsKey;
   );
   const own = await ops.go('GET', '/lab/claim');
   check(
-    textOf(own.html).includes("Platform staff can't claim a lab") &&
-      !/Find my lab/.test(own.html),
+    textOf(own.html).includes("Platform staff can't claim a lab") && !/Find my lab/.test(own.html),
     'an Ops user who opens the claim page is told staff cannot claim',
   );
   const staffRead = await ops.go('GET', pathA);
@@ -690,7 +714,10 @@ let opsKey;
     /Also belongs to\s*Customer/.test(dt) && !/Approval will be refused/.test(dt),
     'a claimant who only belongs to a customer organisation has no "approval will be refused" note',
   );
-  check(!/Reference|Claimant \(reference\)/.test(dt), 'the detail has no reference where the name is');
+  check(
+    !/Reference|Claimant \(reference\)/.test(dt),
+    'the detail has no reference where the name is',
+  );
   check(
     !detail.html.includes(CUSTOMER) && !dt.includes(customerLocal),
     "the claimant's full address is not in the Ops detail",
@@ -782,10 +809,14 @@ let opsKey;
     'the claimant sees "Rejected" with the reason Ops wrote, and the way to start again',
     textOf(cRead.html).slice(0, 300),
   );
-  check(!/<form/.test(cRead.html.replace(/<nav[\s\S]*?<\/nav>/g, '')) || !/Verify and claim/.test(cRead.html), 'a rejected claim has no code form');
+  check(
+    !/<form/.test(cRead.html.replace(/<nav[\s\S]*?<\/nav>/g, '')) ||
+      !/Verify and claim/.test(cRead.html),
+    'a rejected claim has no code form',
+  );
   check(
     textOf((await customer.go('GET', '/lab/claim')).html).includes('Rejected'),
-    'the claimant\'s list shows the claim as Rejected',
+    "the claimant's list shows the claim as Rejected",
   );
 
   step('C3. a second device (a fresh cookie jar) sees the same claims');
@@ -805,7 +836,7 @@ let opsKey;
     'the second device reads the same rejection reason',
   );
 
-  step('C4. a claimant who has no membership; another user\'s claim id');
+  step("C4. a claimant who has no membership; another user's claim id");
   const otherCode = await signInUntilCode(other, OTHER_CLAIMANT, `${WEB}/lab/claim`);
   const o1 = await other.go('GET', '/lab/claim');
   check(
@@ -819,17 +850,21 @@ let opsKey;
     check(
       textOf(foreign.html).includes("We can't find this claim") &&
         !(labNameA !== null && textOf(foreign.html).includes(labNameA)),
-      "another user's claim id typed into the address is \"we can't find this claim\"",
+      'another user\'s claim id typed into the address is "we can\'t find this claim"',
     );
   }
   const unknownClaim = await other.go('GET', '/lab/claim/00000000-0000-7000-8000-000000000000');
   const foreign404 = await other.go('GET', `/lab/claim/${idA}`);
   check(
-    textOf(unknownClaim.html) === textOf(foreign404.html),
+    stripScripts(unknownClaim.html) === stripScripts(foreign404.html),
     "an id that never existed and another user's id give the same page, word for word",
+    `${textOf(stripScripts(unknownClaim.html)).slice(-300)} <> ${textOf(stripScripts(foreign404.html)).slice(-300)}`,
   );
   const notUuid = await other.go('GET', '/lab/claim/not-an-id');
-  check(textOf(notUuid.html).includes("We can't find this claim"), 'a malformed claim id is "we can\'t find this claim"');
+  check(
+    textOf(notUuid.html).includes("We can't find this claim"),
+    'a malformed claim id is "we can\'t find this claim"',
+  );
   // A form of the other claimant's own claim, with the claim id changed to the customer's claim:
   // the API answers 404 (not theirs) and the page is "we can't find this claim".
   const startE = await other.go('GET', '/lab/claim');
@@ -849,10 +884,7 @@ let opsKey;
     `${forged.url} ${textOf(forged.html).slice(0, 160)}`,
   );
   const afterForged = await customer.go('GET', `/lab/claim/${idB}`);
-  check(
-    textOf(afterForged.html).includes('In review'),
-    "...and that claim is unchanged",
-  );
+  check(textOf(afterForged.html).includes('In review'), '...and that claim is unchanged');
 
   step('C5. Ops: a decision made while another Ops user still has the form open');
   const startD = await customer.go('GET', '/lab/claim');
@@ -872,14 +904,21 @@ let opsKey;
     `${WEB}/admin/claims/${idD}?decide=approve`,
     'Approve claim',
   );
-  const longTail = 'x'.repeat(2000 - '<b>bold</b> & <img src=x onerror=alert(1)>\nSee https://example.test/a?b=1&c=2\n'.length);
+  const longTail = 'x'.repeat(
+    2000 -
+      '<b>bold</b> & <img src=x onerror=alert(1)>\nSee https://example.test/a?b=1&c=2\n'.length,
+  );
   const hostileNotes = `<b>bold</b> & <img src=x onerror=alert(1)>\nSee https://example.test/a?b=1&c=2\n${longTail}`;
   const rejectD = await ops.go('GET', `/admin/claims/${idD}?decide=reject`);
   const rejectedD = await submit(ops, formWith(rejectD.html, rejectD.url, 'Reject claim'), {
     set: { reason: 'other', notes: hostileNotes },
     button: 'Reject claim',
   });
-  check(rejectedD.url.includes('decided=rejected'), 'Ops B rejects the claim with 2,000 characters of HTML-like text');
+  check(
+    rejectedD.url.includes('decided=rejected'),
+    'Ops B rejects the claim with 2,000 characters of HTML-like text',
+    `${rejectedD.url} ${textOf(rejectedD.html).slice(0, 500)}`,
+  );
   const lateApprove = await submit(ops, opsAForm, { button: 'Approve claim' });
   check(
     /isn't waiting for a decision any more/.test(textOf(lateApprove.html)) &&
@@ -907,11 +946,14 @@ let opsKey;
     `${decode(reasonHtml).length} characters`,
   );
   check(
-    /\n/.test(decode(reasonHtml)) && /whitespace-pre-wrap/.test(dRead.html) && /break-words/.test(dRead.html),
+    /\n/.test(decode(reasonHtml)) &&
+      /whitespace-pre-wrap/.test(dRead.html) &&
+      /break-words/.test(dRead.html),
     'the line breaks of the reason are kept and a long line wraps',
   );
   check(
-    decode(reasonHtml).includes('https://example.test/a?b=1&c=2') && !/<a [^>]*example\.test/.test(dRead.html),
+    decode(reasonHtml).includes('https://example.test/a?b=1&c=2') &&
+      !/<a [^>]*example\.test/.test(dRead.html),
     'a link in the reason stays text (not a link)',
   );
 
@@ -969,7 +1011,7 @@ let opsKey;
   check(
     /This claim can't be approved/.test(textOf(bApprove.html)) &&
       !bApprove.url.includes('decided=approved'),
-    "pressing approve anyway is refused by the API and the screen says why",
+    'pressing approve anyway is refused by the API and the screen says why',
     textOf(bApprove.html).slice(0, 200),
   );
 }
@@ -1021,7 +1063,7 @@ step('D. the claimant after approval');
   const asChecker = await customer.go('GET', pathA);
   check(
     textOf(asChecker.html).includes('Approved') && textOf(asChecker.html).includes(labNameA ?? '?'),
-    'the claimant, now the lab\'s Checker, still reads the old claim as Approved',
+    "the claimant, now the lab's Checker, still reads the old claim as Approved",
   );
   const denied = await customer.go('GET', '/admin/claims');
   check(
@@ -1053,7 +1095,9 @@ step('E. a list longer than one page');
     console.log('   (skipped: no docker, so no way to seed 30 extra claims)');
   } else {
     const first = await customer.go('GET', '/lab/claim');
-    const firstIds = [...first.html.matchAll(/href="\/lab\/claim\/([0-9a-f-]{36})"/g)].map((m) => m[1]);
+    const firstIds = [...first.html.matchAll(/href="\/lab\/claim\/([0-9a-f-]{36})"/g)].map(
+      (m) => m[1],
+    );
     const older = /href="(\/lab\/claim\?cursor=[^"]+)"/.exec(first.html)?.[1];
     check(
       firstIds.length === 25 && older !== undefined,
@@ -1061,7 +1105,9 @@ step('E. a list longer than one page');
       `${firstIds.length} claims, link ${String(older)}`,
     );
     const nextPage = await customer.go('GET', decode(older ?? '/lab/claim'));
-    const nextIds = [...nextPage.html.matchAll(/href="\/lab\/claim\/([0-9a-f-]{36})"/g)].map((m) => m[1]);
+    const nextIds = [...nextPage.html.matchAll(/href="\/lab\/claim\/([0-9a-f-]{36})"/g)].map(
+      (m) => m[1],
+    );
     check(
       nextIds.length > 0 &&
         nextIds.every((id) => !firstIds.includes(id)) &&
@@ -1079,6 +1125,7 @@ step('E. a list longer than one page');
       textOf(tampered.html).includes("That page of your claims isn't available") &&
         !textOf(tampered.html).includes("You haven't started a claim yet"),
       'a cursor that cannot be read says so (not "no claims")',
+      textOf(tampered.html).slice(-500),
     );
   }
 }
@@ -1088,7 +1135,11 @@ step('F. no claims cookie of this build; no full address anywhere');
   const setNow = [customer, ops, device2, other, visitor].flatMap((b) =>
     b.cookieLines.filter((l) => l.startsWith('lc_claims=') && !/^lc_claims=;/.test(l)),
   );
-  check(setNow.length === 0, 'no response of the whole walk set an lc_claims cookie', setNow.join(' | '));
+  check(
+    setNow.length === 0,
+    'no response of the whole walk set an lc_claims cookie',
+    setNow.join(' | '),
+  );
   const leaks = [];
   for (const b of [ops, customer, device2, other]) {
     for (const entry of b.log) {
@@ -1107,7 +1158,8 @@ step('F. no claims cookie of this build; no full address anywhere');
   for (const b of [ops, customer, device2, other])
     for (const entry of b.log)
       if (entry.path.startsWith('/admin') || entry.path.startsWith('/lab'))
-        for (const m of decode(entry.html).matchAll(/[A-Za-z0-9._*+-]+@[A-Za-z0-9.*-]+/g)) emails.add(m[0]);
+        for (const m of decode(entry.html).matchAll(/[A-Za-z0-9._*+-]+@[A-Za-z0-9.*-]+/g))
+          emails.add(m[0]);
   const full = [...emails].filter((address) => !address.includes('***'));
   check(
     full.length === 0,
@@ -1117,7 +1169,9 @@ step('F. no claims cookie of this build; no full address anywhere');
 }
 
 if (FAULT_URL !== undefined) {
-  step('G. the API answers 503 on the claim reads: the pages say so (not "no claims", not "not found")');
+  step(
+    'G. the API answers 503 on the claim reads: the pages say so (not "no claims", not "not found")',
+  );
   const toggle = (on) => fetch(`${FAULT_URL}/__fail?on=${on ? '1' : '0'}`).then((r) => r.text());
   await toggle(true);
   try {
@@ -1127,7 +1181,7 @@ if (FAULT_URL !== undefined) {
       lt.includes("We can't show your claims right now") &&
         !lt.includes("You haven't started a claim yet"),
       'the claim list says the service did not answer, and not "no claims"',
-      lt.slice(0, 240),
+      lt.slice(-500),
     );
     check(
       list.html.includes('Find my lab'),
@@ -1155,7 +1209,12 @@ if (FAULT_URL !== undefined) {
     await toggle(false);
   }
   const back = await customer.go('GET', '/lab/claim');
-  check(textOf(back.html).includes('Your claims') && !textOf(back.html).includes("We can't show your claims"), 'the list is back when the service answers again');
+  check(
+    textOf(back.html).includes('Your claims') &&
+      !textOf(back.html).includes("We can't show your claims"),
+    'the list is back when the service answers again',
+    textOf(back.html).slice(-500),
+  );
 }
 
 console.log(

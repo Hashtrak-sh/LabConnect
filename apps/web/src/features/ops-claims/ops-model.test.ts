@@ -7,6 +7,7 @@ import {
   decisionOutcome,
   downloadOutcome,
   isFollowableUrl,
+  lineBreaks,
   readRejectReason,
   readStatusFilter,
   rejectionNotes,
@@ -127,5 +128,16 @@ describe('what the claim already says about the approval', () => {
   it('writes the certificate numbers as one line, or nothing', () => {
     expect(certificateNumbers(['TC-1', 'TC-2'])).toBe('TC-1, TC-2');
     expect(certificateNumbers([])).toBeNull();
+  });
+});
+
+describe('line breaks in notes', () => {
+  it('counts the CRLF a browser sends as one character, so 2,000 characters with breaks fit', () => {
+    const typed = `a\r\nb\r\n${'x'.repeat(1996)}`;
+    expect(typed.length).toBe(2000 + 2);
+    expect(lineBreaks(typed)).toBe(`a\nb\n${'x'.repeat(1996)}`);
+    expect(rejectionNotes(null, typed).ok).toBe(true);
+    expect(rejectionNotes(null, `${typed}y`).ok).toBe(false);
+    expect(approvalNotes(typed)).toBe(lineBreaks(typed));
   });
 });

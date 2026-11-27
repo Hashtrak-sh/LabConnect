@@ -142,6 +142,15 @@ export function readRejectReason(raw: unknown): RejectReason | null {
 const MAX_NOTES = 2000;
 
 /**
+ * A browser sends the line breaks of a text area as CRLF, while its `maxlength` counts each as
+ * one character: a reason of 2,000 characters with line breaks would be refused as too long. The
+ * notes are measured, stored and shown with plain line feeds.
+ */
+export function lineBreaks(text: string): string {
+  return text.replaceAll('\r\n', '\n');
+}
+
+/**
  * The text sent as `decisionNotes`: the chosen reason (its text, unless "other") written at the
  * start, then the notes (J9: "Reason list has no contract field: written at the start of
  * decisionNotes"). Notes are required and not blank; the total is at most 2000 characters.
@@ -150,7 +159,7 @@ export function rejectionNotes(
   reasonText: string | null,
   rawNotes: unknown,
 ): { ok: true; value: string } | { ok: false; reason: 'notes-required' | 'too-long' } {
-  const notes = typeof rawNotes === 'string' ? rawNotes.trim() : '';
+  const notes = typeof rawNotes === 'string' ? lineBreaks(rawNotes).trim() : '';
   if (notes === '') return { ok: false, reason: 'notes-required' };
   const value = reasonText === null ? notes : `${reasonText}: ${notes}`;
   return value.length > MAX_NOTES ? { ok: false, reason: 'too-long' } : { ok: true, value };
@@ -159,7 +168,7 @@ export function rejectionNotes(
 /** A decision's optional notes on approval: trimmed, at most 2000 characters, or `undefined`. */
 export function approvalNotes(raw: unknown): string | undefined | null {
   if (typeof raw !== 'string') return undefined;
-  const notes = raw.trim();
+  const notes = lineBreaks(raw).trim();
   if (notes === '') return undefined;
   return notes.length > MAX_NOTES ? null : notes;
 }
