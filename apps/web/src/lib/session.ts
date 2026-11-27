@@ -34,7 +34,7 @@ export function cookieOptions(maxAgeSeconds: number): CookieOptions {
   return {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: secureCookies(),
     path: '/',
     maxAge: Math.max(0, Math.floor(maxAgeSeconds)),
   };
@@ -100,13 +100,34 @@ export function apiRefreshCookieHeader(value: string): string {
  */
 export function safeReturnPath(candidate: string | undefined | null): string {
   if (candidate === undefined || candidate === null) return '/';
-  if (!candidate.startsWith('/') || candidate.startsWith('//') || candidate.startsWith('/\\'))
-    return '/';
+  if (!candidate.startsWith('/') || candidate.startsWith('//')) return '/';
+  // Browsers drop tabs and newlines from a URL and read `\` as `/`, so `/\t/evil` or `/\evil`
+  // could become `//evil`. Any backslash or control character anywhere is refused.
+  // eslint-disable-next-line no-control-regex -- refusing control characters is the point
+  if (/[\\\u0000-\u001f\u007f]/.test(candidate)) return '/';
   if (candidate.startsWith('/sign-in') || candidate.startsWith('/api/')) return '/';
   return candidate.slice(0, 500);
 }
 
 /** The origin the API checks on `/auth/refresh` (AUTH_ALLOWED_ORIGINS). */
-export function webOrigin(): string {
-  return process.env.WEB_BASE_URL ?? 'http://localhost:3000';
+export function webOrigin(env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.WEB_BASE_URL?.trim();
+  if (configured !== undefined && configured !== '') return configured.replace(/\/+$/, '');
+  // A deployed build without it would send the wrong Origin, and the API would refuse every
+  // refresh: users would be signed out after ten minutes with nothing pointing at the cause.
+  if (env.NODE_ENV === 'production') {
+    throw new Error(
+      'WEB_BASE_URL is not set. Set it to the public origin of the web app, e.g. https://uat.example.in.',
+    );
+  }
+  return 'http://localhost:3000';
+}
+
+/**
+ * Whether cookies are `Secure`: when the public site is HTTPS (`WEB_BASE_URL`). Not from
+ * `NODE_ENV`: a production build served over plain HTTP (a first UAT without a domain, or
+ * `next start` on localhost) would set cookies the browser drops, and nobody could sign in.
+ */
+export function secureCookies(origin: string = webOrigin()): boolean {
+  return origin.startsWith('https://');
 }
