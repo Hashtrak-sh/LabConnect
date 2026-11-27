@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { accessTokenExpiry, needsRefresh, readApiRefreshCookie, safeReturnPath } from './session';
+import {
+  accessTokenExpiry,
+  needsRefresh,
+  readApiRefreshCookie,
+  safeReturnPath,
+  secureCookies,
+  webOrigin,
+} from './session';
 
 function token(claims: object): string {
   const part = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -34,5 +41,24 @@ describe('web session helpers', () => {
     expect(safeReturnPath('//evil.example')).toBe('/');
     expect(safeReturnPath('/sign-in')).toBe('/');
     expect(safeReturnPath(undefined)).toBe('/');
+    // Browsers drop tabs and newlines and read `\` as `/`: none of these may come back.
+    expect(safeReturnPath('/\\evil.example')).toBe('/');
+    expect(safeReturnPath('/\t/evil.example')).toBe('/');
+    expect(safeReturnPath('/labs\\abc')).toBe('/');
+    expect(safeReturnPath('/search\n')).toBe('/');
+  });
+
+  it('marks cookies Secure only when the public site is HTTPS', () => {
+    expect(secureCookies('https://uat.labconnect.example')).toBe(true);
+    expect(secureCookies('http://13.200.1.2')).toBe(false);
+    expect(secureCookies('http://localhost:3000')).toBe(false);
+  });
+
+  it('needs WEB_BASE_URL in a production build, and defaults to localhost only in development', () => {
+    expect(webOrigin({ NODE_ENV: 'production', WEB_BASE_URL: 'https://uat.example.in/' })).toBe(
+      'https://uat.example.in',
+    );
+    expect(() => webOrigin({ NODE_ENV: 'production' })).toThrow(/WEB_BASE_URL is not set/);
+    expect(webOrigin({ NODE_ENV: 'development' })).toBe('http://localhost:3000');
   });
 });
