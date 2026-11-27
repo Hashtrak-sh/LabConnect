@@ -30,6 +30,11 @@ export function configureApp(app: INestApplication): void {
   if (Number.isInteger(proxies) && proxies > 0) {
     (app as NestExpressApplication).set('trust proxy', proxies);
   }
+  // API_CONVENTIONS §4: an `ETag` is the aggregate's lock version, `"<lockVersion>"`, set by the
+  // handler, and goes back in `If-Match`. Express would otherwise add its own weak hash
+  // (`W/"…"`) to every response without one, for example a replayed idempotent answer, which
+  // the handler does not run for (OQ-200): a client sending that back would get a 400.
+  (app as NestExpressApplication).set('etag', false);
   // API_CONVENTIONS §4: X-Request-Id echoed or generated on every response, 404s included.
   // Registered first so it runs before routing and body parsing.
   app.use(requestContextMiddleware);

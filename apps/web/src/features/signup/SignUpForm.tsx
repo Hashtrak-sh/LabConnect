@@ -69,7 +69,14 @@ function errorText(text: SignUpText, error: SignUpFieldError | undefined, value:
  * organisation, then the details, then "Your account is ready". Steps 5 (default site) and 6
  * (invite people) come with the site and invitation APIs (I2-CUS-03, I2-CUS-04).
  */
-export function SignUpForm({ text }: { text: SignUpText }) {
+export function SignUpForm({
+  text,
+  idempotencyKey,
+}: {
+  text: SignUpText;
+  /** The first `Idempotency-Key`, made on the server (the browser has no UUID source over plain HTTP). */
+  idempotencyKey: string;
+}) {
   const [state, action, pending] = useActionState<SignUpState, FormData>(createOrganisationAction, {
     status: 'editing',
   });
@@ -181,6 +188,7 @@ export function SignUpForm({ text }: { text: SignUpText }) {
       noValidate
     >
       <SignUpProgress text={text} step={4} />
+      <input type="hidden" name="idempotencyKey" value={state.idempotencyKey ?? idempotencyKey} />
       <h2 className="text-xl font-semibold text-text">
         {individual ? text.personTitle : text.orgTitle}
       </h2>
