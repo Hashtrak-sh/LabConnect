@@ -181,28 +181,26 @@ async function clearOtherDefaults(
   });
 }
 
-interface Cursor {
-  n: string;
-  i: string;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The cursor holds only the id of the last site of the page: the position (its name and id) is
+ * looked up again, so no site name travels in a URL (CLAUDE.md §5: a site name can be personal).
+ */
+function encodeCursor(siteId: string): string {
+  return Buffer.from(JSON.stringify({ i: siteId }), 'utf8').toString('base64url');
 }
 
-function encodeCursor(cursor: Cursor): string {
-  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
-}
-
-function decodeCursor(raw: string): Cursor {
+function decodeCursor(raw: string): string {
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')) as Partial<Cursor>;
-    if (
-      typeof parsed.n === 'string' &&
-      typeof parsed.i === 'string' &&
-      /^[0-9a-f-]{36}$/i.test(parsed.i)
-    ) {
-      return { n: parsed.n, i: parsed.i };
-    }
+    parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
   } catch {
-    // Reported below.
+    parsed = undefined;
   }
+  const id =
+    typeof parsed === 'object' && parsed !== null ? (parsed as { i?: unknown }).i : undefined;
+  if (typeof id === 'string' && UUID.test(id)) return id.toLowerCase();
   throw new CustomerSiteError('VALIDATION_FAILED', { detail: 'The cursor cannot be read.' });
 }
 
@@ -228,7 +226,11 @@ export async function listCustomerSites(
   const cursorFilter =
     after === undefined
       ? Prisma.empty
-      : Prisma.sql`AND (name, id) > (${after.n}, ${after.i}::uuid)`;
+      : // The cursor's site, looked up in this organisation only: another organisation's id
+        // matches no row, the comparison is NULL and the page is empty.
+        Prisma.sql`AND (name, id) > (SELECT c.name, c.id FROM customer_site c
+                                         WHERE c.id = ${after}::uuid
+                                           AND c.organisation_id = ${input.organisationId}::uuid)`;
   const rows = await tx.$queryRaw<SiteRow[]>(Prisma.sql`
     SELECT ${SITE_COLUMNS} FROM customer_site
      WHERE organisation_id = ${input.organisationId}::uuid ${statusFilter} ${cursorFilter}
@@ -239,10 +241,7 @@ export async function listCustomerSites(
   return {
     data: page.map(toView),
     page: {
-      nextCursor:
-        rows.length > limit && last !== undefined
-          ? encodeCursor({ n: last.name, i: last.id })
-          : null,
+      nextCursor: rows.length > limit && last !== undefined ? encodeCursor(last.id) : null,
       limit,
     },
   };
@@ -331,6 +330,9 @@ export async function updateCustomerSite(
   },
 ): Promise<UpdateCustomerSiteResult> {
   const { changes, organisationId, siteId } = input;
+  // Every update takes the organisation's settings-row lock first, before any site row: the same
+  // order as create, so a retire racing a new default cannot deadlock.
+  await lockOrganisationSites(tx, organisationId);
   const before = await readSite(tx, organisationId, siteId);
   if (before === null) return { ok: false, reason: 'NOT_FOUND' };
   if (before.lockVersion !== input.ifMatch) return { ok: false, reason: 'CONCURRENT_MODIFICATION' };
@@ -341,11 +343,9 @@ export async function updateCustomerSite(
   }
   const isDefaultBilling =
     status === 'ACTIVE' ? (changes.isDefaultBilling ?? before.isDefaultBilling) : false;
-  if (isDefaultBilling && !before.isDefaultBilling) {
-    await lockOrganisationSites(tx, organisationId);
-    await clearOtherDefaults(tx, organisationId, siteId);
-  }
 
+  // The guarded update comes first, and nothing else is written before it succeeds: a refused
+  // update is returned (not thrown), so the transaction commits whatever ran before it.
   const updated = await tx.customerSite.updateMany({
     where: { id: siteId, organisationId, lockVersion: input.ifMatch },
     data: {
@@ -365,6 +365,9 @@ export async function updateCustomerSite(
     },
   });
   if (updated.count === 0) return { ok: false, reason: 'CONCURRENT_MODIFICATION' };
+  if (isDefaultBilling && !before.isDefaultBilling) {
+    await clearOtherDefaults(tx, organisationId, siteId);
+  }
   if (changes.address !== undefined) {
     await tx.$executeRaw`UPDATE customer_site SET geo_point = NULL WHERE id = ${siteId}::uuid AND organisation_id = ${organisationId}::uuid`;
   }

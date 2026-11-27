@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { formatEtag, parseIfMatch } from '../../common/etag.js';
+import { Idempotent } from '../../common/idempotency.interceptor.js';
 import { Authorised } from '../identity/authorised.decorator.js';
 import { requestMeta } from '../identity/auth.controller.js';
 import { CurrentActor } from '../identity/current-actor.js';
@@ -36,7 +37,9 @@ import {
  * permission for their own users, and the service refuses them with 403. The request is checked
  * before the role, so a malformed one is 422 for everybody.
  *
- * `Idempotency-Key` is required by the contract on create and not yet honoured (OQ-87).
+ * `Idempotency-Key` is honoured on create (`@Idempotent()`): a repeat with the same key gets the stored
+ * 201, so a double submit of the site form is one site. A replay carries no `ETag` (OQ-200); the
+ * body's `lockVersion` holds the same value.
  */
 @Controller('customer/sites')
 export class CustomerSitesController {
@@ -60,7 +63,7 @@ export class CustomerSitesController {
   @Post()
   @HttpCode(201)
   @Authorised({ permission: 'org_user.manage' })
-  // TODO(I1-SHR-01): put the shared idempotency decorator here (OQ-87).
+  @Idempotent()
   async createCustomerSite(
     @Body() body: unknown,
     @CurrentActor() actor: CurrentActor,
