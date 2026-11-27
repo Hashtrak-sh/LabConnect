@@ -1,0 +1,3 @@
+# LOCAL VERIFICATION ONLY: a certificate from Caddy's own CA, trusted by nobody. make-env.sh
+# --local and check-env.sh refuse this mode for any domain that does not end in .localhost.
+tls internal

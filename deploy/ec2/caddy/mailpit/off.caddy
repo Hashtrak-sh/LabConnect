@@ -1,0 +1,4 @@
+# Gate off: Mailpit holds every e-mail the server sends, so it keeps its own password.
+basic_auth bcrypt "LabConnect mail" {
+	{$MAILPIT_USER} {$MAILPIT_PASSWORD_HASH}
+}
