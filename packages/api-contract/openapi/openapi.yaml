@@ -221,6 +221,8 @@ paths:
   # §6 Lab
   /lab/claims:
     $ref: './paths/lab-onboarding.yaml#/claims'
+  /lab/claims/{id}:
+    $ref: './paths/lab-onboarding.yaml#/claim'
   /lab/claims/{id}/verify-otp:
     $ref: './paths/lab-onboarding.yaml#/claim-verify-otp'
   /lab/claims/{id}/manual/upload-url:
@@ -349,6 +351,8 @@ paths:
     $ref: './paths/admin-operations.yaml#/booking-cancel'
   /admin/claims:
     $ref: './paths/admin-onboarding.yaml#/claims'
+  /admin/claims/{id}:
+    $ref: './paths/admin-onboarding.yaml#/claim'
   /admin/claims/{id}/approve:
     $ref: './paths/admin-onboarding.yaml#/claim-approve'
   /admin/claims/{id}/reject:
@@ -964,6 +968,8 @@ components:
       $ref: './components/schemas/lab-onboarding.yaml#/LabClaimManual'
     LabClaim:
       $ref: './components/schemas/lab-onboarding.yaml#/LabClaim'
+    LabClaimList:
+      $ref: './components/schemas/lab-onboarding.yaml#/LabClaimList'
     LabKycDocumentCreate:
       $ref: './components/schemas/lab-onboarding.yaml#/LabKycDocumentCreate'
     LabKycDocument:
@@ -1214,6 +1220,10 @@ components:
     AdminDisputeDecisionRequest:
       $ref: './components/schemas/admin-operations.yaml#/AdminDisputeDecisionRequest'
     # §10 Admin: onboarding: components/schemas/admin-onboarding.yaml
+    AdminClaimLabSite:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminClaimLabSite'
+    AdminClaimClaimant:
+      $ref: './components/schemas/admin-onboarding.yaml#/AdminClaimClaimant'
     AdminLabClaim:
       $ref: './components/schemas/admin-onboarding.yaml#/AdminLabClaim'
     AdminLabClaimList:

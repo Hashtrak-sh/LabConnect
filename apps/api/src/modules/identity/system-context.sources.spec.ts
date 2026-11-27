@@ -59,7 +59,12 @@ describe('who may open the system database context', () => {
       // the letterhead `file_object` has no owning organisation (owner_org_id NULL), so its row
       // policy lets only the platform or the system insert and read it, and no tenant can reach it.
       // Every query is by claim + caller (+ uploader, purpose and file_link for the file). Two more.
-      'apps/api/src/modules/labs/lab-claims.service.ts': 4,
+      // Lab claim reads, `listMyLabClaims` and `getLabClaim` (I2-LAB): the claimant reads their own
+      // claim, which `lab_claim_request`'s policy (app_is_org) hides from a non-member, and the masked
+      // NABL address of `lab_site_private`. Read-only; every query carries requested_by_user_id =
+      // the caller (the system context bypasses the policies, so that filter is the only guard,
+      // tested by deliberately removing it). One call each. Two more.
+      'apps/api/src/modules/labs/lab-claims.service.ts': 6,
       // The gateway's server-to-server callback: no user, and no tenant until it is matched.
       'apps/api/src/modules/payments/payment-webhook.controller.ts': 1,
     });

@@ -24,6 +24,7 @@ export const KNOWN_ADMIN_DIFFERENCES: readonly string[] = [
   // 10). The handler refuses Finance with 403 before it reads the request, and the matrix test
   // expects that refusal (test/permissions/handler-refusals.ts).
   'GET /admin/claims',
+  'GET /admin/claims/{id}',
   'POST /admin/claims/{id}/approve',
   'POST /admin/claims/{id}/reject',
   'POST /admin/claims/{id}/letterhead/download-url',

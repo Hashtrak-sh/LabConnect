@@ -26,6 +26,9 @@ export interface Reference {
     taxonomyId: string;
     types: Record<'DISCIPLINE' | 'GROUP' | 'PRODUCT' | 'PARAMETER', string>;
   };
+  /** Id of the single VALUE node type of a flat taxonomy, for example `valueType('METHOD')`. */
+  valueType(taxonomy: string): string;
+  taxonomyId(taxonomy: string): string;
   nablBodyId: string;
   testingStandardId: string;
   /** `key_id` of the active signing key per purpose. */
@@ -41,7 +44,13 @@ export async function loadReference(tx: Tx): Promise<Reference> {
   const taxonomyCode = new Map(taxonomies.map((row) => [row.id, row.code]));
   const scope = taxonomies.find((row) => row.code === 'SCOPE') ?? missing('The SCOPE taxonomy');
 
-  const types = await tx.mdNodeType.findMany({ where: { taxonomyId: scope.id } });
+  const allTypes = await tx.mdNodeType.findMany();
+  const types = allTypes.filter((type) => type.taxonomyId === scope.id);
+  const valueTypes = new Map(
+    allTypes
+      .filter((type) => type.code === 'VALUE')
+      .map((type) => [taxonomyCode.get(type.taxonomyId) ?? '', type.id]),
+  );
   const typeId = (code: string): string =>
     types.find((type) => type.code === code)?.id ?? missing(`The SCOPE level ${code}`);
 
@@ -73,6 +82,9 @@ export async function loadReference(tx: Tx): Promise<Reference> {
         PARAMETER: typeId('PARAMETER'),
       },
     },
+    valueType: (taxonomy) => valueTypes.get(taxonomy) ?? missing(`The value type of ${taxonomy}`),
+    taxonomyId: (taxonomy) =>
+      taxonomies.find((row) => row.code === taxonomy)?.id ?? missing(`The taxonomy ${taxonomy}`),
     nablBodyId: body?.id ?? missing('The accreditation body NABL'),
     testingStandardId: standard?.id ?? missing('The standard ISO_IEC_17025_TESTING'),
     keys: { BOOKING: keyId('BOOKING'), PACKAGE: keyId('PACKAGE'), REPORT: keyId('REPORT') },
@@ -187,14 +199,44 @@ export async function createPublishedChangeSet(
 
 // ---------------------------------------------------------------- scope catalogue
 
+export interface ParameterSpec {
+  code: string;
+  name: string;
+  /** What people type for this test: abbreviations and other names. */
+  aliases?: string[];
+  /** Code of a unit in `FlatSpec.units`. */
+  unitCode?: string;
+  /** Code of a method in `FlatSpec.methods`. */
+  methodCode?: string;
+  /** Range a lab can report, shown as the scope line's range text. */
+  range?: { min: number; max: number };
+  /** A default price list line: price in paise and turnaround in days. */
+  pricePaise?: bigint;
+  tatDays?: number;
+}
+
+export interface ProductSpec {
+  code: string;
+  name: string;
+  aliases?: string[];
+  /** Sample a customer hands over for one test of this product (price item). */
+  sample?: { qty: number; unitCode: string; packaging: string };
+  parameters: ParameterSpec[];
+}
+
 export interface CatalogueSpec {
   code: string;
   name: string;
-  groups: {
-    code: string;
-    name: string;
-    products: { code: string; name: string; parameters: { code: string; name: string }[] }[];
-  }[];
+  groups: { code: string; name: string; products: ProductSpec[] }[];
+}
+
+/**
+ * Values of the flat METHOD and UNIT taxonomies that a catalogue refers to. A unit with
+ * `reuse` is one that `seed:reference` already has (looked up by that code, not created).
+ */
+export interface FlatSpec {
+  methods: { code: string; name: string; standardCode?: string }[];
+  units: { code: string; name: string; reuse?: string }[];
 }
 
 export interface ParameterRef {
@@ -206,6 +248,21 @@ export interface ParameterRef {
   discipline: string;
   product: string;
   parameter: string;
+  /** Codes. */
+  productCode: string;
+  parameterCode: string;
+  /** Present when the catalogue spec gives them. */
+  unit?: string;
+  unitNodeId?: string;
+  methodNodeId?: string;
+  /** The method as published: its standard code if it has one, else its name. */
+  methodText?: string;
+  rangeText?: string;
+  rangeMin?: number;
+  rangeMax?: number;
+  pricePaise?: bigint;
+  tatDays?: number;
+  sample?: { qty: number; unitNodeId: string; packaging: string };
 }
 
 export interface Catalogue {
@@ -247,29 +304,48 @@ export const SMALL_CATALOGUE: CatalogueSpec[] = [
   },
 ];
 
+/** `1 to 14 pH units`, as a lab publishes a range. */
+function rangeTextOf(range: { min: number; max: number } | undefined, unit: string): string {
+  if (!range) return unit === 'Pass/Fail' ? 'Pass or fail' : `Reported in ${unit}`;
+  return `${String(range.min)} to ${String(range.max)} ${unit}`;
+}
+
 /**
- * Creates SCOPE nodes (discipline → group → product → parameter). Codes must not exist
- * yet. Version rows point at the change set, as publication would.
+ * Creates SCOPE nodes (discipline → group → product → parameter), and the METHOD and UNIT
+ * values that `flat` lists. Codes must not exist yet. Version rows point at the change set,
+ * as publication would. Everything created carries the attribute `demo: true`.
  */
 export async function createCatalogue(
   tx: Tx,
   reference: Reference,
   changeSetId: string,
   spec: CatalogueSpec[] = SMALL_CATALOGUE,
+  flat: FlatSpec = { methods: [], units: [] },
 ): Promise<Catalogue> {
   const { taxonomyId, types } = reference.scope;
   const versions: Prisma.MdNodeVersionCreateManyInput[] = [];
   const now = new Date();
   const node = async (
+    taxonomy: string | null,
     nodeTypeId: string,
     code: string,
     name: string,
     parentId: string | null,
+    extra: { aliases?: string[]; attributes?: Record<string, string> } = {},
   ): Promise<string> => {
     const id = uuidv7();
     // One at a time: the path trigger reads the parent row.
     await tx.mdNode.create({
-      data: { id, taxonomyId, nodeTypeId, parentId, code, name, attributes: { demo: true } },
+      data: {
+        id,
+        taxonomyId: taxonomy === null ? taxonomyId : reference.taxonomyId(taxonomy),
+        nodeTypeId,
+        parentId,
+        code,
+        name,
+        aliases: extra.aliases ?? [],
+        attributes: { demo: true, ...extra.attributes },
+      },
     });
     versions.push({
       id: uuidv7(),
@@ -282,20 +358,60 @@ export async function createCatalogue(
     return id;
   };
 
+  const methods = new Map<string, { id: string; text: string }>();
+  for (const method of flat.methods) {
+    const id = await node('METHOD', reference.valueType('METHOD'), method.code, method.name, null, {
+      attributes: method.standardCode ? { standard_code: method.standardCode } : {},
+    });
+    methods.set(method.code, { id, text: method.standardCode ?? method.name });
+  }
+  const units = new Map<string, { id: string; name: string }>();
+  for (const unit of flat.units) {
+    const id = unit.reuse
+      ? reference.node('UNIT', unit.reuse)
+      : await node('UNIT', reference.valueType('UNIT'), unit.code, unit.name, null);
+    units.set(unit.code, { id, name: unit.name });
+  }
+
   const catalogue: Catalogue = { parameters: [], disciplineIds: [] };
   for (const discipline of spec) {
-    const disciplineId = await node(types.DISCIPLINE, discipline.code, discipline.name, null);
+    const disciplineId = await node(null, types.DISCIPLINE, discipline.code, discipline.name, null);
     catalogue.disciplineIds.push(disciplineId);
     for (const group of discipline.groups) {
-      const groupId = await node(types.GROUP, group.code, group.name, disciplineId);
+      const groupId = await node(null, types.GROUP, group.code, group.name, disciplineId);
       for (const product of group.products) {
-        const productId = await node(types.PRODUCT, product.code, product.name, groupId);
+        const productId = await node(null, types.PRODUCT, product.code, product.name, groupId, {
+          ...(product.aliases ? { aliases: product.aliases } : {}),
+        });
+        const sampleUnit = product.sample ? units.get(product.sample.unitCode) : undefined;
+        if (product.sample && !sampleUnit) {
+          throw new Error(
+            `${product.code}: the unit ${product.sample.unitCode} is not in the spec.`,
+          );
+        }
         for (const parameter of product.parameters) {
+          const unit = parameter.unitCode ? units.get(parameter.unitCode) : undefined;
+          const method = parameter.methodCode ? methods.get(parameter.methodCode) : undefined;
+          if (parameter.unitCode && !unit) {
+            throw new Error(
+              `${parameter.code}: the unit ${parameter.unitCode} is not in the spec.`,
+            );
+          }
+          if (parameter.methodCode && !method) {
+            throw new Error(
+              `${parameter.code}: the method ${parameter.methodCode} is not in the spec.`,
+            );
+          }
           const parameterId = await node(
+            null,
             types.PARAMETER,
             parameter.code,
             parameter.name,
             productId,
+            {
+              ...(parameter.aliases ? { aliases: parameter.aliases } : {}),
+              ...(unit ? { attributes: { unit: unit.name } } : {}),
+            },
           );
           catalogue.parameters.push({
             disciplineId,
@@ -305,6 +421,29 @@ export async function createCatalogue(
             discipline: discipline.name,
             product: product.name,
             parameter: parameter.name,
+            productCode: product.code,
+            parameterCode: parameter.code,
+            ...(unit ? { unit: unit.name, unitNodeId: unit.id } : {}),
+            ...(method ? { methodNodeId: method.id, methodText: method.text } : {}),
+            ...(unit
+              ? {
+                  rangeText: rangeTextOf(parameter.range, unit.name),
+                  ...(parameter.range
+                    ? { rangeMin: parameter.range.min, rangeMax: parameter.range.max }
+                    : {}),
+                }
+              : {}),
+            ...(parameter.pricePaise !== undefined ? { pricePaise: parameter.pricePaise } : {}),
+            ...(parameter.tatDays !== undefined ? { tatDays: parameter.tatDays } : {}),
+            ...(product.sample && sampleUnit
+              ? {
+                  sample: {
+                    qty: product.sample.qty,
+                    unitNodeId: sampleUnit.id,
+                    packaging: product.sample.packaging,
+                  },
+                }
+              : {}),
           });
         }
       }
@@ -400,6 +539,10 @@ export interface SiteSpec {
   city?: string;
   stateCode?: string;
   pincode?: string;
+  district?: string;
+  /** Address lines. Say "DEMO" in them: the address is made up. */
+  line1?: string;
+  line2?: string;
   /** Approved map pin. Omit for a site that is still waiting for geocoding. */
   lat?: number;
   lon?: number;
@@ -419,6 +562,12 @@ export interface LabOptions {
   /** Scope lines per site, taken from the catalogue starting at `parameterOffset`. */
   parametersPerSite?: number;
   parameterOffset?: number;
+  /**
+   * The scope lines of site number `siteIndex`, chosen by the caller. When given, it replaces
+   * `parametersPerSite`. A price and turnaround override the parameter's own; without either,
+   * `price` and 5 days apply.
+   */
+  lines?: (siteIndex: number) => LineSpec[];
   accreditationStatus?: 'VALID' | 'SUSPENDED' | 'WITHDRAWN' | 'EXPIRED';
   makers?: number;
   checkers?: number;
@@ -430,12 +579,19 @@ export interface LabOptions {
   now?: Date;
 }
 
+export interface LineSpec {
+  parameter: ParameterRef;
+  pricePaise?: bigint;
+  tatDays?: number;
+}
+
 export interface ScopeLineFixture {
   id: string;
   versionId: string;
   /** Present on onboarded labs. */
   priceItemId?: string;
   pricePaise?: bigint;
+  tatDays?: number;
   parameter: ParameterRef;
 }
 
@@ -496,7 +652,7 @@ export async function createLab(
   const perSite = options.parametersPerSite ?? Math.min(3, catalogue.parameters.length);
   const accreditationStatus = options.accreditationStatus ?? 'VALID';
   if (catalogue.parameters.length === 0) throw new Error('The catalogue has no parameters.');
-  if (perSite > catalogue.parameters.length) {
+  if (!options.lines && perSite > catalogue.parameters.length) {
     throw new Error('parametersPerSite is larger than the catalogue.');
   }
 
@@ -534,8 +690,10 @@ export async function createLab(
     const siteName = spec.name ?? `${name}, site ${String(siteIndex + 1)}`;
     const pincode = spec.pincode ?? DEMO_ADDRESS.pincode;
     const address = {
-      line1: `DEMO Plot ${String(siteIndex + 1)}, DEMO Industrial Area`,
+      line1: spec.line1 ?? `DEMO Plot ${String(siteIndex + 1)}, DEMO Industrial Area`,
+      ...(spec.line2 ? { line2: spec.line2 } : {}),
       city: spec.city ?? 'Delhi',
+      ...(spec.district ? { district: spec.district } : {}),
       state_code: stateCode,
       pincode,
     };
@@ -620,12 +778,24 @@ export async function createLab(
     });
 
     const offset = (options.parameterOffset ?? 0) + siteIndex * perSite;
-    const scopeLines: ScopeLineFixture[] = Array.from({ length: perSite }, (_, index) => {
-      const parameter = catalogue.parameters[(offset + index) % catalogue.parameters.length];
-      if (!parameter) throw new Error('unreachable: the catalogue is not empty');
-      return { id: uuidv7(), versionId: uuidv7(), parameter };
-    });
-    const methodText = (index: number): string => `DEMO method ${String(index + 1)}`;
+    const chosen: LineSpec[] =
+      options.lines?.(siteIndex) ??
+      Array.from({ length: perSite }, (_, index) => {
+        const parameter = catalogue.parameters[(offset + index) % catalogue.parameters.length];
+        if (!parameter) throw new Error('unreachable: the catalogue is not empty');
+        return { parameter };
+      });
+    if (chosen.length === 0) throw new Error('A lab site needs at least one scope line.');
+    const scopeLines: ScopeLineFixture[] = chosen.map((line) => ({
+      id: uuidv7(),
+      versionId: uuidv7(),
+      parameter: line.parameter,
+      ...(line.pricePaise !== undefined ? { pricePaise: line.pricePaise } : {}),
+      ...(line.tatDays !== undefined ? { tatDays: line.tatDays } : {}),
+    }));
+    // A catalogue that knows the method (as published) gives it; the plain one gets a placeholder.
+    const methodText = (index: number): string =>
+      scopeLines[index]?.parameter.methodText ?? `DEMO method ${String(index + 1)}`;
     await tx.scopeLine.createMany({
       data: scopeLines.map((line, index) => ({
         id: line.id,
@@ -636,6 +806,11 @@ export async function createLab(
         groupNodeId: line.parameter.groupId,
         productNodeId: line.parameter.productId,
         parameterNodeId: line.parameter.parameterId,
+        methodNodeId: line.parameter.methodNodeId ?? null,
+        rangeText: line.parameter.rangeText ?? null,
+        rangeMin: line.parameter.rangeMin ?? null,
+        rangeMax: line.parameter.rangeMax ?? null,
+        rangeUnitNodeId: line.parameter.unitNodeId ?? null,
         methodText: methodText(index),
         siteType: 'PERMANENT' as const,
         sourceRef: 'DEMO',
@@ -769,7 +944,8 @@ export async function createLab(
     });
     for (const [index, line] of site.scopeLines.entries()) {
       line.priceItemId = uuidv7();
-      line.pricePaise = price(index);
+      line.pricePaise = line.pricePaise ?? price(index);
+      line.tatDays = line.tatDays ?? 5;
     }
     await tx.priceItem.createMany({
       data: site.scopeLines.map((line) => ({
@@ -778,10 +954,11 @@ export async function createLab(
         priceListId,
         scopeLineId: line.id,
         pricePaise: line.pricePaise ?? 0n,
-        sampleQty: 1,
-        sampleUnitNodeId: unitNodeId,
-        packagingInstructions: 'DEMO: sealed, labelled container.',
-        tatDays: 5,
+        sampleQty: line.parameter.sample?.qty ?? 1,
+        sampleUnitNodeId: line.parameter.sample?.unitNodeId ?? unitNodeId,
+        packagingInstructions:
+          line.parameter.sample?.packaging ?? 'DEMO: sealed, labelled container.',
+        tatDays: line.tatDays ?? 5,
       })),
     });
     await tx.priceList.update({
