@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { api } from '@/lib/api';
+import { formIdempotencyKey, idempotencyKeyAfter } from '@/lib/idempotency';
 import { ACCESS_COOKIE } from '@/lib/session';
 import {
   checkSignUp,
@@ -19,15 +20,9 @@ export interface SignUpState {
   status: 'editing' | 'invalid' | 'failed' | 'signed-out' | 'forbidden';
   values?: SignUpValues;
   errors?: Partial<Record<SignUpField, SignUpFieldError>>;
-  /**
-   * The `Idempotency-Key` for the next submit. A new one after every answer of the API: the API
-   * stores 422 answers under their key, so a corrected form sent with the old key would be
-   * refused as a reused key.
-   */
+  /** The `Idempotency-Key` for the next submit (`idempotencyKeyAfter` says when it changes). */
   idempotencyKey?: string;
 }
-
-const KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Creates the customer organisation (board J1 step 4, `createCustomerOrganisation`) as the
@@ -43,8 +38,7 @@ export async function createOrganisationAction(
 ): Promise<SignUpState> {
   const values = readSignUpForm(form);
   const errors = checkSignUp(values);
-  const sent = form.get('idempotencyKey');
-  const key = typeof sent === 'string' && KEY.test(sent) ? sent : randomUUID();
+  const key = formIdempotencyKey(form);
   // Checked here, before the API: the key was not used, so it stays.
   if (Object.keys(errors).length > 0) {
     return { status: 'invalid', values, errors, idempotencyKey: key };
@@ -59,17 +53,22 @@ export async function createOrganisationAction(
     body: organisationBody(values),
   });
   if (data === undefined) {
-    const next = { values, idempotencyKey: randomUUID() };
+    const problem = error as
+      { code?: string; errors?: { path: string; code: string }[] } | undefined;
+    // The key was used before for a request that differed only in the session's active
+    // membership: this form already created the organisation and switched to it (the answer was
+    // lost on the way back). Show where the user stands instead of offering to create another.
+    if (response.status === 422 && problem?.code === 'IDEMPOTENCY_KEY_REUSED') {
+      revalidatePath('/', 'layout');
+      redirect('/sign-up');
+    }
+    const next = { values, idempotencyKey: idempotencyKeyAfter(response.status, key) };
     if (response.status === 401) return { status: 'signed-out', ...next };
     if (response.status === 403) return { status: 'forbidden', ...next };
     if (response.status === 422) {
-      const issues = (error as { errors?: { path: string; code: string }[] } | undefined)?.errors;
-      const taken = issues?.some((issue) => issue.code === 'GSTIN_TAKEN') === true;
+      const taken = problem?.errors?.some((issue) => issue.code === 'GSTIN_TAKEN') === true;
       if (taken) return { status: 'invalid', errors: { gstin: 'gstin-taken' }, ...next };
     }
-    // 409: the same key is still being worked on (a second submit while the first runs). Keep
-    // the key, so the next try gets the first one's answer instead of creating another.
-    if (response.status === 409) return { status: 'failed', values, idempotencyKey: key };
     return { status: 'failed', ...next };
   }
 
