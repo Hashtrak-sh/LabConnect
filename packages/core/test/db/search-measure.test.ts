@@ -87,7 +87,7 @@ describe.skipIf(OUT === undefined)('search measurement', () => {
               if (prop === '$queryRaw') {
                 return (strings: TemplateStringsArray, ...values: unknown[]) => {
                   const sql = Prisma.sql(strings, ...(values as never[]));
-                  captured.push({ text: sql.text, values: sql.values as unknown[] });
+                  captured.push({ text: sql.text, values: sql.values });
                   return target.$queryRaw(strings, ...values);
                 };
               }

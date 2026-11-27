@@ -107,7 +107,7 @@ describe('buildSearchBody', () => {
   it('a word of three letters or fewer is a whole word only; a longer one is also a prefix and a typo', () => {
     const kinds = (word: string): string[] => {
       const q = query({ q: word });
-      const clause = dig(buildSearchBody(q), 'query.bool.must.0.bool.should.0') as unknown;
+      const clause = dig(buildSearchBody(q), 'query.bool.must.0.bool.should.0');
       const queries = dig(clause, 'dis_max.queries.0.bool.must.0.dis_max.queries') as {
         constant_score: { boost: number; filter: Record<string, unknown> };
       }[];
