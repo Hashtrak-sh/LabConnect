@@ -5,6 +5,7 @@ import {
   GRADE_NAME_WORD,
   GRADE_NONE,
   GRADE_OTHER,
+  GRADE_PRODUCT,
   bestTermScore,
   gradeWord,
   normaliseTerm,
@@ -98,6 +99,9 @@ describe('the grade of a query word', () => {
     expect(gradeWord('tensil', name, other)).toBe(GRADE_NAME_PREFIX); // a prefix, not a mistake
     expect(gradeWord('pg', splitWords('pH'), [])).toBe(GRADE_NONE); // one edit away, but short
     expect(gradeWord('phh', splitWords('pH value'), [])).toBe(GRADE_NONE);
+    // the first letter must be right, so a tail is not a typo of the word ("loride" is not "chloride")
+    expect(gradeWord('loride', splitWords('Chloride (as Cl)'), [])).toBe(GRADE_NONE);
+    expect(gradeWord('hloride', splitWords('Chloride (as Cl)'), [])).toBe(GRADE_NONE);
   });
 });
 
@@ -142,6 +146,27 @@ describe('the score of a line', () => {
     const inProduct = score('cement', 'Slump', 'Cement concrete');
     expect(inName).toBeGreaterThan(inProduct);
     expect(inProduct).toBeGreaterThan(0);
+  });
+
+  it('the name of the product ranks above the aliases, group, discipline and method', () => {
+    const product = bestTermScore(
+      [['cement']],
+      splitWords('Fineness'),
+      splitWords('Building materials'),
+      splitWords('Ordinary Portland cement (OPC)'),
+    );
+    const alias = bestTermScore(
+      [['cement']],
+      splitWords('Slump'),
+      splitWords('cement concrete | workability'),
+      splitWords('Concrete'),
+    );
+    const name = bestTermScore([['cement']], splitWords('Cement content'), [], []);
+    expect(name).toBeGreaterThan(product);
+    expect(product).toBeGreaterThan(alias);
+    expect(alias).toBeGreaterThan(0);
+    expect(gradeWord('cement', [], [], splitWords('Ordinary Portland cement'))).toBe(GRADE_PRODUCT);
+    expect(gradeWord('cem', [], [], splitWords('Ordinary Portland cement'))).toBe(GRADE_NONE);
   });
 
   it('the best of the terms counts: a synonym expansion', () => {

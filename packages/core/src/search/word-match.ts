@@ -53,8 +53,11 @@ export const FUZZY_WORD_SIMILARITY = 0.6;
 export const GRADE_NONE = 0;
 export const GRADE_FUZZY = 1;
 export const GRADE_OTHER = 2;
-export const GRADE_NAME_PREFIX = 3;
-export const GRADE_NAME_WORD = 4;
+export const GRADE_PRODUCT = 3;
+export const GRADE_NAME_PREFIX = 4;
+export const GRADE_NAME_WORD = 5;
+/** The best grade; the scores below are relative to it. */
+export const GRADE_MAX = GRADE_NAME_WORD;
 
 /** The words of a text: lower-cased, cut at the separators, no empty words. */
 export function splitWords(text: string): string[] {
@@ -96,37 +99,44 @@ export function editDistance(a: string, b: string): number {
   return row[b.length] ?? 0;
 }
 
-/** Whether a word of at least `MIN_FUZZY_LENGTH` letters is one mistake away from a word of the text. */
+/**
+ * Whether a word of at least `MIN_FUZZY_LENGTH` letters is a typing mistake of a word of the text:
+ * the same first letter (so a word is never found by its tail: "loride" is not "chloride"), and
+ * one edit away, two for words of eight letters or more. Postgres uses trigram similarity with
+ * the same first letter and a length within two; the two agree on clear cases.
+ */
 function isNear(word: string, candidate: string): boolean {
   const allowed = word.length >= 8 ? 2 : 1;
-  return editDistance(word, candidate) <= allowed;
+  return word[0] === candidate[0] && editDistance(word, candidate) <= allowed;
 }
 
 /**
- * Grade of one query word against the words of a line: 4 whole word of the parameter name, 3
- * beginning of a word of the parameter name, 2 whole word or beginning of a word of any other text
- * of the line (aliases, product, group, discipline, method, standard, method text), 1 a typing
- * mistake against any word, 0 nothing.
+ * Grade of one query word against the words of a line, from the best: 5 whole word of the
+ * parameter name, 4 beginning of a word of the parameter name, 3 whole word or beginning of a word
+ * of the product's name, 2 whole word or beginning of a word of any other text of the line
+ * (aliases, group, discipline, method, standard, method text), 1 a typing mistake against any word,
+ * 0 nothing. The product's name stands above the rest of the third tier of SEARCH.md section 3 so
+ * that "cement" lists a test of a cement product before "Slump", whose product only has the alias
+ * "cement concrete".
  */
 export function gradeWord(
   word: string,
   nameWords: readonly string[],
   otherWords: readonly string[],
+  productWords: readonly string[] = [],
 ): number {
   const prefixes = word.length >= MIN_PREFIX_LENGTH;
+  const found = (words: readonly string[]): boolean =>
+    words.includes(word) || (prefixes && words.some((candidate) => candidate.startsWith(word)));
   if (nameWords.includes(word)) return GRADE_NAME_WORD;
   if (prefixes && nameWords.some((candidate) => candidate.startsWith(word))) {
     return GRADE_NAME_PREFIX;
   }
-  if (
-    otherWords.includes(word) ||
-    (prefixes && otherWords.some((candidate) => candidate.startsWith(word)))
-  ) {
-    return GRADE_OTHER;
-  }
+  if (found(productWords)) return GRADE_PRODUCT;
+  if (found(otherWords)) return GRADE_OTHER;
   if (
     word.length >= MIN_FUZZY_LENGTH &&
-    [...nameWords, ...otherWords].some((candidate) => isNear(word, candidate))
+    [...nameWords, ...productWords, ...otherWords].some((candidate) => isNear(word, candidate))
   ) {
     return GRADE_FUZZY;
   }
@@ -135,19 +145,23 @@ export function gradeWord(
 
 /**
  * Score of a term from the grades of its words, in [0, 1]; 0 when any word has no match (every
- * word of the query must match the line). Real matches (every grade 2 or more) score from 0.4 to
- * 1: the weakest grade counts most (70 %), the average the rest, so a line that matches every word
- * in the parameter name beats one that matches in the name only partly. A term in which any word
- * is only a typing mistake scores below 0.25 whatever the other words do, so it is always below
- * a real match. `matching-sql.ts` has the same formula.
+ * word of the query must match the line). Real matches (every grade `GRADE_OTHER` or more) score
+ * from 0.4 to 1: the weakest grade counts most (70 %), the average the rest, so a line that matches
+ * every word in the parameter name beats one that matches in the name only partly. A term in which
+ * any word is only a typing mistake scores below 0.25 whatever the other words do, so it is always
+ * below a real match. `matching-sql.ts` has the same formula.
  */
 export function scoreGrades(grades: readonly number[]): number {
   if (grades.length === 0) return 0;
   const lowest = Math.min(...grades);
   if (lowest === GRADE_NONE) return 0;
   const average = grades.reduce((sum, grade) => sum + grade, 0) / grades.length;
-  if (lowest === GRADE_FUZZY) return (0.25 * average) / 4;
-  return 0.4 + 0.6 * ((0.7 * (lowest - 2)) / 2 + (0.3 * (average - 2)) / 2);
+  if (lowest === GRADE_FUZZY) return (0.25 * average) / GRADE_MAX;
+  const span = GRADE_MAX - GRADE_OTHER;
+  return (
+    0.4 +
+    0.6 * ((0.7 * (lowest - GRADE_OTHER)) / span + (0.3 * (average - GRADE_OTHER)) / span)
+  );
 }
 
 /** Best score of the terms (a text and its synonym expansions) against one line's words. */
@@ -155,10 +169,13 @@ export function bestTermScore(
   terms: readonly (readonly string[])[],
   nameWords: readonly string[],
   otherWords: readonly string[],
+  productWords: readonly string[] = [],
 ): number {
   let best = 0;
   for (const words of terms) {
-    const score = scoreGrades(words.map((word) => gradeWord(word, nameWords, otherWords)));
+    const score = scoreGrades(
+      words.map((word) => gradeWord(word, nameWords, otherWords, productWords)),
+    );
     if (score > best) best = score;
   }
   return best;

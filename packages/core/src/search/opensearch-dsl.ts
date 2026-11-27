@@ -7,6 +7,7 @@ import {
   GRADE_NAME_PREFIX,
   GRADE_NAME_WORD,
   GRADE_OTHER,
+  GRADE_PRODUCT,
   MIN_FUZZY_LENGTH,
   MIN_PREFIX_LENGTH,
   queryWordLists,
@@ -18,10 +19,11 @@ export const SITE_NAME_QUERY = 'site_name';
 
 /** The parameter's own name: the best place for a query word to be found. */
 const NAME_FIELDS = ['parameter.name'];
-/** Every other text that makes a line findable (aliases, product, group, discipline, method, standard). */
+/** The product's name: just below the parameter's name (see `gradeWord`). */
+const PRODUCT_FIELDS = ['product.name'];
+/** Every other text that makes a line findable (aliases, group, discipline, method, standard). */
 const OTHER_FIELDS = [
   'parameter.aliases',
-  'product.name',
   'product.aliases',
   'method.standard_code',
   'method.name',
@@ -40,6 +42,7 @@ type Json = Record<string, unknown>;
 const WEIGHT = {
   nameWord: GRADE_NAME_WORD,
   namePrefix: GRADE_NAME_PREFIX,
+  product: GRADE_PRODUCT,
   other: GRADE_OTHER,
   fuzzy: GRADE_FUZZY,
 } as const;
@@ -74,18 +77,30 @@ const typo = (word: string, fields: string[]): Json => ({
 /**
  * One query word against a set of fields (`word-match.ts`): the best of a whole word in the name
  * fields, the beginning of a word in the name fields (words of four letters or more), a whole word
- * or the beginning of one in the other fields, and a typing mistake (four letters or more).
+ * or the beginning of one in the product's name, the same in the other fields, and a typing
+ * mistake (four letters or more).
  */
-function wordClause(word: string, nameFields: string[], otherFields: string[]): Json {
+function wordClause(
+  word: string,
+  nameFields: string[],
+  otherFields: string[],
+  productFields: string[],
+): Json {
   const long = word.length >= MIN_PREFIX_LENGTH;
   const queries: Json[] = [weighted(wholeWord(word, nameFields), WEIGHT.nameWord)];
   if (long) queries.push(weighted(wordPrefix(word, nameFields), WEIGHT.namePrefix));
-  if (otherFields.length > 0) {
-    queries.push(weighted(wholeWord(word, otherFields), WEIGHT.other));
-    if (long) queries.push(weighted(wordPrefix(word, otherFields), WEIGHT.other));
+  for (const [fields, weight] of [
+    [productFields, WEIGHT.product],
+    [otherFields, WEIGHT.other],
+  ] as const) {
+    if (fields.length === 0) continue;
+    queries.push(weighted(wholeWord(word, [...fields]), weight));
+    if (long) queries.push(weighted(wordPrefix(word, [...fields]), weight));
   }
   if (word.length >= MIN_FUZZY_LENGTH) {
-    queries.push(weighted(typo(word, [...nameFields, ...otherFields]), WEIGHT.fuzzy));
+    queries.push(
+      weighted(typo(word, [...nameFields, ...productFields, ...otherFields]), WEIGHT.fuzzy),
+    );
   }
   return { dis_max: { queries } };
 }
@@ -100,9 +115,10 @@ const named = (
   terms: string[],
   nameFields: string[],
   otherFields: string[],
+  productFields: string[] = [],
 ): Json => {
   const alternatives = queryWordLists(terms).map((words) => ({
-    bool: { must: words.map((word) => wordClause(word, nameFields, otherFields)) },
+    bool: { must: words.map((word) => wordClause(word, nameFields, otherFields, productFields)) },
   }));
   return { dis_max: { _name: name, queries: alternatives.length > 0 ? alternatives : [NO_MATCH] } };
 };
@@ -204,7 +220,7 @@ export function buildSearchBody(query: SearchQuery): Json {
           {
             bool: {
               should: [
-                named(LINE_TEXT_QUERY, query.terms, NAME_FIELDS, OTHER_FIELDS),
+                named(LINE_TEXT_QUERY, query.terms, NAME_FIELDS, OTHER_FIELDS, PRODUCT_FIELDS),
                 named(SITE_NAME_QUERY, query.terms, SITE_FIELDS, []),
               ],
               minimum_should_match: 1,

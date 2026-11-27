@@ -21,11 +21,14 @@ import { bestTermScore, queryWordLists, splitWords } from './word-match.js';
 
 const SORT_LAST = 1e18;
 
-/** The words of a line: the parameter name, and every other text that makes the line findable. */
-export function lineWords(doc: LabSearchDocument): { name: string[]; other: string[] } {
+/** The words of a line: the parameter name, the product name, and every other text that makes the line findable. */
+export function lineWords(doc: LabSearchDocument): {
+  name: string[];
+  product: string[];
+  other: string[];
+} {
   const other = [
     doc.parameter.aliases.join(' '),
-    doc.product?.name,
     doc.product?.aliases.join(' '),
     doc.group?.name,
     doc.discipline.name,
@@ -33,13 +36,17 @@ export function lineWords(doc: LabSearchDocument): { name: string[]; other: stri
     doc.method?.standardCode,
     doc.methodText,
   ].filter((part): part is string => part !== undefined && part !== null && part.length > 0);
-  return { name: splitWords(doc.parameter.name), other: splitWords(other.join(' | ')) };
+  return {
+    name: splitWords(doc.parameter.name),
+    product: splitWords(doc.product?.name ?? ''),
+    other: splitWords(other.join(' | ')),
+  };
 }
 
 /** Score of the terms against one line, `word-match.ts` (the SQL twin is in `matching-sql.ts`). */
 export function memoryLineScore(terms: readonly string[], doc: LabSearchDocument): number {
-  const { name, other } = lineWords(doc);
-  return bestTermScore(queryWordLists(terms), name, other);
+  const { name, product, other } = lineWords(doc);
+  return bestTermScore(queryWordLists(terms), name, other, product);
 }
 
 /** Score of the terms against the name and code of a site. */

@@ -64,6 +64,85 @@ export function defineSearchConformance(label: string, ctx: ConformanceContext):
       expect(sorted(ids(typo))).toEqual(sorted(ids(exact)));
     });
 
+    describe('words, not letters (SEARCH.md section 3, Matching)', () => {
+      const lineNames = (page: SearchPage): string[] =>
+        page.items.flatMap((item) => item.matchedLines.map((line) => line.parameter.name));
+
+      it('matches the beginning of a word of four letters or more, never the middle or the end', async () => {
+        expect(lineNames(await run({ q: 'tens' })).length).toBeGreaterThan(0);
+        expect(new Set(lineNames(await run({ q: 'chlor' })))).toEqual(new Set(['Chloride content']));
+        for (const q of ['loride', 'ride', 'ensile', 'ength', 'ulphat']) {
+          expect((await run({ q })).items, q).toEqual([]);
+        }
+      });
+
+      it('matches a word of three letters or fewer only as a whole word', async () => {
+        for (const q of ['ten', 'ten', 'tm', 'cem', 'str', 'ts']) {
+          expect((await run({ q })).items, q).toEqual([]);
+        }
+        // whole words: the product "TMT bar" and its words
+        expect((await run({ q: 'tmt' })).items.length).toBeGreaterThan(0);
+        expect((await run({ q: 'bar' })).items.length).toBeGreaterThan(0);
+      });
+
+      it('matches a site by the beginning of a word of its name, not by the middle', async () => {
+        expect(ids(await run({ q: 'alph' }))).toEqual([w().a1.id]);
+        expect(ids(await run({ q: 'Alpha Delhi' }))).toEqual([w().a1.id]);
+        for (const q of ['lph', 'pha', 'alp', 'ravo', 'bra']) {
+          expect((await run({ q })).items, q).toEqual([]);
+        }
+      });
+
+      it('needs every word of the query on the line: strength alone is not tensile strength', async () => {
+        const strength = lineNames(await run({ q: 'strength' }));
+        expect(new Set(strength)).toEqual(new Set(['Tensile strength', 'Yield strength']));
+        const tensile = await run({ q: 'tensile strength' });
+        expect(new Set(lineNames(tensile))).toEqual(new Set(['Tensile strength']));
+        // any order, and across texts: the product and the parameter
+        expect(new Set(lineNames(await run({ q: 'strength tensile' })))).toEqual(
+          new Set(['Tensile strength']),
+        );
+        expect(new Set(lineNames(await run({ q: 'yield tmt' })))).toEqual(
+          new Set(['Yield strength']),
+        );
+        expect((await run({ q: 'hardness tensile' })).items).toEqual([]);
+      });
+
+      it('treats punctuation, brackets and case as separators', async () => {
+        const plain = ids(await run({ q: 'tensile strength' }));
+        for (const q of ['(Tensile) strength', 'TENSILE/strength', 'tensile-strength', ' tensile   strength.']) {
+          expect(ids(await run({ q })), q).toEqual(plain);
+        }
+      });
+
+      it('takes %, _, \\, [, ( and .* as plain text: no error, nothing matched by accident', async () => {
+        for (const q of ['%', '_', '\\', '[', '(', '.*', '%%', 'a%', '_ _', '[a-z]', '\\d', '(((', '...', '*']) {
+          const page = await run({ q });
+          expect(page.items, q).toEqual([]);
+          expect(page.total, q).toBe(0);
+        }
+        // ... and next to a real word they only separate it
+        expect(ids(await run({ q: 'tens%' }))).toEqual(ids(await run({ q: 'tens' })));
+        expect(ids(await run({ q: '.*tensile' }))).toEqual(ids(await run({ q: 'tensile' })));
+      });
+
+      it('forgives a typing mistake in a word of four letters or more, and not in a shorter one', async () => {
+        expect(lineNames(await run({ q: 'chlorde' }))).toContain('Chloride content');
+        expect(lineNames(await run({ q: 'tensile strnegth' }))).toContain('Tensile strength');
+        expect((await run({ q: 'tnsl' })).items).toEqual([]);
+        expect((await run({ q: 'tmx' })).items).toEqual([]);
+      });
+
+      it('lists the best matching line first', async () => {
+        // A1 has "Tensile strength" (the parameter) and "Yield strength" under the product "TMT bar":
+        // for "tensile", the parameter line is the one that matches the name.
+        const page = await run({ q: 'tensile' });
+        for (const item of page.items) {
+          expect(item.matchedLines[0]?.parameter.name).toBe('Tensile strength');
+        }
+      });
+    });
+
     it('finds nothing for text that is nowhere', async () => {
       const page = await run({ q: 'zzzzqqqq' });
       expect(page.items).toEqual([]);

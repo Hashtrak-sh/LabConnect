@@ -2,10 +2,12 @@ import { Prisma } from '@labconnect/database';
 import {
   FUZZY_WORD_SIMILARITY,
   GRADE_FUZZY,
+  GRADE_MAX,
   GRADE_NAME_PREFIX,
   GRADE_NAME_WORD,
   GRADE_NONE,
   GRADE_OTHER,
+  GRADE_PRODUCT,
   MIN_FUZZY_LENGTH,
   MIN_PREFIX_LENGTH,
   WORD_SEPARATOR_CHARS,
@@ -54,42 +56,55 @@ export function nearWordsCte(terms: readonly string[], source: Prisma.Sql): Pris
         JOIN (SELECT DISTINCT u.word AS w
                 FROM (${source}) s, unnest(string_to_array(s.w, ' ')) AS u(word)
                WHERE length(u.word) >= 3) vw
-          ON word_similarity(qw.q, vw.w) >= ${num(FUZZY_WORD_SIMILARITY)}
+          ON left(vw.w, 1) = left(qw.q, 1)
+         AND abs(length(vw.w) - length(qw.q)) <= 2
+         AND word_similarity(qw.q, vw.w) >= ${num(FUZZY_WORD_SIMILARITY)}
        GROUP BY qw.q
     )`;
 }
 
+/** The three texts a line is matched against, as columns made with `wordsSql`. */
+export interface WordColumns {
+  /** The parameter's name. */
+  name: Prisma.Sql;
+  /** The product's name. */
+  product: Prisma.Sql;
+  /** Every other text of the line. */
+  other: Prisma.Sql;
+}
+
 /**
  * Score in [0, 1] of the best term against one line (or one site name): the SQL twin of
- * `bestTermScore`. `terms` are normalised terms (words separated by single spaces); `nameWords`
- * and `otherWords` are columns in scope made with `wordsSql`.
+ * `bestTermScore`. `terms` are normalised terms (words separated by single spaces).
  */
-export function termScoreSql(
-  terms: readonly string[],
-  nameWords: Prisma.Sql,
-  otherWords: Prisma.Sql,
-): Prisma.Sql {
+export function termScoreSql(terms: readonly string[], columns: WordColumns): Prisma.Sql {
+  const { name, product, other } = columns;
+  const span = GRADE_MAX - GRADE_OTHER;
   return Prisma.sql`COALESCE((
     SELECT max(ts.score) FROM (
       SELECT CASE
           WHEN min(wg.g) = ${num(GRADE_NONE)} THEN 0
-          WHEN min(wg.g) = ${num(GRADE_FUZZY)} THEN 0.25 * avg(wg.g) / 4
-          ELSE 0.4 + 0.6 * (0.7 * (min(wg.g) - 2) / 2.0 + 0.3 * (avg(wg.g) - 2) / 2.0)
+          WHEN min(wg.g) = ${num(GRADE_FUZZY)} THEN 0.25 * avg(wg.g) / ${num(GRADE_MAX)}
+          ELSE 0.4 + 0.6 * (0.7 * (min(wg.g) - ${num(GRADE_OTHER)}) / ${num(span)}.0
+                            + 0.3 * (avg(wg.g) - ${num(GRADE_OTHER)}) / ${num(span)}.0)
         END AS score
         FROM unnest(${terms}::text[]) AS t(term)
        CROSS JOIN LATERAL unnest(string_to_array(t.term, ' ')) AS qw(q)
        CROSS JOIN LATERAL (
          SELECT CASE
-             WHEN position(' ' || qw.q || ' ' IN ${nameWords}) > 0 THEN ${num(GRADE_NAME_WORD)}
+             WHEN position(' ' || qw.q || ' ' IN ${name}) > 0 THEN ${num(GRADE_NAME_WORD)}
              WHEN length(qw.q) >= ${num(MIN_PREFIX_LENGTH)}
-                  AND position(' ' || qw.q IN ${nameWords}) > 0 THEN ${num(GRADE_NAME_PREFIX)}
-             WHEN position(' ' || qw.q || ' ' IN ${otherWords}) > 0
+                  AND position(' ' || qw.q IN ${name}) > 0 THEN ${num(GRADE_NAME_PREFIX)}
+             WHEN position(' ' || qw.q || ' ' IN ${product}) > 0
                   OR (length(qw.q) >= ${num(MIN_PREFIX_LENGTH)}
-                      AND position(' ' || qw.q IN ${otherWords}) > 0) THEN ${num(GRADE_OTHER)}
+                      AND position(' ' || qw.q IN ${product}) > 0) THEN ${num(GRADE_PRODUCT)}
+             WHEN position(' ' || qw.q || ' ' IN ${other}) > 0
+                  OR (length(qw.q) >= ${num(MIN_PREFIX_LENGTH)}
+                      AND position(' ' || qw.q IN ${other}) > 0) THEN ${num(GRADE_OTHER)}
              WHEN length(qw.q) >= ${num(MIN_FUZZY_LENGTH)}
                   AND EXISTS (SELECT 1 FROM near n, unnest(n.words) nw
                                WHERE n.q = qw.q
-                                 AND position(' ' || nw || ' ' IN ${nameWords} || ${otherWords}) > 0)
+                                 AND position(' ' || nw || ' ' IN ${name} || ${product} || ${other}) > 0)
                THEN ${num(GRADE_FUZZY)}
              ELSE ${num(GRADE_NONE)}
            END AS g
@@ -97,3 +112,4 @@ export function termScoreSql(
        GROUP BY t.term
     ) ts), 0)::float8`;
 }
+

@@ -108,11 +108,14 @@ describe('buildSearchBody', () => {
       }[];
       return queries.map((entry) => `${Object.keys(entry.constant_score.filter)[0] ?? ''}:${String(entry.constant_score.boost)}`);
     };
-    expect(kinds('ph')).toEqual(['multi_match:4', 'multi_match:2']);
-    expect(kinds('led')).toEqual(['multi_match:4', 'multi_match:2']);
-    // name word 4, name prefix 3, other whole 2, other prefix 2, typo 1
+    // name word 5, product word 3, other word 2
+    expect(kinds('ph')).toEqual(['multi_match:5', 'multi_match:3', 'multi_match:2']);
+    expect(kinds('led')).toEqual(['multi_match:5', 'multi_match:3', 'multi_match:2']);
+    // name word 5, name prefix 4, product word 3, product prefix 3, other 2, other prefix 2, typo 1
     expect(kinds('tens')).toEqual([
-      'multi_match:4',
+      'multi_match:5',
+      'bool:4',
+      'multi_match:3',
       'bool:3',
       'multi_match:2',
       'bool:2',
@@ -120,7 +123,7 @@ describe('buildSearchBody', () => {
     ]);
     const typo = dig(
       buildSearchBody(query({ q: 'strenght' })),
-      'query.bool.must.0.bool.should.0.dis_max.queries.0.bool.must.0.dis_max.queries.4.constant_score.filter.multi_match',
+      'query.bool.must.0.bool.should.0.dis_max.queries.0.bool.must.0.dis_max.queries.6.constant_score.filter.multi_match',
     );
     expect(typo).toMatchObject({ fuzziness: 'AUTO:4,8', prefix_length: 1 });
   });

@@ -122,30 +122,47 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
   // for every row that uses them.
   const scored = textOn
     ? Prisma.sql`
-    vb AS MATERIALIZED (
-      SELECT v.*, b.name_words, b.other_words, b.site_words
+    vt AS MATERIALIZED (
+      SELECT v.*, v.pa_name AS t_name, coalesce(v.p_name, '') AS t_product,
+             concat_ws(' | ', array_to_string(v.pa_aliases, ' '), array_to_string(v.p_aliases, ' '),
+                       v.g_name, v.d_name, v.m_name, v.m_standard_code, v.method_text) AS t_other,
+             v.site_name || ' ' || v.site_code AS t_site
         FROM v
-       CROSS JOIN LATERAL (
-         SELECT ${wordsSql(Prisma.sql`v.pa_name`)} AS name_words,
-                ${wordsSql(
-                  Prisma.sql`concat_ws(' | ', array_to_string(v.pa_aliases, ' '), v.p_name,
-                                array_to_string(v.p_aliases, ' '), v.g_name, v.d_name, v.m_name,
-                                v.m_standard_code, v.method_text)`,
-                )} AS other_words,
-                ${wordsSql(Prisma.sql`v.site_name || ' ' || v.site_code`)} AS site_words
-         OFFSET 0
-       ) b
     ),
-    ${nearWordsCte(terms, Prisma.sql`SELECT name_words || other_words || site_words AS w FROM vb`)},
+    wt AS MATERIALIZED (
+      SELECT u.t, ${wordsSql(Prisma.sql`u.t`)} AS w
+        FROM (SELECT t_name AS t FROM vt UNION SELECT t_product FROM vt
+              UNION SELECT t_other FROM vt UNION SELECT t_site FROM vt) u
+    ),
+    vb AS MATERIALIZED (
+      SELECT vt.*, n.w AS name_words, p.w AS product_words, o.w AS other_words, s.w AS site_words
+        FROM vt
+        JOIN wt n ON n.t = vt.t_name
+        JOIN wt p ON p.t = vt.t_product
+        JOIN wt o ON o.t = vt.t_other
+        JOIN wt s ON s.t = vt.t_site
+    ),
+    ${nearWordsCte(
+      terms,
+      Prisma.sql`SELECT name_words || product_words || other_words || site_words AS w FROM vb`,
+    )},
     sn AS MATERIALIZED (
       SELECT d.lab_site_id,
-             ${termScoreSql(terms, Prisma.sql`d.site_words`, Prisma.sql`' '::text`)} AS name_score
+             ${termScoreSql(terms, {
+               name: Prisma.sql`d.site_words`,
+               product: Prisma.sql`' '::text`,
+               other: Prisma.sql`' '::text`,
+             })} AS name_score
         FROM (SELECT DISTINCT ON (lab_site_id) lab_site_id, site_words
                 FROM vb ORDER BY lab_site_id) d
     ),
     lines AS MATERIALIZED (
       SELECT v.*, ${qualifies} AS qualifies,
-             ${termScoreSql(terms, Prisma.sql`v.name_words`, Prisma.sql`v.other_words`)} AS line_score,
+             ${termScoreSql(terms, {
+               name: Prisma.sql`v.name_words`,
+               product: Prisma.sql`v.product_words`,
+               other: Prisma.sql`v.other_words`,
+             })} AS line_score,
              sn.name_score AS name_score
         FROM vb v
         JOIN sn ON sn.lab_site_id = v.lab_site_id
