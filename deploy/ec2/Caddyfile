@@ -1,0 +1,26 @@
+# The only public entry point (deploy/ec2/docker-compose.yml).
+# SITE_ADDRESS is a domain (uat.example.in: HTTPS with a Let's Encrypt certificate, HTTP redirects)
+# or `:80` (plain HTTP on the instance's address, for a first test only).
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# Mailpit: every email UAT sends lands here (sign-in codes too). Password protected.
+	handle /mailpit* {
+		basic_auth {
+			{$MAILPIT_USER} {$MAILPIT_PASSWORD_HASH}
+		}
+		reverse_proxy mailpit:8025
+	}
+
+	# Everything else is the web app. The API is not published: only the web server calls it.
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
