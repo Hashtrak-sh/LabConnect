@@ -4,7 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { DEMO_CATALOGUE, DEMO_PARAMETER_META, DEMO_SYNONYMS } from './demo-catalogue.js';
 import { DEMO_GUIDE_END, DEMO_GUIDE_START, demoGuide, renderDemoGuide } from './demo-guide.js';
-import { NAMED_LABS, NAME_WORDS, PROFILES } from './demo-labs.js';
+import {
+  NAMED_LABS,
+  NAME_WORDS,
+  offeredBy,
+  parameterCodesOf,
+  PROFILES,
+  termsFor,
+} from './demo-labs.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
 
@@ -105,5 +112,29 @@ describe('the demo catalogue and labs, as data', () => {
     const named = NAMED_LABS.map((lab) => lab.name.split(' ')[0]);
     for (const word of NAME_WORDS) expect(named).not.toContain(word);
     expect(new Set(NAME_WORDS).size).toBe(NAME_WORDS.length);
+  });
+});
+
+describe('prices of the bookable demo sites', () => {
+  /** The tests a named site really offers: every test of its products that it may offer. */
+  const codesOf = (key: 'vasundhara-faridabad' | 'aravali'): string[] => {
+    const site = NAMED_LABS.flatMap((lab) => lab.sites).find((candidate) => candidate.key === key);
+    expect(site, key).toBeDefined();
+    return (site?.products ?? [])
+      .flatMap((product) => parameterCodesOf(product))
+      .filter((code) => offeredBy(code, key));
+  };
+
+  it('differ between two sites for most of the tests both offer', () => {
+    // Faridabad and Aravali both test water. A price is a whole multiple of ten rupees, so single
+    // tests can coincide; the demo needs the two price lists to differ visibly, not on every line.
+    const aravali = new Set(codesOf('aravali'));
+    const shared = codesOf('vasundhara-faridabad').filter((code) => aravali.has(code));
+    expect(shared.length).toBeGreaterThan(5);
+    const different = shared.filter(
+      (code) =>
+        termsFor('vasundhara-faridabad', code).pricePaise !== termsFor('aravali', code).pricePaise,
+    );
+    expect(different.length).toBeGreaterThan(shared.length / 2);
   });
 });
