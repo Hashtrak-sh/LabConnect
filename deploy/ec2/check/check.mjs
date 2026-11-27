@@ -486,6 +486,26 @@ const customer = new Browser();
       'the new session works on the next request',
     );
 
+    // Several pages at once right after the access token is gone, as a browser opening a page
+    // with parallel requests does: the web server must refresh once and keep every one of them
+    // signed in (it used to sign the user out). One refresh, many readers: not a stress test.
+    customer.cookies.delete('lc_access');
+    const parallel = await Promise.all(
+      ['/lab/claim', '/lab/claim', '/', '/lab/claim', '/search?q=TDS'].map((path) =>
+        customer.raw('GET', path),
+      ),
+    );
+    const signedOutIn = parallel.filter((r) => /Sign in to continue/.test(textOf(r.html)));
+    check(
+      signedOutIn.length === 0 && customer.cookies.has('lc_web_refresh'),
+      `five parallel requests after dropping the access cookie all stay signed in (${String(parallel.length - signedOutIn.length)} of ${String(parallel.length)})`,
+    );
+    const afterParallel = await customer.raw('GET', '/lab/claim');
+    check(
+      /Claim your lab on LabConnect/.test(textOf(afterParallel.html)),
+      'the session still works after the parallel refresh',
+    );
+
     const home = await customer.raw('GET', '/');
     const signOut = formWith(home.html, home.url, 'Sign out');
     check(signOut !== undefined, 'the header offers Sign out');
