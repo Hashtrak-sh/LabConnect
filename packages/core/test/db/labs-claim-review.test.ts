@@ -167,7 +167,7 @@ describe('lab claim review (Ops)', () => {
   // ------------------------------------------------------------------ the list
 
   describe('the list (I2-ADM-01)', () => {
-    it('shows exactly the fields of AdminLabClaim and nothing about the claimant but the id', async () => {
+    it('shows exactly the fields of AdminLabClaim: the site and the claimant (masked address), and no full address', async () => {
       const claim = await w.reviewable({ manual: true });
       const seen = (await allPages()).find((row) => row.id === claim.claimId);
       expect(seen).toBeDefined();
@@ -185,12 +185,16 @@ describe('lab claim review (Ops)', () => {
           'decisionNotes',
           'createdAt',
           'lockVersion',
+          'labSite',
+          'claimant',
         ].sort(),
       );
       expect(seen).toMatchObject({
         organisationId: claim.organisationId,
         labSiteId: claim.siteId,
         requestedByUserId: claim.claimant.id,
+        claimant: { id: claim.claimant.id },
+        labSite: { id: claim.siteId },
         method: 'MANUAL',
         status: 'PENDING_REVIEW',
         authorisationFileId: claim.fileId,

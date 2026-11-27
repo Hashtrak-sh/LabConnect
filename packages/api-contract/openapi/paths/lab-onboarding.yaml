@@ -6,6 +6,49 @@
 # Each top-level key is one path item, referenced from openapi.yaml.
 
 claims:
+  get:
+    operationId: listMyLabClaims
+    tags:
+      - Lab onboarding
+    summary: List my lab claims
+    description: >-
+      The caller's own claims, newest first (`created_at`, then `id`), with the standard cursor
+      pagination. A claim belongs to the person who started it, not to an organisation: the list
+      is the same whichever membership is active, and it is empty for a person who never claimed.
+      Any signed-in user without a platform role can call it, as `startLabClaim` (platform staff:
+      `403`, RR-5). The status is the true state now: a claim still `PENDING_OTP` 24 hours after
+      it was created is shown as `EXPIRED`, though the row is only set to `EXPIRED` by the next
+      write (a read writes nothing). `decisionNotes` is the reason given for a rejection and
+      nothing else (see `LabClaim`).
+    parameters:
+      - $ref: '../components/parameters.yaml#/Cursor'
+      - $ref: '../components/parameters.yaml#/Limit'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: A page of the caller's claims.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabClaimList'
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: platform staff hold no lab claim (RR-5).'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED` (for example an unreadable cursor, or a bad `limit`).'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
   post:
     operationId: startLabClaim
     tags:
@@ -69,6 +112,68 @@ claims:
         description: >-
           `VALIDATION_FAILED` (for example no listed site has this certificate number),
           `IDEMPOTENCY_KEY_REUSED`.
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
+claim:
+  get:
+    operationId: getLabClaim
+    tags:
+      - Lab onboarding
+    summary: Get one of my lab claims
+    description: >-
+      One claim of the caller, as `startLabClaim` returns it, with its `ETag` (the `lock_version`
+      that `verifyLabClaimOtp` and `submitLabClaimLetterhead` expect in `If-Match`). A claim of
+      another user and an id that does not exist are the same `404`: the answer never says which.
+      The status is the true state now: a claim still `PENDING_OTP` 24 hours after it was created
+      is `EXPIRED` (the row is only set by the next write, which bumps the version, so an `ETag`
+      taken from an expired claim is refused with `409`, not accepted). Any signed-in user without
+      a platform role (platform staff: `403`, RR-5). `Cache-Control: no-store`.
+    parameters:
+      - $ref: '../components/parameters.yaml#/PathId'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The claim.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/lab-onboarding.yaml#/LabClaim'
+            examples:
+              rejected:
+                summary: A rejected claim, with the reason for the claimant
+                value:
+                  id: 0194f3a0-7b1c-7c3a-9d2e-4f5a6b7c8d9e
+                  status: REJECTED
+                  method: MANUAL
+                  labSite:
+                    id: 0194f3a0-7b1c-7c3a-9d2e-4f5a6b7c8d01
+                    siteCode: LS-UP-000123
+                    name: Example Testing Laboratory
+                  otpSentTo: null
+                  createdAt: '2026-11-26T09:00:00.000Z'
+                  reviewedAt: '2026-11-27T05:30:00.000Z'
+                  decisionNotes: The letterhead does not name the laboratory. Upload one that does.
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: platform staff hold no lab claim (RR-5).'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no claim with this id by the caller.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`: the id is not a UUID.'
       '429':
         $ref: '../components/responses.yaml#/TooManyRequests'
         description: '`RATE_LIMITED`.'
