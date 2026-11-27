@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { type Prisma, withDbContext } from '@labconnect/database';
+import { withDbContext } from '@labconnect/database';
 import { createCustomer } from '@labconnect/database/test-utils';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -713,7 +713,7 @@ describe('lab claim reads', () => {
               }
               return value;
             },
-          }) as Prisma.TransactionClient;
+          });
           return listLabClaimsForReview(counting, w.review, { actor: ops, limit });
         });
         return { queries, size: wrapped.data.length };
