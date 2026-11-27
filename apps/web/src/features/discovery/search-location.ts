@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { secureCookies } from '@/lib/session';
 import { SEARCH_LOCATION_COOKIE } from './search-location-cookie';
 import { parsePoint } from './search-params';
 
@@ -19,7 +20,7 @@ export async function setSearchLocation(lat: number, lng: number): Promise<boole
   (await cookies()).set(COOKIE, `${String(point.lat)},${String(point.lng)}`, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: secureCookies(),
     path: '/',
     maxAge: MAX_AGE_SECONDS,
   });
