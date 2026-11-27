@@ -1,7 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { cookieOptions } from '@/lib/session';
+import { secureCookies } from '@/lib/session';
 import { SEARCH_LOCATION_COOKIE } from './search-location-cookie';
 import { parsePoint } from './search-params';
 
@@ -17,11 +17,13 @@ const MAX_AGE_SECONDS = 30 * 60;
 export async function setSearchLocation(lat: number, lng: number): Promise<boolean> {
   const point = parsePoint(lat, lng);
   if (point === null) return false;
-  (await cookies()).set(
-    COOKIE,
-    `${String(point.lat)},${String(point.lng)}`,
-    cookieOptions(MAX_AGE_SECONDS),
-  );
+  (await cookies()).set(COOKIE, `${String(point.lat)},${String(point.lng)}`, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: secureCookies(),
+    path: '/',
+    maxAge: MAX_AGE_SECONDS,
+  });
   return true;
 }
 

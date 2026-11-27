@@ -1,4 +1,15 @@
-import { Body, Controller, Headers, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { formatEtag, parseIfMatch } from '../../common/etag.js';
 import { Authorised } from '../identity/authorised.decorator.js';
@@ -9,6 +20,7 @@ import {
   parseLabClaimManual,
   parseLabClaimOtpVerify,
   parseLetterheadUploadRequest,
+  parsePageQuery,
   requireClaimId,
 } from './lab-claims.dto.js';
 import {
@@ -32,6 +44,35 @@ import {
 @Controller('lab/claims')
 export class LabClaimsController {
   constructor(private readonly claims: LabClaimsService) {}
+
+  /** `listMyLabClaims`: the caller's own claims, newest first. Never cached. */
+  @Get()
+  @Authorised({ noPermissionRequired: true })
+  async listMyLabClaims(
+    @Query() query: Record<string, unknown>,
+    @CurrentActor() actor: CurrentActor,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ data: LabClaimBody[]; page: { nextCursor: string | null; limit: number } }> {
+    const input = parsePageQuery(query);
+    response.setHeader('Cache-Control', 'no-store');
+    const result = await this.claims.list(actor, input);
+    return { data: result.data.map(toLabClaimBody), page: result.page };
+  }
+
+  /** `getLabClaim`: one claim of the caller with its `ETag`. Another user's claim is `404`. */
+  @Get(':id')
+  @Authorised({ noPermissionRequired: true })
+  async getLabClaim(
+    @Param('id') id: string,
+    @CurrentActor() actor: CurrentActor,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<LabClaimBody> {
+    const claimId = requireClaimId(id);
+    const claim = await this.claims.get(actor, claimId);
+    response.setHeader('ETag', formatEtag(claim.lockVersion));
+    response.setHeader('Cache-Control', 'no-store');
+    return toLabClaimBody(claim);
+  }
 
   /** `startLabClaim`: 201 for a new claim, 200 when a new code was sent for the caller's open one. */
   @Post()

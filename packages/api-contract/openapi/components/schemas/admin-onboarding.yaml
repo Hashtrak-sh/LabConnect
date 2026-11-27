@@ -2,11 +2,78 @@
 # claims, KYC and bank verification, and the geocode pin queue. A bank account is shown with the
 # last four digits of its number only; the number itself is never returned.
 
-AdminLabClaim:
+AdminClaimLabSite:
   type: object
-  description: A lab claim request (`lab_claim_request`).
+  description: >-
+    The listed site the claim was opened with. Public data only (the public lab profile shows
+    the same).
   required:
     - id
+    - siteCode
+    - name
+    - city
+    - stateCode
+    - certificateNos
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    siteCode:
+      type: string
+      maxLength: 30
+    name:
+      type: string
+    city:
+      description: The city of the site's address, empty when the data has none.
+      type: string
+    stateCode:
+      type: string
+      maxLength: 4
+    certificateNos:
+      description: >-
+        The certificate numbers of the site's accreditations, sorted. The claim does not record
+        which one the claimant typed (OQ-259).
+      type: array
+      items:
+        type: string
+        maxLength: 50
+
+AdminClaimClaimant:
+  type: object
+  description: >-
+    The person who started the claim. The e-mail address is masked (the first character of the
+    local part and the top-level domain show, as for the lab's address on `LabClaim`).
+  required:
+    - id
+    - fullName
+    - emailMasked
+    - organisationTypes
+  additionalProperties: false
+  properties:
+    id:
+      $ref: './common.yaml#/Uuid'
+    fullName:
+      type: string
+    emailMasked:
+      type: string
+      examples:
+        - l***@***.in
+    organisationTypes:
+      description: >-
+        The types of the other organisations the claimant has an active membership of (not the
+        organisation being claimed), each type once, sorted: empty for a person who belongs to
+        none. An approval is refused when this holds `LAB` (one lab role per user), or `PLATFORM`.
+      type: array
+      items:
+        $ref: './enums.yaml#/OrgType'
+
+AdminLabClaim:
+  type: object
+  description: A lab claim request (`lab_claim_request`), with the site and the claimant.
+  required:
+    - id
+    - labSite
+    - claimant
     - organisationId
     - labSiteId
     - requestedByUserId
@@ -55,6 +122,10 @@ AdminLabClaim:
       $ref: './common.yaml#/Timestamp'
     lockVersion:
       $ref: './common.yaml#/LockVersion'
+    labSite:
+      $ref: '#/AdminClaimLabSite'
+    claimant:
+      $ref: '#/AdminClaimClaimant'
 
 AdminLabClaimList:
   type: object

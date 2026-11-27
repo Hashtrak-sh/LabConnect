@@ -10,7 +10,12 @@
 // No token must get 401 UNAUTHENTICATED.
 import { type PermissionCode, ROLE_CODES, type RoleCode, grantOf } from '@labconnect/shared';
 import type { PermissionRequirement } from '../../../src/modules/identity/permission.guard.js';
-import { HANDLER_REFUSALS, type HandlerRefusal } from '../../permissions/handler-refusals.js';
+import {
+  HANDLER_REFUSALS,
+  type HandlerRefusal,
+  SESSION_ONLY_REFUSALS,
+  type SessionOnlyRefusal,
+} from '../../permissions/handler-refusals.js';
 import type { Client } from '../isolation/world.js';
 import type { RouteDeclaration } from './route-declarations.js';
 
@@ -45,6 +50,7 @@ export const isMatrixRoute = (route: RouteDeclaration): boolean =>
 export function matrixCells(
   routes: readonly RouteDeclaration[],
   refusals: readonly HandlerRefusal[] = HANDLER_REFUSALS,
+  sessionRefusals: readonly SessionOnlyRefusal[] = SESSION_ONLY_REFUSALS,
 ): MatrixCell[] {
   return routes.filter(isMatrixRoute).flatMap((route) => {
     const allowed = route.requirement ? rolesAllowedBy(route.requirement) : [];
@@ -53,7 +59,8 @@ export function matrixCells(
       role,
       expected:
         allowed.includes(role) &&
-        !refusals.some((entry) => entry.route === route.key && entry.role === role)
+        !refusals.some((entry) => entry.route === route.key && entry.role === role) &&
+        !sessionRefusals.some((entry) => entry.route === route.key && entry.roles.includes(role))
           ? ('allow' as const)
           : ('deny' as const),
     }));

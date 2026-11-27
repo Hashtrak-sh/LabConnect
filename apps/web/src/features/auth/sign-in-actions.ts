@@ -50,7 +50,7 @@ interface SessionBody {
 
 /**
  * The visitor's address for the API's per-address limits on codes (OQ-89). Behind the reverse
- * proxy (deploy/ec2: Caddy, which replaces any `X-Forwarded-For` a browser sends) the last entry
+ * proxy (Caddy in deploy/ec2, or the load balancer; Caddy replaces any `X-Forwarded-For` a browser sends) the last entry
  * is the visitor. The API trusts it only when `API_TRUST_PROXY_HOPS` says this server is a proxy;
  * locally there is no such header and nothing is sent.
  */
