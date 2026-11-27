@@ -8,16 +8,19 @@ import { PRISMA_CLIENT } from '../platform/platform.providers.js';
 import { LeadsController } from './leads.controller.js';
 import { CustomerOrganisationsController } from './organisations.controller.js';
 import { CustomerOrganisationsService } from './organisations.service.js';
+import { CustomerSitesController } from './sites.controller.js';
+import { CustomerSitesService } from './sites.service.js';
 
 /**
  * Customers (MODULE_BOUNDARIES: owner @akshit-anand). So far the public "Request a lab" leads
- * (I1-CUS-07) and customer sign-up (I2-CUS-02). Sites, settings and users come with I2.
+ * (I1-CUS-07), customer sign-up (I2-CUS-02) and sites (I2-CUS-03). Settings and users come with I2.
  */
 @Module({
   imports: [PlatformModule, IdentityModule, LabsModule],
-  controllers: [LeadsController, CustomerOrganisationsController],
+  controllers: [LeadsController, CustomerOrganisationsController, CustomerSitesController],
   providers: [
     CustomerOrganisationsService,
+    CustomerSitesService,
     {
       provide: LeadService,
       useFactory: (prisma: PrismaClient, labs: LabDirectoryService) =>

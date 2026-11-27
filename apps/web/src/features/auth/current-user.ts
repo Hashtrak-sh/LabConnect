@@ -8,6 +8,8 @@ export interface CurrentUser {
   email: string;
   /** The active membership's organisation name, when there is one. */
   organisation: string | null;
+  /** The kind of the active membership's organisation, when there is one. */
+  activeOrgType: 'CUSTOMER' | 'LAB' | 'PLATFORM' | null;
   /** The kinds and names of all the user's organisations (sign-up checks for a customer one). */
   memberships: { orgType: 'CUSTOMER' | 'LAB' | 'PLATFORM'; name: string }[];
 }
@@ -28,6 +30,7 @@ export const currentUser = cache(async (): Promise<CurrentUser | null> => {
       name: data.user.fullName,
       email: data.user.email,
       organisation: active?.organisation.displayName ?? null,
+      activeOrgType: active?.organisation.orgType ?? null,
       memberships: data.memberships.map((membership) => ({
         orgType: membership.organisation.orgType,
         name: membership.organisation.displayName,
