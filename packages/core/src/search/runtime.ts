@@ -11,6 +11,7 @@ import {
   SearchService,
   type SearchServiceOptions,
 } from './service.js';
+import { type Suggestion, SuggestService } from './suggest.js';
 import { CachedSynonymSource, PostgresSynonymSource } from './synonyms.js';
 
 type Env = Record<string, string | undefined>;
@@ -41,6 +42,8 @@ export interface SearchRuntimeDeps {
  */
 export class LazySearchService {
   private service: SearchService | undefined;
+  private suggestions: SuggestService | undefined;
+  private synonymSource: CachedSynonymSource | undefined;
 
   constructor(private readonly deps: SearchRuntimeDeps) {}
 
@@ -49,8 +52,26 @@ export class LazySearchService {
     return await this.get().search(request);
   }
 
+  /** Typeahead (`suggestSearch`), with the same synonym cache as the search. */
+  async suggest(text: string): Promise<Suggestion[]> {
+    this.suggestions ??= new SuggestService({
+      prisma: this.deps.prisma,
+      clock: this.deps.clock,
+      synonyms: this.synonyms(),
+    });
+    return await this.suggestions.suggest(text);
+  }
+
   circuit(): CircuitState {
     return this.service?.circuit() ?? 'closed';
+  }
+
+  private synonyms(): CachedSynonymSource {
+    this.synonymSource ??= new CachedSynonymSource(
+      new PostgresSynonymSource(this.deps.prisma),
+      this.deps.clock,
+    );
+    return this.synonymSource;
   }
 
   private get(): SearchService {
@@ -58,10 +79,7 @@ export class LazySearchService {
       primary: createPrimaryIndex(this.deps.env),
       fallback: new PostgresSearchIndex(this.deps.prisma),
       clock: this.deps.clock,
-      synonyms: new CachedSynonymSource(
-        new PostgresSynonymSource(this.deps.prisma),
-        this.deps.clock,
-      ),
+      synonyms: this.synonyms(),
       ...(this.deps.logger === undefined ? {} : { logger: this.deps.logger }),
       ...(this.deps.options === undefined ? {} : { options: this.deps.options }),
     });

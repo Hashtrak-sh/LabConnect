@@ -1,14 +1,24 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { LabDirectoryService, type PublicSiteProfile } from '@labconnect/core';
+import {
+  LabDirectoryQueryError,
+  LabDirectoryService,
+  type PublicPageQuery,
+  type PublicPricePage,
+  type PublicScopePage,
+  type PublicScopeQuery,
+  type PublicSlotPage,
+  type PublicSlotQuery,
+  type PublicSiteProfile,
+} from '@labconnect/core';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { configureApp } from '../src/app.config.js';
 import { AppModule } from '../src/app.module.js';
 import { contractRequest } from './support/contract/index.js';
 
-// I1-CUS-02: `GET /v1/public/lab-sites/{siteId}` over the HTTP stack, every exchange held to the
+// I1-CUS-02 and I1-CUS-03: `GET /v1/public/lab-sites/{siteId}` and `.../scope` over the HTTP stack, every exchange held to the
 // contract by contractRequest(). The directory is a stub here; its SQL is tested on the real
 // schema in packages/core/test/db/labs-public-directory.test.ts.
 
@@ -52,11 +62,84 @@ const PROFILE: PublicSiteProfile = {
   ],
 };
 
+const SCOPE_PAGE: PublicScopePage = {
+  lines: [
+    {
+      scopeLineId: '0190d6a2-7c4e-7a1b-9c3d-0123456789d1',
+      certificateNo: 'TC 0001',
+      discipline: { code: 'MECH', name: 'Mechanical' },
+      group: { code: 'METALS', name: 'Metals' },
+      product: { code: 'TMT', name: 'TMT bar' },
+      parameter: { code: 'TENSILE', name: 'Tensile strength' },
+      method: { code: 'IS_1608', name: 'IS 1608' },
+      methodText: null,
+      rangeText: '10-600 kN',
+      siteType: 'PERMANENT',
+      temporarilyUnavailable: false,
+    },
+  ],
+  nextCursor: 'sc1.next',
+};
+
+const PRICE_PAGE: PublicPricePage = {
+  priceList: { versionNo: 3, effectiveFrom: new Date('2026-11-01T00:00:00Z') },
+  items: [
+    {
+      scopeLine: SCOPE_PAGE.lines[0] as PublicScopePage['lines'][number],
+      pricePaise: 125_000n,
+      samplePrepPaise: 0n,
+      gstRateBp: 1800,
+      sampleQty: 3,
+      sampleUnit: { code: 'PIECE', name: 'Piece' },
+      packagingInstructions: 'Bundle and tag each bar.',
+      tatDays: 5,
+      isAvailable: true,
+    },
+  ],
+  nextCursor: null,
+};
+
+const SLOT_PAGE: PublicSlotPage = {
+  slots: [
+    {
+      slotId: '0190d6a2-7c4e-7a1b-9c3d-0123456789e1',
+      date: '2026-12-03',
+      startsAt: new Date('2026-12-03T04:30:00Z'),
+      endsAt: new Date('2026-12-03T06:30:00Z'),
+      discipline: null,
+    },
+  ],
+  nextCursor: null,
+};
+
 class StubDirectory {
   readonly asked: string[] = [];
+  readonly scopeQueries: PublicScopeQuery[] = [];
+  readonly pageQueries: PublicPageQuery[] = [];
+  readonly slotQueries: PublicSlotQuery[] = [];
   getPublicSite(siteId: string): Promise<PublicSiteProfile | null> {
     this.asked.push(siteId);
     return Promise.resolve(siteId === SITE ? PROFILE : null);
+  }
+  listPublicSlots(siteId: string, query: PublicSlotQuery): Promise<PublicSlotPage | null> {
+    this.asked.push(siteId);
+    this.slotQueries.push(query);
+    if (query.discipline === 'NOPE') {
+      return Promise.reject(new LabDirectoryQueryError('The discipline is not known.'));
+    }
+    return Promise.resolve(siteId === SITE ? SLOT_PAGE : null);
+  }
+  listPublicPrices(siteId: string, query: PublicPageQuery): Promise<PublicPricePage | null> {
+    this.asked.push(siteId);
+    this.pageQueries.push(query);
+    return Promise.resolve(siteId === SITE ? PRICE_PAGE : null);
+  }
+  listPublicScope(siteId: string, query: PublicScopeQuery): Promise<PublicScopePage | null> {
+    this.asked.push(siteId);
+    this.scopeQueries.push(query);
+    if (query.cursor === 'bad')
+      return Promise.reject(new LabDirectoryQueryError('The cursor is not valid.'));
+    return Promise.resolve(siteId === SITE ? SCOPE_PAGE : null);
   }
 }
 
@@ -80,6 +163,9 @@ describe('GET /v1/public/lab-sites/{siteId}', () => {
 
   beforeEach(() => {
     directory.asked.length = 0;
+    directory.scopeQueries.length = 0;
+    directory.pageQueries.length = 0;
+    directory.slotQueries.length = 0;
   });
 
   it('returns the public profile, anonymously', async () => {
@@ -116,5 +202,142 @@ describe('GET /v1/public/lab-sites/{siteId}', () => {
       errors: [{ path: 'siteId' }],
     });
     expect(directory.asked).toEqual([]);
+  });
+
+  // ---------------------------------------------------------------- scope (I1-CUS-03)
+
+  it('lists the scope lines with a page cursor', async () => {
+    const response = await contractRequest(app).get(`/v1/public/lab-sites/${SITE}/scope`);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      data: [{ id: SCOPE_PAGE.lines[0]?.scopeLineId, parameter: { code: 'TENSILE' } }],
+      page: { nextCursor: 'sc1.next', limit: 25 },
+    });
+    expect(directory.scopeQueries).toEqual([{ text: null, cursor: null, limit: 25 }]);
+  });
+
+  it('cleans the search text and passes cursor and limit through', async () => {
+    const response = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/scope?q=%20Tensile%20%20strength%20&cursor=sc1.x&limit=10`,
+    );
+    expect(response.status).toBe(200);
+    expect(directory.scopeQueries).toEqual([
+      { text: 'Tensile strength', cursor: 'sc1.x', limit: 10 },
+    ]);
+    expect(response.body).toMatchObject({ page: { limit: 10 } });
+  });
+
+  it('answers the scope of a site that is not public with 404', async () => {
+    const response = await contractRequest(app).get(`/v1/public/lab-sites/${MISSING}/scope`);
+    expect(response.status).toBe(404);
+  });
+
+  it('answers a cursor the directory refuses with 422', async () => {
+    const response = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/scope?cursor=bad`,
+    );
+    expect(response.status).toBe(422);
+    expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
+
+  it('refuses unknown or repeated parameters and a limit out of range, before asking', async () => {
+    const response = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/scope?sort=name&q=a&q=b&limit=0`,
+      { invalidRequest: 'unknown, repeated and out-of-range parameters must give 422' },
+    );
+    expect(response.status).toBe(422);
+    const paths = (response.body as { errors: { path: string }[] }).errors.map((e) => e.path);
+    expect(paths.sort()).toEqual(['limit', 'q', 'sort']);
+    expect(directory.asked).toEqual([]);
+  });
+
+  // ---------------------------------------------------------------- prices (I1-CUS-04)
+
+  it('returns the price list with money in paise', async () => {
+    const response = await contractRequest(app).get(`/v1/public/lab-sites/${SITE}/prices?limit=5`);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      priceList: { versionNo: 3, effectiveFrom: '2026-11-01T00:00:00.000Z' },
+      data: [
+        {
+          price: { amountPaise: 125_000, currency: 'INR' },
+          samplePrep: { amountPaise: 0, currency: 'INR' },
+          gstRateBp: 1800,
+          sampleUnit: { code: 'PIECE' },
+          isAvailable: true,
+        },
+      ],
+      page: { nextCursor: null, limit: 5 },
+    });
+    expect(directory.pageQueries).toEqual([{ cursor: null, limit: 5 }]);
+  });
+
+  it('answers a site that is not bookable with 404', async () => {
+    const response = await contractRequest(app).get(`/v1/public/lab-sites/${MISSING}/prices`);
+    expect(response.status).toBe(404);
+  });
+
+  it('refuses a search text on the price list (not a contract parameter)', async () => {
+    const response = await contractRequest(app).get(`/v1/public/lab-sites/${SITE}/prices?q=x`, {
+      invalidRequest: 'q is not a parameter of getPublicPriceList and must give 422',
+    });
+    expect(response.status).toBe(422);
+    expect(directory.asked).toEqual([]);
+  });
+
+  // ---------------------------------------------------------------- slots (I1-CUS-05)
+
+  it('lists open slots without any capacity figure', async () => {
+    const response = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/slots?from=2026-12-01&to=2026-12-07&discipline=MECH`,
+    );
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      data: [
+        {
+          id: '0190d6a2-7c4e-7a1b-9c3d-0123456789e1',
+          date: '2026-12-03',
+          startsAt: '2026-12-03T04:30:00.000Z',
+          endsAt: '2026-12-03T06:30:00.000Z',
+          discipline: null,
+        },
+      ],
+      page: { nextCursor: null, limit: 25 },
+    });
+    expect(directory.slotQueries).toEqual([
+      { from: '2026-12-01', to: '2026-12-07', discipline: 'MECH', cursor: null, limit: 25 },
+    ]);
+  });
+
+  it('refuses a missing or reversed date range before asking', async () => {
+    const missing = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/slots?from=2026-12-01`,
+      {
+        invalidRequest: 'to is required and must give 422',
+      },
+    );
+    expect(missing.status).toBe(422);
+    expect(missing.body).toMatchObject({ errors: [{ path: 'to', code: 'REQUIRED' }] });
+    const reversed = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/slots?from=2026-12-07&to=2026-12-01`,
+    );
+    expect(reversed.status).toBe(422);
+    const badDate = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/slots?from=2026-02-30&to=2026-03-01`,
+      { invalidRequest: 'an impossible date must give 422' },
+    );
+    expect(badDate.status).toBe(422);
+    expect(directory.asked).toEqual([]);
+  });
+
+  it('answers an unknown discipline with 422 and a site that is not bookable with 404', async () => {
+    const unknown = await contractRequest(app).get(
+      `/v1/public/lab-sites/${SITE}/slots?from=2026-12-01&to=2026-12-07&discipline=NOPE`,
+    );
+    expect(unknown.status).toBe(422);
+    const missing = await contractRequest(app).get(
+      `/v1/public/lab-sites/${MISSING}/slots?from=2026-12-01&to=2026-12-07`,
+    );
+    expect(missing.status).toBe(404);
   });
 });
