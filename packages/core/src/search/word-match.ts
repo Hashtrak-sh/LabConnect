@@ -158,10 +158,8 @@ export function scoreGrades(grades: readonly number[]): number {
   const average = grades.reduce((sum, grade) => sum + grade, 0) / grades.length;
   if (lowest === GRADE_FUZZY) return (0.25 * average) / GRADE_MAX;
   const span = GRADE_MAX - GRADE_OTHER;
-  return (
-    0.4 +
-    0.6 * ((0.7 * (lowest - GRADE_OTHER)) / span + (0.3 * (average - GRADE_OTHER)) / span)
-  );
+  // 70 % of the weakest grade and 30 % of the average, as whole numbers so that the best is exactly 1
+  return 0.4 + (0.6 * (7 * (lowest - GRADE_OTHER) + 3 * (average - GRADE_OTHER))) / (10 * span);
 }
 
 /** Best score of the terms (a text and its synonym expansions) against one line's words. */

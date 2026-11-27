@@ -85,8 +85,8 @@ export function termScoreSql(terms: readonly string[], columns: WordColumns): Pr
       SELECT CASE
           WHEN min(wg.g) = ${num(GRADE_NONE)} THEN 0
           WHEN min(wg.g) = ${num(GRADE_FUZZY)} THEN 0.25 * avg(wg.g) / ${num(GRADE_MAX)}
-          ELSE 0.4 + 0.6 * (0.7 * (min(wg.g) - ${num(GRADE_OTHER)}) / ${num(span)}.0
-                            + 0.3 * (avg(wg.g) - ${num(GRADE_OTHER)}) / ${num(span)}.0)
+          ELSE 0.4 + 0.6 * (7 * (min(wg.g) - ${num(GRADE_OTHER)})
+                            + 3 * (avg(wg.g) - ${num(GRADE_OTHER)})) / (10 * ${num(span)}.0)
         END AS score
         FROM unnest(${terms}::text[]) AS t(term)
        CROSS JOIN LATERAL unnest(string_to_array(t.term, ' ')) AS qw(q)

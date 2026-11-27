@@ -123,7 +123,7 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
   const scored = textOn
     ? Prisma.sql`
     vt AS MATERIALIZED (
-      SELECT v.*, v.pa_name AS t_name, coalesce(v.p_name, '') AS t_product,
+      SELECT v.scope_line_id, v.lab_site_id, v.pa_name AS t_name, coalesce(v.p_name, '') AS t_product,
              concat_ws(' | ', array_to_string(v.pa_aliases, ' '), array_to_string(v.p_aliases, ' '),
                        v.g_name, v.d_name, v.m_name, v.m_standard_code, v.method_text) AS t_other,
              v.site_name || ' ' || v.site_code AS t_site
@@ -135,7 +135,7 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
               UNION SELECT t_other FROM vt UNION SELECT t_site FROM vt) u
     ),
     vb AS MATERIALIZED (
-      SELECT vt.*, n.w AS name_words, p.w AS product_words, o.w AS other_words, s.w AS site_words
+      SELECT vt.scope_line_id, vt.lab_site_id, n.w AS name_words, p.w AS product_words, o.w AS other_words, s.w AS site_words
         FROM vt
         JOIN wt n ON n.t = vt.t_name
         JOIN wt p ON p.t = vt.t_product
@@ -159,12 +159,13 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
     lines AS MATERIALIZED (
       SELECT v.*, ${qualifies} AS qualifies,
              ${termScoreSql(terms, {
-               name: Prisma.sql`v.name_words`,
-               product: Prisma.sql`v.product_words`,
-               other: Prisma.sql`v.other_words`,
+               name: Prisma.sql`vb.name_words`,
+               product: Prisma.sql`vb.product_words`,
+               other: Prisma.sql`vb.other_words`,
              })} AS line_score,
              sn.name_score AS name_score
-        FROM vb v
+        FROM v
+        JOIN vb ON vb.scope_line_id = v.scope_line_id
         JOIN sn ON sn.lab_site_id = v.lab_site_id
     ),`
     : Prisma.sql`

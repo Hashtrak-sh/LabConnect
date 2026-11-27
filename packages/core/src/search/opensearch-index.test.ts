@@ -80,7 +80,7 @@ describe('buildSearchBody', () => {
     q.terms = ['ts', 'tensile strength'];
     const body = buildSearchBody(q);
     const clauses = dig(body, 'query.bool.must.0.bool.should') as unknown[];
-    expect(clauses.map((clause) => dig(clause, 'bool._name'))).toEqual(['line_text', 'site_name']);
+    expect(clauses.map((clause) => dig(clause, 'dis_max._name'))).toEqual(['line_text', 'site_name']);
     expect(dig(body, 'query.bool.must.0.bool.minimum_should_match')).toBe(1);
     // one alternative per term; every word of a term must match (a `must` per word)
     const alternatives = dig(clauses[0], 'dis_max.queries') as unknown[];
