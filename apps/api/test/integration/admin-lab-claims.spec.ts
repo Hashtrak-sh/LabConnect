@@ -1,6 +1,11 @@
 import { Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { FixedClock, type FilesConfig, InMemoryObjectStorage } from '@labconnect/core';
+import {
+  FixedClock,
+  type FilesConfig,
+  InMemoryObjectStorage,
+  maskEmail,
+} from '@labconnect/core';
 import { withDbContext } from '@labconnect/database';
 import { ROLES } from '@labconnect/shared';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -313,6 +318,20 @@ describe('Ops lab claims: GET /v1/admin/claims and POST /v1/admin/claims/{id}/(a
         decisionNotes: null,
         createdAt,
         lockVersion: 1,
+        labSite: {
+          id: second.lab.siteId,
+          siteCode: second.lab.siteCode,
+          name: second.lab.siteName,
+          city: expect.any(String) as string,
+          stateCode: expect.any(String) as string,
+          certificateNos: [second.lab.certificateNo],
+        },
+        claimant: {
+          id: second.claimantId,
+          fullName: expect.any(String) as string,
+          emailMasked: maskEmail(second.claimantEmail),
+          organisationTypes: [],
+        },
       });
       expect(response.text).not.toContain(first.claimantEmail);
       expect(response.text).not.toContain(second.claimantEmail);
@@ -435,6 +454,20 @@ describe('Ops lab claims: GET /v1/admin/claims and POST /v1/admin/claims/{id}/(a
         decisionNotes: NOTES,
         createdAt: (await createdOf(claim.claimId)).toISOString(),
         lockVersion: 2,
+        labSite: {
+          id: claim.lab.siteId,
+          siteCode: claim.lab.siteCode,
+          name: claim.lab.siteName,
+          city: expect.any(String) as string,
+          stateCode: expect.any(String) as string,
+          certificateNos: [claim.lab.certificateNo],
+        },
+        claimant: {
+          id: claim.claimantId,
+          fullName: expect.any(String) as string,
+          emailMasked: maskEmail(claim.claimantEmail),
+          organisationTypes: [],
+        },
       });
       expect(await claimStatusOf(claim.lab.organisationId)).toBe('CLAIMED');
       expect(await membersOf(claim.lab.organisationId)).toEqual([{ user_id: claim.claimantId }]);
