@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { accessTokenExpiry, needsRefresh, readApiRefreshCookie, safeReturnPath } from './session';
+import {
+  accessTokenExpiry,
+  needsRefresh,
+  readApiRefreshCookie,
+  safeReturnPath,
+  secureCookies,
+} from './session';
 
 function token(claims: object): string {
   const part = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -26,6 +32,12 @@ describe('web session helpers', () => {
     ).toEqual({ value: 'abc.def', maxAge: 43_200 });
     expect(readApiRefreshCookie(['lc_refresh=; Max-Age=0; Path=/v1/auth'])).toBeNull();
     expect(readApiRefreshCookie([])).toBeNull();
+  });
+
+  it('marks cookies Secure only when the public site is HTTPS', () => {
+    expect(secureCookies('https://uat.labconnect.example')).toBe(true);
+    expect(secureCookies('http://13.200.1.2')).toBe(false);
+    expect(secureCookies('http://localhost:3000')).toBe(false);
   });
 
   it('returns only to a same-site page that is not an auth page', () => {

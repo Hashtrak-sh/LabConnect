@@ -1,7 +1,7 @@
 'use server';
 
 import { randomUUID } from 'node:crypto';
-import { cookies } from 'next/headers';
+import { cookies, headers as nextHeaders } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { formatTime } from '@labconnect/ui';
 import { apiBaseUrl } from '@/lib/api';
@@ -48,6 +48,18 @@ interface SessionBody {
   expiresIn: number;
 }
 
+/**
+ * The visitor's address for the API's per-address limits on codes (OQ-89). Behind the reverse
+ * proxy (deploy/ec2: Caddy, which replaces any `X-Forwarded-For` a browser sends) the last entry
+ * is the visitor. The API trusts it only when `API_TRUST_PROXY_HOPS` says this server is a proxy;
+ * locally there is no such header and nothing is sent.
+ */
+async function visitorAddress(): Promise<Record<string, string>> {
+  const forwarded = (await nextHeaders()).get('x-forwarded-for');
+  const last = forwarded?.split(',').at(-1)?.trim();
+  return last === undefined || last === '' ? {} : { 'X-Forwarded-For': last };
+}
+
 async function post(
   path: string,
   body: unknown,
@@ -55,7 +67,12 @@ async function post(
 ): Promise<Response> {
   return fetch(`${apiBaseUrl()}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID(), ...headers },
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': randomUUID(),
+      ...(await visitorAddress()),
+      ...headers,
+    },
     body: JSON.stringify(body),
     cache: 'no-store',
   });

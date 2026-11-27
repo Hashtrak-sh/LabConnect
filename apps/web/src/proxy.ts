@@ -72,7 +72,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (referer !== null) {
       try {
         const from = new URL(referer);
-        if (from.origin === request.nextUrl.origin && !from.pathname.startsWith('/sign-in')) {
+        // The public origin, not `request.nextUrl.origin`: behind a reverse proxy the server
+        // sees its own address (http://web:3000), which no browser page ever has.
+        if (from.origin === webOrigin() && !from.pathname.startsWith('/sign-in')) {
           response.cookies.set(
             RETURN_COOKIE,
             safeReturnPath(`${from.pathname}${from.search}`),

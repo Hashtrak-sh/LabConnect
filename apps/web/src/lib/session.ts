@@ -30,11 +30,20 @@ export interface CookieOptions {
   maxAge: number;
 }
 
+/**
+ * Whether cookies are `Secure`: when the public site is HTTPS (`WEB_BASE_URL`). Not from
+ * `NODE_ENV`: a production build served over plain HTTP (a first UAT without a domain) would
+ * otherwise set cookies the browser drops, and nobody could stay signed in.
+ */
+export function secureCookies(origin: string = webOrigin()): boolean {
+  return origin.startsWith('https://');
+}
+
 export function cookieOptions(maxAgeSeconds: number): CookieOptions {
   return {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: secureCookies(),
     path: '/',
     maxAge: Math.max(0, Math.floor(maxAgeSeconds)),
   };
