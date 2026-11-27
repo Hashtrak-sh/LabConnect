@@ -74,22 +74,13 @@ export function checkSignUp(values: SignUpValues): Partial<Record<SignUpField, S
     if (values[field] === '') errors[field] = 'required';
     else if (values[field].length > max) errors[field] = 'too-long';
   };
-  const optional = (field: SignUpField, max: number): void => {
-    if (values[field].length > max) errors[field] = 'too-long';
-  };
   required('legalName', individual ? 100 : 200);
   if (!individual) required('displayName', 100);
   if (values.gstin === '') {
     if (!individual) errors.gstin = 'required';
   } else if (values.gstin.length !== 15) errors.gstin = 'gstin-length';
   else if (!GSTIN.test(values.gstin)) errors.gstin = 'gstin-format';
-  required('line1', 200);
-  optional('line2', 200);
-  required('city', 100);
-  optional('district', 100);
-  if (!isStateCode(values.stateCode)) errors.stateCode = 'required';
-  if (!/^\d{6}$/.test(values.pincode)) errors.pincode = 'pincode';
-  return errors;
+  return { ...errors, ...checkAddress(values) };
 }
 
 /** The request body for checked values. */
@@ -99,13 +90,56 @@ export function organisationBody(values: SignUpValues): OrganisationCreateBody {
     legalName: values.legalName,
     displayName: values.displayName,
     ...(values.gstin !== '' && { gstin: values.gstin }),
-    registeredAddress: {
-      line1: values.line1,
-      line2: values.line2 === '' ? null : values.line2,
-      city: values.city,
-      district: values.district === '' ? null : values.district,
-      stateCode: values.stateCode,
-      pincode: values.pincode,
-    },
+    registeredAddress: addressBody(values),
+  };
+}
+
+/** The fields of a postal address (`PostalAddress`), shared by J1 steps 4 and 5. */
+export type AddressField = 'line1' | 'line2' | 'city' | 'district' | 'stateCode' | 'pincode';
+export type AddressValues = Record<AddressField, string>;
+
+/** Reads an address from a form; text is trimmed, spaces leave the PIN code. */
+export function readAddress(form: FormData): AddressValues {
+  const field = (name: string): string => {
+    const value = form.get(name);
+    return typeof value === 'string' ? value.trim() : '';
+  };
+  return {
+    line1: field('line1'),
+    line2: field('line2'),
+    city: field('city'),
+    district: field('district'),
+    stateCode: field('stateCode'),
+    pincode: field('pincode').replaceAll(/\s/g, ''),
+  };
+}
+
+/** Checks an address as the API will. */
+export function checkAddress(
+  values: AddressValues,
+): Partial<Record<AddressField, 'required' | 'too-long' | 'pincode'>> {
+  const errors: Partial<Record<AddressField, 'required' | 'too-long' | 'pincode'>> = {};
+  const length = (field: AddressField, max: number, required: boolean): void => {
+    if (required && values[field] === '') errors[field] = 'required';
+    else if (values[field].length > max) errors[field] = 'too-long';
+  };
+  length('line1', 200, true);
+  length('line2', 200, false);
+  length('city', 100, true);
+  length('district', 100, false);
+  if (!isStateCode(values.stateCode)) errors.stateCode = 'required';
+  if (!/^\d{6}$/.test(values.pincode)) errors.pincode = 'pincode';
+  return errors;
+}
+
+/** `PostalAddress` for checked values: an empty optional line is `null`. */
+export function addressBody(values: AddressValues): OrganisationCreateBody['registeredAddress'] {
+  return {
+    line1: values.line1,
+    line2: values.line2 === '' ? null : values.line2,
+    city: values.city,
+    district: values.district === '' ? null : values.district,
+    stateCode: values.stateCode,
+    pincode: values.pincode,
   };
 }

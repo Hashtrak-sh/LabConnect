@@ -66,5 +66,5 @@ export async function createOrganisationAction(
     });
   }
   revalidatePath('/', 'layout');
-  redirect('/sign-up/done');
+  redirect('/sign-up/site');
 }

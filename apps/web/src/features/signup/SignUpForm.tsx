@@ -1,12 +1,12 @@
 'use client';
 
-import { Alert, Button, Field, fieldProps, Input, Select } from '@labconnect/ui';
+import { Alert, Button, Field, fieldProps, Input } from '@labconnect/ui';
 import Link from 'next/link';
 import { startTransition, useActionState, useState } from 'react';
 import type messages from '../../../messages/en.json';
-import { INDIAN_STATES } from './indian-states';
+import { AddressFieldset } from './AddressFieldset';
 import { createOrganisationAction, type SignUpState } from './signup-action';
-import type { SignUpField, SignUpFieldError, SignUpValues } from './signup-form';
+import type { AddressField, SignUpField, SignUpFieldError, SignUpValues } from './signup-form';
 
 export type SignUpText = (typeof messages)['signUp'];
 
@@ -17,8 +17,8 @@ function fill(text: string, values: Record<string, string>): string {
 }
 
 /** The J1 progress line: steps 1 and 2 (email, code) are done once the user is signed in. */
-export function SignUpProgress({ text, step }: { text: SignUpText; step: 1 | 2 | 3 | 4 }) {
-  const steps = [text.stepEmail, text.stepCode, text.stepKind, text.stepDetails];
+export function SignUpProgress({ text, step }: { text: SignUpText; step: 1 | 2 | 3 | 4 | 5 }) {
+  const steps = [text.stepEmail, text.stepCode, text.stepKind, text.stepDetails, text.stepSite];
   return (
     <nav aria-label={text.progressLabel}>
       <p className="mb-2 text-sm text-text-muted">
@@ -84,7 +84,6 @@ export function SignUpForm({ text }: { text: SignUpText }) {
   // Controlled: React resets a form after its action, and a select or radio group would fall back
   // to its first default instead of what the user chose.
   const [segment, setSegment] = useState<SignUpValues['segment']>('BUSINESS');
-  const [stateCode, setStateCode] = useState('');
 
   if (kind === null) {
     return (
@@ -164,7 +163,11 @@ export function SignUpForm({ text }: { text: SignUpText }) {
       </Field>
     );
   };
-  const stateError = error('stateCode');
+  const addressErrors: Partial<Record<AddressField, string>> = {};
+  for (const field of ['line1', 'line2', 'city', 'district', 'stateCode', 'pincode'] as const) {
+    const message = error(field);
+    if (message !== undefined) addressErrors[field] = message;
+  }
 
   return (
     <form
@@ -241,50 +244,13 @@ export function SignUpForm({ text }: { text: SignUpText }) {
         </>
       )}
 
-      <fieldset className="flex flex-col gap-4">
-        <legend className="mb-1 font-medium text-text">
-          {individual ? text.personAddressLegend : text.addressLegend}
-        </legend>
-        {text1('line1', text.line1, { required: true, autoComplete: 'address-line1' })}
-        {text1('line2', text.line2, { autoComplete: 'address-line2' })}
-        <div className="grid gap-4 sm:grid-cols-2">
-          {text1('city', text.city, { required: true, autoComplete: 'address-level2' })}
-          {text1('district', text.district, {})}
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            id="signup-stateCode"
-            label={text.state}
-            required
-            {...(stateError === undefined ? {} : { error: stateError })}
-          >
-            <Select
-              {...fieldProps('signup-stateCode', {
-                required: true,
-                ...(stateError === undefined ? {} : { error: stateError }),
-              })}
-              name="stateCode"
-              value={stateCode}
-              onChange={(event) => {
-                setStateCode(event.target.value);
-              }}
-              autoComplete="address-level1"
-            >
-              <option value="">{text.choose}</option>
-              {INDIAN_STATES.map((state) => (
-                <option key={state.code} value={state.code}>
-                  {state.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          {text1('pincode', text.pincode, {
-            required: true,
-            autoComplete: 'postal-code',
-            inputMode: 'numeric',
-          })}
-        </div>
-      </fieldset>
+      <AddressFieldset
+        idPrefix="signup"
+        legend={individual ? text.personAddressLegend : text.addressLegend}
+        text={text}
+        values={values}
+        errors={addressErrors}
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" loading={pending}>
