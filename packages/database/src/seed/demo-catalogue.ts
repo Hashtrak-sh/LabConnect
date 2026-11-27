@@ -703,7 +703,7 @@ const chemistry: CatalogueSpec = {
         {
           code: SMP,
           name: 'Skimmed milk powder',
-          aliases: ['SMP', 'milk powder', 'dairy powder', 'IS 1165'],
+          aliases: ['SMP', 'milk powder', 'dairy powder', 'IS 13334'],
           sample: FOOD_SAMPLE(250, 'G'),
           parameters: [
             p(SMP, 'Moisture', 'PERCENT', 'oven', 300, 2, [0.1, 10], ['moisture content']),
@@ -754,7 +754,7 @@ const chemistry: CatalogueSpec = {
         {
           code: TUR,
           name: 'Turmeric powder',
-          aliases: ['haldi', 'ground turmeric', 'IS 2446'],
+          aliases: ['haldi', 'ground turmeric', 'IS 3576'],
           sample: FOOD_SAMPLE(250, 'G'),
           parameters: [
             p(TUR, 'Moisture', 'PERCENT', 'oven', 300, 2, [1, 20], ['moisture content']),
@@ -1357,7 +1357,7 @@ const biological: CatalogueSpec = {
         {
           code: BSMP,
           name: 'Skimmed milk powder',
-          aliases: ['SMP', 'milk powder', 'dairy powder', 'IS 1165'],
+          aliases: ['SMP', 'milk powder', 'dairy powder', 'IS 13334'],
           sample: FOOD_MICRO_SAMPLE,
           parameters: [
             p(
@@ -1406,7 +1406,7 @@ const biological: CatalogueSpec = {
         {
           code: BTUR,
           name: 'Turmeric powder',
-          aliases: ['haldi', 'ground turmeric', 'IS 2446'],
+          aliases: ['haldi', 'ground turmeric', 'IS 3576'],
           sample: FOOD_MICRO_SAMPLE,
           parameters: [
             p(
