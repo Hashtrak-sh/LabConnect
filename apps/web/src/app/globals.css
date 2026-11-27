@@ -1,0 +1,8 @@
+/*
+ * The web app's stylesheet: Tailwind CSS 4 with the LabConnect tokens of @labconnect/ui (D-04).
+ * `@source` lets Tailwind see the class names used inside the ui package's components.
+ */
+@import 'tailwindcss';
+@import '@labconnect/ui/styles.css';
+
+@source '../../../../packages/ui/src';

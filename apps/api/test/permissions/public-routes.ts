@@ -33,8 +33,38 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
       'Anonymous discovery (FR-DIS-01, AC-DIS-01, contract security: []). Reads only public reference data in a read-only transaction with no tenant (SEARCH.md section 4).',
   },
   {
+    route: 'GET /v1/public/search/suggest',
+    reason:
+      'Typeahead for the anonymous search (FR-DIS-01, contract security: []). Suggests only values on public scope lines and public lab sites, read as an anonymous visitor.',
+  },
+  {
     route: 'GET /v1/public/lab-sites/:siteId',
     reason:
       'Public lab site profile (FR-DIS-06, contract security: []). LabDirectoryService reads only public reference data as an anonymous visitor; hidden and missing sites give the same 404.',
+  },
+  {
+    route: 'GET /v1/public/lab-sites/:siteId/scope',
+    reason:
+      "A lab site's public scope of accreditation (FR-DIS-06, contract security: []). Public reference data only, read as an anonymous visitor; same 404 rule as the profile.",
+  },
+  {
+    route: 'GET /v1/public/lab-sites/:siteId/prices',
+    reason:
+      "A bookable site's effective published price list (FR-DIS-06, CD-06, contract security: []). Published prices are public; drafts are never read. Not bookable gives 404.",
+  },
+  {
+    route: 'GET /v1/public/lab-sites/:siteId/slots',
+    reason:
+      "A bookable site's open drop-off slots (FR-BKG-04, contract security: []). Only slots with capacity left are listed and capacity figures are never returned.",
+  },
+  {
+    route: 'GET /v1/public/taxonomies/:code/nodes',
+    reason:
+      'Search filter values (FR-DIS-03, contract security: []). Taxonomies are public reference data (TENANT_ISOLATION section 1); only active values are listed.',
+  },
+  {
+    route: 'POST /v1/public/leads',
+    reason:
+      '"Request a lab" (FR-DIS-07, AC-DIS-04, contract security: []): anyone may leave a lead. The insert runs as an anonymous visitor under the lead_write policy; leads can be read only by the platform team, and nothing is returned.',
   },
 ];

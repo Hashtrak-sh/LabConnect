@@ -1,9 +1,23 @@
 import type { components } from '@labconnect/api-contract';
-import type { PublicSiteAccreditation, PublicSiteProfile } from '@labconnect/core';
+import { CURRENCY, paiseToJson } from '@labconnect/shared';
+import type {
+  PublicPricePage,
+  PublicScopeLineItem,
+  PublicScopePage,
+  PublicSlotPage,
+  PublicSiteAccreditation,
+  PublicSiteProfile,
+} from '@labconnect/core';
 
 type Schemas = components['schemas'];
 export type PublicLabSite = Schemas['PublicLabSite'];
 type PublicAccreditation = Schemas['PublicAccreditation'];
+export type PublicScopeLineList = Schemas['PublicScopeLineList'];
+export type PublicPriceList = Schemas['PublicPriceList'];
+export type PublicSlotList = Schemas['PublicSlotList'];
+type Money = Schemas['Money'];
+type PublicScopeLine = Schemas['PublicScopeLine'];
+type ScopeSiteType = PublicScopeLine['siteType'];
 
 function accreditation(source: PublicSiteAccreditation): PublicAccreditation {
   return {
@@ -35,5 +49,65 @@ export function toPublicLabSite(profile: PublicSiteProfile): PublicLabSite {
     rating: { average: profile.ratingAverage, count: profile.ratingCount },
     accreditations: profile.accreditations.map(accreditation),
     receivingHours: profile.receivingHours,
+  };
+}
+
+function scopeLine(line: PublicScopeLineItem): PublicScopeLine {
+  return {
+    id: line.scopeLineId,
+    certificateNo: line.certificateNo,
+    discipline: line.discipline,
+    group: line.group,
+    product: line.product,
+    parameter: line.parameter,
+    method: line.method,
+    methodText: line.methodText,
+    rangeText: line.rangeText,
+    // The column is the `scope_site_type` enum, which the contract mirrors (test/enums.test.ts).
+    siteType: line.siteType as ScopeSiteType,
+    temporarilyUnavailable: line.temporarilyUnavailable,
+  };
+}
+
+/** The directory's scope page as the `listPublicScopeLines` response. `limit` is the request's. */
+export function toPublicScopeLineList(page: PublicScopePage, limit: number): PublicScopeLineList {
+  return { data: page.lines.map(scopeLine), page: { nextCursor: page.nextCursor, limit } };
+}
+
+const money = (paise: bigint): Money => ({ amountPaise: paiseToJson(paise), currency: CURRENCY });
+
+/** The directory's price page as the `getPublicPriceList` response. `limit` is the request's. */
+export function toPublicPriceList(page: PublicPricePage, limit: number): PublicPriceList {
+  return {
+    priceList: {
+      versionNo: page.priceList.versionNo,
+      effectiveFrom: page.priceList.effectiveFrom.toISOString(),
+    },
+    data: page.items.map((item) => ({
+      scopeLine: scopeLine(item.scopeLine),
+      price: money(item.pricePaise),
+      samplePrep: money(item.samplePrepPaise),
+      gstRateBp: item.gstRateBp,
+      sampleQty: item.sampleQty,
+      sampleUnit: item.sampleUnit,
+      packagingInstructions: item.packagingInstructions,
+      tatDays: item.tatDays,
+      isAvailable: item.isAvailable,
+    })),
+    page: { nextCursor: page.nextCursor, limit },
+  };
+}
+
+/** The directory's slot page as the `listPublicSlots` response. No capacity figures exist to drop. */
+export function toPublicSlotList(page: PublicSlotPage, limit: number): PublicSlotList {
+  return {
+    data: page.slots.map((slot) => ({
+      id: slot.slotId,
+      date: slot.date,
+      startsAt: slot.startsAt.toISOString(),
+      endsAt: slot.endsAt.toISOString(),
+      discipline: slot.discipline,
+    })),
+    page: { nextCursor: page.nextCursor, limit },
   };
 }

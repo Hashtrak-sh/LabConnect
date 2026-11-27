@@ -1,6 +1,6 @@
 # Design system
 
-**Status:** DRAFT. Built on Tailwind CSS + shadcn/ui (Radix primitives). **Semantic tokens only** in components, so the QCI brand values (BRAND_GUIDELINES §4–5) can be applied by changing token values, not components.
+**Status:** Built in `packages/ui` (D-04, ADR-021): Tailwind CSS 4 with the tokens below as its theme, Radix primitives styled in the package (the shadcn/ui way). **Semantic tokens only** in components, so the QCI brand values (BRAND_GUIDELINES §4–5) can be applied by changing token values, not components. The token values are those of the approved sheet `designs-pass-2/lc.css`; `packages/ui/src/styles.css` adds `--color-*-strong` (alert text), `--color-danger-hover`, `--color-text-subtle`, `--color-border-disabled` and `--color-scrim` for values the sheet left as literals (DESIGN_REVIEW_PASS_2, decision 4). The status mapping below is `packages/ui/src/status.ts`.
 
 ## 1. Token layers
 1. **Brand primitives** (filled from QCI): `--qci-<name>-<shade>`. Placeholders until OQ-19 is resolved.
