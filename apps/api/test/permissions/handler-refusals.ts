@@ -30,6 +30,12 @@ export const HANDLER_REFUSALS: readonly HandlerRefusal[] = [
     reason: FINANCE_BANK_ONLY,
   },
   {
+    route: 'GET /v1/admin/claims/:id',
+    role: 'PLATFORM_FINANCE',
+    permission: 'kyc.verify',
+    reason: FINANCE_BANK_ONLY,
+  },
+  {
     route: 'POST /v1/admin/claims/:id/approve',
     role: 'PLATFORM_FINANCE',
     permission: 'kyc.verify',

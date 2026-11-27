@@ -70,6 +70,22 @@ export class AdminLabClaimsController {
     return this.claims.list(actor, parseClaimListQuery(query));
   }
 
+  /** `getAdminLabClaim`: one claim with its `ETag`. Not audited (see the core function). */
+  @Get(':id')
+  @Authorised({ permission: 'kyc.verify' })
+  async getAdminLabClaim(
+    @Param('id') id: string,
+    @CurrentActor() actor: CurrentActor,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<AdminLabClaimBody> {
+    requireOps(actor);
+    const claimId = requireClaimId(id);
+    const claim = await this.claims.get(actor, claimId);
+    response.setHeader('ETag', formatEtag(claim.lockVersion));
+    response.setHeader('Cache-Control', 'no-store');
+    return toAdminLabClaimBody(claim);
+  }
+
   /** `approveAdminLabClaim`. Needs `If-Match`. */
   @Post(':id/approve')
   @HttpCode(200)

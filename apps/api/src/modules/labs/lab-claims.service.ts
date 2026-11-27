@@ -8,10 +8,12 @@ import {
   type CurrentActor,
   FileService,
   findListedSiteByCertificate,
+  getMyLabClaim,
   isFilesError,
   LabClaimError,
   type LabClaimView,
   type LetterheadDeps,
+  listMyLabClaims,
   type OtpMailer,
   OutboxService,
   type RequestMeta,
@@ -206,10 +208,31 @@ export class LabClaimsService {
     return outcome.claim;
   }
 
+  /**
+   * `listMyLabClaims`: the caller's own claims, newest first. One `system` transaction, as the
+   * writes (see the class comment); `listMyLabClaims` scopes every query by the caller's user id.
+   */
+  async list(actor: CurrentActor, query: { cursor?: string; limit?: number }) {
+    const page = await this.scope.runAsSystem(READ_REASON, (tx) =>
+      listMyLabClaims(tx, { clock: this.clock }, { actor, ...query }),
+    );
+    return { data: page.data, page: page.page };
+  }
+
+  /** `getLabClaim`: one claim of the caller; another user's claim or an unknown id is `404`. */
+  async get(actor: CurrentActor, claimId: string): Promise<LabClaimView> {
+    return this.scope.runAsSystem(READ_REASON, (tx) =>
+      getMyLabClaim(tx, { clock: this.clock }, { actor, claimId }),
+    );
+  }
+
   private letterheadDeps(): LetterheadDeps {
     return { ...this.deps(), files: this.files };
   }
 }
+
+const READ_REASON =
+  'Lab claim read: the claimant is no member of the organisation they claim, so the policy of lab_claim_request hides their own claim from them';
 
 const LETTERHEAD_REASON =
   'Lab claim letterhead: the claimant is no member of the organisation they claim, and the file has no owning organisation';
