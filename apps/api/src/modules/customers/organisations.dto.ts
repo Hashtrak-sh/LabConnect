@@ -6,7 +6,7 @@ import { DomainError, type ProblemIssue } from '../../common/domain-error.js';
 // `additionalProperties: false`, and no field names an organisation or a user.
 
 const SEGMENTS = new Set(['INDIVIDUAL', 'BUSINESS', 'INDUSTRY', 'GOVERNMENT']);
-const GSTIN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+export const GSTIN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const PINCODE = /^[0-9]{6}$/;
 const BODY_FIELDS = new Set([
   'customerSegment',
@@ -17,12 +17,12 @@ const BODY_FIELDS = new Set([
 ]);
 const ADDRESS_FIELDS = new Set(['line1', 'line2', 'city', 'district', 'stateCode', 'pincode']);
 
-function isObject(value: unknown): value is Record<string, unknown> {
+export function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** A trimmed text of `min` to `max` characters, or `null` with an issue. */
-function text(
+export function text(
   value: unknown,
   path: string,
   min: number,
@@ -39,7 +39,7 @@ function text(
   return null;
 }
 
-function optionalText(
+export function optionalText(
   value: unknown,
   path: string,
   max: number,
@@ -51,19 +51,23 @@ function optionalText(
   return text(value, path, 1, max, issues);
 }
 
-function address(raw: unknown, issues: ProblemIssue[]): PostalAddressInput | null {
+export function address(
+  raw: unknown,
+  issues: ProblemIssue[],
+  at = 'registeredAddress',
+): PostalAddressInput | null {
   if (!isObject(raw)) {
     issues.push({
-      path: 'registeredAddress',
+      path: at,
       code: 'INVALID_TYPE',
-      message: 'registeredAddress is an object.',
+      message: `${at} is an object.`,
     });
     return null;
   }
   for (const field of Object.keys(raw)) {
     if (!ADDRESS_FIELDS.has(field)) {
       issues.push({
-        path: `registeredAddress.${field}`,
+        path: `${at}.${field}`,
         code: 'UNKNOWN_FIELD',
         message: 'This field is not allowed.',
       });
@@ -72,22 +76,22 @@ function address(raw: unknown, issues: ProblemIssue[]): PostalAddressInput | nul
   for (const field of ADDRESS_FIELDS) {
     if (!(field in raw)) {
       issues.push({
-        path: `registeredAddress.${field}`,
+        path: `${at}.${field}`,
         code: 'REQUIRED',
         message: 'This field is required (null where it may be empty).',
       });
     }
   }
-  const line1 = text(raw.line1, 'registeredAddress.line1', 1, 200, issues);
-  const line2 = optionalText(raw.line2, 'registeredAddress.line2', 200, issues);
-  const city = text(raw.city, 'registeredAddress.city', 1, 100, issues);
-  const district = optionalText(raw.district, 'registeredAddress.district', 100, issues);
-  const stateCode = text(raw.stateCode, 'registeredAddress.stateCode', 2, 4, issues);
+  const line1 = text(raw.line1, `${at}.line1`, 1, 200, issues);
+  const line2 = optionalText(raw.line2, `${at}.line2`, 200, issues);
+  const city = text(raw.city, `${at}.city`, 1, 100, issues);
+  const district = optionalText(raw.district, `${at}.district`, 100, issues);
+  const stateCode = text(raw.stateCode, `${at}.stateCode`, 2, 4, issues);
   let pincode: string | null = null;
   if (typeof raw.pincode === 'string' && PINCODE.test(raw.pincode)) pincode = raw.pincode;
   else {
     issues.push({
-      path: 'registeredAddress.pincode',
+      path: `${at}.pincode`,
       code: 'INVALID_FORMAT',
       message: 'A PIN code has 6 digits.',
     });

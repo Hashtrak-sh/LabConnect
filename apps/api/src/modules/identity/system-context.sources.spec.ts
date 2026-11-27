@@ -103,6 +103,16 @@ describe('who may open the system database context', () => {
     });
   });
 
+  it('lists every caller of TenantScope.runForNewOrganisation, with how many', () => {
+    // The context of an organisation that does not exist yet (customer sign-up, I2-CUS-02). The
+    // scope makes the id itself, but the context still lets the work write that organisation's
+    // rows, so each caller is reviewed: add it here and say why.
+    expect(scan(ALL_SOURCES, /\.runForNewOrganisation\s*(?:<[^>]*>)?\(/g)).toEqual({
+      // createCustomerOrganisation: the caller becomes the first CUSTOMER_ADMIN of the new one.
+      'apps/api/src/modules/customers/organisations.service.ts': 1,
+    });
+  });
+
   it('keeps the API from building a system context by hand', () => {
     expect(scan(['apps/api/src'], /kind\s*:\s*['"]system['"]/g)).toEqual({});
     expect(scan(['apps/api/src'], /\bwithDbContext\b/g)).toEqual({});

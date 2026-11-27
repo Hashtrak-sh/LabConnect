@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { checkSignUp, organisationBody, readSignUpForm } from './signup-form';
+import {
+  addressBody,
+  checkAddress,
+  checkSignUp,
+  organisationBody,
+  readAddress,
+  readSignUpForm,
+} from './signup-form';
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData();
@@ -65,6 +72,37 @@ describe('sign-up details (J1 step 4)', () => {
       gstin: 'gstin-length',
       line1: 'required',
       city: 'required',
+      stateCode: 'required',
+      pincode: 'pincode',
+    });
+  });
+});
+
+describe('site address (J1 step 5)', () => {
+  it('reads and checks an address the same way as the registered one', () => {
+    const data = new FormData();
+    for (const [name, value] of Object.entries({
+      line1: ' 1 Road ',
+      line2: '',
+      city: 'Delhi',
+      district: '',
+      stateCode: 'DL',
+      pincode: '110 001',
+    })) {
+      data.set(name, value);
+    }
+    const address = readAddress(data);
+    expect(checkAddress(address)).toEqual({});
+    expect(addressBody(address)).toEqual({
+      line1: '1 Road',
+      line2: null,
+      city: 'Delhi',
+      district: null,
+      stateCode: 'DL',
+      pincode: '110001',
+    });
+    expect(checkAddress({ ...address, line1: '', stateCode: 'ZZ', pincode: '1' })).toEqual({
+      line1: 'required',
       stateCode: 'required',
       pincode: 'pincode',
     });

@@ -36,7 +36,6 @@ createBooking
 createBookingAttachmentUploadUrl
 createBreakGlassDownloadUrl
 createCustomerInvitation
-createCustomerSite
 createDisputeEvidenceUploadUrl
 createLabBankAccount
 createLabInvitation
@@ -82,7 +81,6 @@ getBookingTimeline
 getBreakGlassGrant
 getCustomerOrganisation
 getCustomerSettings
-getCustomerSite
 getDispute
 getFinancialDocumentDownloadUrl
 getLabInbox
@@ -114,7 +112,6 @@ listAdminTaxonomies
 listBookings
 listBreakGlassGrants
 listCustomerInvitations
-listCustomerSites
 listCustomerUsers
 listFinancialDocuments
 listLabInvitations
@@ -169,7 +166,6 @@ updateBooking
 updateBookingExpectedReportDate
 updateCustomerOrganisation
 updateCustomerSettings
-updateCustomerSite
 updateLabPriceListItems
 updateLabSite
 updateLabSlot

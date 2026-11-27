@@ -61,6 +61,14 @@ export const REAL_APP_CASES: readonly IsolationCase[] = [
     route: 'POST /v1/admin/claims/:id/letterhead/download-url',
     spec: 'test/integration/isolation/admin-lab-claims.spec.ts',
   },
+  {
+    route: 'GET /v1/customer/sites/:id',
+    spec: 'test/integration/isolation/customer-sites.spec.ts',
+  },
+  {
+    route: 'PATCH /v1/customer/sites/:id',
+    spec: 'test/integration/isolation/customer-sites.spec.ts',
+  },
 ];
 
 /** Routes with an id that touch no tenant data (for example a public reference lookup). */
