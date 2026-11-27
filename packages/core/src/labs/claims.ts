@@ -170,6 +170,13 @@ interface SiteInfo {
   organisationId: string;
 }
 
+/** The address from NABL data, normalised, or `null` when there is none to use. */
+export function usableContactAddress(contactEmail: string | null | undefined): string | null {
+  const email =
+    contactEmail === null || contactEmail === undefined ? '' : normaliseEmail(contactEmail);
+  return isPlausibleEmail(email) ? email : null;
+}
+
 /** The address of the site from NABL data, normalised, or `null` when there is none to use. */
 async function importedAddress(
   tx: Prisma.TransactionClient,
@@ -179,11 +186,26 @@ async function importedAddress(
     where: { labSiteId },
     select: { contactEmail: true },
   });
-  const email = row?.contactEmail === null || row === null ? '' : normaliseEmail(row.contactEmail);
-  return isPlausibleEmail(email) ? email : null;
+  return usableContactAddress(row?.contactEmail);
 }
 
-function view(
+/**
+ * What the claimant is shown of the reviewer's notes: the reason of a rejection and nothing else
+ * (the contract: `AdminClaimRejection` "Shown to the claimant", `LabClaim.decisionNotes`). The
+ * notes of an approval are the reviewer's own, so they are never passed on, whatever was written.
+ */
+export function claimantDecisionNotes(
+  status: ClaimRequestStatus,
+  notes: string | null,
+): string | null {
+  return status === 'REJECTED' ? notes : null;
+}
+
+/** The site as the claimant's claim shows it: public data, no organisation. */
+export type ClaimSiteRef = Pick<SiteInfo, 'id' | 'siteCode' | 'name'>;
+
+/** The one place a claim becomes the claimant-facing `LabClaimView`, for writes and reads alike. */
+export function claimantView(
   claim: {
     id: string;
     status: ClaimRequestStatus;
@@ -193,7 +215,7 @@ function view(
     decisionNotes: string | null;
     lockVersion: number;
   },
-  site: SiteInfo,
+  site: ClaimSiteRef,
   address: string | null,
 ): LabClaimView {
   return {
@@ -204,10 +226,11 @@ function view(
     otpSentTo: claim.method === 'EMAIL_OTP' && address !== null ? maskEmail(address) : null,
     createdAt: claim.createdAt,
     reviewedAt: claim.reviewedAt,
-    decisionNotes: claim.decisionNotes,
+    decisionNotes: claimantDecisionNotes(claim.status, claim.decisionNotes),
     lockVersion: claim.lockVersion,
   };
 }
+const view = claimantView;
 
 function conflict(currentState: string, detail: string): LabClaimError {
   return new LabClaimError('INVALID_STATE_TRANSITION', { detail, meta: { currentState } });

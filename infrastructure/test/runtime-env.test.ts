@@ -188,8 +188,28 @@ describe('the web task definition', () => {
   const web = taskDefinition({}, 'labconnect-uat-web');
 
   it('reads exactly the variables the web app and its server read, all in .env.example', () => {
-    expect([...web.names].sort()).toEqual(['API_BASE_URL', 'NODE_ENV', 'PORT']);
+    expect([...web.names].sort()).toEqual(['API_BASE_URL', 'NODE_ENV', 'PORT', 'WEB_BASE_URL']);
     for (const name of web.names) expect(envExampleKeys(), name).toContain(name);
+  });
+
+  it('knows its own public origin, the very one the API accepts on a session refresh', () => {
+    // The web server sends WEB_BASE_URL as `Origin` to /auth/refresh; any difference is a 403 and
+    // the user is signed out when the first access token runs out.
+    const api = taskDefinition({}, 'labconnect-uat-api');
+    expect(web.env.get('WEB_BASE_URL')).toBeDefined();
+    expect(web.env.get('WEB_BASE_URL')).toEqual(api.env.get('AUTH_ALLOWED_ORIGINS'));
+    expect(JSON.stringify(web.env.get('WEB_BASE_URL'))).toContain('http://');
+
+    const domain = {
+      domainName: 'uat.labconnect.example',
+      hostedZoneId: 'Z1',
+      hostedZoneName: 'labconnect.example',
+    };
+    const webWithDomain = taskDefinition(domain, 'labconnect-uat-web');
+    expect(webWithDomain.env.get('WEB_BASE_URL')).toBe('https://uat.labconnect.example');
+    expect(webWithDomain.env.get('WEB_BASE_URL')).toEqual(
+      taskDefinition(domain, 'labconnect-uat-api').env.get('AUTH_ALLOWED_ORIGINS'),
+    );
   });
 
   it('points the web server at the API by its private name, with the /v1 prefix and the API port', () => {
@@ -204,9 +224,10 @@ describe('the web task definition', () => {
         ...taskDefinition({}, `labconnect-uat-${s}`).names,
       ]),
     );
-    // NODE_ENV and PORT are shared names with different values; everything else is the web's own.
+    // NODE_ENV and PORT are shared names with different values, and WEB_BASE_URL is the public
+    // origin the worker also needs for links in emails; everything else is the web's own.
     for (const name of web.names) {
-      if (name === 'NODE_ENV' || name === 'PORT') continue;
+      if (name === 'NODE_ENV' || name === 'PORT' || name === 'WEB_BASE_URL') continue;
       expect(other.has(name), name).toBe(false);
     }
     const secretNames = /SECRET|PASSWORD|PRIVATE_KEY|ENCRYPTION_KEY|DATABASE_URL|AWS_/;
