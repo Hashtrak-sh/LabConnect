@@ -1,7 +1,9 @@
 'use client';
 
 import { Alert, Button, Field, fieldProps, Input } from '@labconnect/ui';
+import Link from 'next/link';
 import { type ReactNode, useActionState, useEffect, useState } from 'react';
+import { t } from '@/lib/i18n';
 import { type SignInState, signInAction } from './sign-in-actions';
 
 export type SignInText = Record<
@@ -138,8 +140,11 @@ export function SignInFlow({
 
   if (state.step === 'enrol') {
     return (
-      <Alert tone="warning" title={text.enrolTitle}>
-        {text.enrolText}
+      <Alert tone="warning" title={t('enrol.signInTitle')}>
+        <p>{t('enrol.signInText')}</p>
+        <Button asChild className="self-start">
+          <Link href="/sign-in/authenticator">{t('enrol.signInLink')}</Link>
+        </Button>
       </Alert>
     );
   }
