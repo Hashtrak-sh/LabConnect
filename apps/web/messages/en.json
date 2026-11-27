@@ -493,7 +493,7 @@
     "decisionTitle": "Decision",
     "approve": "Approve…",
     "reject": "Reject…",
-    "notWaiting": "This claim is not waiting for a decision.",
+    "notWaiting": "This claim isn't waiting for a decision. If you came here to decide it, another person may have decided it first.",
     "approveTitle": "Approve this claim?",
     "approveEffect": "The claimant becomes this lab's first Checker and the lab becomes claimed. At their next sign-in they must set up an authenticator.",
     "approveNotesLabel": "Notes (optional)",

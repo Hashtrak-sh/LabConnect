@@ -218,6 +218,7 @@ export function EnrolFlow({ text, initialKey }: { text: EnrolText; initialKey: s
         <div className="flex flex-col gap-1">
           <p className="text-sm font-medium text-text">{text.keyLabel}</p>
           <p
+            id="setup-key"
             className="break-words font-mono text-lg tracking-wide"
             // The key is read aloud as groups, not as one long word.
             aria-label={text.keyLabel}
