@@ -1,4 +1,9 @@
-import { type ClaimMethod, type ClaimRequestStatus, Prisma } from '@labconnect/database';
+import {
+  type ClaimMethod,
+  type ClaimRequestStatus,
+  type OrgType,
+  Prisma,
+} from '@labconnect/database';
 import type { CurrentActor } from '../identity/actor.js';
 import type { RequestMeta } from '../identity/errors.js';
 import { auditMeta } from '../identity/errors.js';
@@ -9,7 +14,7 @@ import type { AuditActor, AuditService } from '../platform/audit.js';
 import type { Clock } from '../platform/clock.js';
 import type { OutboxService } from '../platform/outbox.js';
 import { LabClaimError } from './claim-errors.js';
-import { isStale, LETTERHEAD_LINK, LETTERHEAD_PURPOSE, staleCutoff } from './claims.js';
+import { isStale, LETTERHEAD_LINK, LETTERHEAD_PURPOSE, maskEmail, staleCutoff } from './claims.js';
 
 /*
  * The Ops side of the lab claim flow (FR-DAT-07): `listLabClaimsForReview`, `approveLabClaim` and
@@ -28,9 +33,11 @@ import { isStale, LETTERHEAD_LINK, LETTERHEAD_PURPOSE, staleCutoff } from './cla
  * a claim id; the organisation, site and claimant always come from the claim row, never from the
  * request.
  *
- * What the list and the responses show: exactly the contract's `AdminLabClaim`. It carries the
- * claimant's user id and the letterhead's file id, and no name, no address, no download link.
- * The letterhead is opened only through `createLetterheadDownloadTicket` (I2-ADM-04, OQ-225).
+ * What the list, the one-claim read and the responses show: exactly the contract's `AdminLabClaim`.
+ * It carries the claimant's user id and the letterhead's file id, the site (public data: name,
+ * city, state, certificate numbers) and the claimant (full name, e-mail MASKED, the types of
+ * their other organisations), and no full address, no download link. The letterhead is opened
+ * only through `createLetterheadDownloadTicket` (I2-ADM-04, OQ-225).
  *
  * The 24-hour rule (OQ-206, OQ-220): a claim that is `PENDING_OTP` in the table and 24 hours old
  * or older is `EXPIRED`, whatever the row says. This code reads it that way everywhere, with the
@@ -38,6 +45,27 @@ import { isStale, LETTERHEAD_LINK, LETTERHEAD_PURPOSE, staleCutoff } from './cla
  * (a read must not write; approve and reject refuse such a claim with no write, so the lazy expiry
  * of the lab side keeps its own behaviour).
  */
+
+/** The site of a claim for the reviewer: public data only. */
+export interface AdminClaimLabSite {
+  id: string;
+  siteCode: string;
+  name: string;
+  /** From the site's address; empty when the data has none. */
+  city: string;
+  stateCode: string;
+  /** The certificate numbers of the site's accreditations, sorted. */
+  certificateNos: string[];
+}
+
+/** The claimant for the reviewer: the address masked, the other organisations by type only. */
+export interface AdminClaimClaimant {
+  id: string;
+  fullName: string;
+  emailMasked: string;
+  /** Types of the active memberships OTHER than the claimed organisation, each once, sorted. */
+  organisationTypes: OrgType[];
+}
 
 /** A claim as the contract's `AdminLabClaim` shows it, with `lockVersion` for the `ETag`. */
 export interface AdminLabClaimView {
@@ -54,7 +82,12 @@ export interface AdminLabClaimView {
   decisionNotes: string | null;
   createdAt: Date;
   lockVersion: number;
+  labSite: AdminClaimLabSite;
+  claimant: AdminClaimClaimant;
 }
+
+/** The claim row as it is in the table with its effective status, before the site and claimant. */
+export type AdminLabClaimBase = Omit<AdminLabClaimView, 'labSite' | 'claimant'>;
 
 export interface AdminLabClaimPage {
   data: AdminLabClaimView[];
@@ -165,8 +198,98 @@ const CLAIM_SELECT = {
   lockVersion: true,
 } satisfies Prisma.LabClaimRequestSelect;
 
-function toView(row: ClaimRow, now: Date): AdminLabClaimView {
+function toView(row: ClaimRow, now: Date): AdminLabClaimBase {
   return { ...row, status: effectiveClaimStatus(row, now) };
+}
+
+/**
+ * Adds the site and the claimant to claims, for a whole page in FOUR queries whatever its size
+ * (users, sites, certificates, memberships: one `WHERE ... = ANY(ids)` each), never one set per
+ * claim. Runs in the caller's `platform` transaction, where the policies of `app_user`, `membership`
+ * and the rest show everything: the claim ids come from claim rows the caller was already allowed
+ * to read, and nothing from the request names a user or a site.
+ *
+ * Personal data goes out in the least form the reviewer needs: the e-mail is masked with
+ * `maskEmail` (the function of the claimant's own view), the other organisations are types only
+ * (never a name, an id or a role), and the claimed organisation is left out of them so that an
+ * approved claim does not list the lab the claimant now belongs to as "another" one.
+ */
+export async function withSiteAndClaimant(
+  tx: Prisma.TransactionClient,
+  claims: readonly AdminLabClaimBase[],
+): Promise<AdminLabClaimView[]> {
+  if (claims.length === 0) return [];
+  const userIds = [...new Set(claims.map((claim) => claim.requestedByUserId))];
+  const siteIds = [...new Set(claims.map((claim) => claim.labSiteId))];
+
+  const users = await tx.$queryRaw<{ id: string; full_name: string; email: string }[]>(Prisma.sql`
+    SELECT id::text AS id, full_name, email::text AS email
+      FROM app_user WHERE id = ANY(${userIds}::uuid[])`);
+  const sites = await tx.$queryRaw<
+    { id: string; site_code: string; name: string; city: string | null; state_code: string }[]
+  >(Prisma.sql`
+    SELECT id::text AS id, site_code, name, address->>'city' AS city, state_code
+      FROM lab_site WHERE id = ANY(${siteIds}::uuid[])`);
+  const certificates = await tx.$queryRaw<{ lab_site_id: string; certificate_no: string }[]>(
+    Prisma.sql`
+    SELECT DISTINCT lab_site_id::text AS lab_site_id, certificate_no
+      FROM accreditation WHERE lab_site_id = ANY(${siteIds}::uuid[])`,
+  );
+  const memberships = await tx.$queryRaw<
+    { user_id: string; organisation_id: string; org_type: OrgType }[]
+  >(Prisma.sql`
+    SELECT m.user_id::text AS user_id, m.organisation_id::text AS organisation_id,
+           o.org_type::text AS org_type
+      FROM membership m JOIN organisation o ON o.id = m.organisation_id
+     WHERE m.user_id = ANY(${userIds}::uuid[]) AND m.status = 'ACTIVE'::membership_status`);
+
+  const userOf = new Map(users.map((user) => [user.id, user]));
+  const siteOf = new Map(sites.map((site) => [site.id, site]));
+  return claims.map((claim) => {
+    const user = userOf.get(claim.requestedByUserId);
+    const site = siteOf.get(claim.labSiteId);
+    if (user === undefined || site === undefined) {
+      throw new Error('A claim names a user or a site that cannot be read.');
+    }
+    const types = new Set<OrgType>(
+      memberships
+        .filter(
+          (member) =>
+            member.user_id === claim.requestedByUserId &&
+            member.organisation_id !== claim.organisationId,
+        )
+        .map((member) => member.org_type),
+    );
+    return {
+      ...claim,
+      labSite: {
+        id: site.id,
+        siteCode: site.site_code,
+        name: site.name,
+        city: site.city ?? '',
+        stateCode: site.state_code,
+        certificateNos: certificates
+          .filter((row) => row.lab_site_id === claim.labSiteId)
+          .map((row) => row.certificate_no)
+          .sort(),
+      },
+      claimant: {
+        id: user.id,
+        fullName: user.full_name,
+        emailMasked: maskEmail(user.email),
+        organisationTypes: [...types].sort(),
+      },
+    };
+  });
+}
+
+async function withSiteAndClaimantOne(
+  tx: Prisma.TransactionClient,
+  claim: AdminLabClaimBase,
+): Promise<AdminLabClaimView> {
+  const [view] = await withSiteAndClaimant(tx, [claim]);
+  if (view === undefined) throw new Error('A claim lost its site or claimant.');
+  return view;
 }
 
 // ------------------------------------------------------------------ list (I2-ADM-01)
@@ -281,26 +404,27 @@ export async function listLabClaimsForReview(
 
   const pageRows = rows.slice(0, limit);
   const last = pageRows[pageRows.length - 1];
-  return {
-    data: pageRows.map((row) =>
-      toView(
-        {
-          id: row.id,
-          organisationId: row.organisation_id,
-          labSiteId: row.lab_site_id,
-          requestedByUserId: row.requested_by_user_id,
-          method: row.method,
-          status: row.status,
-          authorisationFileId: row.authorisation_file_id,
-          reviewedByUserId: row.reviewed_by_user_id,
-          reviewedAt: row.reviewed_at,
-          decisionNotes: row.decision_notes,
-          createdAt: row.created_at,
-          lockVersion: row.lock_version,
-        },
-        now,
-      ),
+  const base = pageRows.map((row) =>
+    toView(
+      {
+        id: row.id,
+        organisationId: row.organisation_id,
+        labSiteId: row.lab_site_id,
+        requestedByUserId: row.requested_by_user_id,
+        method: row.method,
+        status: row.status,
+        authorisationFileId: row.authorisation_file_id,
+        reviewedByUserId: row.reviewed_by_user_id,
+        reviewedAt: row.reviewed_at,
+        decisionNotes: row.decision_notes,
+        createdAt: row.created_at,
+        lockVersion: row.lock_version,
+      },
+      now,
     ),
+  );
+  return {
+    data: await withSiteAndClaimant(tx, base),
     page: {
       nextCursor: rows.length > limit && last !== undefined ? encodeCursor(last.id) : null,
       limit,
@@ -547,16 +671,19 @@ export async function approveLabClaim(
     },
   });
 
-  return toView(
-    {
-      ...claim,
-      status: 'APPROVED',
-      reviewedByUserId: actor.userId,
-      reviewedAt: now,
-      decisionNotes: notes,
-      lockVersion: claim.lockVersion + 1,
-    },
-    now,
+  return withSiteAndClaimantOne(
+    tx,
+    toView(
+      {
+        ...claim,
+        status: 'APPROVED',
+        reviewedByUserId: actor.userId,
+        reviewedAt: now,
+        decisionNotes: notes,
+        lockVersion: claim.lockVersion + 1,
+      },
+      now,
+    ),
   );
 }
 
@@ -633,17 +760,45 @@ export async function rejectLabClaim(
     },
   });
 
-  return toView(
-    {
-      ...claim,
-      status: 'REJECTED',
-      reviewedByUserId: actor.userId,
-      reviewedAt: now,
-      decisionNotes: notes,
-      lockVersion: claim.lockVersion + 1,
-    },
-    now,
+  return withSiteAndClaimantOne(
+    tx,
+    toView(
+      {
+        ...claim,
+        status: 'REJECTED',
+        reviewedByUserId: actor.userId,
+        reviewedAt: now,
+        decisionNotes: notes,
+        lockVersion: claim.lockVersion + 1,
+      },
+      now,
+    ),
   );
+}
+
+// ------------------------------------------------------------------ one claim (I2-ADM)
+
+/**
+ * `getAdminLabClaim`: one claim for review, as the list shows it, whatever its status. Checks in
+ * order: only `PLATFORM_OPS` (`403`, before any row is read), the claim exists (`404`; a value
+ * that is not a UUID is the same `404` here). It writes nothing and is not audited: the claimant
+ * appears masked (name, masked e-mail, organisation types) and the letterhead only as an id, so
+ * nothing is shown that the list does not already show; the audit document asks for an entry
+ * for the opening of a document (the letterhead), not for the reading of a queue row.
+ */
+export async function getLabClaimForReview(
+  tx: Prisma.TransactionClient,
+  deps: Pick<ClaimReviewDeps, 'clock'>,
+  input: { actor: CurrentActor; claimId: string },
+): Promise<AdminLabClaimView> {
+  requireOps(input.actor);
+  if (!isUuid(input.claimId)) throw new LabClaimError('NOT_FOUND', { detail: 'No such claim.' });
+  const claim = await tx.labClaimRequest.findUnique({
+    where: { id: input.claimId },
+    select: CLAIM_SELECT,
+  });
+  if (claim === null) throw new LabClaimError('NOT_FOUND', { detail: 'No such claim.' });
+  return withSiteAndClaimantOne(tx, toView(claim, deps.clock.now()));
 }
 
 // ------------------------------------------------------------------ letterhead read (I2-ADM-04)

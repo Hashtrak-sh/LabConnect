@@ -461,7 +461,9 @@ export class ComputeStack extends cdk.Stack {
       config.workerMemoryMiB,
     );
     // The web server. `API_BASE_URL` is the API's private name with the /v1 prefix (the web app reads
-    // it per request, server side only). Nothing else is configured and nothing is secret.
+    // it per request, server side only). `WEB_BASE_URL` is the web app's own public origin: the web
+    // server sends it as `Origin` when it refreshes a session, and the API accepts exactly this
+    // value (`AUTH_ALLOWED_ORIGINS` above), so the two must stay one expression. Nothing is secret.
     const apiPrivateUrl = `http://api.${names.privateNamespace}:${String(API_PORT)}/v1`;
     this.webTaskDefinition = taskDefinition(
       'web',
@@ -476,6 +478,7 @@ export class ComputeStack extends cdk.Stack {
         NODE_ENV: 'production',
         PORT: String(WEB_PORT),
         API_BASE_URL: apiPrivateUrl,
+        WEB_BASE_URL: webOrigin,
       },
       logging: logging('web'),
       healthCheck: {
