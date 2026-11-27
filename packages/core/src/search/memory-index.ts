@@ -17,63 +17,42 @@ import {
   haversineMetres,
 } from './result-mapping.js';
 import { istDateString } from './visible-lines.js';
+import { bestTermScore, queryWordLists, splitWords } from './word-match.js';
 
 const SORT_LAST = 1e18;
-function editDistance(a: string, b: string): number {
-  const row = Array.from({ length: b.length + 1 }, (_, index) => index);
-  for (let i = 1; i <= a.length; i++) {
-    let previous = row[0] ?? 0;
-    row[0] = i;
-    for (let j = 1; j <= b.length; j++) {
-      const current = row[j] ?? 0;
-      row[j] = Math.min(
-        current + 1,
-        (row[j - 1] ?? 0) + 1,
-        previous + (a[i - 1] === b[j - 1] ? 0 : 1),
-      );
-      previous = current;
-    }
-  }
-  return row[b.length] ?? 0;
-}
 
-/**
- * Text score of one term against a lower-cased text: 1 for a substring; for a term of at least
- * four characters, 0.7 when every word of the term is within one edit (two for words of eight
- * or more letters) of some word of the text; otherwise 0. The Postgres adapter uses trigram
- * similarity, which is not the same function: the two agree on clear matches and clear misses,
- * which is what the shared conformance suite checks.
- */
-export function memoryTermScore(term: string, text: string): number {
-  if (text.includes(term)) return 1;
-  if (term.length < 4) return 0;
-  const words = text.split(/[^\p{L}\p{N}]+/u).filter((word) => word.length > 0);
-  const near = (word: string): boolean => {
-    const allowed = word.length >= 8 ? 2 : word.length >= 4 ? 1 : 0;
-    return words.some((candidate) => editDistance(word, candidate) <= allowed);
-  };
-  return term.split(' ').every(near) ? 0.7 : 0;
-}
-
-function lineBlob(doc: LabSearchDocument): string {
-  return [
-    doc.parameter.name,
+/** The words of a line: the parameter name, the product name, and every other text that makes the line findable. */
+export function lineWords(doc: LabSearchDocument): {
+  name: string[];
+  product: string[];
+  other: string[];
+} {
+  const other = [
     doc.parameter.aliases.join(' '),
-    doc.product?.name,
     doc.product?.aliases.join(' '),
     doc.group?.name,
     doc.discipline.name,
     doc.method?.name,
     doc.method?.standardCode,
     doc.methodText,
-  ]
-    .filter((part): part is string => part !== undefined && part !== null && part.length > 0)
-    .join(' | ')
-    .toLowerCase();
+  ].filter((part): part is string => part !== undefined && part !== null && part.length > 0);
+  return {
+    name: splitWords(doc.parameter.name),
+    product: splitWords(doc.product?.name ?? ''),
+    other: splitWords(other.join(' | ')),
+  };
 }
 
-const bestScore = (terms: string[], text: string): number =>
-  terms.reduce((best, term) => Math.max(best, memoryTermScore(term, text)), 0);
+/** Score of the terms against one line, `word-match.ts` (the SQL twin is in `matching-sql.ts`). */
+export function memoryLineScore(terms: readonly string[], doc: LabSearchDocument): number {
+  const { name, product, other } = lineWords(doc);
+  return bestTermScore(queryWordLists(terms), name, other, product);
+}
+
+/** Score of the terms against the name and code of a site. */
+export function memorySiteScore(terms: readonly string[], doc: LabSearchDocument): number {
+  return bestTermScore(queryWordLists(terms), splitWords(`${doc.siteName} ${doc.siteCode}`), []);
+}
 
 interface Scored {
   doc: LabSearchDocument;
@@ -82,8 +61,6 @@ interface Scored {
   nameScore: number;
   matched: boolean;
 }
-
-const MATCH_THRESHOLD = 0.6;
 
 /**
  * An index in memory: the fake of the tests and the executable statement of the query semantics
@@ -177,15 +154,9 @@ export class InMemorySearchIndex implements SearchIndex {
         (query.priceMaxPaise === null ||
           (doc.pricePaise !== null && doc.pricePaise <= query.priceMaxPaise)) &&
         (query.category === null || doc.labCategory === query.category);
-      const lineScore = textOn ? bestScore(query.terms, lineBlob(doc)) : 0;
-      const nameScore = textOn
-        ? bestScore(query.terms, `${doc.siteName} ${doc.siteCode}`.toLowerCase())
-        : 0;
-      const matched = textOn
-        ? qualifies && lineScore >= MATCH_THRESHOLD
-        : hasFilters
-          ? qualifies
-          : false;
+      const lineScore = textOn ? memoryLineScore(query.terms, doc) : 0;
+      const nameScore = textOn ? memorySiteScore(query.terms, doc) : 0;
+      const matched = textOn ? qualifies && lineScore > 0 : hasFilters ? qualifies : false;
       const list = bySite.get(doc.labSiteId) ?? [];
       list.push({ doc, qualifies, lineScore, nameScore, matched });
       bySite.set(doc.labSiteId, list);
@@ -199,6 +170,8 @@ export class InMemorySearchIndex implements SearchIndex {
       minTat: number | null;
       distanceM: number | null;
       sortKey: number;
+      /** Best text score of the site: the tie-break after the sort key. */
+      rel: number;
     }
     const ranked: Ranked[] = [];
     for (const [siteId, rows] of bySite) {
@@ -206,14 +179,14 @@ export class InMemorySearchIndex implements SearchIndex {
       if (first === undefined) continue;
       const matchedRows = rows.filter((row) => row.matched);
       const anyQualifying = rows.some((row) => row.qualifies);
-      const anyLineHit = rows.some((row) => row.qualifies && row.lineScore >= MATCH_THRESHOLD);
+      const anyLineHit = rows.some((row) => row.qualifies && row.lineScore > 0);
       const nameScore = Math.max(...rows.map((row) => row.nameScore));
       const bestLine = Math.max(
         0,
         ...rows.filter((row) => row.qualifies).map((row) => row.lineScore),
       );
       if (hasFilters && !anyQualifying) continue;
-      if (textOn && !(nameScore >= MATCH_THRESHOLD || anyLineHit)) continue;
+      if (textOn && !(nameScore > 0 || anyLineHit)) continue;
       const distanceM =
         query.location === null || first.location === null
           ? null
@@ -240,17 +213,18 @@ export class InMemorySearchIndex implements SearchIndex {
         minTat,
         distanceM,
         sortKey,
+        rel: Math.max(bestLine, nameScore),
       });
     }
-    ranked.sort((a, b) => a.sortKey - b.sortKey || (a.siteId < b.siteId ? -1 : 1));
+    ranked.sort((a, b) => a.sortKey - b.sortKey || b.rel - a.rel || (a.siteId < b.siteId ? -1 : 1));
     const after =
       position === null
         ? ranked
-        : ranked.filter(
-            (site) =>
-              site.sortKey > position.k ||
-              (site.sortKey === position.k && site.siteId > position.id),
-          );
+        : ranked.filter((site) => {
+            if (site.sortKey !== position.k) return site.sortKey > position.k;
+            if (position.r !== undefined && site.rel !== position.r) return site.rel < position.r;
+            return site.siteId > position.id;
+          });
     const page = after.slice(0, query.limit);
     const last = page.at(-1);
     const hasMore = after.length > query.limit;
@@ -259,7 +233,7 @@ export class InMemorySearchIndex implements SearchIndex {
       total: ranked.length,
       nextCursor:
         hasMore && last !== undefined
-          ? encodeCursor('memory', { k: last.sortKey, id: last.siteId })
+          ? encodeCursor('memory', { k: last.sortKey, id: last.siteId, r: last.rel })
           : null,
     };
   }

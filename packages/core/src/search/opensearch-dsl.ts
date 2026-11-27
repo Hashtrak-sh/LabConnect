@@ -2,47 +2,128 @@ import { decodeCursor } from './cursor.js';
 import { SearchCursorError } from './errors.js';
 import { MAX_MATCHED_LINES, type SearchQuery } from './model.js';
 import { istDateString } from './visible-lines.js';
+import {
+  GRADE_FUZZY,
+  GRADE_NAME_PREFIX,
+  GRADE_NAME_WORD,
+  GRADE_OTHER,
+  GRADE_PRODUCT,
+  MIN_FUZZY_LENGTH,
+  MIN_PREFIX_LENGTH,
+  queryWordLists,
+} from './word-match.js';
 
 /** Names of the named queries; `matched_queries` of an inner hit says which one a line matched. */
 export const LINE_TEXT_QUERY = 'line_text';
 export const SITE_NAME_QUERY = 'site_name';
 
-const LINE_TEXT_FIELDS = [
-  'parameter.name^3',
-  'parameter.aliases^3',
-  'product.name^2',
-  'product.aliases^2',
-  'method.standard_code^2',
+/** The parameter's own name: the best place for a query word to be found. */
+const NAME_FIELDS = ['parameter.name'];
+/** The product's name: just below the parameter's name (see `gradeWord`). */
+const PRODUCT_FIELDS = ['product.name'];
+/** Every other text that makes a line findable (aliases, group, discipline, method, standard). */
+const OTHER_FIELDS = [
+  'parameter.aliases',
+  'product.aliases',
+  'method.standard_code',
   'method.name',
   'group.name',
   'discipline.name',
   'method_text',
 ];
-const SITE_FIELDS = ['site_name^2', 'site_code'];
+const SITE_FIELDS = ['site_name', 'site_code'];
 
 /** `index.max_result_window` of OpenSearch: `from + size` may not exceed it. */
 export const MAX_RESULT_WINDOW = 10_000;
 
 type Json = Record<string, unknown>;
 
-const multiMatch = (term: string, fields: string[]): Json => ({
+/** Weights of the grades of `word-match.ts`; the score of a term is the sum over its words. */
+const WEIGHT = {
+  nameWord: GRADE_NAME_WORD,
+  namePrefix: GRADE_NAME_PREFIX,
+  product: GRADE_PRODUCT,
+  other: GRADE_OTHER,
+  fuzzy: GRADE_FUZZY,
+} as const;
+
+const weighted = (filter: Json, boost: number): Json => ({ constant_score: { filter, boost } });
+
+/** A whole word: the field's analyser cuts the word the way it cut the text, and every token must match. */
+const wholeWord = (word: string, fields: string[]): Json => ({
+  multi_match: { query: word, fields, type: 'best_fields', operator: 'and' },
+});
+
+/** The beginning of a word (the text is lower-cased by the analyser, so is the word). */
+const wordPrefix = (word: string, fields: string[]): Json => ({
+  bool: {
+    should: fields.map((field) => ({ prefix: { [field]: { value: word } } })),
+    minimum_should_match: 1,
+  },
+});
+
+/** A typing mistake: one edit for words of four to seven letters, two from eight (as the memory index). */
+const typo = (word: string, fields: string[]): Json => ({
   multi_match: {
-    query: term,
+    query: word,
     fields,
     type: 'best_fields',
     operator: 'and',
-    fuzziness: 'AUTO',
+    fuzziness: `AUTO:${String(MIN_FUZZY_LENGTH)},8`,
     prefix_length: 1,
   },
 });
 
-const named = (name: string, terms: string[], fields: string[]): Json => ({
-  bool: {
-    _name: name,
-    should: terms.map((term) => multiMatch(term, fields)),
-    minimum_should_match: 1,
-  },
-});
+/**
+ * One query word against a set of fields (`word-match.ts`): the best of a whole word in the name
+ * fields, the beginning of a word in the name fields (words of four letters or more), a whole word
+ * or the beginning of one in the product's name, the same in the other fields, and a typing
+ * mistake (four letters or more).
+ */
+function wordClause(
+  word: string,
+  nameFields: string[],
+  otherFields: string[],
+  productFields: string[],
+): Json {
+  const long = word.length >= MIN_PREFIX_LENGTH;
+  const queries: Json[] = [weighted(wholeWord(word, nameFields), WEIGHT.nameWord)];
+  if (long) queries.push(weighted(wordPrefix(word, nameFields), WEIGHT.namePrefix));
+  for (const [fields, weight] of [
+    [productFields, WEIGHT.product],
+    [otherFields, WEIGHT.other],
+  ] as const) {
+    if (fields.length === 0) continue;
+    queries.push(weighted(wholeWord(word, [...fields]), weight));
+    if (long) queries.push(weighted(wordPrefix(word, [...fields]), weight));
+  }
+  if (word.length >= MIN_FUZZY_LENGTH) {
+    queries.push(
+      weighted(typo(word, [...nameFields, ...productFields, ...otherFields]), WEIGHT.fuzzy),
+    );
+  }
+  return { dis_max: { queries } };
+}
+
+/**
+ * A term matches when every one of its words matches. Terms (the text and its synonym
+ * expansions) are alternatives: the best one counts. A term with no word (only punctuation)
+ * is left out, and a query with none matches nothing.
+ */
+const named = (
+  name: string,
+  terms: string[],
+  nameFields: string[],
+  otherFields: string[],
+  productFields: string[] = [],
+): Json => {
+  const alternatives = queryWordLists(terms).map((words) => ({
+    bool: { must: words.map((word) => wordClause(word, nameFields, otherFields, productFields)) },
+  }));
+  return { dis_max: { _name: name, queries: alternatives.length > 0 ? alternatives : [NO_MATCH] } };
+};
+
+const NO_MATCH: Json = { match_none: {} };
 
 /** Hard filters on a line (discipline, parameter, method, turnaround, price, category). */
 export function hasLineFilters(query: SearchQuery): boolean {
@@ -58,6 +139,8 @@ export function hasLineFilters(query: SearchQuery): boolean {
 
 function sortClause(query: SearchQuery): Json[] {
   const tail: Json[] = [{ lab_site_id: 'asc' }, { scope_line_id: 'asc' }];
+  // Sites that tie on price, turnaround or distance come best text match first, then by id.
+  const tie: Json[] = query.terms.length > 0 ? [{ _score: 'desc' }] : [];
   switch (query.sort) {
     case 'relevance':
       return [{ _score: 'desc' }, ...tail];
@@ -73,13 +156,14 @@ function sortClause(query: SearchQuery): Json[] {
             mode: 'min',
           },
         },
+        ...tie,
         ...tail,
       ];
     }
     case 'price':
-      return [{ price_paise: { order: 'asc', missing: '_last' } }, ...tail];
+      return [{ price_paise: { order: 'asc', missing: '_last' } }, ...tie, ...tail];
     case 'tat':
-      return [{ tat_days: { order: 'asc', missing: '_last' } }, ...tail];
+      return [{ tat_days: { order: 'asc', missing: '_last' } }, ...tie, ...tail];
   }
 }
 
@@ -92,9 +176,12 @@ function sortClause(query: SearchQuery): Json[] {
  * - Visibility at query time: the accreditation dates (BR-002); everything else was decided by
  *   the projector, and the index only holds visible lines.
  * - Hard filters are `filter` clauses on the line; distance is a `geo_distance` filter.
- * - Text: a line matches by its parameter, product, group, discipline, method or standard text
- *   (named `line_text`), a site by its name or code (`site_name`), each with `fuzziness: AUTO`
- *   over every term (the text and its synonym expansions).
+ * - Text (`word-match.ts` has the rules): a line matches when every word of a term (the text or
+ *   one of its synonym expansions) is a whole word, the beginning of a word (words of four letters
+ *   or more) or a typing mistake (four letters or more) in the parameter name or in the other text
+ *   of the line (named `line_text`); a site by its name or code (`site_name`). Each word scores the
+ *   weight of its best kind of match (`WEIGHT`), so the score ranks like the grades of the
+ *   other backends; it is an approximation of the Postgres score, not the same number.
  * - One extra group is requested (`size = limit + 1`) to know whether another page follows.
  * - Paging is by offset (`from`): OpenSearch refuses `search_after` together with `collapse` unless
  *   the sort is the collapse field itself, which would lose the ranking. The offset is bounded by
@@ -132,8 +219,8 @@ export function buildSearchBody(query: SearchQuery): Json {
           {
             bool: {
               should: [
-                named(LINE_TEXT_QUERY, query.terms, LINE_TEXT_FIELDS),
-                named(SITE_NAME_QUERY, query.terms, SITE_FIELDS),
+                named(LINE_TEXT_QUERY, query.terms, NAME_FIELDS, OTHER_FIELDS, PRODUCT_FIELDS),
+                named(SITE_NAME_QUERY, query.terms, SITE_FIELDS, []),
               ],
               minimum_should_match: 1,
             },

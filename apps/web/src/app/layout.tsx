@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { AccessNav } from '@/features/access/AccessNav';
 import { currentUser } from '@/features/auth/current-user';
 import { signOutAction } from '@/features/auth/sign-in-actions';
 import { t } from '@/lib/i18n';
@@ -49,6 +50,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               >
                 {t('app.navFindLab')}
               </Link>
+              <AccessNav />
             </nav>
             <div className="ml-auto flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-dashed border-warning bg-warning-bg px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-warning-strong">

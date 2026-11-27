@@ -1,0 +1,169 @@
+# UAT prototype on one EC2 instance (ADR-022, proposed). Everything runs in Docker on the host:
+# PostgreSQL with PostGIS, Redis, Mailpit (catches every email; its page is behind a password),
+# the API, the web app and Caddy (the only published service: HTTP and HTTPS, with an automatic
+# Let's Encrypt certificate when SITE_ADDRESS is a domain).
+#
+# Not here yet, on purpose: the worker (outbox relay, notifications, file scans), S3 and
+# OpenSearch. Search runs on PostgreSQL. See deploy/ec2/README.md for what that leaves out.
+#
+#   cd deploy/ec2 && ./make-env.sh && docker compose up -d --build
+#
+# All values come from deploy/ec2/.env (made by make-env.sh, never committed).
+name: labconnect-uat
+
+x-app-environment: &app-environment
+  NODE_ENV: production
+  # A deployed, non-production environment: the fake payment gateway and SMTP mail are allowed.
+  APP_ENV: uat
+  NO_COLOR: '1'
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.34
+    restart: unless-stopped
+    # Served under /mailpit by Caddy, which asks for the password. SMTP without a login, inside
+    # Docker only (the API's SMTP adapter sends none).
+    environment:
+      MP_WEBROOT: /mailpit
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-off: migrations as the schema owner, the two login users, the reference data.
+  # Runs on every `up` and is safe to repeat.
+  migrate:
+    build:
+      context: ../..
+      target: migrate
+    restart: 'no'
+    environment:
+      <<: *app-environment
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      API_DB_USER: ${API_DB_USER}
+      API_DB_PASSWORD: ${API_DB_PASSWORD}
+      WORKER_DB_USER: ${WORKER_DB_USER}
+      WORKER_DB_PASSWORD: ${WORKER_DB_PASSWORD}
+      # Recorded in qr_signing_key by the reference seed. No KMS here: nothing signs QR codes yet.
+      QR_KMS_KEY_ARN_BOOKING: ${QR_KEY_PLACEHOLDER}
+      QR_KMS_KEY_ARN_PACKAGE: ${QR_KEY_PLACEHOLDER}
+      QR_KMS_KEY_ARN_REPORT: ${QR_KEY_PLACEHOLDER}
+      # Read by `seed platform-admin` and `seed demo` when run by hand (README).
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-}
+      PLATFORM_ADMIN_NAME: ${PLATFORM_ADMIN_NAME:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ../..
+      target: api
+    restart: unless-stopped
+    environment:
+      <<: *app-environment
+      PORT: '3001'
+      API_DATABASE_URL: postgresql://${API_DB_USER}:${API_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379
+      # Only the web server calls the API, and it passes the visitor's address on (OQ-89).
+      API_TRUST_PROXY_HOPS: '1'
+      AUTH_ALLOWED_ORIGINS: ${WEB_ORIGIN}
+      AUTH_JWT_KEY_ID: k1
+      AUTH_JWT_PRIVATE_KEY: ${AUTH_JWT_PRIVATE_KEY}
+      AUTH_HASH_SECRET: ${AUTH_HASH_SECRET}
+      AUTH_ENCRYPTION_KEY: ${AUTH_ENCRYPTION_KEY}
+      PAYMENT_GATEWAY: fake
+      PAYMENT_PAYLOAD_ENCRYPTION_KEY: ${PAYMENT_PAYLOAD_ENCRYPTION_KEY}
+      PAYMENT_FAKE_WEBHOOK_SECRET: ${PAYMENT_FAKE_WEBHOOK_SECRET}
+      EMAIL_TRANSPORT: smtp
+      SMTP_HOST: mailpit
+      SMTP_PORT: '1025'
+      MAIL_FROM: ${MAIL_FROM}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3001/v1/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  web:
+    build:
+      context: ../..
+      target: web
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://api:3001/v1
+      # The public address: the Origin sent on refresh, and whether cookies are Secure.
+      WEB_BASE_URL: ${WEB_ORIGIN}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000/').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  caddy:
+    image: caddy:2.10.0-alpine
+    restart: unless-stopped
+    ports:
+      - '${HTTP_PORT:-80}:80'
+      - '${HTTPS_PORT:-443}:443'
+    # Only these three, so the rest of .env never reaches this container. The password hash
+    # contains `$`, which Compose would expand; .env holds it single-quoted.
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+      MAILPIT_USER: ${MAILPIT_USER}
+      MAILPIT_PASSWORD_HASH: ${MAILPIT_PASSWORD_HASH}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

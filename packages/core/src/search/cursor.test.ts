@@ -12,6 +12,13 @@ describe('cursors', () => {
     expect(decodeCursor('opensearch', os)).toEqual({ k: 50, id: 'x' });
   });
 
+  it('carries the relevance tie-break when given, and still reads a cursor without it', () => {
+    const cursor = encodeCursor('postgres', { k: 3, id: 'site-1', r: 0.7 });
+    expect(decodeCursor('postgres', cursor)).toEqual({ k: 3, id: 'site-1', r: 0.7 });
+    const wrong = `pg1.${Buffer.from(JSON.stringify({ k: 1, id: 'a', r: 'x' })).toString('base64url')}`;
+    expect(() => decodeCursor('postgres', wrong)).toThrow(SearchCursorError);
+  });
+
   it("refuses another backend's cursor, garbage and a cursor with the wrong content", () => {
     const pg = encodeCursor('postgres', { k: 1, id: 'a' });
     expect(() => decodeCursor('opensearch', pg)).toThrow(SearchCursorError);
@@ -25,5 +32,10 @@ describe('cursors', () => {
     const cursor = encodeCursor('postgres', { k: 0, id: 'site-1' });
     const decoded = Buffer.from(cursor.slice(4), 'base64url').toString('utf8');
     expect(Object.keys(JSON.parse(decoded) as object).sort()).toEqual(['id', 'k']);
+    const tied = encodeCursor('postgres', { k: 0, id: 'site-1', r: 1 });
+    const tiedKeys = Object.keys(
+      JSON.parse(Buffer.from(tied.slice(4), 'base64url').toString('utf8')) as object,
+    );
+    expect(tiedKeys.sort()).toEqual(['id', 'k', 'r']); // a number: a score, no text
   });
 });

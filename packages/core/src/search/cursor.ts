@@ -13,6 +13,12 @@ export interface PositionCursor {
   k: number;
   /** Its site id. */
   id: string;
+  /**
+   * Its relevance (best text score, 0 without text), the tie-break between equal sort keys:
+   * sites with the same price, turnaround or distance come best match first, then by id. Absent
+   * in a cursor from before the tie-break (and on OpenSearch, which pages by offset).
+   */
+  r?: number;
 }
 
 const PREFIX: Record<SearchBackend, string> = {
@@ -40,9 +46,10 @@ export function decodeCursor(backend: SearchBackend, cursor: string): PositionCu
       Buffer.from(cursor.slice(PREFIX[backend].length), 'base64url').toString('utf8'),
     );
     if (typeof parsed === 'object' && parsed !== null) {
-      const { k, id } = parsed as Record<string, unknown>;
+      const { k, id, r } = parsed as Record<string, unknown>;
       if (typeof k === 'number' && Number.isFinite(k) && typeof id === 'string' && id.length > 0) {
-        return { k, id };
+        if (r === undefined) return { k, id };
+        if (typeof r === 'number' && Number.isFinite(r)) return { k, id, r };
       }
     }
   } catch {
