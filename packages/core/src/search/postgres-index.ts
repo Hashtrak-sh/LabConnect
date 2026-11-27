@@ -15,16 +15,19 @@ import {
   type SiteSearchResult,
 } from './model.js';
 import { withPublicReadContext } from '../platform/public-context.js';
+import { termScoreSql, wordsSql } from './matching-sql.js';
 import { visibleLinesSql } from './visible-lines.js';
+import { FUZZY_WORD_SIMILARITY, normaliseTerm } from './word-match.js';
 
 /**
- * Text matching (SEARCH.md section 3: `pg_trgm`). A term matches a field set when the term is a
- * substring (score 1) or, for terms of at least four characters, when `word_similarity` of the
- * term against the text reaches this value. 0.6 tolerates a transposed or missing letter in a
- * word ("strenght" finds "strength") without matching unrelated words.
+ * Text matching (SEARCH.md section 3, "Matching"): by whole words and the beginning of words,
+ * never the middle of a word, graded by where the words are found, with a typing mistake as the
+ * weakest fallback. The rules and the score are in `word-match.ts`; `matching-sql.ts` is their
+ * SQL. This is the `word_similarity` of a query word to a word of the text from which it counts
+ * as a typing mistake: 0.6 tolerates a transposed or missing letter in a word ("strenght" finds
+ * "strength") without matching unrelated words.
  */
-export const TEXT_MATCH_THRESHOLD = 0.6;
-const MIN_FUZZY_LENGTH = 4;
+export const TEXT_MATCH_THRESHOLD = FUZZY_WORD_SIMILARITY;
 /** Sort position of a site that has no value for the sort (no pin, not priced): after all others. */
 export const SORT_LAST = 1e18;
 const METRES_PER_KM = 1000;
@@ -46,6 +49,8 @@ interface SiteRow {
   min_tat: number | null;
   distance_m: number | null;
   sort_key: number;
+  /** Best text score of the site (0 without text): the tie-break after the sort key. */
+  rel: number;
   total: number;
 }
 
@@ -86,20 +91,13 @@ interface LineRow {
 /** `lines` and `flagged`: the visible lines with their text scores, filter flags and match flag. */
 function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
   const textOn = query.terms.length > 0;
-  const terms = query.terms;
+  // A term without a word (only punctuation) matches nothing; so does a query made only of those.
+  const terms = [...new Set(query.terms.map(normaliseTerm).filter((term) => term.length > 0))];
   const lineScore = textOn
-    ? Prisma.sql`COALESCE((
-        SELECT max(CASE WHEN position(t.term IN b.line_blob) > 0 THEN 1.0
-                        WHEN length(t.term) >= ${MIN_FUZZY_LENGTH} THEN word_similarity(t.term, b.line_blob)
-                        ELSE 0 END)
-          FROM unnest(${terms}::text[]) AS t(term)), 0)::float8`
+    ? termScoreSql(terms, Prisma.sql`b.name_words`, Prisma.sql`b.other_words`)
     : Prisma.sql`0::float8`;
   const nameScore = textOn
-    ? Prisma.sql`COALESCE((
-        SELECT max(CASE WHEN position(t.term IN b.name_blob) > 0 THEN 1.0
-                        WHEN length(t.term) >= ${MIN_FUZZY_LENGTH} THEN word_similarity(t.term, b.name_blob)
-                        ELSE 0 END)
-          FROM unnest(${terms}::text[]) AS t(term)), 0)::float8`
+    ? termScoreSql(terms, Prisma.sql`b.site_words`, Prisma.sql`ARRAY[]::text[]`)
     : Prisma.sql`0::float8`;
 
   const filters: Prisma.Sql[] = [];
@@ -118,7 +116,7 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
   const hasFilters = filters.length > 0;
   const qualifies = hasFilters ? Prisma.join(filters, ' AND ') : Prisma.sql`TRUE`;
   const matched = textOn
-    ? Prisma.sql`(l.qualifies AND l.line_score >= ${TEXT_MATCH_THRESHOLD})`
+    ? Prisma.sql`(l.qualifies AND l.line_score > 0)`
     : hasFilters
       ? Prisma.sql`l.qualifies`
       : Prisma.sql`FALSE`;
@@ -130,14 +128,17 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
              ${lineScore} AS line_score, ${nameScore} AS name_score
         FROM v
        CROSS JOIN LATERAL (
-         SELECT lower(concat_ws(' | ', v.pa_name, array_to_string(v.pa_aliases, ' '), v.p_name,
+         SELECT ${wordsSql(Prisma.sql`v.pa_name`)} AS name_words,
+                ${wordsSql(
+                  Prisma.sql`concat_ws(' | ', array_to_string(v.pa_aliases, ' '), v.p_name,
                                 array_to_string(v.p_aliases, ' '), v.g_name, v.d_name, v.m_name,
-                                v.m_standard_code, v.method_text)) AS line_blob,
-                lower(v.site_name || ' ' || v.site_code) AS name_blob
+                                v.m_standard_code, v.method_text)`,
+                )} AS other_words,
+                ${wordsSql(Prisma.sql`v.site_name || ' ' || v.site_code`)} AS site_words
        ) b
     ),
     flagged AS (
-      SELECT l.*, (l.line_score >= ${TEXT_MATCH_THRESHOLD}) AS line_hit, ${matched} AS matched
+      SELECT l.*, (l.line_score > 0) AS line_hit, ${matched} AS matched
         FROM lines l
     )`;
 }
@@ -244,7 +245,7 @@ export class PostgresSearchIndex implements SearchIndex {
         total,
         nextCursor:
           hasMore && last !== undefined
-            ? encodeCursor('postgres', { k: last.sort_key, id: last.lab_site_id })
+            ? encodeCursor('postgres', { k: last.sort_key, id: last.lab_site_id, r: last.rel })
             : null,
       };
     });
@@ -253,7 +254,7 @@ export class PostgresSearchIndex implements SearchIndex {
   private async pageOfSites(
     tx: Prisma.TransactionClient,
     query: SearchQuery,
-    position: { k: number; id: string } | null,
+    position: { k: number; id: string; r?: number } | null,
   ): Promise<SiteRow[]> {
     const textOn = query.terms.length > 0;
     const hasFilters =
@@ -266,7 +267,7 @@ export class PostgresSearchIndex implements SearchIndex {
     const where: Prisma.Sql[] = [];
     if (hasFilters) where.push(Prisma.sql`s.any_qualifying`);
     if (textOn) {
-      where.push(Prisma.sql`(s.name_score >= ${TEXT_MATCH_THRESHOLD} OR s.any_line_hit)`);
+      where.push(Prisma.sql`(s.name_score > 0 OR s.any_line_hit)`);
     }
     if (query.radiusKm !== null) {
       where.push(
@@ -290,8 +291,13 @@ export class PostgresSearchIndex implements SearchIndex {
     const after =
       position === null
         ? Prisma.sql`TRUE`
-        : Prisma.sql`(r.sort_key > ${position.k}::float8
-                      OR (r.sort_key = ${position.k}::float8 AND r.lab_site_id > ${position.id}::uuid))`;
+        : position.r === undefined
+          ? Prisma.sql`(r.sort_key > ${position.k}::float8
+                        OR (r.sort_key = ${position.k}::float8 AND r.lab_site_id > ${position.id}::uuid))`
+          : Prisma.sql`(r.sort_key > ${position.k}::float8
+                        OR (r.sort_key = ${position.k}::float8
+                            AND (r.rel < ${position.r}::float8
+                                 OR (r.rel = ${position.r}::float8 AND r.lab_site_id > ${position.id}::uuid))))`;
 
     return tx.$queryRaw<SiteRow[]>`
       WITH ${flaggedLinesSql(query, visibleLinesSql(query.asOf, { nextSlot: false }))},
@@ -316,13 +322,14 @@ export class PostgresSearchIndex implements SearchIndex {
         SELECT s.lab_site_id, s.site_code, s.site_name, s.city, s.state_code, s.pincode, s.lat, s.lon,
                s.listing_status, s.rating_avg, s.rating_count, s.matched_count, s.price_from,
                s.min_tat, s.distance_m, (${sortKey})::float8 AS sort_key,
+               GREATEST(COALESCE(s.best_line, 0), s.name_score)::float8 AS rel,
                (count(*) OVER ())::int AS total
           FROM s
          WHERE ${eligible}
       )
       SELECT r.* FROM r
        WHERE ${after}
-       ORDER BY r.sort_key, r.lab_site_id
+       ORDER BY r.sort_key, r.rel DESC, r.lab_site_id
        LIMIT ${query.limit + 1}`;
   }
 

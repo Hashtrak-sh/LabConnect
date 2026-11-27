@@ -110,7 +110,7 @@ describe.skipIf(OUT === undefined)('search measurement', () => {
     for (const q of ['pH', 'tensile strength']) {
       captured.length = 0;
       await service.search({ q, limit: 25 });
-      const sites = captured[0];
+      const sites = captured.find((entry) => entry.text.includes('flagged'));
       if (sites === undefined) throw new Error('no query captured');
       const rows = await api.$transaction(async (tx) => {
         return tx.$queryRawUnsafe<Record<string, string>[]>(
