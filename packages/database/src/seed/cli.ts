@@ -71,7 +71,7 @@ async function main(): Promise<void> {
         console.log(
           result.skipped
             ? 'Demo data is already there. Nothing changed.'
-            : `Demo data created: ${String(result.labSites)} lab sites, ${String(result.scopeLines)} scope lines, ${String(result.bookings)} bookings.`,
+            : `Demo data created: ${String(result.labSites)} lab sites, ${String(result.scopeLines)} scope lines, ${String(result.bookings)} bookings, ${String(result.tests)} tests in ${String(result.products)} products, ${String(result.labOwners)} lab owner accounts.`,
         );
         break;
       }

@@ -47,9 +47,11 @@ describe('the web task definition', () => {
     expect(env.get('API_BASE_URL')).toBe('http://api.labconnect-uat.internal:3001/v1');
     expect(env.get('PORT')).toBe('3000');
     expect(env.get('NODE_ENV')).toBe('production');
-    // Nothing public and nothing secret in the environment: only these three variables.
-    expect([...env.keys()].sort()).toEqual(['API_BASE_URL', 'NODE_ENV', 'PORT']);
-    expect(JSON.stringify([...env.values()])).not.toMatch(/amazonaws|https:\/\//);
+    // Nothing secret in the environment: these three, and the web app's own public origin
+    // (WEB_BASE_URL, pinned against the API's allowed origin in runtime-env.test.ts). The API is
+    // reached by its private name, never through the load balancer.
+    expect([...env.keys()].sort()).toEqual(['API_BASE_URL', 'NODE_ENV', 'PORT', 'WEB_BASE_URL']);
+    expect(JSON.stringify(env.get('API_BASE_URL'))).not.toMatch(/amazonaws|https:\/\/|GetAtt/);
   });
 
   it('is checked from inside at /health with Node (the slim image has no curl) and given time to start', () => {

@@ -1,25 +1,49 @@
+import { uuidv7 } from '../ids.js';
 import { BOOKING_STATES, bookingInState } from '../factories/booking.js';
 import {
-  type CatalogueSpec,
   createCatalogue,
   createCustomer,
   createLab,
   createPlatformTeam,
   createPublishedChangeSet,
+  createUser,
   type LabFixture,
+  type LineSpec,
   loadReference,
+  type ParameterRef,
   type SiteSpec,
   type Tx,
 } from '../factories/world.js';
+import { DEMO_CATALOGUE, DEMO_PARAMETER_META, DEMO_SYNONYMS, demoFlat } from './demo-catalogue.js';
+import {
+  CITIES,
+  CITY_NAMES,
+  type CityName,
+  NAME_WORDS,
+  NAMED_LABS,
+  offeredBy,
+  PROFILE_NAMES,
+  PROFILES,
+  type ProfileName,
+  siteNameOf,
+  termsFor,
+} from './demo-labs.js';
 import { assertNotProduction } from './env.js';
 
 // `seed:demo` (MIGRATION_AND_SEED_STRATEGY.md section 3): fictitious data for local
 // development and UAT. Every organisation, site and user it creates is marked "DEMO".
-// No real lab, person or NABL record is used.
+// No real lab, person or NABL record is used. The catalogue of tests (`demo-catalogue.ts`) is
+// generic knowledge about tests, not NABL data.
 
 export const DEMO_SITE_COUNT = 200;
-export const DEMO_SCOPE_LINES_PER_SITE = 25;
-const DEMO_MARKER = 'DEMO-LAB-0001';
+/** All scope lines of all sites. The named labs have what they have; the others share the rest. */
+export const DEMO_SCOPE_LINE_COUNT = 5000;
+/** Number of lab owner accounts that hold no membership anywhere (for the claim story). */
+export const DEMO_LAB_OWNER_COUNT = 3;
+/** The first lab. Its presence tells the seed that the demo data is already there. */
+const DEMO_MARKER = `DEMO-LAB-${NAMED_LABS[0]?.tag ?? '0001'}`;
+/** Days of open slots at the bookable sites, from the day of the seed: about four months. */
+const DEMO_SLOT_DAYS = 120;
 
 export interface DemoSeedOptions {
   env?: Record<string, string | undefined>;
@@ -34,6 +58,10 @@ export interface DemoSeedResult {
   labSites: number;
   scopeLines: number;
   bookings: number;
+  /** Tests (parameters of the catalogue) and the products they belong to. */
+  tests: number;
+  products: number;
+  labOwners: number;
 }
 
 /** A small repeatable generator, so every run lays the demo sites out the same way. */
@@ -47,78 +75,48 @@ function generator(seed: number): () => number {
   };
 }
 
-/** Rough centres of five Delhi NCR cities. Sites are scattered a few kilometres around them. */
-const CITIES = [
-  { city: 'Delhi', stateCode: 'DL', pincodePrefix: '110', lat: 28.61, lon: 77.21 },
-  { city: 'Gurugram', stateCode: 'HR', pincodePrefix: '122', lat: 28.46, lon: 77.03 },
-  { city: 'Noida', stateCode: 'UP', pincodePrefix: '201', lat: 28.54, lon: 77.39 },
-  { city: 'Faridabad', stateCode: 'HR', pincodePrefix: '121', lat: 28.41, lon: 77.31 },
-  { city: 'Ghaziabad', stateCode: 'UP', pincodePrefix: '201', lat: 28.67, lon: 77.45 },
-] as const;
+/** The address, name and map pin of a site in `city`, scattered a few kilometres around its centre. */
+function placeIn(city: CityName, random: () => number): Omit<SiteSpec, 'name'> {
+  const place = CITIES[city];
+  const [first, last] = place.pincodes;
+  return {
+    city,
+    district: place.district,
+    stateCode: place.stateCode,
+    pincode: String(first + Math.floor(random() * (last - first + 1))),
+    line1: `DEMO Plot ${String(1 + Math.floor(random() * 98))}, DEMO Industrial Area`,
+    lat: place.lat + (random() - 0.5) * 0.1,
+    lon: place.lon + (random() - 0.5) * 0.1,
+  };
+}
 
-/** Four disciplines × two groups × three products × five parameters = 120 parameters. */
-function demoCatalogue(): CatalogueSpec[] {
-  const tree: [string, [string, string[]][]][] = [
-    [
-      'Chemical',
-      [
-        ['Building materials', ['Cement', 'Steel', 'Aggregate']],
-        ['Water', ['Drinking water', 'Waste water', 'Ground water']],
-      ],
-    ],
-    [
-      'Mechanical',
-      [
-        ['Metals', ['Steel bar', 'Aluminium sheet', 'Copper wire']],
-        ['Polymers', ['Plastic pipe', 'Rubber sheet', 'Plastic film']],
-      ],
-    ],
-    [
-      'Electrical',
-      [
-        ['Cables', ['Power cable', 'Control cable', 'Flexible cord']],
-        ['Appliances', ['Switch', 'Socket', 'Lamp holder']],
-      ],
-    ],
-    [
-      'Biological',
-      [
-        ['Food', ['Milk powder', 'Edible oil', 'Spice mix']],
-        ['Packaged water', ['Bottled water', 'Mineral water', 'Jar water']],
-      ],
-    ],
-  ];
-  const code = (...parts: string[]): string =>
-    `DEMO_${parts
-      .join('_')
-      .toUpperCase()
-      .replaceAll(/[^A-Z0-9]+/g, '_')}`;
-  return tree.map(([discipline, groups]) => ({
-    code: code(discipline),
-    name: `DEMO ${discipline}`,
-    groups: groups.map(([group, products]) => ({
-      code: code(discipline, group),
-      name: `DEMO ${group}`,
-      products: products.map((product) => ({
-        code: code(discipline, group, product),
-        name: `DEMO ${product}`,
-        parameters: [1, 2, 3, 4, 5].map((n) => ({
-          code: code(discipline, group, product, `P${String(n)}`),
-          name: `DEMO parameter ${String(n)} of ${product.toLowerCase()}`,
-        })),
-      })),
-    })),
-  }));
+function pickProfile(random: () => number): ProfileName {
+  const draw = random();
+  let sum = 0;
+  for (const name of PROFILE_NAMES) {
+    sum += PROFILES[name].weight;
+    if (draw < sum) return name;
+  }
+  return 'building';
 }
 
 /**
  * Creates the demo data in the given transaction. Needs `seed:reference` first.
- * Does nothing if the demo data is already there. Refuses to run in production.
+ * Does nothing if the demo data is already there (a database seeded by an older version of
+ * this seed keeps its data: the seed never rewrites). Refuses to run in production.
  */
 export async function seedDemo(tx: Tx, options: DemoSeedOptions = {}): Promise<DemoSeedResult> {
   assertNotProduction('seed:demo', options.env ?? process.env);
   if (await tx.organisation.findFirst({ where: { nablLabRef: DEMO_MARKER } })) {
-    return { skipped: true, labSites: 0, scopeLines: 0, bookings: 0 };
+    return {
+      skipped: true,
+      labSites: 0,
+      scopeLines: 0,
+      bookings: 0,
+      tests: 0,
+      products: 0,
+      labOwners: 0,
+    };
   }
   const now = options.now ?? new Date();
   const emailDomain = options.emailDomain ?? 'demo.labconnect.test';
@@ -127,55 +125,153 @@ export async function seedDemo(tx: Tx, options: DemoSeedOptions = {}): Promise<D
   const reference = await loadReference(tx);
   const platform = await createPlatformTeam(tx, { tag: 'demo', emailDomain });
   const changeSetId = await createPublishedChangeSet(tx, platform, 'DEMO data');
-  const catalogue = await createCatalogue(tx, reference, changeSetId, demoCatalogue());
+  const catalogue = await createCatalogue(tx, reference, changeSetId, DEMO_CATALOGUE, demoFlat());
   const context = { reference, platform, catalogue, changeSetId };
 
-  let siteNumber = 0;
-  const nextSite = (): SiteSpec => {
-    const place = CITIES[siteNumber % CITIES.length] ?? CITIES[0];
-    siteNumber++;
-    return {
-      name: `DEMO Testing Laboratory ${String(siteNumber).padStart(3, '0')}, ${place.city}`,
-      city: place.city,
-      stateCode: place.stateCode,
-      pincode: `${place.pincodePrefix}${String(Math.floor(random() * 90) + 1).padStart(3, '0')}`,
-      lat: place.lat + (random() - 0.5) * 0.12,
-      lon: place.lon + (random() - 0.5) * 0.12,
-    };
+  // ---- search synonyms (abbreviations), published with the same change set
+  const synonymIds = DEMO_SYNONYMS.map(() => uuidv7());
+  await tx.searchSynonym.createMany({
+    data: DEMO_SYNONYMS.map((synonym, index) => ({
+      id: synonymIds[index] ?? '',
+      term: synonym.term,
+      expandsTo: [...synonym.expandsTo],
+    })),
+  });
+  await tx.searchSynonymVersion.createMany({
+    data: DEMO_SYNONYMS.map((synonym, index) => ({
+      id: uuidv7(),
+      searchSynonymId: synonymIds[index] ?? '',
+      versionNo: 1,
+      snapshot: { term: synonym.term, expandsTo: [...synonym.expandsTo] },
+      changeSetId,
+      publishedAt: now,
+    })),
+  });
+
+  // ---- the tests of every product, in catalogue order
+  const byProduct = new Map<string, ParameterRef[]>();
+  for (const parameter of catalogue.parameters) {
+    const list = byProduct.get(parameter.productCode) ?? [];
+    list.push(parameter);
+    byProduct.set(parameter.productCode, list);
+  }
+  const productParameters = (productCode: string): ParameterRef[] => {
+    const list = byProduct.get(productCode);
+    if (!list) throw new Error(`Unknown product ${productCode}.`);
+    return list;
   };
-  const perSite = DEMO_SCOPE_LINES_PER_SITE;
+
   const lab = (
     tag: string,
-    siteCount: number,
+    name: string,
     onboarded: boolean,
-    extra = {},
+    sites: SiteSpec[],
+    lines: (siteIndex: number) => LineSpec[],
+    extra: {
+      makers?: number;
+      checkers?: number;
+      accreditationStatus?: 'SUSPENDED' | 'EXPIRED';
+    } = {},
   ): Promise<LabFixture> =>
     createLab(tx, context, {
       tag,
-      name: `DEMO Laboratory ${tag}`,
+      name,
       onboarded,
-      sites: Array.from({ length: siteCount }, nextSite),
-      parametersPerSite: perSite,
-      parameterOffset: Math.floor(random() * catalogue.parameters.length),
-      price: (index) => BigInt(50_000 + ((index * 7) % 20) * 12_500),
+      sites,
+      lines,
+      slotDays: DEMO_SLOT_DAYS,
       emailDomain,
       now,
       ...extra,
     });
 
-  // ---- three onboarded labs (four bookable sites), with Makers and Checkers
-  const onboarded = [
-    await lab('0001', 2, true, { makers: 2, checkers: 2 }),
-    await lab('0002', 1, true, { makers: 2, checkers: 1 }),
-    await lab('0003', 1, true, { makers: 1, checkers: 1 }),
-  ];
-  let labSites = 4;
+  // ---- the named labs: three onboarded (four bookable sites), four listed and unclaimed
+  const onboarded: LabFixture[] = [];
+  let namedLines = 0;
+  for (const named of NAMED_LABS) {
+    const linesOf = (siteIndex: number): LineSpec[] => {
+      const site = named.sites[siteIndex];
+      if (!site) throw new Error('unreachable: the site exists');
+      const lines = site.products
+        .flatMap(productParameters)
+        .filter((parameter) => offeredBy(parameter.parameterCode, site.key))
+        .map((parameter): LineSpec => {
+          if (!named.onboarded) return { parameter };
+          const terms = termsFor(site.key, parameter.parameterCode);
+          return { parameter, pricePaise: terms.pricePaise, tatDays: terms.tatDays };
+        });
+      namedLines += lines.length;
+      return lines;
+    };
+    const fixture = await lab(
+      named.tag,
+      named.name,
+      named.onboarded,
+      named.sites.map((site) => ({
+        name: siteNameOf(named.name, site.city),
+        ...placeIn(site.city, random),
+      })),
+      linesOf,
+      named.onboarded ? { makers: named.makers, checkers: named.checkers } : {},
+    );
+    if (named.onboarded) onboarded.push(fixture);
+  }
+  let labSites = NAMED_LABS.reduce((sum, named) => sum + named.sites.length, 0);
 
-  // ---- the rest: listed, unclaimed labs. A few have an accreditation that is not valid.
-  for (let n = 4; labSites < DEMO_SITE_COUNT; n++, labSites++) {
-    const accreditationStatus =
-      n % 40 === 0 ? 'SUSPENDED' : n % 25 === 0 ? 'EXPIRED' : ('VALID' as const);
-    await lab(String(n).padStart(4, '0'), 1, false, { accreditationStatus });
+  // ---- the other labs: listed and unclaimed, each of one kind and with a coherent set of tests.
+  // Between them they hold the rest of the 5,000 scope lines. A few have an accreditation that
+  // is not valid (and so are not found by search).
+  const otherSites = DEMO_SITE_COUNT - labSites;
+  const linesLeft = DEMO_SCOPE_LINE_COUNT - namedLines;
+  const reserved = new Set(NAMED_LABS.map((entry) => entry.name.split(' ')[0] ?? ''));
+  const words = NAME_WORDS.filter((word) => !reserved.has(word));
+  const usedNames = new Set<string>();
+  let firstTag = NAMED_LABS.length + 1;
+  for (let index = 0; index < otherSites; index++, labSites++, firstTag++) {
+    const tag = String(firstTag).padStart(4, '0');
+    const profileName = pickProfile(random);
+    const profile = PROFILES[profileName];
+    const city = CITY_NAMES[Math.floor(random() * CITY_NAMES.length)] ?? 'Delhi';
+
+    // the first word and kind of name that no lab has yet
+    let name = '';
+    for (let attempt = 0; name === ''; attempt++) {
+      const word = words[(index + attempt) % words.length] ?? '';
+      const kind = profile.kinds.find((candidate) => !usedNames.has(`${word} ${candidate}`));
+      if (kind !== undefined) {
+        usedNames.add(`${word} ${kind}`);
+        name = `${word} ${kind} (DEMO)`;
+      }
+    }
+
+    // The kind's products in the order people ask for them. Each lab takes most of the popular
+    // ones and fewer of the rare ones, whole products at a time; it is filled up or cut at the
+    // end (the least asked-for tests) to the number of lines it has to have.
+    const products = profile.products.map((code) =>
+      productParameters(code).filter((parameter) => offeredBy(parameter.parameterCode, null)),
+    );
+    const count = Math.floor(linesLeft / otherSites) + (index < linesLeft % otherSites ? 1 : 0);
+    const available = products.reduce((sum, parameters) => sum + parameters.length, 0);
+    if (count > available) throw new Error(`The ${profileName} profile has too few tests.`);
+    const taken = products.map(
+      (_, position) => random() < 0.95 - (0.55 * position) / Math.max(products.length - 1, 1),
+    );
+    let chosen = products.flatMap((parameters, position) => (taken[position] ? parameters : []));
+    for (const [position, parameters] of products.entries()) {
+      if (chosen.length >= count) break;
+      if (!taken[position]) chosen = [...chosen, ...parameters];
+    }
+    const lines = chosen.slice(0, count).map((parameter): LineSpec => ({ parameter }));
+
+    const status = firstTag % 40 === 0 ? 'SUSPENDED' : firstTag % 25 === 0 ? 'EXPIRED' : undefined;
+    await lab(
+      tag,
+      name,
+      false,
+      [{ name: siteNameOf(name, city), ...placeIn(city, random) }],
+      () => lines,
+      status ? { accreditationStatus: status } : {},
+    );
   }
 
   // ---- three customers: individual, business, government
@@ -200,6 +296,14 @@ export async function seedDemo(tx: Tx, options: DemoSeedOptions = {}): Promise<D
     }),
   ];
 
+  // ---- people who will claim a lab on stage: active, and with no membership and no role anywhere
+  for (let number = 1; number <= DEMO_LAB_OWNER_COUNT; number++) {
+    await createUser(tx, {
+      email: `lab.owner.demo${String(number)}@${emailDomain}`,
+      fullName: `DEMO Lab Owner ${String(number)}`,
+    });
+  }
+
   // ---- one booking in every state, spread over the customers and the bookable sites
   const bookableSites = onboarded.flatMap((owner) => owner.sites.map((site) => ({ owner, site })));
   let bookings = 0;
@@ -207,6 +311,7 @@ export async function seedDemo(tx: Tx, options: DemoSeedOptions = {}): Promise<D
     const target = bookableSites[index % bookableSites.length];
     const customer = customers[index % customers.length];
     if (!target || !customer) throw new Error('unreachable: demo labs and customers exist');
+    const product = target.site.scopeLines[0]?.parameter.product ?? 'Sample';
     await bookingInState(tx, state, {
       reference,
       customer,
@@ -216,11 +321,19 @@ export async function seedDemo(tx: Tx, options: DemoSeedOptions = {}): Promise<D
       packageCount: 1 + (index % 2),
       slotId: target.site.slotIds[index % Math.max(target.site.slotIds.length, 1)] ?? null,
       bookingNo: `LC-DEMO-${String(index + 1).padStart(7, '0')}`,
-      itemName: `DEMO sample ${String(index + 1)}`,
+      itemName: `${product} sample (DEMO)`,
       now,
     });
     bookings++;
   }
 
-  return { skipped: false, labSites, scopeLines: labSites * perSite, bookings };
+  return {
+    skipped: false,
+    labSites,
+    scopeLines: DEMO_SCOPE_LINE_COUNT,
+    bookings,
+    tests: DEMO_PARAMETER_META.size,
+    products: byProduct.size,
+    labOwners: DEMO_LAB_OWNER_COUNT,
+  };
 }
