@@ -95,7 +95,13 @@ describe.skipIf(OUT === undefined)('search measurement', () => {
       '|---|---|---|',
     ];
     for (const q of QUERIES) {
-      const result = await service.search({ q, limit: 100 });
+      const started = Date.now();
+      const result = await service.search({ q, limit: 100 }).catch((error: unknown) => {
+        lines.push(`| ${q} | ERROR | ${String(error).slice(0, 200)} |`);
+        return null;
+      });
+      if (result === null) continue;
+      const ms = Date.now() - started;
       const first = result.items.slice(0, 3).map((item) => {
         const line = item.matchedLines[0];
         const what =
@@ -104,20 +110,26 @@ describe.skipIf(OUT === undefined)('search measurement', () => {
             : `${line.parameter.name} / ${line.product?.name ?? '-'}`;
         return `${item.site.name}: ${what}`;
       });
-      lines.push(`| ${q.replaceAll('|', '/')} | ${String(result.total)} | ${first.join(' ; ')} |`);
+      lines.push(
+        `| ${q.replaceAll('|', '/')} | ${String(result.total)} (${String(ms)} ms) | ${first.join(' ; ')} |`,
+      );
     }
+    writeFileSync(OUT ?? 'search-measure.md', lines.join('\n'), 'utf8');
     const explains: string[] = [];
     for (const q of ['pH', 'tensile strength']) {
       captured.length = 0;
-      await service.search({ q, limit: 25 });
+      await service.search({ q, limit: 25 }).catch(() => null);
       const sites = captured.find((entry) => entry.text.includes('flagged'));
       if (sites === undefined) throw new Error('no query captured');
-      const rows = await api.$transaction(async (tx) => {
-        return tx.$queryRawUnsafe<Record<string, string>[]>(
-          `EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF) ${sites.text}`,
-          ...sites.values,
-        );
-      });
+      const rows = await api.$transaction(
+        async (tx) => {
+          return tx.$queryRawUnsafe<Record<string, string>[]>(
+            `EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF) ${sites.text}`,
+            ...sites.values,
+          );
+        },
+        { timeout: 300_000, maxWait: 30_000 },
+      );
       explains.push(
         `### EXPLAIN (ANALYZE) for ${q}`,
         '```',

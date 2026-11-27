@@ -82,20 +82,66 @@ describe('buildSearchBody', () => {
     const clauses = dig(body, 'query.bool.must.0.bool.should') as unknown[];
     expect(clauses.map((clause) => dig(clause, 'bool._name'))).toEqual(['line_text', 'site_name']);
     expect(dig(body, 'query.bool.must.0.bool.minimum_should_match')).toBe(1);
-    const lineClause = dig(clauses[0], 'bool.should') as unknown[];
-    expect(lineClause).toHaveLength(2);
-    expect(dig(lineClause[1], 'multi_match')).toMatchObject({
-      query: 'tensile strength',
-      fuzziness: 'AUTO',
-      operator: 'and',
-    });
-    expect(dig(lineClause[0], 'multi_match.fields')).toEqual(
-      expect.arrayContaining(['parameter.name^3', 'product.aliases^2', 'method.standard_code^2']),
-    );
-    expect(dig(clauses[1], 'bool.should.0.multi_match.fields')).toEqual([
-      'site_name^2',
-      'site_code',
+    // one alternative per term; every word of a term must match (a `must` per word)
+    const alternatives = dig(clauses[0], 'dis_max.queries') as unknown[];
+    expect(alternatives).toHaveLength(2);
+    expect(dig(alternatives[0], 'bool.must')).toHaveLength(1);
+    expect(dig(alternatives[1], 'bool.must')).toHaveLength(2);
+    const words = dig(alternatives[1], 'bool.must') as unknown[];
+    expect(
+      words.map((word) => dig(word, 'dis_max.queries.0.constant_score.filter.multi_match.query')),
+    ).toEqual(['tensile', 'strength']);
+    expect(dig(words[0], 'dis_max.queries.0.constant_score.filter.multi_match.fields')).toEqual([
+      'parameter.name',
     ]);
+    expect(dig(clauses[1], 'dis_max.queries.0.bool.must.0.dis_max.queries.0')).toMatchObject({
+      constant_score: { filter: { multi_match: { query: 'ts', fields: ['site_name', 'site_code'] } } },
+    });
+  });
+
+  it('a word of three letters or fewer is a whole word only; a longer one is also a prefix and a typo', () => {
+    const kinds = (word: string): string[] => {
+      const q = query({ q: word });
+      const clause = dig(buildSearchBody(q), 'query.bool.must.0.bool.should.0') as unknown;
+      const queries = dig(clause, 'dis_max.queries.0.bool.must.0.dis_max.queries') as {
+        constant_score: { boost: number; filter: Record<string, unknown> };
+      }[];
+      return queries.map((entry) => `${Object.keys(entry.constant_score.filter)[0] ?? ''}:${String(entry.constant_score.boost)}`);
+    };
+    expect(kinds('ph')).toEqual(['multi_match:4', 'multi_match:2']);
+    expect(kinds('led')).toEqual(['multi_match:4', 'multi_match:2']);
+    // name word 4, name prefix 3, other whole 2, other prefix 2, typo 1
+    expect(kinds('tens')).toEqual([
+      'multi_match:4',
+      'bool:3',
+      'multi_match:2',
+      'bool:2',
+      'multi_match:1',
+    ]);
+    const typo = dig(
+      buildSearchBody(query({ q: 'strenght' })),
+      'query.bool.must.0.bool.should.0.dis_max.queries.0.bool.must.0.dis_max.queries.4.constant_score.filter.multi_match',
+    );
+    expect(typo).toMatchObject({ fuzziness: 'AUTO:4,8', prefix_length: 1 });
+  });
+
+  it('a query that is only punctuation matches nothing', () => {
+    const body = buildSearchBody(query({ q: '(((' }));
+    expect(dig(body, 'query.bool.must.0.bool.should.0.dis_max.queries')).toEqual([
+      { match_none: {} },
+    ]);
+  });
+
+  it('sites that tie on price, turnaround or distance come best match first, only with text', () => {
+    expect(dig(buildSearchBody(query({ q: 'ph', sort: 'price' })), 'sort')).toEqual([
+      { price_paise: { order: 'asc', missing: '_last' } },
+      { _score: 'desc' },
+      { lab_site_id: 'asc' },
+      { scope_line_id: 'asc' },
+    ]);
+    expect(dig(buildSearchBody(query({ q: 'ph', sort: 'tat' })), 'sort.1')).toEqual({
+      _score: 'desc',
+    });
   });
 
   it('turns each filter into a filter clause', () => {

@@ -96,9 +96,16 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
   const lineScore = textOn
     ? termScoreSql(terms, Prisma.sql`b.name_words`, Prisma.sql`b.other_words`)
     : Prisma.sql`0::float8`;
-  const nameScore = textOn
-    ? termScoreSql(terms, Prisma.sql`b.site_words`, Prisma.sql`ARRAY[]::text[]`)
-    : Prisma.sql`0::float8`;
+  // The score of a site's name is computed once per site, not once per line.
+  const siteScores = textOn
+    ? Prisma.sql`sn AS (
+      SELECT d.lab_site_id, ${termScoreSql(terms, Prisma.sql`d.site_words`, Prisma.sql`' '::text`)} AS name_score
+        FROM (SELECT DISTINCT ON (v.lab_site_id) v.lab_site_id,
+                     ${wordsSql(Prisma.sql`v.site_name || ' ' || v.site_code`)} AS site_words
+                FROM v ORDER BY v.lab_site_id OFFSET 0) d
+    ),`
+    : Prisma.empty;
+  const nameScore = textOn ? Prisma.sql`sn.name_score` : Prisma.sql`0::float8`;
 
   const filters: Prisma.Sql[] = [];
   if (query.disciplineCode !== null) filters.push(Prisma.sql`v.d_code = ${query.disciplineCode}`);
@@ -122,19 +129,21 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
       : Prisma.sql`FALSE`;
 
   return Prisma.sql`
-    v AS (${visible}),
-    lines AS (
+    v AS MATERIALIZED (${visible}),
+    ${siteScores}
+    lines AS MATERIALIZED (
       SELECT v.*, ${qualifies} AS qualifies,
              ${lineScore} AS line_score, ${nameScore} AS name_score
         FROM v
+       ${textOn ? Prisma.sql`JOIN sn ON sn.lab_site_id = v.lab_site_id` : Prisma.empty}
        CROSS JOIN LATERAL (
          SELECT ${wordsSql(Prisma.sql`v.pa_name`)} AS name_words,
                 ${wordsSql(
                   Prisma.sql`concat_ws(' | ', array_to_string(v.pa_aliases, ' '), v.p_name,
                                 array_to_string(v.p_aliases, ' '), v.g_name, v.d_name, v.m_name,
                                 v.m_standard_code, v.method_text)`,
-                )} AS other_words,
-                ${wordsSql(Prisma.sql`v.site_name || ' ' || v.site_code`)} AS site_words
+                )} AS other_words
+         OFFSET 0 -- keeps the planner from copying these expressions into every use below
        ) b
     ),
     flagged AS (
