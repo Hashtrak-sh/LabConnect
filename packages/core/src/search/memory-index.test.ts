@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { searchDocument, siteUuid } from '../../test/support/search-documents.js';
-import { InMemorySearchIndex, memoryTermScore } from './memory-index.js';
+import { InMemorySearchIndex } from './memory-index.js';
 import { normaliseSearchQuery } from './query.js';
 import type { SearchRequest } from './model.js';
 
@@ -59,6 +59,7 @@ describe('InMemorySearchIndex', () => {
     for (const q of ['hardness', 'zinc coating']) {
       expect((await search(index, { q })).items, q).toHaveLength(0);
     }
-    expect(memoryTermScore('ts', 'tensile strength')).toBe(0); // short terms match as substrings only
+    // short terms match whole words only (the rules and their examples: word-match.test.ts)
+    expect((await search(index, { q: 'ts' })).items).toHaveLength(0);
   });
 });
