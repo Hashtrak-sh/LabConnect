@@ -53,7 +53,7 @@ if (EXPECT_GATE && (GATE_USER === '' || GATE_PASSWORD === '')) {
 }
 const AUTH = `Basic ${Buffer.from(`${GATE_USER}:${GATE_PASSWORD}`).toString('base64')}`;
 // Test hook: headers added to every request, e.g. a forged X-Forwarded-For (JSON object in the environment).
-const EXTRA_HEADERS = JSON.parse(process.env.EXTRA_HEADERS ?? "{}");
+const EXTRA_HEADERS = JSON.parse(process.env.EXTRA_HEADERS ?? '{}');
 const CUSTOMER = 'customer.admin.demo1@demo.labconnect.test';
 const TIMEOUT = AbortSignal.timeout;
 
@@ -344,7 +344,14 @@ try {
 step('2. the gate');
 if (EXPECT_GATE) {
   const anon = new Browser({ gate: false });
-  for (const path of ['/', '/health', '/search?q=TDS', '/api/suggest?q=TDS', '/v1/health', '/mailpit/']) {
+  for (const path of [
+    '/',
+    '/health',
+    '/search?q=TDS',
+    '/api/suggest?q=TDS',
+    '/v1/health',
+    '/mailpit/',
+  ]) {
     const r = await anon.raw('GET', path);
     check(
       r.status === 401 &&
@@ -529,7 +536,11 @@ step('5. what must not be reachable from outside');
     String(mail.status),
   );
   const mailApi = await anon.raw('GET', '/mailpit/api/v1/messages');
-  check(mailApi.status === 401, 'the Mailpit API (/mailpit/api/v1/messages) asks for a login', String(mailApi.status));
+  check(
+    mailApi.status === 401,
+    'the Mailpit API (/mailpit/api/v1/messages) asks for a login',
+    String(mailApi.status),
+  );
 }
 
 console.log(`\nsafe checks: ${String(checks - failures)} of ${String(checks)} passed`);

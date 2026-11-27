@@ -13,6 +13,10 @@ step "building the images (migrate, api, web), one after the other"
 export COMPOSE_PARALLEL_LIMIT=1
 dc build
 
+step "starting the database first, and waiting until it really accepts connections"
+dc up -d postgres redis mailpit
+wait_postgres
+
 step "starting (the API waits for the migration job)"
 dc up -d
 

@@ -19,8 +19,8 @@ Only Caddy is published. The API, the database and the rest are reachable only i
 |---|---|
 | EC2 instance | **t3.large** (2 vCPU, 8 GB) or bigger, **Ubuntu 24.04**, 30 GB gp3 disk, region ap-south-1 |
 | Elastic IP | Attach one, so the address survives a stop and start |
-| Security group | 22 from **your IP only**; 80 and 443 from anywhere (or from your testers' ranges) |
-| Domain (recommended) | An A record, e.g. `uat.labconnect.<yours>` → the Elastic IP. Gives HTTPS; without it the site is plain HTTP and the browser's "use my location" does not work |
+| Security group | 22 from the developers' addresses only; **443 from the listed addresses only; 80 from everyone** (certificate challenge and redirect only, and renewal needs it): the table is in `DEMO.md` |
+| Domain (required) | An A record, e.g. `uat.labconnect.<yours>` → the Elastic IP. The server runs HTTPS only; there is no plain-HTTP mode |
 | Key pair | For SSH |
 
 ## First setup
@@ -35,33 +35,34 @@ Only Caddy is published. The API, the database and the rest are reachable only i
    ```bash
    bash deploy/ec2/setup-ec2.sh && exit
    ```
-4. Make the configuration (every password and key is random and new; the Mailpit password is shown
-   once, so note it):
+4. Make the configuration (every password and key is random and new). It also asks for the access-gate
+   password and the demo sign-in code (`DEMO.md`):
    ```bash
    cd LabConnect/deploy/ec2
-   ./make-env.sh uat.labconnect.example     # with a domain whose A record points here
-   ./make-env.sh --ip                       # or: plain HTTP on the Elastic IP
+   ./preflight.sh                           # Docker, memory, disk, ports
+   ./make-env.sh uat.labconnect.example     # a domain whose A record points here
    ```
 5. Build and start (the first build takes 10 to 20 minutes):
    ```bash
-   docker compose up -d --build
+   ./up.sh                    # = docker compose up -d --build, with checks and a wait for health
    docker compose ps          # all healthy; migrate "exited (0)"
    ```
 6. Optional, demo data (labs, scope, prices and demo users `…@demo.labconnect.test`):
    ```bash
-   docker compose run --rm migrate node dist/seed/cli.js demo
+   ./seed-demo.sh             # safe to run twice
    ```
 7. Optional, the first platform administrator: set `PLATFORM_ADMIN_EMAIL` and `PLATFORM_ADMIN_NAME`
    in `.env`, then `docker compose run --rm migrate node dist/seed/cli.js platform-admin`.
 
-Open `https://<domain>` (or `http://<elastic-ip>`). Sign-in codes arrive in Mailpit at
-`/mailpit/` (user `labconnect` and the password from step 4): no email leaves the server.
+Open `https://<domain>` (the browser asks for the gate's user name and password). Without a demo code,
+sign-in codes arrive in Mailpit at `/mailpit/` (behind the same login): no email leaves the server.
+For the demonstration (gate, firewall, demo code, checks, resets, limits): `DEMO.md`.
 
 ## Updating to newer code
 
 ```bash
 cd ~/LabConnect && git pull
-cd deploy/ec2 && docker compose up -d --build     # migrations run first, on every start
+cd deploy/ec2 && ./update.sh     # builds first, then migrates and replaces; see DEMO.md
 ```
 
 ## Day to day

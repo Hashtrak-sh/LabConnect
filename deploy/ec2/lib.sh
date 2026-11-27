@@ -119,6 +119,17 @@ wait_postgres() {
     [[ $n -le 60 ]] || die "the database did not become healthy in 5 minutes."
     sleep 5
   done
+  # The image's own start-up runs a temporary server (socket only) that already passes the
+  # compose health check, then restarts: a job that connects in that gap fails with P1001.
+  # So also wait until the real server answers on TCP, three times in a row.
+  local ok=0
+  n=0
+  while [[ $ok -lt 3 ]]; do
+    if dc exec -T postgres pg_isready -h 127.0.0.1 -q; then ok=$((ok + 1)); else ok=0; fi
+    n=$((n + 1))
+    [[ $n -le 60 ]] || die "the database does not answer on TCP."
+    sleep 2
+  done
 }
 
 # After a bulk load: refresh the planner's statistics now instead of leaving it to autovacuum
@@ -144,6 +155,16 @@ after_seed() {
 
 # One script at a time.
 take_lock() {
-  mkdir "$KIT/.lock" 2>/dev/null || die "another script of this kit is running (or died: remove $KIT/.lock if you are sure it is not)."
-  trap 'rmdir "$KIT/.lock" 2>/dev/null || true; on_exit' EXIT
+  if [[ -d "$KIT/.lock" ]]; then
+    local owner
+    owner=$(cat "$KIT/.lock/pid" 2>/dev/null || true)
+    if [[ -n "$owner" ]] && kill -0 "$owner" 2>/dev/null; then
+      die "another script of this kit is running (process $owner)."
+    fi
+    warn "removing the lock of a script that died (process ${owner:-unknown})"
+    rm -rf "$KIT/.lock"
+  fi
+  mkdir "$KIT/.lock" 2>/dev/null || die "another script of this kit is starting at the same moment."
+  echo $$ >"$KIT/.lock/pid"
+  trap 'rm -rf "$KIT/.lock"; on_exit' EXIT
 }
