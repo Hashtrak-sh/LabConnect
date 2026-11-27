@@ -22,9 +22,44 @@ const FINANCE_BANK_ONLY =
   "BANK_VERIFICATION_ONLY); the contract's x-roles for lab claims is PLATFORM_OPS alone (OQ-112), " +
   'so the claim functions in packages/core refuse every role but PLATFORM_OPS.';
 
+/**
+ * Roles that a SESSION-ONLY route (`@Authorised({ noPermissionRequired: true })`: any signed-in user
+ * passes the guard) refuses in the handler with 403 FORBIDDEN. There is no permission and so no
+ * conditional grant to point at; the matrix test expects `deny` for these cells, checks that each
+ * entry is a served session-only route, and that the reason is written down.
+ */
+export interface SessionOnlyRefusal {
+  route: string;
+  roles: readonly RoleCode[];
+  reason: string;
+}
+
+const PLATFORM_ROLES: readonly RoleCode[] = [
+  'PLATFORM_OPS',
+  'PLATFORM_FINANCE',
+  'PLATFORM_DATA_STEWARD',
+  'PLATFORM_ADMIN',
+];
+
+const NO_CLAIM_FOR_STAFF =
+  'A lab claim belongs to the user who started it, and platform staff cannot start one (RR-5, ' +
+  'startLabClaim): the claimant reads refuse them with 403 by the actor and by the user row, ' +
+  'as startLabClaim does, before any claim is read.';
+
+export const SESSION_ONLY_REFUSALS: readonly SessionOnlyRefusal[] = [
+  { route: 'GET /v1/lab/claims', roles: PLATFORM_ROLES, reason: NO_CLAIM_FOR_STAFF },
+  { route: 'GET /v1/lab/claims/:id', roles: PLATFORM_ROLES, reason: NO_CLAIM_FOR_STAFF },
+];
+
 export const HANDLER_REFUSALS: readonly HandlerRefusal[] = [
   {
     route: 'GET /v1/admin/claims',
+    role: 'PLATFORM_FINANCE',
+    permission: 'kyc.verify',
+    reason: FINANCE_BANK_ONLY,
+  },
+  {
+    route: 'GET /v1/admin/claims/:id',
     role: 'PLATFORM_FINANCE',
     permission: 'kyc.verify',
     reason: FINANCE_BANK_ONLY,

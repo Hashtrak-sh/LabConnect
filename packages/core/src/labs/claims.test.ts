@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { claimOtpFailure, LabClaimError } from './claim-errors.js';
 import { CLAIM_LIMITS } from './claim-limits.js';
-import { maskEmail } from './claims.js';
+import { claimantDecisionNotes, maskEmail } from './claims.js';
+
+describe('claimantDecisionNotes', () => {
+  it('passes on the reason of a rejection and nothing else, whatever the reviewer wrote', () => {
+    expect(claimantDecisionNotes('REJECTED', 'The letterhead is not the lab’s.')).toBe(
+      'The letterhead is not the lab’s.',
+    );
+    for (const status of ['PENDING_OTP', 'PENDING_REVIEW', 'APPROVED', 'EXPIRED'] as const) {
+      expect(claimantDecisionNotes(status, 'INTERNAL remark')).toBeNull();
+    }
+    expect(claimantDecisionNotes('REJECTED', null)).toBeNull();
+  });
+});
 
 describe('maskEmail', () => {
   it('shows the first character of the local part and the top-level domain only', () => {
