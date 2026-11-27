@@ -184,9 +184,10 @@ async function resend(
   }
   const problem = readProblem(response, error);
   const outcome = startOutcome(problem);
+  // For `startLabClaim` "not found" is the 422 of an unknown certificate, not a missing claim.
+  if (outcome === 'not-found') return next('cert-not-found');
   const reload = reloadFor(outcome);
   if (reload !== null) return showClaim(claimId, reload);
-  if (outcome === 'not-found') return next('cert-not-found');
   if (outcome === 'rate-limited') return next('rate-limited', retryAt(problem.retryAfterSeconds));
   if (outcome === 'cap') return next('cap');
   if (outcome === 'signed-out') return next('signed-out');

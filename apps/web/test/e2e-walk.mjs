@@ -114,7 +114,10 @@ const decode = (text) =>
     .replaceAll('&lt;', '<')
     .replaceAll('&gt;', '>')
     .replaceAll('&amp;', '&');
-const textOf = (html) => decode(html.replaceAll(/<[^>]*>/g, ' ').replaceAll(/\s+/g, ' '));
+/** The page without its inline scripts: the framework's payload repeats every string passed to a client component, so a text check must not read it. */
+const stripScripts = (html) => html.replaceAll(/<script[\s\S]*?<\/script>/g, '');
+const textOf = (html) =>
+  decode(stripScripts(html).replaceAll(/<[^>]*>/g, ' ').replaceAll(/\s+/g, ' '));
 
 function attrsOf(tag) {
   const out = {};
@@ -351,7 +354,7 @@ const device2 = new Browser('customer, second device');
 const other = new Browser('another claimant');
 
 /** The page without its inline scripts (they carry build and render ids that differ per request). */
-const stripScripts = (html) => html.replaceAll(/<script[\s\S]*?<\/script>/g, '');
+const pageText = (html) => textOf(stripScripts(html));
 const maskedPattern = /\b\w\*\*\*@\*\*\*\.\w+/;
 const claimantName = psql(`select full_name from app_user where email='${CUSTOMER}'`);
 const customerLocal = CUSTOMER.split('@')[0];
@@ -594,9 +597,9 @@ let formB2;
     'the fourth open claim is refused: "limit reached"',
   );
 
-  // Verify the code of the first claim.
-  const pageA = await customer.go('GET', pathA);
-  const ok = await submit(customer, formWith(pageA.html, pageA.url, 'Verify and claim'), {
+  // Verify the code of the first claim, from the page the new code was sent on: its form carries the
+  // version the API gave with that answer (a new code changes the claim), so the code is accepted.
+  const ok = await submit(customer, formWith(resent.html, resent.url, 'Verify and claim'), {
     set: { code: CODE },
     button: 'verify',
   });
@@ -921,7 +924,7 @@ let opsKey;
   );
   const lateApprove = await submit(ops, opsAForm, { button: 'Approve claim' });
   check(
-    /isn't waiting for a decision any more/.test(textOf(lateApprove.html)) &&
+    /isn't waiting for a decision/.test(textOf(lateApprove.html)) && /Rejected/.test(textOf(lateApprove.html)) &&
       !lateApprove.url.includes('decided=approved'),
     'Ops A presses approve after Ops B rejected: "already decided", nothing approved',
     textOf(lateApprove.html).slice(0, 220),
@@ -1053,7 +1056,7 @@ step('D. the claimant after approval');
   const page = await customer.go('GET', '/lab/claim');
   const t = textOf(page.html);
   check(
-    t.includes('Your labs') && t.includes('Lab Checker') && t.includes('DEMO Laboratory 0005'),
+    t.includes('Your labs') && t.includes('Lab Checker') && t.includes((labNameA ?? '?').split(',')[0]),
     'the claim page now shows the approved lab and the Checker role',
   );
   check(
@@ -1122,10 +1125,10 @@ step('E. a list longer than one page');
     );
     const tampered = await customer.go('GET', '/lab/claim?cursor=not-a-cursor');
     check(
-      textOf(tampered.html).includes("That page of your claims isn't available") &&
-        !textOf(tampered.html).includes("You haven't started a claim yet"),
+      pageText(tampered.html).includes("That page of your claims isn't available") &&
+        !pageText(tampered.html).includes("You haven't started a claim yet"),
       'a cursor that cannot be read says so (not "no claims")',
-      textOf(tampered.html).slice(-500),
+      pageText(tampered.html).slice(-500),
     );
   }
 }
@@ -1176,7 +1179,7 @@ if (FAULT_URL !== undefined) {
   await toggle(true);
   try {
     const list = await customer.go('GET', '/lab/claim');
-    const lt = textOf(list.html);
+    const lt = pageText(list.html);
     check(
       lt.includes("We can't show your claims right now") &&
         !lt.includes("You haven't started a claim yet"),
@@ -1210,10 +1213,10 @@ if (FAULT_URL !== undefined) {
   }
   const back = await customer.go('GET', '/lab/claim');
   check(
-    textOf(back.html).includes('Your claims') &&
-      !textOf(back.html).includes("We can't show your claims"),
+    pageText(back.html).includes('Your claims') &&
+      !pageText(back.html).includes("We can't show your claims"),
     'the list is back when the service answers again',
-    textOf(back.html).slice(-500),
+    pageText(back.html).slice(-500),
   );
 }
 
