@@ -111,7 +111,7 @@ describe('lab claim reads', () => {
       expect(page.data.map((claim) => claim.id)).toEqual([second.claimId, first.claimId]);
       expect(page.page).toEqual({ nextCursor: null, limit: 25 });
       expect(JSON.stringify(page)).not.toContain(stranger.claimId);
-      expect(JSON.stringify(page)).not.toContain(stranger.site.siteCode);
+      expect(JSON.stringify(page)).not.toContain(stranger.site.sites[0]?.siteCode ?? 'unreachable');
 
       const empty = await w.claimant('no-claims');
       expect(await mine(empty.actor)).toEqual({
