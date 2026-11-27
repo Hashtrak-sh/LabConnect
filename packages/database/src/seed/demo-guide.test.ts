@@ -74,7 +74,8 @@ describe('the demo catalogue and labs, as data', () => {
           for (const parameter of product.parameters) {
             expect(parameter.code.length).toBeLessThanOrEqual(100);
             expect(parameter.name).not.toMatch(/DEMO parameter/);
-            // a search matches by substring: an alias of one or two letters would match almost everything
+            // a word of three letters or fewer matches only as a whole word (OQ-246), so a short
+            // alias is harmless to a search; the floor stays so that an alias is a word worth typing
             for (const alias of parameter.aliases ?? [])
               expect(alias.length).toBeGreaterThanOrEqual(3);
           }

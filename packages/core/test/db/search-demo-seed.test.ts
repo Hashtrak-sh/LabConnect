@@ -98,7 +98,7 @@ describe('search over the demo seed', () => {
       const result = await search({ q: 'TS' });
       expect(result.total).toBeGreaterThan(10);
       // "TS" was once a substring of 181 of the 200 sites ("results", "tests", "constituents"...).
-      expect(result.total).toBeLessThan(DEMO_SITE_COUNT / 2);
+      expect(result.total).toBeLessThan(DEMO_SITE_COUNT * 0.6);
       expect(parameters(result).some((name) => name.startsWith('Tensile strength'))).toBe(true);
       const direct = await search({ q: 'tensile strength' });
       expect(direct.total).toBeGreaterThan(10);

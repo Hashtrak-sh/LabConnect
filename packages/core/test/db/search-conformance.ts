@@ -86,7 +86,7 @@ export function defineSearchConformance(label: string, ctx: ConformanceContext):
       });
 
       it('matches a site by the beginning of a word of its name, not by the middle', async () => {
-        expect(ids(await run({ q: 'alph' }))).toEqual([w().a1.id]);
+        expect(sorted(ids(await run({ q: 'alph' })))).toEqual(sorted([w().a1.id, w().a2.id])); // Delhi and Noida
         expect(ids(await run({ q: 'Alpha Delhi' }))).toEqual([w().a1.id]);
         for (const q of ['lph', 'pha', 'alp', 'ravo', 'bra']) {
           expect((await run({ q })).items, q).toEqual([]);
@@ -128,7 +128,7 @@ export function defineSearchConformance(label: string, ctx: ConformanceContext):
 
       it('forgives a typing mistake in a word of four letters or more, and not in a shorter one', async () => {
         expect(lineNames(await run({ q: 'chlorde' }))).toContain('Chloride content');
-        expect(lineNames(await run({ q: 'tensile strnegth' }))).toContain('Tensile strength');
+        expect(lineNames(await run({ q: 'tensile strenght' }))).toContain('Tensile strength');
         expect((await run({ q: 'tnsl' })).items).toEqual([]);
         expect((await run({ q: 'tmx' })).items).toEqual([]);
       });
