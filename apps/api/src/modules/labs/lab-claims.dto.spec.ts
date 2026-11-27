@@ -5,6 +5,7 @@ import {
   parseLabClaimManual,
   parseLabClaimOtpVerify,
   parseLetterheadUploadRequest,
+  parsePageQuery,
   requireClaimId,
 } from './lab-claims.dto.js';
 
@@ -131,6 +132,27 @@ describe('parseLabClaimManual', () => {
         parseLabClaimManual({ fileId: '0190d6a2-7c4e-7a1b-9c3d-000000000000', status: 'X' }),
       ),
     ).toEqual([expect.objectContaining({ path: 'status', code: 'UNKNOWN_FIELD' })]);
+  });
+});
+
+describe('parsePageQuery', () => {
+  it('takes a cursor and a limit of 1 to 100, and nothing else is needed', () => {
+    expect(parsePageQuery({})).toEqual({});
+    expect(parsePageQuery({ cursor: 'abc', limit: '100' })).toEqual({ cursor: 'abc', limit: 100 });
+  });
+
+  it('refuses an empty cursor, a repeated parameter and a limit out of range or not a whole number', () => {
+    expect(issues(() => parsePageQuery({ cursor: '' }))).toEqual([
+      expect.objectContaining({ path: 'cursor' }),
+    ]);
+    expect(issues(() => parsePageQuery({ cursor: ['a', 'b'] }))).toEqual([
+      expect.objectContaining({ path: 'cursor' }),
+    ]);
+    for (const limit of ['0', '101', '1.5', '-1', 'ten', '', ['1', '2']]) {
+      expect(issues(() => parsePageQuery({ limit }))).toEqual([
+        expect.objectContaining({ path: 'limit' }),
+      ]);
+    }
   });
 });
 

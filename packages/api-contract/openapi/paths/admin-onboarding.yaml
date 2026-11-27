@@ -48,6 +48,84 @@ claims:
       '500':
         $ref: '../components/responses.yaml#/InternalError'
 
+claim:
+  get:
+    operationId: getAdminLabClaim
+    tags:
+      - Admin Onboarding
+    summary: Get a lab claim
+    description: >-
+      One claim for review (FR-DAT-07), as the list shows it, with its `ETag` (the `lockVersion`
+      that approve and reject expect in `If-Match`). The status is the true state now: a claim
+      still `PENDING_OTP` 24 hours after it was created is `EXPIRED`. A read writes nothing and is
+      not audited (the claimant is shown masked: name, masked e-mail, organisation types). The
+      letterhead is opened only through its own operation. `Cache-Control: no-store`. Roles:
+      `PLATFORM_OPS`.
+    x-roles:
+      - PLATFORM_OPS
+    parameters:
+      - $ref: '../components/parameters.yaml#/PathId'
+      - $ref: '../components/parameters.yaml#/RequestId'
+    responses:
+      '200':
+        description: The claim.
+        headers:
+          X-Request-Id:
+            $ref: '../components/headers.yaml#/RequestId'
+          ETag:
+            $ref: '../components/headers.yaml#/ETag'
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/admin-onboarding.yaml#/AdminLabClaim'
+            examples:
+              inReview:
+                summary: A claim waiting for review
+                value:
+                  id: 0194f3a0-7b1c-7c3a-9d2e-4f5a6b7c8d9e
+                  organisationId: 0194f3a0-7b1c-7c3a-9d2e-4f5a6b7c8d02
+                  labSiteId: 0194f3a0-7b1c-7c3a-9d2e-4f5a6b7c8d01
+                  requestedByUserId: 0194f3a0-7b1c-7c3a-9d2e-4f5a6b7c8d03
+                  method: MANUAL
+                  status: PENDING_REVIEW
+                  authorisationFileId: 0194f3a0-7b1c-7c3a-9d2e-4f5a6b7c8d04
+                  reviewedByUserId: null
+                  reviewedAt: null
+                  decisionNotes: null
+                  createdAt: '2026-11-26T09:00:00.000Z'
+                  lockVersion: 2
+                  labSite:
+                    id: 0194f3a0-7b1c-7c3a-9d2e-4f5a6b7c8d01
+                    siteCode: LS-UP-000123
+                    name: Example Testing Laboratory
+                    city: Lucknow
+                    stateCode: UP
+                    certificateNos:
+                      - TC-0000
+                  claimant:
+                    id: 0194f3a0-7b1c-7c3a-9d2e-4f5a6b7c8d03
+                    fullName: Asha Example
+                    emailMasked: a***@***.in
+                    organisationTypes:
+                      - CUSTOMER
+      '401':
+        $ref: '../components/responses.yaml#/Unauthenticated'
+        description: '`UNAUTHENTICATED`.'
+      '403':
+        $ref: '../components/responses.yaml#/Forbidden'
+        description: '`FORBIDDEN`: the caller is not `PLATFORM_OPS`.'
+      '404':
+        $ref: '../components/responses.yaml#/NotFound'
+        description: '`NOT_FOUND`: no such claim.'
+      '422':
+        $ref: '../components/responses.yaml#/UnprocessableEntity'
+        description: '`VALIDATION_FAILED`: the id is not a UUID.'
+      '429':
+        $ref: '../components/responses.yaml#/TooManyRequests'
+        description: '`RATE_LIMITED`.'
+      '500':
+        $ref: '../components/responses.yaml#/InternalError'
+
 claim-approve:
   post:
     operationId: approveAdminLabClaim

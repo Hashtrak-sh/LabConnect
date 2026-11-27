@@ -84,10 +84,28 @@ LabClaim:
         - $ref: './common.yaml#/Timestamp'
         - type: 'null'
     decisionNotes:
-      description: The reviewer's notes, shown when a claim is rejected.
+      description: >-
+        The reason the reviewer gave for a rejection, written for the claimant (the Ops form says
+        so: `AdminClaimRejection`). `null` for every other status, whatever notes the reviewer
+        wrote: the notes of an approval are the reviewer's own and never reach the claimant. The
+        decision time is `reviewedAt`.
       type:
         - string
         - 'null'
+
+LabClaimList:
+  type: object
+  required:
+    - data
+    - page
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: '#/LabClaim'
+    page:
+      $ref: './common.yaml#/Page'
 
 # --- Onboarding checklist (FR-ONB-04, BR-001) ---
 

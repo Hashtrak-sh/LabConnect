@@ -5,7 +5,7 @@
 // guarantees no route escapes the matrix by being left undeclared.
 import { grantOf, type PermissionCode, ROLE_CODES } from '@labconnect/shared';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { HANDLER_REFUSALS } from '../../permissions/handler-refusals.js';
+import { HANDLER_REFUSALS, SESSION_ONLY_REFUSALS } from '../../permissions/handler-refusals.js';
 import { useIdentityApp } from '../../support/identity-app.js';
 import { buildWorld, clientFactory, type World } from '../../support/isolation/world.js';
 import {
@@ -52,10 +52,21 @@ describe('permission matrix of the real app', () => {
     }
   });
 
-  it('expects the four lab claim operations to be open to PLATFORM_OPS alone, as the contract says', () => {
+  it('lists each session-only refusal as a served session-only route, with a reason', () => {
+    for (const entry of SESSION_ONLY_REFUSALS) {
+      const route = routes.find((candidate) => candidate.key === entry.route);
+      expect(route, `${entry.route} is not served`).toBeDefined();
+      expect(route?.category, entry.route).toBe('authorised-none');
+      expect(entry.reason.trim().length, entry.route).toBeGreaterThan(30);
+      expect(entry.roles.length, entry.route).toBeGreaterThan(0);
+    }
+  });
+
+  it('expects the lab claim operations of Ops to be open to PLATFORM_OPS alone, as the contract says', () => {
     const claimRoutes = routes.filter((route) => route.path.startsWith('/v1/admin/claims'));
     expect(claimRoutes.map((route) => route.key).sort()).toEqual([
       'GET /v1/admin/claims',
+      'GET /v1/admin/claims/:id',
       'POST /v1/admin/claims/:id/approve',
       'POST /v1/admin/claims/:id/letterhead/download-url',
       'POST /v1/admin/claims/:id/reject',
