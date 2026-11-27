@@ -317,6 +317,53 @@ describe('tenant isolation on the lab claim routes', () => {
     ).toBe(201);
   });
 
+  // The reads (I2-LAB): a claim belongs to the user who started it, so "another organisation" is
+  // again "another claimant", and an organisation's colleague is as foreign as a stranger.
+  const readOne = (id: string) => (client: Client) =>
+    client.get(`/v1/lab/claims/${id}`, {});
+
+  it("GET /lab/claims/{id} with another user's claim: 404, the same answer as for an unknown id, with nothing of the claim", async () => {
+    await expectIsolated({
+      route: 'GET /v1/lab/claims/:id',
+      as: stranger,
+      resourceOf: resource,
+      resourceId: claimId,
+      request: readOne(claimId),
+      unknownRequest: readOne(randomUUID()),
+    });
+    // The owner reads it, with the version the next write expects, and nobody else's claim.
+    const own = await readOne(claimId)(owner);
+    expect(own.status).toBe(200);
+    expect(own.headers['cache-control']).toBe('no-store');
+    expect(own.headers.etag).toMatch(/^"\d+"$/);
+    expect(own.body).toMatchObject({ id: claimId });
+  });
+
+  it("GET /lab/claims lists only the caller's own claims, and a colleague of the same organisation or a stranger sees none of them", async () => {
+    const mineList = await owner.get('/v1/lab/claims', {});
+    expect(mineList.status).toBe(200);
+    expect(mineList.headers['cache-control']).toBe('no-store');
+    const ids = (mineList.body as { data: { id: string }[] }).data.map((claim) => claim.id);
+    expect(ids).toContain(claimId);
+    const strangersList = await stranger.get('/v1/lab/claims', {});
+    expect(strangersList.status).toBe(200);
+    const theirIds = (strangersList.body as { data: { id: string }[] }).data.map((claim) => claim.id);
+    expect(theirIds).not.toContain(claimId);
+    for (const id of ids) expect(theirIds).not.toContain(id);
+    expectNoLeak(strangersList, resource, theirIds);
+    // The cursor of the owner's claim is no key to it: the same 422 as a cursor nobody can read.
+    const cursor = Buffer.from(JSON.stringify({ i: claimId }), 'utf8').toString('base64url');
+    const probe = await stranger.get(`/v1/lab/claims?cursor=${cursor}`, {});
+    const garbage = await stranger.get('/v1/lab/claims?cursor=garbage', {});
+    expect(probe.status).toBe(422);
+    expect(garbage.status).toBe(422);
+    expect({ ...(probe.body as object), requestId: '' }).toEqual({
+      ...(garbage.body as object),
+      requestId: '',
+    });
+    expectNoLeak(probe, resource, [claimId]);
+  });
+
   it('keeps the claim working for its owner after all of that', async () => {
     const response = await verify(claimId, code)(owner);
     expect(response.status).toBe(200);

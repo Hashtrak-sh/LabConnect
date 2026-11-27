@@ -174,6 +174,41 @@ describe('tenant isolation on the Ops claim routes', () => {
     expect(await stateOfClaim()).toEqual({ status: 'PENDING_REVIEW', lock_version: 1 });
   });
 
+  const readOne = (id: string) => (client: Client) => client.get(`/v1/admin/claims/${id}`);
+
+  it('GET /admin/claims/{id}: a lab or customer user is refused with 403, the same answer as for an unknown claim, with nothing of the claim', async () => {
+    for (const as of tenantClients()) {
+      await expectIsolated({
+        route: 'GET /v1/admin/claims/:id',
+        as,
+        resourceOf: resource,
+        resourceId: claimId,
+        request: readOne(claimId),
+        unknownRequest: readOne(randomUUID()),
+        refusal: 'FORBIDDEN',
+      });
+    }
+    // The claimant is no reviewer either: their own claim is theirs to read on the lab side only.
+    const claimant = await t.signIn(claimantEmail);
+    const response = await t.api.get(`/v1/admin/claims/${claimId}`, { token: claimant.accessToken });
+    expect(response.status).toBe(403);
+    expectNoLeak(response, resource, [claimId]);
+    expect(await stateOfClaim()).toEqual({ status: 'PENDING_REVIEW', lock_version: 1 });
+  });
+
+  it('GET /admin/claims/{id}: Platform Finance, Data Steward and Admin are refused with 403, Ops reads it', async () => {
+    for (const role of ['PLATFORM_FINANCE', 'PLATFORM_DATA_STEWARD', 'PLATFORM_ADMIN'] as const) {
+      const response = await readOne(claimId)(clientOf(world.byRole(role)));
+      expect(response.status, role).toBe(403);
+      expect(response.body).toMatchObject({ code: 'FORBIDDEN' });
+      expectNoLeak(response, resource, [claimId]);
+    }
+    const read = await readOne(claimId)(ops);
+    expect(read.status).toBe(200);
+    expect(read.headers['cache-control']).toBe('no-store');
+    expect(read.headers.etag).toBe('"1"');
+  });
+
   it('GET /admin/claims: a lab or customer user is refused with 403 and sees none of the claims', async () => {
     for (const as of tenantClients()) {
       const response = await as.get('/v1/admin/claims');
