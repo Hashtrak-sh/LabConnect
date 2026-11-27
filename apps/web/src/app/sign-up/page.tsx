@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Alert, Button, Card } from '@labconnect/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -47,7 +48,7 @@ export default async function SignUpPage() {
     const customer = user.memberships.find((membership) => membership.orgType === 'CUSTOMER');
     body =
       customer === undefined ? (
-        <SignUpForm text={text} />
+        <SignUpForm text={text} idempotencyKey={randomUUID()} />
       ) : (
         <div className="flex flex-col gap-4">
           <Alert tone="info" title={t('signUp.alreadyTitle')}>

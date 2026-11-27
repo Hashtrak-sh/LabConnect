@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, Post, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { formatEtag } from '../../common/etag.js';
+import { Idempotent } from '../../common/idempotency.interceptor.js';
 import { Authorised } from '../identity/authorised.decorator.js';
 import { requestMeta } from '../identity/auth.controller.js';
 import { CurrentActor } from '../identity/current-actor.js';
@@ -18,9 +19,11 @@ import {
  * becomes the first `CUSTOMER_ADMIN` and switches to the new membership with
  * `POST /me/active-membership`.
  *
- * `Idempotency-Key` is required by the contract and not yet honoured here (OQ-87): a repeated
- * sign-up with a GSTIN is refused by the GSTIN rule, one without a GSTIN (an individual) creates
- * a second organisation. The web form submits once.
+ * `Idempotency-Key` is honoured (`@Idempotent()`, API_CONVENTIONS section 5): a repeat with the
+ * same key, user and route gets the stored 201 and creates nothing, so a double submit of the
+ * sign-up form (which sends one key per form) is one organisation. A replayed answer has the body
+ * but not the headers this handler sets (`ETag`, `Cache-Control`; OQ-200); the body carries
+ * `lockVersion`, the value the `ETag` holds.
  */
 @Controller('customer')
 export class CustomerOrganisationsController {
@@ -30,7 +33,7 @@ export class CustomerOrganisationsController {
   @Post('organisations')
   @HttpCode(201)
   @Authorised({ noPermissionRequired: true })
-  // TODO(I1-SHR-01): put the shared idempotency decorator here (key, user and route; OQ-87).
+  @Idempotent()
   async createCustomerOrganisation(
     @Body() body: unknown,
     @CurrentActor() actor: CurrentActor,

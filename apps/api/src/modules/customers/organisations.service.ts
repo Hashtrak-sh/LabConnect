@@ -9,7 +9,7 @@ import {
   type RequestMeta,
   TenantScope,
 } from '@labconnect/core';
-import { Prisma, uuidv7 } from '@labconnect/database';
+import { Prisma } from '@labconnect/database';
 import { DomainError } from '../../common/domain-error.js';
 import { CLOCK } from '../platform/platform.providers.js';
 
@@ -78,15 +78,18 @@ export class CustomerOrganisationsService {
         detail: 'Platform staff cannot join a customer organisation.',
       });
     }
-    const organisationId = uuidv7(this.clock.now().getTime());
     let result: Awaited<ReturnType<typeof createCustomerOrganisation>>;
     try {
-      result = await this.scope.runForNewOrganisation(actor.userId, organisationId, (tx) =>
-        createCustomerOrganisation(
-          tx,
-          { clock: this.clock, audit: this.audit },
-          { userId: actor.userId, organisationId, organisation: input, meta },
-        ),
+      // The scope makes the new organisation's id; this code never chooses one.
+      result = await this.scope.runForNewOrganisation(
+        actor.userId,
+        this.clock.now(),
+        (tx, organisationId) =>
+          createCustomerOrganisation(
+            tx,
+            { clock: this.clock, audit: this.audit },
+            { userId: actor.userId, organisationId, organisation: input, meta },
+          ),
       );
     } catch (error) {
       // Two sign-ups with one GSTIN at the same moment: the unique index decides.
