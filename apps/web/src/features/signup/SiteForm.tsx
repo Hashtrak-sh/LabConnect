@@ -19,7 +19,14 @@ function errorText(text: SignUpText, error: 'required' | 'too-long' | 'pincode' 
  * It becomes the default billing site. "Skip for now" goes straight to "Your account is ready";
  * sites can be added later (J2). No map pin: the contract takes no location (it is geocoded).
  */
-export function SiteForm({ text }: { text: SignUpText }) {
+export function SiteForm({
+  text,
+  idempotencyKey,
+}: {
+  text: SignUpText;
+  /** The first `Idempotency-Key`, made on the server. */
+  idempotencyKey: string;
+}) {
   const [state, action, pending] = useActionState<SiteState, FormData>(createSiteAction, {
     status: 'editing',
   });
@@ -49,6 +56,7 @@ export function SiteForm({ text }: { text: SignUpText }) {
       noValidate
     >
       <SignUpProgress text={text} step={5} />
+      <input type="hidden" name="idempotencyKey" value={state.idempotencyKey ?? idempotencyKey} />
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-semibold text-text">{text.siteTitle}</h2>
         <p className="text-text-muted">{text.siteIntro}</p>

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { START, useIdentityApp } from '../support/identity-app.js';
 
@@ -199,6 +200,31 @@ describe('customer sign-up: POST /v1/customer/organisations', () => {
       body: { customerSegment: 'INDIVIDUAL', legalName: 'A', displayName: 'A' },
     });
     expect(anonymous.status).toBe(401);
+  });
+
+  it('creates one organisation for a repeated Idempotency-Key, and refuses the key with another body', async () => {
+    const user = await newUser('repeat');
+    const key = randomUUID();
+    const body = { customerSegment: 'INDIVIDUAL', legalName: 'Repeat', displayName: 'Repeat' };
+    const send = (sent: object) =>
+      t.api.post('/v1/customer/organisations', {
+        token: user.token,
+        body: sent,
+        headers: { 'Idempotency-Key': key },
+      });
+
+    const first = await send(body);
+    const again = await send(body);
+    expect(first.status).toBe(201);
+    expect(again.status).toBe(201);
+    expect(again.body).toEqual(first.body);
+
+    const me = await t.api.get('/v1/me', { token: user.token });
+    expect((me.body as { memberships: unknown[] }).memberships).toHaveLength(1);
+
+    const other = await send({ ...body, legalName: 'Something else' });
+    expect(other.status).toBe(422);
+    expect((other.body as { code: string }).code).toBe('IDEMPOTENCY_KEY_REUSED');
   });
 
   it('lets a member of another customer organisation start a new one', async () => {

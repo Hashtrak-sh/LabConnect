@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { START, useIdentityApp } from '../support/identity-app.js';
 
@@ -175,6 +176,59 @@ describe('customer sites: /v1/customer/sites', () => {
       code: 'VALIDATION_FAILED',
       errors: [{ path: 'isDefaultBilling', code: 'INACTIVE_SITE' }],
     });
+  });
+
+  it('creates one site for a repeated Idempotency-Key', async () => {
+    const customer = await newCustomer('site-repeat');
+    const key = randomUUID();
+    const send = () =>
+      t.api.post('/v1/customer/sites', {
+        token: customer.token,
+        body: { name: 'Once', address: ADDRESS, isDefaultBilling: true },
+        headers: { 'Idempotency-Key': key },
+      });
+    const first = await send();
+    const again = await send();
+    expect(first.status).toBe(201);
+    expect(again.status).toBe(201);
+    expect(again.body).toEqual(first.body);
+    const list = await t.api.get('/v1/customer/sites', { token: customer.token });
+    expect((list.body as { data: SiteBody[] }).data.map((s) => s.name)).toEqual(['Once']);
+  });
+
+  it('refuses a tampered cursor with 422 and puts no site name in it', async () => {
+    const customer = await newCustomer('site-cursor');
+    for (const name of ['Ravi home', 'Second']) {
+      await create(customer.token, { name, address: ADDRESS });
+    }
+    const first = await t.api.get('/v1/customer/sites?limit=1', { token: customer.token });
+    const cursor = (first.body as { page: { nextCursor: string } }).page.nextCursor;
+    expect(Buffer.from(cursor, 'base64url').toString('utf8')).not.toContain('Ravi');
+
+    const tampered = Buffer.from(JSON.stringify({ i: '-'.repeat(36) })).toString('base64url');
+    const response = await t.api.get(`/v1/customer/sites?cursor=${tampered}`, {
+      token: customer.token,
+      invalidRequest: 'a cursor whose id is not a UUID gives 422',
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it('retiring the default search site clears it from the settings', async () => {
+    const customer = await newCustomer('site-settings');
+    const site = (await create(customer.token, { name: 'Default', address: ADDRESS }))
+      .body as SiteBody;
+    await t.owner((tx) =>
+      tx.customerSettings.updateMany({
+        where: { organisationId: customer.organisationId },
+        data: { defaultCustomerSiteId: site.id },
+      }),
+    );
+    const retired = await patch(customer.token, site.id, '"0"', { status: 'INACTIVE' });
+    expect(retired.status).toBe(200);
+    const settings = await t.owner((tx) =>
+      tx.customerSettings.findFirstOrThrow({ where: { organisationId: customer.organisationId } }),
+    );
+    expect(settings.defaultCustomerSiteId).toBeNull();
   });
 
   it('lets every member read, and only the customer admin change', async () => {
