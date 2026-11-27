@@ -225,6 +225,7 @@
     "stepCode": "Code",
     "stepKind": "Individual or organisation",
     "stepDetails": "Details",
+    "stepSite": "Default site",
     "done": "done",
     "current": "current step",
     "emailIntro": "Enter your work email. We'll email you a code. There is no password.",
@@ -281,6 +282,16 @@
     "alreadyTitle": "You already have a customer account",
     "alreadyText": "You're signed in to {organisation}. Find a lab to book a test.",
     "staffTitle": "Not for platform staff",
-    "staffText": "Platform staff accounts can't join a customer organisation."
+    "staffText": "Platform staff accounts can't join a customer organisation.",
+    "siteTitle": "Your default site",
+    "siteIntro": "Where will samples come from? This site is used for billing. You can add more sites later.",
+    "siteName": "Site name",
+    "siteNameHelp": "A name for this address, like \"Manesar plant\" or \"Home\".",
+    "siteAddressLegend": "Site address",
+    "finish": "Finish",
+    "saving": "Saving…",
+    "skip": "Skip for now",
+    "siteFailedTitle": "We couldn't save the site",
+    "siteForbidden": "Only the administrator of your organisation can add sites."
   }
 }
