@@ -8,6 +8,7 @@ import {
   createLetterheadDownloadTicket,
   type CurrentActor,
   FileService,
+  getLabClaimForReview,
   listLabClaimsForReview,
   OutboxService,
   type RequestMeta,
@@ -31,11 +32,14 @@ export interface AdminLabClaimBody {
   decisionNotes: string | null;
   createdAt: string;
   lockVersion: number;
+  labSite: AdminLabClaimView['labSite'];
+  claimant: AdminLabClaimView['claimant'];
 }
 
 /**
- * The claim as the response shows it. Exactly the contract's fields: the claimant is an id (no name
- * or address), the letterhead an id (no link). `lockVersion` is also the `ETag` of a single claim.
+ * The claim as the response shows it. Exactly the contract's fields: the site (public data), the
+ * claimant (name, MASKED e-mail, other organisation types), the letterhead an id (no link).
+ * `lockVersion` is also the `ETag` of a single claim.
  */
 export function toAdminLabClaimBody(claim: AdminLabClaimView): AdminLabClaimBody {
   return {
@@ -51,6 +55,20 @@ export function toAdminLabClaimBody(claim: AdminLabClaimView): AdminLabClaimBody
     decisionNotes: claim.decisionNotes,
     createdAt: claim.createdAt.toISOString(),
     lockVersion: claim.lockVersion,
+    labSite: {
+      id: claim.labSite.id,
+      siteCode: claim.labSite.siteCode,
+      name: claim.labSite.name,
+      city: claim.labSite.city,
+      stateCode: claim.labSite.stateCode,
+      certificateNos: claim.labSite.certificateNos,
+    },
+    claimant: {
+      id: claim.claimant.id,
+      fullName: claim.claimant.fullName,
+      emailMasked: claim.claimant.emailMasked,
+      organisationTypes: claim.claimant.organisationTypes,
+    },
   };
 }
 
@@ -81,6 +99,11 @@ export class AdminLabClaimsService {
       listLabClaimsForReview(tx, this.deps(), { actor, ...query }),
     );
     return { data: page.data.map(toAdminLabClaimBody), page: page.page };
+  }
+
+  /** `getAdminLabClaim`: one claim, in the `platform` context like the list. */
+  async get(actor: CurrentActor, claimId: string): Promise<AdminLabClaimView> {
+    return this.scope.run(actor, (tx) => getLabClaimForReview(tx, this.deps(), { actor, claimId }));
   }
 
   /** `approveAdminLabClaim`. */
