@@ -3,7 +3,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { BookingStatus } from '../../src/generated/prisma/client.js';
-import { DEMO_SCOPE_LINES_PER_SITE, DEMO_SITE_COUNT, seedDemo } from '../../src/seed/demo.js';
+import { DEMO_SCOPE_LINE_COUNT, DEMO_SITE_COUNT, seedDemo } from '../../src/seed/demo.js';
+import { DEMO_PARAMETER_META } from '../../src/seed/demo-catalogue.js';
 import { createLocalLoginUsers } from '../../src/seed/local-users.js';
 import { seedPlatformAdmin } from '../../src/seed/platform-admin.js';
 import {
@@ -267,8 +268,11 @@ describe('seed:demo', () => {
     expect(result).toEqual({
       skipped: false,
       labSites: DEMO_SITE_COUNT,
-      scopeLines: DEMO_SITE_COUNT * DEMO_SCOPE_LINES_PER_SITE,
+      scopeLines: DEMO_SCOPE_LINE_COUNT,
       bookings: Object.keys(BookingStatus).length,
+      tests: DEMO_PARAMETER_META.size,
+      products: 30,
+      labOwners: 3,
     });
 
     const again = await prisma().$transaction((tx) => seedDemo(tx, { now: NOW }), PATIENT);
@@ -293,7 +297,7 @@ describe('seed:demo', () => {
         where: { NOT: { displayName: { contains: 'DEMO' } }, orgType: { not: 'PLATFORM' } },
       }),
     ).toBe(0);
-    expect(await prisma().labSite.count({ where: { NOT: { name: { startsWith: 'DEMO' } } } })).toBe(
+    expect(await prisma().labSite.count({ where: { NOT: { name: { contains: '(DEMO)' } } } })).toBe(
       0,
     );
     expect(
