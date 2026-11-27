@@ -136,3 +136,48 @@ export function parseLabClaimManual(body: unknown): { fileId: string } {
   if (issues.length > 0) fail(issues);
   return { fileId };
 }
+
+function single(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * `cursor` and `limit` (1 to 100) of `listMyLabClaims`. A repeated, empty or malformed parameter
+ * is `422 VALIDATION_FAILED`; the cursor's content is checked by the core, which owns its format.
+ * No filter and no `status`: the operation lists every claim of the caller, newest first.
+ */
+export function parsePageQuery(query: Record<string, unknown>): {
+  cursor?: string;
+  limit?: number;
+} {
+  const issues: ProblemIssue[] = [];
+  const result: { cursor?: string; limit?: number } = {};
+
+  const cursor = single(query.cursor);
+  if (cursor !== undefined) {
+    if (cursor === '') {
+      issues.push({ path: 'cursor', code: 'INVALID_VALUE', message: 'The cursor is empty.' });
+    } else result.cursor = cursor;
+  }
+
+  const limit = single(query.limit);
+  if (limit !== undefined) {
+    const parsed = /^\d{1,4}$/.test(limit) ? Number(limit) : Number.NaN;
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
+      issues.push({
+        path: 'limit',
+        code: 'INVALID_VALUE',
+        message: 'The limit is a whole number from 1 to 100.',
+      });
+    } else result.limit = parsed;
+  }
+
+  if (issues.length > 0) {
+    throw new DomainError('VALIDATION_FAILED', {
+      detail: 'The query is not valid.',
+      errors: issues,
+    });
+  }
+  return result;
+}

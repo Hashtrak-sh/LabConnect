@@ -107,6 +107,7 @@ The `gatewayCheckout` shape is **adapter-defined** and stays opaque to the contr
 | Method | Path | Who | Purpose | FR |
 |---|---|---|---|---|
 | POST | `/lab/claims` | auth | Start a claim (`{certificateNo}`) → OTP to the NABL email | DAT-07 |
+| GET | `/lab/claims` · `/lab/claims/{id}` | auth | My claims, newest first, and one of them with its `ETag`: the status as it is now (expired after 24 hours), and for a rejection the reason. Another user's claim is `404`. (OQ-49, OQ-209) | DAT-07 |
 | POST | `/lab/claims/{id}/verify-otp` · `/lab/claims/{id}/manual/upload-url` · `/lab/claims/{id}/manual` | auth | Verify, or upload a letterhead | DAT-07 |
 | GET | `/lab/onboarding` | L-Checker | Checklist and bookability reasons | ONB-04 |
 | POST | `/lab/kyc-documents/upload-url` · POST `/lab/kyc-documents` | L-Checker | KYC | ONB-04 |
@@ -175,7 +176,7 @@ The `gatewayCheckout` shape is **adapter-defined** and stays opaque to the contr
 | GET | `/admin/ops-board` | P-Ops | Counts by state, SLA breaches, overdue items | ADM-02 |
 | GET | `/admin/bookings?…` · `/admin/bookings/{id}` | P-Ops | Search and detail (report metadata only) | ADM-02 |
 | POST | `/admin/bookings/{id}/cancel` | P-Ops | Exceptional cancellation, reason required: T-25/26/27 only, so up to UNDER_TEST. No later state and no override of a lab decision (OQ-24, decided for the MVP). | ADM-02 |
-| GET | `/admin/claims` · POST `/admin/claims/{id}/approve\|reject` | P-Ops | Claims | ADM-01 |
+| GET | `/admin/claims` · `/admin/claims/{id}` · POST `/admin/claims/{id}/approve\|reject` | P-Ops | Claims, with the site and the claimant (name, masked e-mail, other organisation types); one claim with its `ETag` | ADM-01 |
 | POST | `/admin/claims/{id}/letterhead/download-url` | P-Ops | 15-minute signed URL for the claim's letterhead, any claim status, `CLEAN` files only, audited (OQ-225) | ADM-01 |
 | POST | `/admin/kyc-documents/{id}/verify` · `/admin/bank-accounts/{id}/verify` | P-Ops / P-Fin | Verification | ADM-01 |
 | GET | `/admin/geocode-queue` · POST `/admin/lab-sites/{id}/pin` | P-Ops | Pin approval | DAT-03 |

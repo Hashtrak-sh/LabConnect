@@ -27,12 +27,69 @@ Shared-change rule: any PR touching `packages/database/` needs approval from bot
 |---|---|---|
 | `seed:reference` | Taxonomies and node types (SCOPE levels, METHOD, UNIT, all reason-code taxonomies) with starter values for units and reason codes, accreditation body (NABL), standards (17025 testing and calibration, 15189 unsupported), ledger chart of accounts, fee rules (platform fee 0, cancellation 10%, no-show 10%), config defaults (the BR defaults), notification templates (en-IN, version 1), holiday calendar (the four fixed-date national holidays of the current and next year: 26 January, 15 August, 2 October, 25 December; the rest is OQ-32), first QR key registry entries (pointing to the environment's KMS keys) | All |
 | `seed:platform-admin` | The platform organisation and the first `PLATFORM_ADMIN` user (`PLATFORM_ADMIN_EMAIL` and `PLATFORM_ADMIN_NAME` from the environment, MFA enrolment forced on first login) | All (separate command) |
-| `seed:demo` | 200 lab sites across Delhi NCR (fictitious, clearly marked "DEMO"), 5,000 scope lines, 3 onboarded labs (4 bookable sites) with Makers and Checkers, 3 customer orgs (individual, business, government), price lists, slots, one booking in every state | Local, UAT |
+| `seed:demo` | A catalogue of about 150 well-known industrial tests in 30 products of four disciplines (Chemical, Mechanical, Biological, Electrical), with methods, units, aliases and search synonyms; 200 lab sites across Delhi NCR (fictitious, invented names, each marked "(DEMO)"), exactly 5,000 scope lines, 3 onboarded labs (4 bookable sites) with Makers and Checkers, 4 more named listed labs (two of them for the claim story), 3 customer orgs (individual, business, government), 3 lab owner accounts with no role, price lists, slots for the next 120 days, one booking in every state | Local, UAT |
 | `seed:load` | 15k sites, 2M scope lines, 5k customer orgs (synthetic). **Not built yet.** | Load-test env only |
 
 Rules:
 - Seeds are **idempotent**. `seed:reference` adds what is missing, found by its stable `code` or key, and **never changes or removes a row that exists**, so a value an administrator has edited survives the next deploy. A corrected default therefore needs a migration or an administrator action, not a change to the seed. Reference seeds run on every deploy.
-- `seed:demo` is all or nothing: it runs in one transaction, and does nothing if the demo data is already there. It runs `seed:reference` first.
+- `seed:demo` is all or nothing: it runs in one transaction, and does nothing if the demo data is already there. It runs `seed:reference` first. The data is there when the first demo lab (`nabl_lab_ref` `DEMO-LAB-0001`) exists. A database that an older version of the seed filled (generated names such as "DEMO Testing Laboratory 001" and "DEMO parameter 1 of steel") therefore keeps what it has: the seed never rewrites. To get the realistic data on such a database, use a new database (UAT can be rebuilt; the demo data holds nothing else).
+- **What `seed:demo` creates** (code in `packages/database/src/seed/demo.ts`; the data in `demo-catalogue.ts` and `demo-labs.ts`; the same run lays out the same data, apart from ids and the dates computed from the day of the run):
+  - *The catalogue of tests.* Disciplines, groups, products, parameters (aliases and the result unit as an attribute), the METHOD values (the standard code as the attribute `standard_code`, only where the standard covers the test) and the UNIT values the tests need (the millimetre and the sample units of `seed:reference` are reused, the rest are created). It is **generic knowledge about tests, not NABL data**, and no laboratory's real scope. It is created by `seed:demo` only, never by `seed:reference`. So that it stays recognisable as demo master data without "DEMO" in the names people search for, every node has a code that starts with `DEMO_` and the attribute `demo = true`.
+  - *Search synonyms* (`search_synonym`, with a version row), for example `TS` for tensile strength, `TDS`, `BOD`, `OPC`, `IS 1786` for TMT bars.
+  - *Labs.* Every organisation and site name contains "(DEMO)". Names are invented: the first three onboarded labs and four listed ones reuse names of the design boards or follow them (Vasundhara Testing Laboratories, Shivalik Polymer Testing Centre, Narmada Analytical Services) or are made of the names of rivers, hills and regions of India; the other 192 combine such a word with a kind of laboratory that suits what it offers. Certificate numbers (`DEMO-TC-nnnn-n`), site codes, addresses ("DEMO Plot ...") and the contact e-mail addresses (in the demo domain; the demo one-time code depends on that domain) are obviously made up. City, state, district and pincode agree (real ranges: for example 122001 to 122018 for Gurugram).
+  - *What a lab offers.* A kind of lab (building materials, water and environment, food, electrical and polymer, analytical, mechanical) offers a coherent run of its kind's tests: a building-materials lab does cement, steel and aggregates, never milk powder. Popular tests are offered by many labs, a few by one or two (aflatoxin B1, pesticide residues, erucic acid, arsenic in water, oxidation induction time, the hot set test), and one by none (gross alpha activity, for the "no result, request a lab" path). The bookable sites price and time the same test differently (a price factor and a turnaround shift per site). Accreditation certificates are valid from 200 days before to 530 days after the day of the run, and open slots run 120 days from it, so a demonstration up to about three months later still finds slots; after that, run the seed on a new database.
+  - *Lab owner accounts.* `lab.owner.demo1`, `demo2` and `demo3` at the demo domain, named "DEMO Lab Owner 1" to "3": active users who hold no membership and no role anywhere (a lab role would make the approval of a claim refuse). They are for the people who claim a lab on stage.
+  - *Printed guide.* `infrastructure/README.md` has a table "What to try in a demo" (search terms, the bookable sites, two unclaimed labs for the claim story, the accounts). It is generated from `demo-guide.ts`, and a test fails if it differs.
+- **Standards used.** Only where I am sure the standard covers the test. A person can check the list against the BIS catalogue; the seed test fails if a standard is added without being listed here.
+
+<!-- demo-standards:start -->
+| Standard | Used for | Confidence |
+|---|---|---|
+| IS 3025 (Part 10) | Turbidity of water | high |
+| IS 3025 (Part 11) | pH of water | high |
+| IS 3025 (Part 16) | Filterable residue (total dissolved solids) | high |
+| IS 3025 (Part 17) | Non-filterable residue (total suspended solids) | high |
+| IS 3025 (Part 21) | Total hardness | high |
+| IS 3025 (Part 23) | Alkalinity | high |
+| IS 3025 (Part 24) | Sulphate | high |
+| IS 3025 (Part 26) | Residual chlorine | high |
+| IS 3025 (Part 32) | Chloride | high |
+| IS 3025 (Part 44) | Biochemical oxygen demand | high |
+| IS 3025 (Part 58) | Chemical oxygen demand | medium: check the part number |
+| IS 1622 | Coliform, E. coli and plate count of water | high |
+| IS 4031 (Part 1) | Fineness of cement, dry sieving | high |
+| IS 4031 (Part 2) | Fineness of cement, Blaine | high |
+| IS 4031 (Part 3) | Soundness of cement | high |
+| IS 4031 (Part 4) | Standard consistency of cement | high |
+| IS 4031 (Part 5) | Setting times of cement | high |
+| IS 4031 (Part 6) | Compressive strength of cement | high |
+| IS 4032 | Chemical analysis of cement | high |
+| IS 1608 | Tensile test of metals (tensile strength, yield stress, elongation, UTS/YS ratio) | high |
+| IS 1599 | Bend test of metals | high |
+| IS 1786 | Re-bend test and mass per metre of reinforcement bars | medium: the standard is right, check that these two tests are in it |
+| IS 1500 | Brinell hardness | high |
+| IS 2386 (Part 1) | Sieve analysis, flakiness index, elongation index of aggregate | high |
+| IS 2386 (Part 2) | Clay, fine silt and fine dust in aggregate | high |
+| IS 2386 (Part 3) | Water absorption, bulk density, bulking of aggregate | high |
+| IS 2386 (Part 4) | Impact, crushing and Los Angeles abrasion values | high |
+| IS 516 | Compressive strength of concrete cubes | high |
+| IS 5816 | Splitting tensile strength of concrete | high |
+| IS 1199 | Slump of fresh concrete (the standard, without a part) | medium: the family is right, a part number may apply |
+| IS 3495 (Part 1) | Compressive strength of bricks | high |
+| IS 3495 (Part 2) | Water absorption of bricks | high |
+| IS 548 | Acid value, free fatty acids, peroxide value, iodine value, saponification value of oils and fats | high |
+| IS 2530 | Melt flow rate of polyethylene | medium: check that no part number applies |
+| ISO 1183-1 | Density of plastics by immersion | high |
+| ISO 527-2 | Tensile properties of plastics | high |
+| ISO 6964 | Carbon black content of polyolefins | high |
+| ISO 11357-6 | Oxidation induction time by DSC | high |
+| IS 10810 | Tests on cables (conductor and insulation resistance, voltage test, thickness, tensile strength and elongation, hot set) | medium: the series is right, check the part of each test |
+| IS 16102 (Part 2) | Photometric and electrical tests of LED lamps | high |
+| IS 374 | Performance tests of ceiling fans | high |
+| IS 3854 | Electrical tests of switches for household use | high |
+<!-- demo-standards:end -->
+
+Product specifications (IS 269 for OPC, IS 1489 for PPC, IS 2062 for structural steel, IS 383 for aggregates, IS 456 for concrete, IS 1077 for bricks, IS 10500 for drinking water, IS 14543 for packaged drinking water, IS 4984 for HDPE pipes, IS 694 and IS 7098 for cables, IS 1165, IS 4941 and IS 2446 for milk powder, honey and turmeric) appear only as aliases of products so that people who search by them find the product; they are not given as the method of a test (IS 1786 is also an alias of the TMT bars product).
 - Seeds connect with `DATABASE_URL` as the owner role. The email address of the platform administrator is not printed or logged.
 - `seed:reference` needs `QR_KMS_KEY_ARN_BOOKING`, `QR_KMS_KEY_ARN_PACKAGE` and `QR_KMS_KEY_ARN_REPORT` in every deployed environment and fails without them. Only when `APP_ENV` is unset, `local` or `test` does it use a placeholder ARN.
 - Values in the reference seed that no document specified are proposals and are listed in OQ-31: the configuration key names, the starter reason codes and units, the ledger normal balances and the lab share of the cancellation and no-show fees. Seeded master-data values have no `md_node_version` row, because a change set needs a user and none exists yet.
