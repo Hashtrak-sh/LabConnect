@@ -82,6 +82,14 @@ describe.skipIf(DIR === undefined)('search harness', () => {
         `${JSON.stringify(sites.values, (_k, v: unknown) => (typeof v === 'bigint' ? String(v) : v))}\n${sites.text}`,
         'utf8',
       );
+      const lines = captured.find((entry) => entry.text.includes('pick AS'));
+      if (lines !== undefined) {
+        writeFileSync(
+          join(dir, `${name}-lines.json`),
+          `${JSON.stringify(lines.values, (_k, v: unknown) => (typeof v === 'bigint' ? String(v) : v))}\n${lines.text}`,
+          'utf8',
+        );
+      }
     }
     writeFileSync(join(dir, 'ready'), 'ready', 'utf8');
     for (let i = 0; i < 3000; i++) {

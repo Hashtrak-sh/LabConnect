@@ -10,7 +10,7 @@ import {
   GRADE_PRODUCT,
   MIN_FUZZY_LENGTH,
   MIN_PREFIX_LENGTH,
-  WORD_SEPARATOR_CHARS,
+  WORD_SEPARATOR_REGEX_SOURCE,
 } from './word-match.js';
 
 /*
@@ -23,21 +23,22 @@ import {
  * Both are `position(... IN ...)`, a plain substring search. Nothing builds a LIKE pattern or a
  * regular expression from the user's text, so `%`, `_`, `\`, `[`, `(` and `.*` in a search are only
  * separators (the query is cut into words by `word-match.ts` first) and cannot match everything or
- * fail. The stored text is cut with `translate()` and fixed bind parameters.
+ * fail. Only the stored texts are cut by a regular expression, a fixed one.
  */
 
 const num = (value: number): Prisma.Sql => Prisma.raw(String(value));
 
-const SEPARATOR_BLANKS = ' '.repeat(WORD_SEPARATOR_CHARS.length);
+/** The regular expression that cuts a stored text at its separators (fixed: nothing in it comes from a request). */
+export const WORD_SEPARATOR_PATTERN = WORD_SEPARATOR_REGEX_SOURCE;
 
 /**
- * The words of a text expression, lower-cased, with every separator turned into a space and a
- * space at each end: `text`. Runs of separators stay runs of spaces, which the searches below
- * do not mind. `translate` over fixed bind parameters, not a regular expression: about ten times
- * faster, and nothing in it is built from the user's text.
+ * The words of a text expression, lower-cased, with every run of separators turned into one space
+ * and a space at each end: `text`. A fixed regular expression passed as a bind parameter (the same
+ * ranges as `splitWords`), applied to the stored texts only, never to the user's text, and only to
+ * each distinct text once (`wt` in `postgres-index.ts`).
  */
 export function wordsSql(text: Prisma.Sql): Prisma.Sql {
-  return Prisma.sql`(' ' || translate(lower(${text}), ${WORD_SEPARATOR_CHARS}::text, ${SEPARATOR_BLANKS}::text) || ' ')`;
+  return Prisma.sql`(' ' || regexp_replace(lower(${text}), ${WORD_SEPARATOR_PATTERN}::text, ' ', 'g') || ' ')`;
 }
 
 /**

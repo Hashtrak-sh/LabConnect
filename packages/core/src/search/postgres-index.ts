@@ -115,58 +115,60 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
       ? Prisma.sql`l.qualifies`
       : Prisma.sql`FALSE`;
 
-  // Without text there is nothing to score. With text, the words of each line are cut once (`vb`),
-  // the words of the stored text that are a typing mistake away from a query word are found once
-  // over the distinct words (`near`, see matching-sql.ts), and a site's name is scored once per
-  // site (`sn`), not once per line. Each is MATERIALIZED: the planner would otherwise repeat them
-  // for every row that uses them.
+  // Without text there is nothing to score. With text:
+  // - `vt`: the visible lines with the four texts to match (parameter name, product name, the other
+  //   texts, site name and code);
+  // - `wt0`: the words of each distinct text, cut once (a few hundred texts for thousands of lines);
+  // - `near`: the words of the data that are a typing mistake away from a query word, found once
+  //   over the distinct words (see matching-sql.ts);
+  // - `wt`: those texts again with the score each would have as a site name, once per text, not once
+  //   per line;
+  // - `vb`: each line with the words of its texts, by hash joins on the text;
+  // - `lines`: the score of each line.
+  // Each is MATERIALIZED, and nothing joins two big CTEs: the planner would otherwise repeat the
+  // work for every row that uses it, or join them by nested loops.
   const scored = textOn
     ? Prisma.sql`
     vt AS MATERIALIZED (
-      SELECT v.scope_line_id, v.lab_site_id, v.pa_name AS t_name, coalesce(v.p_name, '') AS t_product,
+      SELECT v.*, v.pa_name AS t_name, coalesce(v.p_name, '') AS t_product,
              concat_ws(' | ', array_to_string(v.pa_aliases, ' '), array_to_string(v.p_aliases, ' '),
                        v.g_name, v.d_name, v.m_name, v.m_standard_code, v.method_text) AS t_other,
              v.site_name || ' ' || v.site_code AS t_site
         FROM v
     ),
-    wt AS MATERIALIZED (
+    wt0 AS MATERIALIZED (
       SELECT u.t, ${wordsSql(Prisma.sql`u.t`)} AS w
         FROM (SELECT t_name AS t FROM vt UNION SELECT t_product FROM vt
               UNION SELECT t_other FROM vt UNION SELECT t_site FROM vt) u
     ),
+    ${nearWordsCte(terms, Prisma.sql`SELECT w FROM wt0`)},
+    wt AS MATERIALIZED (
+      SELECT x.t, x.w,
+             ${termScoreSql(terms, {
+               name: Prisma.sql`x.w`,
+               product: Prisma.sql`' '::text`,
+               other: Prisma.sql`' '::text`,
+             })} AS as_site_score
+        FROM wt0 x
+    ),
     vb AS MATERIALIZED (
-      SELECT vt.scope_line_id, vt.lab_site_id, n.w AS name_words, p.w AS product_words, o.w AS other_words, s.w AS site_words
+      SELECT vt.*, n.w AS name_words, p.w AS product_words, o.w AS other_words,
+             s.as_site_score AS site_score
         FROM vt
         JOIN wt n ON n.t = vt.t_name
         JOIN wt p ON p.t = vt.t_product
         JOIN wt o ON o.t = vt.t_other
         JOIN wt s ON s.t = vt.t_site
     ),
-    ${nearWordsCte(
-      terms,
-      Prisma.sql`SELECT name_words || product_words || other_words || site_words AS w FROM vb`,
-    )},
-    sn AS MATERIALIZED (
-      SELECT d.lab_site_id,
-             ${termScoreSql(terms, {
-               name: Prisma.sql`d.site_words`,
-               product: Prisma.sql`' '::text`,
-               other: Prisma.sql`' '::text`,
-             })} AS name_score
-        FROM (SELECT DISTINCT ON (lab_site_id) lab_site_id, site_words
-                FROM vb ORDER BY lab_site_id) d
-    ),
     lines AS MATERIALIZED (
       SELECT v.*, ${qualifies} AS qualifies,
              ${termScoreSql(terms, {
-               name: Prisma.sql`vb.name_words`,
-               product: Prisma.sql`vb.product_words`,
-               other: Prisma.sql`vb.other_words`,
+               name: Prisma.sql`v.name_words`,
+               product: Prisma.sql`v.product_words`,
+               other: Prisma.sql`v.other_words`,
              })} AS line_score,
-             sn.name_score AS name_score
-        FROM v
-        JOIN vb ON vb.scope_line_id = v.scope_line_id
-        JOIN sn ON sn.lab_site_id = v.lab_site_id
+             v.site_score AS name_score
+        FROM vb v
     ),`
     : Prisma.sql`
     lines AS MATERIALIZED (

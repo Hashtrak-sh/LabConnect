@@ -32,15 +32,12 @@ export const WORD_SEPARATOR_RANGES: readonly (readonly [number, number])[] = [
 ];
 
 const hex = (code: number): string => `\\u${code.toString(16).padStart(4, '0')}`;
-const SEPARATORS = new RegExp(
-  `[${WORD_SEPARATOR_RANGES.map(([from, to]) => `${hex(from)}-${hex(to)}`).join('')}]+`,
-  'u',
-);
+/** The separators as a regular expression (`[...]+`), JavaScript and PostgreSQL alike (`\\uXXXX` escapes). */
+export const WORD_SEPARATOR_REGEX_SOURCE = `[${WORD_SEPARATOR_RANGES.map(
+  ([from, to]) => `${hex(from)}-${hex(to)}`,
+).join('')}]+`;
 
-/** Every separator character, for `translate()` in SQL (the same set as the ranges above). */
-export const WORD_SEPARATOR_CHARS = WORD_SEPARATOR_RANGES.map(([from, to]) =>
-  Array.from({ length: to - from + 1 }, (_, index) => String.fromCodePoint(from + index)).join(''),
-).join('');
+const SEPARATORS = new RegExp(WORD_SEPARATOR_REGEX_SOURCE, 'u');
 
 /** A query word shorter than this matches only a whole word. */
 export const MIN_PREFIX_LENGTH = 4;
