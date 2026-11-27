@@ -15,7 +15,7 @@ import {
   type SiteSearchResult,
 } from './model.js';
 import { withPublicReadContext } from '../platform/public-context.js';
-import { termScoreSql, wordsSql } from './matching-sql.js';
+import { nearWordsCte, termScoreSql, wordsSql } from './matching-sql.js';
 import { visibleLinesSql } from './visible-lines.js';
 import { FUZZY_WORD_SIMILARITY, normaliseTerm } from './word-match.js';
 
@@ -93,19 +93,6 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
   const textOn = query.terms.length > 0;
   // A term without a word (only punctuation) matches nothing; so does a query made only of those.
   const terms = [...new Set(query.terms.map(normaliseTerm).filter((term) => term.length > 0))];
-  const lineScore = textOn
-    ? termScoreSql(terms, Prisma.sql`b.name_words`, Prisma.sql`b.other_words`)
-    : Prisma.sql`0::float8`;
-  // The score of a site's name is computed once per site, not once per line.
-  const siteScores = textOn
-    ? Prisma.sql`sn AS (
-      SELECT d.lab_site_id, ${termScoreSql(terms, Prisma.sql`d.site_words`, Prisma.sql`' '::text`)} AS name_score
-        FROM (SELECT DISTINCT ON (v.lab_site_id) v.lab_site_id,
-                     ${wordsSql(Prisma.sql`v.site_name || ' ' || v.site_code`)} AS site_words
-                FROM v ORDER BY v.lab_site_id OFFSET 0) d
-    ),`
-    : Prisma.empty;
-  const nameScore = textOn ? Prisma.sql`sn.name_score` : Prisma.sql`0::float8`;
 
   const filters: Prisma.Sql[] = [];
   if (query.disciplineCode !== null) filters.push(Prisma.sql`v.d_code = ${query.disciplineCode}`);
@@ -128,24 +115,50 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
       ? Prisma.sql`l.qualifies`
       : Prisma.sql`FALSE`;
 
-  return Prisma.sql`
-    v AS MATERIALIZED (${visible}),
-    ${siteScores}
-    lines AS MATERIALIZED (
-      SELECT v.*, ${qualifies} AS qualifies,
-             ${lineScore} AS line_score, ${nameScore} AS name_score
+  // Without text there is nothing to score. With text, the words of each line are cut once (`vb`),
+  // the words of the stored text that are a typing mistake away from a query word are found once
+  // over the distinct words (`near`, see matching-sql.ts), and a site's name is scored once per
+  // site (`sn`), not once per line. Each is MATERIALIZED: the planner would otherwise repeat them
+  // for every row that uses them.
+  const scored = textOn
+    ? Prisma.sql`
+    vb AS MATERIALIZED (
+      SELECT v.*, b.name_words, b.other_words, b.site_words
         FROM v
-       ${textOn ? Prisma.sql`JOIN sn ON sn.lab_site_id = v.lab_site_id` : Prisma.empty}
        CROSS JOIN LATERAL (
          SELECT ${wordsSql(Prisma.sql`v.pa_name`)} AS name_words,
                 ${wordsSql(
                   Prisma.sql`concat_ws(' | ', array_to_string(v.pa_aliases, ' '), v.p_name,
                                 array_to_string(v.p_aliases, ' '), v.g_name, v.d_name, v.m_name,
                                 v.m_standard_code, v.method_text)`,
-                )} AS other_words
-         OFFSET 0 -- keeps the planner from copying these expressions into every use below
+                )} AS other_words,
+                ${wordsSql(Prisma.sql`v.site_name || ' ' || v.site_code`)} AS site_words
+         OFFSET 0
        ) b
     ),
+    ${nearWordsCte(terms, Prisma.sql`SELECT name_words || other_words || site_words AS w FROM vb`)},
+    sn AS MATERIALIZED (
+      SELECT d.lab_site_id,
+             ${termScoreSql(terms, Prisma.sql`d.site_words`, Prisma.sql`' '::text`)} AS name_score
+        FROM (SELECT DISTINCT ON (lab_site_id) lab_site_id, site_words
+                FROM vb ORDER BY lab_site_id) d
+    ),
+    lines AS MATERIALIZED (
+      SELECT v.*, ${qualifies} AS qualifies,
+             ${termScoreSql(terms, Prisma.sql`v.name_words`, Prisma.sql`v.other_words`)} AS line_score,
+             sn.name_score AS name_score
+        FROM vb v
+        JOIN sn ON sn.lab_site_id = v.lab_site_id
+    ),`
+    : Prisma.sql`
+    lines AS MATERIALIZED (
+      SELECT v.*, ${qualifies} AS qualifies, 0::float8 AS line_score, 0::float8 AS name_score
+        FROM v
+    ),`;
+
+  return Prisma.sql`
+    v AS MATERIALIZED (${visible}),
+    ${scored}
     flagged AS (
       SELECT l.*, (l.line_score > 0) AS line_hit, ${matched} AS matched
         FROM lines l

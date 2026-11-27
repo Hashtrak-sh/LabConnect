@@ -18,11 +18,29 @@
  * which is the weakest kind of match.
  */
 
-/** Characters that separate words, as the inside of a character class (`[...]`), JavaScript and PostgreSQL alike. */
-export const WORD_SEPARATOR_CLASS =
-  '\\u0001-\\u002f\\u003a-\\u0040\\u005b-\\u0060\\u007b-\\u00bf\\u00d7\\u00f7\\u2000-\\u206f\\u3000-\\u303f\\u0964\\u0965';
+/** The characters that separate words, as ranges of code points. */
+export const WORD_SEPARATOR_RANGES: readonly (readonly [number, number])[] = [
+  [0x01, 0x2f],
+  [0x3a, 0x40],
+  [0x5b, 0x60],
+  [0x7b, 0xbf],
+  [0xd7, 0xd7],
+  [0xf7, 0xf7],
+  [0x2000, 0x206f],
+  [0x3000, 0x303f],
+  [0x964, 0x965],
+];
 
-const SEPARATORS = new RegExp(`[${WORD_SEPARATOR_CLASS}]+`, 'u');
+const hex = (code: number): string => `\\u${code.toString(16).padStart(4, '0')}`;
+const SEPARATORS = new RegExp(
+  `[${WORD_SEPARATOR_RANGES.map(([from, to]) => `${hex(from)}-${hex(to)}`).join('')}]+`,
+  'u',
+);
+
+/** Every separator character, for `translate()` in SQL (the same set as the ranges above). */
+export const WORD_SEPARATOR_CHARS = WORD_SEPARATOR_RANGES.map(([from, to]) =>
+  Array.from({ length: to - from + 1 }, (_, index) => String.fromCodePoint(from + index)).join(''),
+).join('');
 
 /** A query word shorter than this matches only a whole word. */
 export const MIN_PREFIX_LENGTH = 4;
