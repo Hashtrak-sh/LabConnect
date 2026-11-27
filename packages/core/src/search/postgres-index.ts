@@ -115,31 +115,29 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
       ? Prisma.sql`l.qualifies`
       : Prisma.sql`FALSE`;
 
-  // Without text there is nothing to score. With text:
-  // - `vt`: the visible lines with the four texts to match (parameter name, product name, the other
-  //   texts, site name and code);
+  // Without text there is nothing to score. With text (all MATERIALIZED, because the planner would
+  // otherwise repeat each of them for every row that uses it):
+  // - `v`: the visible lines, with the four texts to match (parameter name, product name, the other
+  //   texts, site name and code) added as columns;
   // - `wt0`: the words of each distinct text, cut once (a few hundred texts for thousands of lines);
   // - `near`: the words of the data that are a typing mistake away from a query word, found once
   //   over the distinct words (see matching-sql.ts);
-  // - `wt`: those texts again with the score each would have as a site name, once per text, not once
-  //   per line;
-  // - `vb`: each line with the words of its texts, by hash joins on the text;
+  // - `wt`: those texts with the score each would have as a site name, once per text;
+  // - `wj`: one row with `wt` as two JSON objects, text to words and text to site score. A line
+  //   looks its texts up there. Joining the lines to `wt` instead made the planner choose nested
+  //   loops, or a merge join that sorted every line, which spilled to disk;
   // - `lines`: the score of each line.
-  // Each is MATERIALIZED, and nothing joins two big CTEs: the planner would otherwise repeat the
-  // work for every row that uses it, or join them by nested loops.
+  const textColumns = Prisma.sql`
+      x.pa_name AS t_name, coalesce(x.p_name, '') AS t_product,
+      concat_ws(' | ', array_to_string(x.pa_aliases, ' '), array_to_string(x.p_aliases, ' '),
+                x.g_name, x.d_name, x.m_name, x.m_standard_code, x.method_text) AS t_other,
+      x.site_name || ' ' || x.site_code AS t_site`;
   const scored = textOn
     ? Prisma.sql`
-    vt AS MATERIALIZED (
-      SELECT v.*, v.pa_name AS t_name, coalesce(v.p_name, '') AS t_product,
-             concat_ws(' | ', array_to_string(v.pa_aliases, ' '), array_to_string(v.p_aliases, ' '),
-                       v.g_name, v.d_name, v.m_name, v.m_standard_code, v.method_text) AS t_other,
-             v.site_name || ' ' || v.site_code AS t_site
-        FROM v
-    ),
     wt0 AS MATERIALIZED (
       SELECT u.t, ${wordsSql(Prisma.sql`u.t`)} AS w
-        FROM (SELECT t_name AS t FROM vt UNION SELECT t_product FROM vt
-              UNION SELECT t_other FROM vt UNION SELECT t_site FROM vt) u
+        FROM (SELECT t_name AS t FROM v UNION SELECT t_product FROM v
+              UNION SELECT t_other FROM v UNION SELECT t_site FROM v) u
     ),
     ${nearWordsCte(terms, Prisma.sql`SELECT w FROM wt0`)},
     wt AS MATERIALIZED (
@@ -151,24 +149,24 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
              })} AS as_site_score
         FROM wt0 x
     ),
-    vb AS MATERIALIZED (
-      SELECT vt.*, n.w AS name_words, p.w AS product_words, o.w AS other_words,
-             s.as_site_score AS site_score
-        FROM vt
-        JOIN wt n ON n.t = vt.t_name
-        JOIN wt p ON p.t = vt.t_product
-        JOIN wt o ON o.t = vt.t_other
-        JOIN wt s ON s.t = vt.t_site
+    wj AS MATERIALIZED (
+      SELECT jsonb_object_agg(t, w) AS w, jsonb_object_agg(t, as_site_score) AS s FROM wt
     ),
     lines AS MATERIALIZED (
       SELECT v.*, ${qualifies} AS qualifies,
              ${termScoreSql(terms, {
-               name: Prisma.sql`v.name_words`,
-               product: Prisma.sql`v.product_words`,
-               other: Prisma.sql`v.other_words`,
+               name: Prisma.sql`b.name_words`,
+               product: Prisma.sql`b.product_words`,
+               other: Prisma.sql`b.other_words`,
              })} AS line_score,
-             v.site_score AS name_score
-        FROM vb v
+             b.site_score AS name_score
+        FROM v
+       CROSS JOIN wj
+       CROSS JOIN LATERAL (
+         SELECT wj.w ->> v.t_name AS name_words, wj.w ->> v.t_product AS product_words,
+                wj.w ->> v.t_other AS other_words, (wj.s ->> v.t_site)::float8 AS site_score
+         OFFSET 0
+       ) b
     ),`
     : Prisma.sql`
     lines AS MATERIALIZED (
@@ -177,7 +175,10 @@ function flaggedLinesSql(query: SearchQuery, visible: Prisma.Sql): Prisma.Sql {
     ),`;
 
   return Prisma.sql`
-    v AS MATERIALIZED (${visible}),
+    v AS MATERIALIZED (
+      SELECT x.*${textOn ? Prisma.sql`, ${textColumns}` : Prisma.empty}
+        FROM (${visible}) x
+    ),
     ${scored}
     flagged AS (
       SELECT l.*, (l.line_score > 0) AS line_hit, ${matched} AS matched
