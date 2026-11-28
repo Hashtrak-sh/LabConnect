@@ -28,6 +28,10 @@ export const REAL_APP_CASES: readonly IsolationCase[] = [
     route: 'GET /v1/bookings/:id',
     spec: 'test/integration/isolation/bookings.spec.ts',
   },
+  {
+    route: 'PATCH /v1/bookings/:id',
+    spec: 'test/integration/isolation/bookings.spec.ts',
+  },
   ...['accept', 'reject', 'counter', 'counter/accept', 'counter/decline', 'cancel'].map(
     (action) => ({
       route: `POST /v1/bookings/:id/${action}`,

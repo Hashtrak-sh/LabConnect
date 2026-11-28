@@ -595,7 +595,7 @@ Penalties recorded for scoring only (BR-074, BR-079; E-11). No money moves.
 ### 7.1 `booking` (+LV), aggregate root
 | Column | Type | Null | Notes |
 |---|---|---|---|
-| `booking_no` | `varchar(20)` | no | Unique. `LC-YYMM-NNNNNNN` from a sequence. |
+| `booking_no` | `varchar(20)` | no | Unique. `LC-YYMM-NNNNNNN`: the IST month of submission and 7 digits from the sequence `booking_no_seq` (never reset; a failed submission leaves a gap). |
 | `customer_org_id` | `uuid` | no | Tenant |
 | `customer_site_id` | `uuid` | yes | Billing and location |
 | `requester_user_id` | `uuid` | no | |

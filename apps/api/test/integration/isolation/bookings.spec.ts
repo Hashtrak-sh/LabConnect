@@ -142,6 +142,23 @@ describe('tenant isolation on the booking routes', () => {
     await unchanged();
   });
 
+  it("PATCH /bookings/{id} on another customer's booking: 404, like an unknown id", async () => {
+    const call = (id: string) => (client: Client) =>
+      client.call('patch', `/v1/bookings/${id}`, {
+        headers: { 'If-Match': '"0"' },
+        body: { declaredPackageCount: 2 },
+      });
+    await expectIsolated({
+      route: 'PATCH /v1/bookings/:id',
+      as: clientOf(w.customerA.user('CUSTOMER_ADMIN')),
+      resourceOf: w.customerB,
+      resourceId: bookingOfB,
+      request: call(bookingOfB),
+      unknownRequest: call(randomUUID()),
+    });
+    await unchanged();
+  });
+
   it("POST /bookings/{id}/cancel on another customer's booking: 404, like an unknown id", async () => {
     const call = (id: string) => (client: Client) =>
       client.post(`/v1/bookings/${id}/cancel`, {

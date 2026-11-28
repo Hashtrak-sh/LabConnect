@@ -116,7 +116,7 @@ export class BookingsService {
   ) {}
 
   /** The booking module's view plus the hold case and the own side's rating, in one transaction. */
-  private async readView(tx: Prisma.TransactionClient, actor: CurrentActor, bookingId: string) {
+  async readView(tx: Prisma.TransactionClient, actor: CurrentActor, bookingId: string) {
     const detail = await getBookingDetail(tx, actor, bookingId);
     const holdCase = await latestBookingHoldCase(tx, bookingId);
     const ownRating = await bookingRating(

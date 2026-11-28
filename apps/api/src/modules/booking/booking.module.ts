@@ -13,6 +13,8 @@ import { CLOCK } from '../platform/platform.providers.js';
 import { PlatformModule } from '../platform/platform.module.js';
 import { BookingsController } from './bookings.controller.js';
 import { LabInboxController } from './lab-inbox.controller.js';
+import { SubmissionController } from './submission.controller.js';
+import { SubmissionService } from './submission.service.js';
 import { BookingsService } from './bookings.service.js';
 
 import { BOOKING_ENGINE } from './booking-engine.token.js';
@@ -29,7 +31,7 @@ export { BOOKING_ENGINE };
 @Module({
   // IdentityModule exports TenantScope, the API's only door to the database (P3-04).
   imports: [PlatformModule, IdentityModule],
-  controllers: [BookingsController, LabInboxController],
+  controllers: [SubmissionController, BookingsController, LabInboxController],
   providers: [
     {
       provide: BOOKING_ENGINE,
@@ -43,6 +45,7 @@ export { BOOKING_ENGINE };
       inject: [CLOCK, AuditService, OutboxService, TimerService, ConfigParameters],
     },
     BookingsService,
+    SubmissionService,
   ],
   exports: [BOOKING_ENGINE],
 })
