@@ -5,65 +5,60 @@
 //   TARGET=http://localhost:57301 PORT=57302 node apps/web/test/fault-proxy.mjs
 // and start the web app with API_BASE_URL=http://localhost:57302/v1. Switch it with
 // `GET /__fail?on=1` and `GET /__fail?on=0` (the walk does this when FAULT_URL is set).
-import { createServer } from 'node:http';
+//
+// It listens on 127.0.0.1 only, and it can reach one place only: the host and port of TARGET are
+// fixed when it starts, and a request contributes nothing but its path and query. A request line
+// that names another host (`//other.example/x`, an absolute URL) is forwarded to TARGET like any
+// other path.
+import { createServer, request } from 'node:http';
 
 const TARGET = process.env.TARGET ?? 'http://localhost:57301';
-const TARGET_ORIGIN = new URL(TARGET).origin;
+const target = new URL(TARGET);
+if (target.protocol !== 'http:') throw new Error('TARGET must be an http:// address.');
 const PORT = Number(process.env.PORT ?? 57302);
 const READS = /^\/v1\/(lab\/claims(\/[0-9a-f-]{36})?|admin\/claims\/[0-9a-f-]{36})(\?.*)?$/i;
 let failing = false;
 
-createServer(async (req, res) => {
+createServer((req, res) => {
   const url = new URL(req.url ?? '/', 'http://proxy');
+  const pathAndQuery = url.pathname + url.search;
   if (url.pathname === '/__fail') {
     failing = url.searchParams.get('on') === '1';
     res.end(failing ? 'failing' : 'passing');
     return;
   }
-  if (failing && req.method === 'GET' && READS.test(url.pathname + url.search)) {
+  if (failing && req.method === 'GET' && READS.test(pathAndQuery)) {
     res.writeHead(503, { 'Content-Type': 'application/problem+json', 'Retry-After': '5' });
     res.end(JSON.stringify({ code: 'SERVICE_UNAVAILABLE', status: 503 }));
     return;
   }
+  // The body and the headers pass through as they are; only `Host` and `Connection` are the
+  // proxy's own.
   const headers = { ...req.headers };
   delete headers.host;
   delete headers.connection;
-  delete headers['content-length'];
-  delete headers['transfer-encoding'];
-  const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const body = Buffer.concat(chunks);
-  // Only the path and the query of the request are used, on the fixed origin of TARGET: a request
-  // line that names another host (`//other.example/x`, an absolute URL) must not send this proxy
-  // anywhere else.
-  const target = new URL(url.pathname + url.search, TARGET_ORIGIN);
-  if (target.origin !== TARGET_ORIGIN) {
-    res.writeHead(400).end();
-    return;
-  }
-  const upstream = await fetch(target, {
-    method: req.method,
-    headers,
-    redirect: 'manual',
-    ...(hasBody ? { body } : {}),
-  }).catch((error) => {
-    console.log(`upstream failed: ${req.method} ${url.pathname} ${String(error)}`);
-    return null;
+  const upstream = request(
+    {
+      hostname: target.hostname,
+      port: target.port,
+      method: req.method,
+      path: pathAndQuery,
+      headers,
+    },
+    (answer) => {
+      const status = answer.statusCode ?? 502;
+      if ((process.env.LOG === '1' && status >= 400) || process.env.LOG === 'all')
+        console.log(`${String(req.method)} ${url.pathname} -> ${String(status)}`);
+      res.writeHead(status, answer.headers);
+      answer.pipe(res);
+    },
+  );
+  upstream.on('error', (error) => {
+    console.log(`upstream failed: ${String(req.method)} ${url.pathname} ${String(error)}`);
+    if (!res.headersSent) res.writeHead(502);
+    res.end();
   });
-  if (upstream === null) {
-    res.writeHead(502).end();
-    return;
-  }
-  const out = {};
-  for (const [name, value] of upstream.headers) {
-    if (!['content-encoding', 'content-length', 'transfer-encoding', 'set-cookie'].includes(name))
-      out[name] = value;
-  }
-  const cookies = upstream.headers.getSetCookie();
-  if (cookies.length > 0) out['set-cookie'] = cookies;
-  if ((process.env.LOG === '1' && upstream.status >= 400) || process.env.LOG === 'all')
-    console.log(`${req.method} ${url.pathname} -> ${upstream.status}`);
-  res.writeHead(upstream.status, out);
-  res.end(Buffer.from(await upstream.arrayBuffer()));
-}).listen(PORT, '127.0.0.1', () => console.log(`fault proxy on 127.0.0.1:${PORT} -> ${TARGET}`));
+  req.pipe(upstream);
+}).listen(PORT, '127.0.0.1', () => {
+  console.log(`fault proxy on 127.0.0.1:${String(PORT)} -> ${target.origin}`);
+});
