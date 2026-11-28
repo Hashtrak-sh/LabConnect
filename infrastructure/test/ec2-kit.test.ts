@@ -165,7 +165,10 @@ describe('one-server kit: settings and scripts', () => {
     const check = update.indexOf('\nensure_build_space');
     expect(check).toBeGreaterThan(-1);
     expect(check).toBeLessThan(update.indexOf('\ndc build'));
-    expect(lib).toMatch(/ensure_build_space\(\) \{[\s\S]*docker builder prune -af[\s\S]*die /);
+    // Bounded to the function body: `\n}` ends it, so a `die` of a later function does not count.
+    const body = /\nensure_build_space\(\) \{\n([\s\S]*?)\n\}/.exec(lib)?.[1] ?? '';
+    expect(body).toContain('docker builder prune -af');
+    expect(body.indexOf(' die ', body.indexOf('docker builder prune -af'))).toBeGreaterThan(-1);
   });
 
   it('makes reset-demo ask for an explicit flag, say what it destroys, and keep the certificates', () => {

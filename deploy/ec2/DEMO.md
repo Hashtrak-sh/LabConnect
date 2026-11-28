@@ -192,8 +192,9 @@ plus swap of 5.5 GB in `preflight.sh`. Disk: `docker system df` after a first bu
 the order of 10 to 15 GB (the `migrate` image is large because it carries the build tools). On the UAT server after
 several updates (2026-11-28) it was 11.1 GB of images and 6.9 GB of build cache on a 28 GB disk, and the next build
 failed with "no space left on device": an update needs room for a second set of the application images next to the
-running ones. **Use 50 GB.** `update.sh` now checks before building (below `MIN_BUILD_GB`, default 10 GB free, it
-deletes the build cache and unused images, and stops if that is still not enough). Measured how: `preflight.sh` reads `/proc/meminfo` and `df`; `status.sh` prints the
+running ones; after clearing the cache it rebuilt from nothing with about 12 GB free. **Use 50 GB.** `update.sh` now
+checks before building (below `MIN_BUILD_GB`, default 15 GB free, it deletes the build cache and unused images, and
+stops if that is still not enough: a full disk would also stop the running database from writing). Measured how: `preflight.sh` reads `/proc/meminfo` and `df`; `status.sh` prints the
 container figures.
 
 ## Sign-in limits (OQ-240, OQ-272)
@@ -229,12 +230,15 @@ healthy within about 25 seconds of the database starting, no re-seed (the 200 de
 check passed.
 - **Disk.** Container logs are not rotated by this kit's compose file (Docker's default json-file driver keeps them
   without limit): see the review notes; `update.sh` prunes dangling images and build cache older than three days, and
-  before building clears all build cache and unused images when less than `MIN_BUILD_GB` (10) GB is free. Watch
-  `docker system df` (`./status.sh`). After an update, `docker builder prune -af` and `docker image prune -af` are safe
-  at any time (the running containers and the database volume are kept; the next build only takes longer).
+  before building clears all build cache and unused images when less than `MIN_BUILD_GB` (15) GB is free. Watch
+  `docker system df` (`./status.sh`). `docker builder prune -af` and `docker image prune -af` are safe **while the stack
+  is up and no script of this kit is running** (the running containers' images and the database volume are kept; the
+  next build only takes longer). With the stack down, the image prune also removes the database, proxy and mail images,
+  which are then downloaded again; during `update.sh` it would remove the images just built.
   **Growing the disk** without stopping the server: EC2 → Volumes → the root volume → Modify → the new size; when it
   shows "optimizing", run `lsblk` (the root disk is usually `nvme0n1`), `sudo growpart /dev/nvme0n1 1`,
-  `sudo resize2fs /dev/root`, and check with `df -h /`.
+  `sudo resize2fs "$(findmnt -no SOURCE /)"` (the root file system's real device), and check with `df -h /`. A reboot
+  also grows it (cloud-init).
 - **The `.env` file** holds every secret and is owner only (`up.sh` refuses to run if other users can read it). `docker inspect`
   shows container environments, so never paste its output into a chat; do not copy `.env` into backups or tickets.
 - **A visitor who uses the bare IP** or another name gets a TLS failure on 443 (no certificate for it; and 443 is closed to
