@@ -13,7 +13,10 @@ inbox:
       deadline, BR-012), requests waiting for the customer, paid bookings expecting a drop
       (overdue once `dropDeadlineAt` has passed), and receipts and report versions waiting for a
       Checker. Without `status`, every booking that is not in a terminal state, or that has a
-      pending approval. Most urgent deadline first. Both `LAB_MAKER` and `LAB_CHECKER` see the
+      pending approval. Most urgent deadline first: the deadline of the state (`labDecisionDueAt`
+      for `REQUESTED`, the pending counter-offer's expiry for `COUNTERED`, `paymentDueAt` for
+      `ACCEPTED`, `dropDeadlineAt` for `PAID` and `HANDOVER_SET`), earliest first; bookings
+      without one after them, the oldest `statusChangedAt` first. Both `LAB_MAKER` and `LAB_CHECKER` see the
       inbox (FR-LAB-01); only Checkers act on decisions and approvals, and never on a record they
       made as Maker (`viewerWasMaker`). About the customer only the organisation's display name
       is shown.

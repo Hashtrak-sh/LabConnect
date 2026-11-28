@@ -1,12 +1,14 @@
-import type { BookingListInput, BookingParty } from '@labconnect/core';
+import type { BookingListInput, BookingParty, LabInboxInput } from '@labconnect/core';
 import type { BookingStatus } from '@labconnect/database';
 import { BOOKING_STATUSES } from '@labconnect/shared';
 import { DomainError, type ProblemIssue } from '../../common/domain-error.js';
 
-// Queries of the booking reads (`listBookings`, `paths/bookings.yaml`), checked by hand against
+// Queries of the booking reads (`listBookings`, `paths/bookings.yaml`; `getLabInbox`,
+// `paths/lab-inbox.yaml`), checked by hand against
 // the contract. No parameter names an organisation: it comes from the active membership.
 
 const LIST_FIELDS = new Set(['scope', 'status', 'cursor', 'limit']);
+const INBOX_FIELDS = new Set(['status', 'siteId', 'cursor', 'limit']);
 const PARTIES = new Set<string>(['customer', 'lab']);
 const STATUSES = new Set<string>(BOOKING_STATUSES);
 
@@ -28,17 +30,8 @@ function single(value: unknown): string | undefined {
  * (1 to 100) of `listBookings`. Anything else is `422`.
  */
 export function parseBookingListQuery(query: Record<string, unknown>): BookingListInput {
-  const issues: ProblemIssue[] = [];
+  const issues = unknownFields(query, LIST_FIELDS);
   const result: BookingListInput = {};
-  for (const field of Object.keys(query)) {
-    if (!LIST_FIELDS.has(field)) {
-      issues.push({
-        path: field,
-        code: 'UNKNOWN_FIELD',
-        message: 'This parameter is not allowed.',
-      });
-    }
-  }
   const scope = single(query.scope);
   if (scope !== undefined) {
     if (PARTIES.has(scope)) result.scope = scope as BookingParty;
@@ -49,6 +42,44 @@ export function parseBookingListQuery(query: Record<string, unknown>): BookingLi
         message: 'The scope is customer or lab.',
       });
   }
+  Object.assign(result, parsePaging(query, issues));
+  if (issues.length > 0) fail(issues);
+  return result;
+}
+
+/**
+ * `status`, `siteId` (a UUID), `cursor` and `limit` of `getLabInbox`; `status`, `cursor` and
+ * `limit` read as for `listBookings`. Anything else is `422`.
+ */
+export function parseLabInboxQuery(query: Record<string, unknown>): LabInboxInput {
+  const issues = unknownFields(query, INBOX_FIELDS);
+  const result: LabInboxInput = {};
+  const siteId = single(query.siteId);
+  if (siteId !== undefined) {
+    if (UUID.test(siteId)) result.siteId = siteId.toLowerCase();
+    else issues.push({ path: 'siteId', code: 'INVALID_VALUE', message: 'Give a UUID.' });
+  }
+  Object.assign(result, parsePaging(query, issues));
+  if (issues.length > 0) fail(issues);
+  return result;
+}
+
+function unknownFields(query: Record<string, unknown>, allowed: Set<string>): ProblemIssue[] {
+  return Object.keys(query)
+    .filter((field) => !allowed.has(field))
+    .map((field) => ({
+      path: field,
+      code: 'UNKNOWN_FIELD',
+      message: 'This parameter is not allowed.',
+    }));
+}
+
+/** `status` (comma-separated, each a `BookingStatus`, no repeats), `cursor`, `limit` (1 to 100). */
+function parsePaging(
+  query: Record<string, unknown>,
+  issues: ProblemIssue[],
+): { statuses?: BookingStatus[]; cursor?: string; limit?: number } {
+  const result: { statuses?: BookingStatus[]; cursor?: string; limit?: number } = {};
   const status = single(query.status);
   if (status !== undefined) {
     const values = status.split(',');
@@ -76,7 +107,6 @@ export function parseBookingListQuery(query: Record<string, unknown>): BookingLi
       });
     } else result.limit = parsed;
   }
-  if (issues.length > 0) fail(issues);
   return result;
 }
 

@@ -89,7 +89,8 @@ describe('ROLES_AND_PERMISSIONS.md', () => {
       .map((line) => /^(\d+)\. /.exec(line)?.[1])
       .filter((note) => note !== undefined)
       .map(Number);
-    expect(notes).toEqual(Array.from({ length: 10 }, (_, i) => i + 1));
+    expect(notes).toEqual(Array.from({ length: notes.length }, (_, i) => i + 1));
+    expect(notes.length).toBeGreaterThanOrEqual(11);
     const referenced = new Set(Object.values(PERMISSION_CONDITIONS).map((c) => c.note));
     expect([...referenced].sort((a, b) => a - b)).toEqual(notes);
   });

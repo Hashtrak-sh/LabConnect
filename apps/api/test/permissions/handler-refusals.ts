@@ -77,7 +77,19 @@ const OPS_CANNOT_DECIDE =
   "a LAB_CHECKER assigned to the booking's site), so BookingsService.decide refuses every role " +
   'but LAB_CHECKER (I3-LAB-01).';
 
+const INBOX_FOR_LAB_MEMBERS =
+  'lab_inbox.view is held by PLATFORM_OPS only through the admin console (OPS_VIA_ADMIN_CONSOLE, ' +
+  "note 11): the lab inbox lists the caller's assigned lab sites, and the contract answers 403 " +
+  'to any role but LAB_MAKER and LAB_CHECKER, so getLabInbox refuses Ops before any booking is ' +
+  'read (I3-LAB-01).';
+
 export const HANDLER_REFUSALS: readonly HandlerRefusal[] = [
+  {
+    route: 'GET /v1/lab/inbox',
+    role: 'PLATFORM_OPS',
+    permission: 'lab_inbox.view',
+    reason: INBOX_FOR_LAB_MEMBERS,
+  },
   ...['accept', 'reject', 'counter'].map((action) => ({
     route: `POST /v1/bookings/:id/${action}`,
     role: 'PLATFORM_OPS' as const,
