@@ -230,7 +230,8 @@ export function parseBookingCounter(body: unknown): {
           typeof sampleQty === 'number' &&
           Number.isFinite(sampleQty) &&
           sampleQty > 0 &&
-          sampleQty < 1_000_000_000;
+          sampleQty < 1_000_000_000 &&
+          atMostThreeDecimals(sampleQty);
         const okUnit =
           typeof unitCode === 'string' && unitCode.length >= 1 && unitCode.length <= 100;
         if (!okLine)
@@ -239,7 +240,7 @@ export function parseBookingCounter(body: unknown): {
           issues.push({
             path: `${path}.sampleQty`,
             code: 'INVALID_VALUE',
-            message: 'More than 0.',
+            message: 'More than 0, with at most three decimals.',
           });
         if (!okUnit)
           issues.push({ path: `${path}.unitCode`, code: 'INVALID_VALUE', message: 'A unit code.' });
@@ -257,4 +258,10 @@ export function parseBookingCounter(body: unknown): {
   }
   if (issues.length > 0) fail(issues);
   return result;
+}
+
+/** A quantity the line can store as it is (`required_sample_qty` is DECIMAL(12,3)). */
+function atMostThreeDecimals(value: number): boolean {
+  const thousandths = value * 1000;
+  return Math.abs(thousandths - Math.round(thousandths)) < 1e-6;
 }

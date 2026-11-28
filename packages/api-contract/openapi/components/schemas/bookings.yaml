@@ -587,6 +587,9 @@ BookingCounterLineQuantity:
     lineId:
       $ref: './common.yaml#/Uuid'
     sampleQty:
+      description: >-
+        More than 0, with at most three decimal places (the precision the line stores); more
+        decimals are 422 `VALIDATION_FAILED`.
       type: number
       exclusiveMinimum: 0
     unitCode:

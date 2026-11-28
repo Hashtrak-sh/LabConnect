@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import {
+  addMember,
   type BookingFixture,
   bookingInState,
+  createUser,
   loadReference,
 } from '@labconnect/database/test-utils';
 import { ROLES } from '@labconnect/shared';
@@ -258,5 +260,102 @@ describe('bookings: the customer answers a counter-offer', () => {
     const again = await answer(owner(), 'accept', booking.id);
     expect(again.status).toBe(409);
     expect((again.body as { code: string }).code).toBe('INVALID_STATE_TRANSITION');
+  });
+
+  it('lets a member who is both requester and admin accept a colleague’s booking as the admin', async () => {
+    const email = `two.roles.${randomUUID().slice(0, 8)}@demo.labconnect.test`;
+    const both: TenantUser = await t.owner(async (tx) => {
+      const userId = await createUser(tx, { email, fullName: 'DEMO Requester and Admin' });
+      // The requester role first, so a "first customer role" choice would pick it.
+      const membershipId = await addMember(
+        tx,
+        userId,
+        w.fixtures.customerA.organisationId,
+        'CUSTOMER_REQUESTER',
+        [],
+      );
+      await tx.membershipRole.create({
+        data: { id: randomUUID(), membershipId, role: 'CUSTOMER_ADMIN' },
+      });
+      return {
+        id: userId,
+        email,
+        role: 'CUSTOMER_ADMIN',
+        organisationId: w.fixtures.customerA.organisationId,
+        membershipId,
+      };
+    });
+    const { booking } = await countered();
+    const response = await answer(both, 'accept', booking.id);
+    expect(response.status).toBe(200);
+    const role = await t
+      .db()
+      .query<{ actor_role: string }>(
+        "SELECT actor_role FROM booking_status_history WHERE booking_id = $1 AND transition_id = 'T-07'",
+        [booking.id],
+      );
+    expect(role.rows[0]?.actor_role).toBe('CUSTOMER_ADMIN');
+  });
+
+  it('records a decline of an offer already past its expiry as EXPIRED, by no one', async () => {
+    const { booking } = await countered();
+    await t.owner(
+      (tx) =>
+        tx.$executeRaw`UPDATE counter_offer SET expires_at = ${new Date(t.clock.now().getTime() - 60_000)} WHERE booking_id = ${booking.id}::uuid`,
+    );
+    const response = await answer(owner(), 'decline', booking.id);
+    expect(response.status).toBe(200);
+    expect((response.body as ViewBody).status).toBe('EXPIRED');
+    expect(await offerStatusOf(booking.id)).toEqual({
+      status: 'EXPIRED',
+      responded_by_user_id: null,
+    });
+  });
+
+  it('moves to the proposed slot also when the old hold has already gone', async () => {
+    const { booking, slotId, oldSlotId } = await countered();
+    // The soft hold released earlier (as an expiry would): one place given back.
+    await t.owner(async (tx) => {
+      await tx.$executeRaw`UPDATE slot_hold SET released_at = now() WHERE booking_id = ${booking.id}::uuid AND released_at IS NULL`;
+      await tx.$executeRaw`UPDATE slot SET held_count = held_count - 1 WHERE id = ${oldSlotId}::uuid`;
+    });
+    const oldBefore = await countsOf(oldSlotId);
+    const response = await answer(owner(), 'accept', booking.id);
+    expect(response.status).toBe(200);
+    expect(await liveHoldOf(booking.id)).toEqual({ kind: 'CONFIRMED', slot_id: slotId });
+    expect(await countsOf(oldSlotId)).toEqual(oldBefore);
+  });
+
+  it('refuses a counter quantity with more than three decimals (the line stores three)', async () => {
+    const booking = await t.owner(async (tx) =>
+      bookingInState(tx, 'REQUESTED', {
+        reference: await loadReference(tx),
+        customer: w.fixtures.customerA,
+        lab: w.fixtures.labA,
+      }),
+    );
+    const view = (
+      await t.api.get(`/v1/bookings/${booking.id}`, { token: await tokenOf(checker()) })
+    ).body as ViewBody;
+    const line = view.lines[0];
+    const response = await t.api.post(`/v1/bookings/${booking.id}/counter`, {
+      token: await tokenOf(checker()),
+      headers: { 'If-Match': `"${String(view.lockVersion)}"` },
+      body: {
+        perLineQuantity: [
+          {
+            lineId: line?.id ?? '',
+            sampleQty: (line?.snapshot.sampleQty ?? 0) + 0.0004,
+            unitCode: line?.snapshot.sampleUnit.code ?? '',
+          },
+        ],
+        message: 'DEMO: a hair more.',
+      },
+      invalidRequest: 'sampleQty has more than three decimals',
+    });
+    expect(response.status).toBe(422);
+    const problem = response.body as { code: string; errors?: { path: string }[] };
+    expect(problem.code).toBe('VALIDATION_FAILED');
+    expect(problem.errors?.[0]?.path).toBe('perLineQuantity[0].sampleQty');
   });
 });

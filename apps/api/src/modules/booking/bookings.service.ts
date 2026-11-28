@@ -57,8 +57,8 @@ export function toBookingSummaryBody(booking: BookingSummaryView): BookingSummar
   };
 }
 
-/** The customer roles that may answer for the organisation (the engine narrows it further). */
-const CUSTOMER_ROLES = new Set<RoleCode>(['CUSTOMER_ADMIN', 'CUSTOMER_REQUESTER']);
+/** The customer roles that may answer, widest first (the engine narrows it further). */
+const CUSTOMER_ROLES: readonly RoleCode[] = ['CUSTOMER_ADMIN', 'CUSTOMER_REQUESTER'];
 
 function requestContextOf(meta: RequestMeta) {
   return {
@@ -195,7 +195,9 @@ export class BookingsService {
     ifMatch: number,
     meta: RequestMeta,
   ): Promise<{ body: BookingViewBody; lockVersion: number }> {
-    const role = actor.roles.find((code) => CUSTOMER_ROLES.has(code));
+    // A customer membership may hold several roles: the widest one answers (CUSTOMER_ADMIN may
+    // accept for a colleague; the owner check of the engine does not depend on the role).
+    const role = CUSTOMER_ROLES.find((code) => actor.roles.includes(code));
     if (actor.orgType !== 'CUSTOMER' || role === undefined) {
       throw new DomainError('FORBIDDEN', {
         detail: 'The customer who placed the booking answers a counter-offer.',

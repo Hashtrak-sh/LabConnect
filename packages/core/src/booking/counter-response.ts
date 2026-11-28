@@ -52,6 +52,7 @@ async function liveOffer(context: TransitionContext): Promise<PendingOffer> {
   if (offer === null || offer.expiresAt.getTime() <= context.now.getTime()) {
     throw new BookingError('INVALID_STATE_TRANSITION', {
       detail: 'The counter-offer is no longer open.',
+      meta: { currentState: context.booking.status, transitionId: context.transition.id },
     });
   }
   return offer;
@@ -121,10 +122,13 @@ export function registerCounterResponseRules(registry: TransitionRegistry): Tran
     async run(context) {
       const offer = await pendingOffer(context.tx, context.updated.id);
       if (offer === null) return;
+      // An offer past its expiry whose timer has not fired yet expired; a decline does not
+      // change that (the booking ends EXPIRED either way).
+      const lapsed = offer.expiresAt.getTime() <= context.now.getTime();
       await answerOffer(
         context,
         offer.id,
-        context.command.actor.kind === 'USER' ? 'DECLINED' : 'EXPIRED',
+        context.command.actor.kind === 'USER' && !lapsed ? 'DECLINED' : 'EXPIRED',
       );
     },
   });
@@ -183,7 +187,7 @@ async function answerOffer(
     where: { id: offerId, status: 'PENDING' },
     data: {
       status,
-      respondedByUserId: userId,
+      respondedByUserId: status === 'EXPIRED' ? null : userId,
       respondedAt: status === 'EXPIRED' ? null : context.now,
       updatedAt: context.now,
       lockVersion: { increment: 1 },

@@ -213,6 +213,15 @@ export function registerLabDecisionRules(registry: TransitionRegistry): Transiti
               code: 'INVALID_VALUE',
               message: `The line's unit is ${unit}.`,
             });
+          } else if (
+            Math.abs(quantity.sampleQty * 1000 - Math.round(quantity.sampleQty * 1000)) >= 1e-6
+          ) {
+            // The line stores DECIMAL(12,3): a finer quantity would be rounded on T-07.
+            issues.push({
+              path: `${path}.sampleQty`,
+              code: 'INVALID_VALUE',
+              message: 'At most three decimals.',
+            });
           } else if (quantity.sampleQty <= (quantityOf.get(quantity.lineId.toLowerCase()) ?? 0)) {
             issues.push({
               path: `${path}.sampleQty`,
