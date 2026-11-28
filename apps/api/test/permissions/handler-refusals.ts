@@ -46,9 +46,22 @@ const NO_CLAIM_FOR_STAFF =
   'startLabClaim): the claimant reads refuse them with 403 by the actor and by the user row, ' +
   'as startLabClaim does, before any claim is read.';
 
+const NOT_A_CUSTOMER: readonly RoleCode[] = ['LAB_MAKER', 'LAB_CHECKER', ...PLATFORM_ROLES];
+
+const CUSTOMER_SITES_FOR_MEMBERS =
+  'Every member of a customer organisation may read its sites (contract: 403 when the active ' +
+  'membership is not a customer membership); a lab or platform membership has no customer sites, ' +
+  'so requireCustomerOrganisation refuses it before any site is read (I2-CUS-03).';
+
 export const SESSION_ONLY_REFUSALS: readonly SessionOnlyRefusal[] = [
   { route: 'GET /v1/lab/claims', roles: PLATFORM_ROLES, reason: NO_CLAIM_FOR_STAFF },
   { route: 'GET /v1/lab/claims/:id', roles: PLATFORM_ROLES, reason: NO_CLAIM_FOR_STAFF },
+  { route: 'GET /v1/customer/sites', roles: NOT_A_CUSTOMER, reason: CUSTOMER_SITES_FOR_MEMBERS },
+  {
+    route: 'GET /v1/customer/sites/:id',
+    roles: NOT_A_CUSTOMER,
+    reason: CUSTOMER_SITES_FOR_MEMBERS,
+  },
 ];
 
 export const HANDLER_REFUSALS: readonly HandlerRefusal[] = [
