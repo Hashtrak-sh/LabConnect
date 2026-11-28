@@ -1,6 +1,10 @@
 import { Prisma, uuidv7 } from '@labconnect/database';
 import { lockSlot, moveSlotPlace, readSlot, slotHasRoom } from '../labs/capacity.js';
-import { type BusinessCalendar, istDateKey } from '../platform/business-calendar.js';
+import {
+  type BusinessCalendar,
+  istDateKey,
+  NoWorkingTimeError,
+} from '../platform/business-calendar.js';
 import type { ConfigParameters } from '../platform/config-parameters.js';
 import { configParsers } from '../platform/config-parameters.js';
 import type { TimerService } from '../platform/timers.js';
@@ -77,15 +81,18 @@ async function decisionClock(
   let calendar: BusinessCalendar | null = null;
   try {
     calendar = deps.workingHours ? await deps.workingHours.calendarForSite(tx, labSiteId) : null;
-  } catch {
-    // A site with no receiving hours yet: plain minutes, so a deadline always exists.
+  } catch (error) {
+    // A site with no receiving hours yet: plain minutes, so a deadline always exists. Any other
+    // error (a failed query aborts the transaction) is not hidden.
+    if (!(error instanceof NoWorkingTimeError)) throw error;
     calendar = null;
   }
   const add = (from: Date, count: number) => {
     if (calendar === null) return addMinutes(from, count);
     try {
       return calendar.addBusinessMinutes(from, count);
-    } catch {
+    } catch (error) {
+      if (!(error instanceof NoWorkingTimeError)) throw error;
       return addMinutes(from, count);
     }
   };
@@ -369,6 +376,9 @@ export async function editBooking(
   }
 
   const keys = { id: bookingId, customerOrgId: booking.customerOrgId, labOrgId: booking.labOrgId };
+  // The booking's price list first: trg_booking_line_guard checks each new line's price item
+  // against it (BR-020 re-snapshots against the list in effect now).
+  await tx.booking.update({ where: { id: bookingId }, data: { priceListId: priced.priceList.id } });
   await tx.bookingLine.deleteMany({ where: { bookingId } });
   await writeLines(tx, keys, priced);
 
@@ -443,6 +453,12 @@ export async function editBooking(
     }
     await holdPlace(tx, keys, slotId, clock.holdUntil, deps.now);
   } else if (hold !== null) {
+    const slot = await lockSlot(tx, slotId);
+    if (slot === null || slot.status !== 'OPEN' || slot.startsAt.getTime() <= deps.now.getTime()) {
+      throw new BookingError('SLOT_UNAVAILABLE', {
+        detail: 'The slot is closed or has started. Choose another.',
+      });
+    }
     await tx.slotHold.update({ where: { id: hold.id }, data: { expiresAt: clock.holdUntil } });
   } else {
     await holdPlace(tx, keys, slotId, clock.holdUntil, deps.now);
@@ -526,7 +542,7 @@ export async function findDuplicateBookings(
      WHERE b.customer_org_id = ${actor.orgId}::uuid
        AND b.created_at >= ${since}::timestamptz
        AND lower(btrim(b.item_name)) = lower(btrim(${input.itemName}))
-       AND b.batch_no = ${input.batchNo.trim()}
+       AND lower(btrim(b.batch_no)) = lower(btrim(${input.batchNo}))
        AND (SELECT array_agg(DISTINCT sl.parameter_node_id::text ORDER BY sl.parameter_node_id::text)
               FROM booking_line bl JOIN scope_line sl ON sl.id = bl.scope_line_id
              WHERE bl.booking_id = b.id)

@@ -350,4 +350,48 @@ describe('bookings: submit and edit', () => {
     });
     expect(late.status).toBe(409);
   });
+
+  // Last: it publishes a new price list for the site.
+  it('re-prices an edit against a price list published after the booking (BR-020)', async () => {
+    const created = (await post(owner(), '', await createBody())).body as ViewBody;
+    const newListId = randomUUID();
+    await t.owner(async (tx) => {
+      const [old] = await tx.$queryRaw<
+        { id: string; organisation_id: string; version_no: number }[]
+      >`
+        SELECT id::text, organisation_id::text, version_no FROM price_list
+         WHERE lab_site_id = ${siteId}::uuid AND status = 'PUBLISHED'`;
+      if (old === undefined) throw new Error('no published list');
+      await tx.$executeRaw`UPDATE price_list SET status = 'SUPERSEDED' WHERE id = ${old.id}::uuid`;
+      await tx.$executeRaw`
+        INSERT INTO price_list (id, organisation_id, lab_site_id, version_no, status)
+        VALUES (${newListId}::uuid, ${old.organisation_id}::uuid, ${siteId}::uuid, ${old.version_no + 1}, 'DRAFT')`;
+      await tx.$executeRaw`
+        INSERT INTO price_item (id, organisation_id, price_list_id, scope_line_id, price_paise,
+               sample_prep_paise, gst_rate_bp, sample_qty, sample_unit_node_id,
+               packaging_instructions, tat_days, is_available)
+        SELECT gen_random_uuid(), organisation_id, ${newListId}::uuid, scope_line_id,
+               price_paise + 10000, sample_prep_paise, gst_rate_bp, sample_qty, sample_unit_node_id,
+               packaging_instructions, tat_days, is_available
+          FROM price_item WHERE price_list_id = ${old.id}::uuid`;
+      await tx.$executeRaw`
+        UPDATE price_list SET status = 'PUBLISHED', published_at = ${new Date(t.clock.now().getTime() - 60_000)},
+               effective_from = ${new Date(t.clock.now().getTime() - 60_000)}
+         WHERE id = ${newListId}::uuid`;
+    });
+    const response = await t.api.patch(`/v1/bookings/${created.id}`, {
+      token: await tokenOf(owner()),
+      headers: { 'If-Match': `"${String(created.lockVersion)}"` },
+      body: { declaredPackageCount: 2 },
+    });
+    expect(response.status).toBe(200);
+    const view = response.body as ViewBody;
+    // One line, ₹100 more before GST.
+    expect(view.total.amountPaise).toBeGreaterThan(created.total.amountPaise + 10_000 - 1);
+    const booking = await one<{ price_list_id: string }>(
+      'SELECT price_list_id::text FROM booking WHERE id = $1',
+      [created.id],
+    );
+    expect(booking?.price_list_id).toBe(newListId);
+  });
 });

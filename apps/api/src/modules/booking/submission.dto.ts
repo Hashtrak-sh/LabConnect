@@ -62,7 +62,9 @@ function date(
   if (
     typeof value === 'string' &&
     DATE.test(value) &&
-    !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+    !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
+    // A real calendar date: 2026-02-31 does not round-trip.
+    new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value
   ) {
     return value;
   }
