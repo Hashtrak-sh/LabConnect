@@ -1,0 +1,5 @@
+# The access gate: one shared user name and password (HTTP basic authentication, the password
+# stored as a bcrypt hash) before anything of the site is served, /health and /mailpit included.
+basic_auth bcrypt "LabConnect demonstration" {
+	{$GATE_USER} {$GATE_PASSWORD_HASH}
+}

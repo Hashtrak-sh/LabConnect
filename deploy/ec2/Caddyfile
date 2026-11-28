@@ -1,20 +1,50 @@
 # The only public entry point (deploy/ec2/docker-compose.yml).
-# SITE_ADDRESS is a domain (uat.example.in: HTTPS with a Let's Encrypt certificate, HTTP redirects)
-# or `:80` (plain HTTP on the instance's address, for a first test only).
+# SITE_ADDRESS is the domain (uat.example.in): HTTPS with a Let's Encrypt certificate. There is no
+# plain-HTTP mode: `:80` would clash with the port-80 site below and Caddy would refuse to start.
+{
+	# The explicit port-80 site below replaces Caddy's own redirect, which echoes the Host header.
+	auto_https disable_redirects
+	servers {
+		# HTTP/3 would need UDP 443 open as well.
+		protocols h1 h2
+		# A Host that differs from the name in the TLS handshake gets 421, not an empty 200.
+		strict_sni_host on
+	}
+}
+
+# Port 80 serves nothing of the application: the certificate authority's challenge (Caddy answers
+# /.well-known/acme-challenge/* itself, before any rule here) and a redirect to the fixed public
+# origin, never built from the request's Host. The security group keeps port 80 open to everyone
+# for exactly this, including the renewal about every 60 days.
+http:// {
+	redir {$WEB_ORIGIN}{uri} 308
+}
+
 {$SITE_ADDRESS} {
+	# tls/auto.caddy (a public certificate) or tls/internal.caddy (local verification only).
+	import /etc/caddy/snippets/tls/{$TLS_MODE}.caddy
+	# gate/on.caddy asks for the shared user name and password before anything of the site,
+	# Mailpit included. gate/off.caddy does not. A typo in ACCESS_GATE finds no file and Caddy
+	# refuses to start: the gate fails closed.
+	import /etc/caddy/snippets/gate/{$ACCESS_GATE}.caddy
+
 	encode zstd gzip
 
-	# Mailpit: every email UAT sends lands here (sign-in codes too). Password protected.
+	# Mailpit: every email UAT sends lands here (sign-in codes too). With the gate on, the gate's
+	# login is the only prompt; with the gate off, Mailpit still has its own password.
 	handle /mailpit* {
-		basic_auth {
-			{$MAILPIT_USER} {$MAILPIT_PASSWORD_HASH}
+		import /etc/caddy/snippets/mailpit/{$ACCESS_GATE}.caddy
+		reverse_proxy mailpit:8025 {
+			header_up -Authorization
 		}
-		reverse_proxy mailpit:8025
 	}
 
 	# Everything else is the web app. The API is not published: only the web server calls it.
 	handle {
-		reverse_proxy web:3000
+		reverse_proxy web:3000 {
+			# The gate's credentials end here: neither the web app nor the API ever sees them.
+			header_up -Authorization
+		}
 	}
 
 	header {

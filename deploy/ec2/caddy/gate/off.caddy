@@ -1,0 +1,3 @@
+# ACCESS_GATE=off: no gate. Anyone who reaches port 443 can sign in with the published demo
+# accounts and the fixed code (Mailpit keeps its own password). Only for an instance that is
+# closed some other way.

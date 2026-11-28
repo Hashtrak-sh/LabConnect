@@ -104,6 +104,11 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: '1025'
       MAIL_FROM: ${MAIL_FROM}
+      # Demo one-time codes (the fixed code the demonstration signs in with). No value after the
+      # colon: Compose then passes the variable only when .env sets it, and leaves it out
+      # otherwise. That matters: the API refuses a variable that is present but empty.
+      DEMO_OTP_CODE:
+      DEMO_OTP_EMAIL_DOMAIN:
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -149,14 +154,22 @@ services:
     ports:
       - '${HTTP_PORT:-80}:80'
       - '${HTTPS_PORT:-443}:443'
-    # Only these three, so the rest of .env never reaches this container. The password hash
-    # contains `$`, which Compose would expand; .env holds it single-quoted.
+    # Only these, so the rest of .env never reaches this container. The password hashes
+    # contain `$`, which Compose would expand; .env holds them single-quoted.
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS}
+      WEB_ORIGIN: ${WEB_ORIGIN}
+      # auto: a public certificate. internal: Caddy's own CA, for local verification only.
+      TLS_MODE: ${TLS_MODE:-auto}
+      # on (the default) or off: the shared user name and password in front of the whole site.
+      ACCESS_GATE: ${ACCESS_GATE:-on}
+      GATE_USER: ${GATE_USER:-}
+      GATE_PASSWORD_HASH: ${GATE_PASSWORD_HASH:-}
       MAILPIT_USER: ${MAILPIT_USER}
       MAILPIT_PASSWORD_HASH: ${MAILPIT_PASSWORD_HASH}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy:/etc/caddy/snippets:ro
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
