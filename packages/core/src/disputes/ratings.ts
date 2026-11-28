@@ -14,7 +14,9 @@ export interface BookingRatingView {
 /**
  * The rating given on a booking in one direction, or `null` (disputes owns `rating`). The caller
  * asks only for its own side's rating: `CUSTOMER_TO_LAB` for the customer, `LAB_TO_CUSTOMER` for
- * the lab. RLS also keeps the lab's rating of a customer from the customer.
+ * the lab. RLS also keeps the lab's rating of a customer from the customer, but limits to the
+ * organisations only, not to a lab member's sites (RR-3): call it only after `getBookingDetail` (or
+ * an equal check) has shown that the actor may read this booking.
  */
 export async function bookingRating(
   tx: Prisma.TransactionClient,

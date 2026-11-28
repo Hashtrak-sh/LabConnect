@@ -153,6 +153,11 @@ describe('bookings: GET /v1/bookings/{id}', () => {
     expect(countered.counterOffer).not.toBeNull();
     const onHold = (await read(admin, stateOf('ON_HOLD').id)).body as ViewBody;
     expect(onHold.holdCase).not.toBeNull();
+    const checker = w.labA.user('LAB_CHECKER');
+    expect(
+      ((await read(checker, stateOf('COUNTERED').id)).body as ViewBody).counterOffer,
+    ).not.toBeNull();
+    expect(((await read(checker, stateOf('ON_HOLD').id)).body as ViewBody).holdCase).not.toBeNull();
     const requested = (await read(admin, stateOf('REQUESTED').id)).body as ViewBody;
     expect(requested.counterOffer).toBeNull();
     expect(requested.holdCase).toBeNull();
@@ -213,5 +218,96 @@ describe('bookings: GET /v1/bookings/{id}', () => {
       'the id is not a UUID',
     );
     expect(bad.status).toBe(422);
+  });
+
+  it('reads the stored snapshots as written, even after the reference data changed', async () => {
+    // A REQUESTED booking: the database freezes line snapshots once it leaves REQUESTED.
+    const booking = adminsAtSite2;
+    const accreditation = {
+      certificateNo: 'TC-STORED-1',
+      accreditationBody: { code: 'NABL', name: 'Stored body name' },
+      standard: { code: 'ISO17025', name: 'Stored standard name' },
+      labCategory: 'TESTING',
+      validFrom: '2025-01-01',
+      validTo: '2027-12-31',
+      status: 'VALID',
+      statusAsOf: '2026-01-01',
+      verificationUrl: 'https://example.test/certificate/TC-STORED-1',
+    };
+    const address = {
+      line1: 'Stored line 1',
+      line2: null,
+      city: 'Stored city',
+      district: null,
+      stateCode: 'HR',
+      pincode: '122001',
+    };
+    const lineSnapshot = {
+      discipline: { code: 'STORED-D', name: 'Stored discipline' },
+      group: null,
+      product: { code: 'STORED-P', name: 'Stored product' },
+      parameter: { code: 'STORED-PA', name: 'Stored parameter' },
+      method: null,
+      methodText: 'Stored method',
+      rangeText: null,
+      siteType: 'PERMANENT',
+      sampleQty: 2.5,
+      sampleUnit: { code: 'KG', name: 'kilogram' },
+      packagingInstructions: 'Stored packaging',
+      tatDays: 9,
+    };
+    await t.owner(async (tx) => {
+      await tx.$executeRaw`UPDATE booking SET lab_snapshot = ${JSON.stringify({ siteName: 'Stored site', address, accreditation })}::jsonb WHERE id = ${booking.id}::uuid`;
+      await tx.$executeRaw`UPDATE booking_line SET snapshot = ${JSON.stringify(lineSnapshot)}::jsonb WHERE booking_id = ${booking.id}::uuid`;
+      // The reference data moves on after the booking: the stored values must still win.
+      await tx.$executeRaw`UPDATE scope_line SET method_text = 'Changed later' WHERE id IN (SELECT scope_line_id FROM booking_line WHERE booking_id = ${booking.id}::uuid)`;
+    });
+    const body = (await read(w.customerA.user('CUSTOMER_ADMIN'), booking.id)).body as {
+      labSnapshot: unknown;
+      lines: { snapshot: unknown }[];
+    };
+    expect(body.labSnapshot).toEqual({ siteName: 'Stored site', address, accreditation });
+    expect(body.lines[0]?.snapshot).toEqual(lineSnapshot);
+  });
+
+  it('falls back from a stored snapshot field that is not in the contract shape', async () => {
+    const booking = stateOf('UNDER_TEST');
+    await t.owner(async (tx) => {
+      await tx.$executeRaw`UPDATE booking SET lab_snapshot = ${JSON.stringify({
+        siteName: 'Stored site',
+        accreditation: {
+          certificateNo: 'TC-BAD',
+          accreditationBody: { code: 'X', name: 'X' },
+          standard: { code: 'X', name: 'X' },
+          labCategory: 'TESTING',
+          validFrom: '2025-01-01',
+          validTo: '2027-12-31',
+          status: 'VALID',
+          statusAsOf: '2026-01-01',
+          verificationUrl: 'javascript:alert(1)',
+        },
+      })}::jsonb WHERE id = ${booking.id}::uuid`;
+    });
+    const body = (await read(w.customerA.user('CUSTOMER_ADMIN'), booking.id)).body as ViewBody;
+    expect(body.labSnapshot.siteName).toBe('Stored site');
+    // The link is not https: the whole accreditation comes from the booked scope instead.
+    expect(body.labSnapshot.accreditation.certificateNo).not.toBe('TC-BAD');
+  });
+
+  it('shows the site location only once its pin is approved', async () => {
+    const site = w.fixtures.labA.sites[0];
+    if (!site) throw new Error('no site');
+    const locate = async (status: string) => {
+      await t.owner(async (tx) => {
+        await tx.$executeRaw`UPDATE lab_site SET geo_point = ST_GeogFromText('POINT(77.03 28.46)'), geocode_status = ${status}::geocode_status WHERE id = ${site.id}::uuid`;
+      });
+      const body = (await read(w.customerA.user('CUSTOMER_ADMIN'), stateOf('REQUESTED').id))
+        .body as { labSite: { location: { lat: number; lng: number } | null } };
+      return body.labSite.location;
+    };
+    expect(await locate('PENDING')).toBeNull();
+    const approved = await locate('AUTO_OK');
+    expect(approved?.lat).toBeCloseTo(28.46, 5);
+    expect(approved?.lng).toBeCloseTo(77.03, 5);
   });
 });

@@ -29,6 +29,9 @@ Backend modules live in `apps/api/src/modules/<module>` (with worker handlers in
 5. `notifications` and `search` are **event consumers only**. Nothing calls them synchronously during business writes.
 6. `admin` is read-only, except where it calls another module's public command (e.g. `DisputeService.decide`).
 7. Cross-module reads for UI composition go through query services. Reporting views (SQL views prefixed `rv_`) are allowed for the admin board.
+   - **The booking detail** (`getBooking`, I3-SHR-01) is such a composition. The booking module reads what it owns (`getBookingDetail`), and the API's booking module adds the read-only query functions of the modules that own the rest: `latestBookingHoldCase` (custody), `bookingRating` (disputes) and `labSitePublicContact` (labs). It calls them only after `getBookingDetail` has shown that the actor may read the booking. This is a read for display, not the synchronous command call rule 3 forbids; no state changes.
+   - **Reference data in booking reads.** `listBookings` and `getBookingDetail` join the reference tables of `labs` and `masterdata` (`lab_site`, `slot`, `scope_line`, `price_item`, `accreditation`, `md_node`) in their own read-only SQL, for names, addresses and snapshot fallbacks, rather than calling one service per row. They never write those tables.
+   - **Known limit of the check.** `dependency-cruiser` sees module folders, so a call through the `@labconnect/core` barrel from an app module is not matched by rule 3. Reviews check those calls.
 
 The dependency rules apply to the module folders of `apps/*/src/modules/` and of `packages/core/src/` alike. Beyond them, `packages/core` imports only `packages/database` and `packages/shared`, never an app and never a Nest package.
 

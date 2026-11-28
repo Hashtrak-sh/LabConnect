@@ -27,7 +27,10 @@ import {
 // `booking_line.snapshot` are read as written. A field a row does not carry in the contract's
 // shape (rows written before T-01 wrote full snapshots: the test-data factory's) is filled from
 // what the row points to: the line's scope line and price item, the site, and the accreditation
-// of the booked scope. Such a field shows the reference data as it is now, not as it was.
+// of the booked scope. Such a field shows the reference data as it is now, not as it was: the
+// immutable `scope_line_version.snapshot` carries names only, not the codes the contract needs.
+// A stored field that is not in the contract's shape (enums, dates, an https link, a 6-digit
+// pincode) also falls back, so a bad snapshot never reaches the client.
 
 export interface CodeNameView {
   code: string;
@@ -222,6 +225,9 @@ const positiveInteger = (value: Json | undefined): number | undefined =>
   typeof value === 'number' && Number.isInteger(value) && value >= 1 ? value : undefined;
 
 const SITE_TYPES = new Set<string>(['PERMANENT', 'SITE', 'MOBILE']);
+const LAB_CATEGORIES = new Set<string>(['TESTING', 'CALIBRATION']);
+const ACCREDITATION_STATUSES = new Set<string>(['VALID', 'SUSPENDED', 'WITHDRAWN', 'EXPIRED']);
+const ISO_DATE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
 
 /** `lab_site.address` is `{line1, line2, city, district, state_code, pincode}`; the columns win for state and pincode. */
 function siteAddress(
@@ -247,6 +253,7 @@ function storedAddress(value: Json | undefined): PostalAddressView | undefined {
   const stateCode = textOf(object.stateCode);
   const pincode = textOf(object.pincode);
   if (line1 === null || city === null || stateCode === null || pincode === null) return undefined;
+  if (!/^[0-9]{6}$/.test(pincode) || stateCode.length < 2 || stateCode.length > 4) return undefined;
   return {
     line1,
     line2: textOf(object.line2),
@@ -278,7 +285,13 @@ function storedAccreditation(value: Json | undefined): AccreditationView | undef
     validTo === null ||
     status === null ||
     statusAsOf === null ||
-    !(verificationUrl === null || typeof verificationUrl === 'string')
+    !(verificationUrl === null || typeof verificationUrl === 'string') ||
+    // The contract's enums, dates and an https link (as `accreditationVerificationUrl` builds):
+    // anything else falls back rather than reaching the client.
+    !LAB_CATEGORIES.has(labCategory) ||
+    !ACCREDITATION_STATUSES.has(status) ||
+    ![validFrom, validTo, statusAsOf].every((date) => ISO_DATE.test(date)) ||
+    (typeof verificationUrl === 'string' && !verificationUrl.startsWith('https://'))
   ) {
     return undefined;
   }
@@ -521,7 +534,11 @@ export async function getBookingDetail(
            o.display_name AS customer_display_name,
            s.id::text AS site_id, s.site_code, s.name AS site_name, s.address AS site_address,
            s.state_code AS site_state_code, s.pincode AS site_pincode,
-           ST_Y(s.geo_point::geometry) AS site_lat, ST_X(s.geo_point::geometry) AS site_lng,
+           -- Only an approved pin is shown (BookingLabSite.location, BR-004), as in the directory.
+           CASE WHEN s.geo_point IS NOT NULL AND s.geocode_status IN ('AUTO_OK', 'MANUAL_APPROVED')
+                THEN ST_Y(s.geo_point::geometry) END AS site_lat,
+           CASE WHEN s.geo_point IS NOT NULL AND s.geocode_status IN ('AUTO_OK', 'MANUAL_APPROVED')
+                THEN ST_X(s.geo_point::geometry) END AS site_lng,
            b.lab_snapshot, b.item_name, b.batch_no,
            sl.id::text AS slot_id, sl.slot_date, sl.starts_at AS slot_starts_at,
            sl.ends_at AS slot_ends_at, d.code AS discipline_code, d.name AS discipline_name,

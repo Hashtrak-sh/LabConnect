@@ -14,8 +14,9 @@ export interface BookingHoldCaseView {
 
 /**
  * The latest hold case of a booking, or `null` (custody owns `hold_case`). It reads inside the
- * caller's transaction, so RLS limits it to the booking's two parties; the caller has already
- * checked that the actor may read the booking.
+ * caller's transaction. RLS limits it to the booking's two organisations only, not to a lab
+ * member's sites (RR-3): call it only after `getBookingDetail` (or an equal check) has shown that
+ * the actor may read this booking.
  */
 export async function latestBookingHoldCase(
   tx: Prisma.TransactionClient,
