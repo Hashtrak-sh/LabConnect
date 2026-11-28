@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { bookingInState } from '@labconnect/database/test-utils';
+import {
+  addMember,
+  bookingInState,
+  createUser,
+  loadReference,
+} from '@labconnect/database/test-utils';
 import { ROLES } from '@labconnect/shared';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { useIdentityApp } from '../support/identity-app.js';
@@ -28,6 +33,8 @@ describe('bookings: GET /v1/bookings', () => {
   const tokens = new Map<string, string>();
   /** Bookings by name, created in this order (so the newest is the last). */
   const ids: Record<string, string> = {};
+  /** A Maker of lab A with no site assigned (RR-3: no site means no booking). */
+  let siteless: TenantUser;
 
   const tokenOf = async (user: TenantUser): Promise<string> => {
     const known = tokens.get(user.id);
@@ -54,14 +61,15 @@ describe('bookings: GET /v1/bookings', () => {
     const start = Date.parse('2026-11-20T04:00:00Z');
     const at = (minutes: number) => new Date(start + minutes * 60_000);
     await t.owner(async (tx) => {
+      const reference = await loadReference(tx);
       // Created a minute apart, so "newest first" has one answer.
       const make = async (
         name: string,
         state: Parameters<typeof bookingInState>[1],
-        options: Parameters<typeof bookingInState>[2],
+        options: Omit<Parameters<typeof bookingInState>[2], 'reference'>,
         minute: number,
       ) => {
-        const booking = await bookingInState(tx, state, { ...options, now: at(minute) });
+        const booking = await bookingInState(tx, state, { ...options, reference, now: at(minute) });
         ids[name] = booking.id;
         await tx.$executeRaw`UPDATE booking SET created_at = ${at(minute)} WHERE id = ${booking.id}::uuid`;
         return booking;
@@ -78,6 +86,16 @@ describe('bookings: GET /v1/bookings', () => {
       await tx.$executeRaw`UPDATE booking SET requester_user_id = ${customerA.admin}::uuid WHERE id = ${byAdmin.id}::uuid`;
       await make('bAtLabA', 'REQUESTED', { customer: customerB, lab: labA, site: siteA2 }, 4);
       await make('aAtLabB', 'REQUESTED', { customer: customerA, lab: labB }, 5);
+      const email = `siteless.${randomUUID().slice(0, 8)}@demo.labconnect.test`;
+      const userId = await createUser(tx, { email, fullName: 'DEMO Siteless Maker' });
+      const membershipId = await addMember(tx, userId, labA.organisationId, 'LAB_MAKER', []);
+      siteless = {
+        id: userId,
+        email,
+        role: 'LAB_MAKER',
+        organisationId: labA.organisationId,
+        membershipId,
+      };
     });
   }, 300_000);
 
@@ -123,12 +141,9 @@ describe('bookings: GET /v1/bookings', () => {
   it('filters by status, and accepts the scope of the active membership', async () => {
     const accepted = await list(w.customerA.user('CUSTOMER_ADMIN'), '?status=ACCEPTED');
     expect(idsOf(accepted.body)).toEqual([ids.a2Accepted]);
-    const both = await list(
-      w.labA.user('LAB_CHECKER'),
-      '?scope=lab&status=REQUESTED,ACCEPTED&limit=100',
-    );
-    expect(both.status).toBe(200);
-    expect(idsOf(both.body)).toHaveLength(4);
+    const two = await list(w.labA.user('LAB_CHECKER'), '?scope=lab&status=ACCEPTED,CANCELLED');
+    expect(two.status).toBe(200);
+    expect(idsOf(two.body)).toEqual([ids.a2Accepted]);
   });
 
   it('walks the pages with the cursor, and a cursor of an invisible booking gives an empty page', async () => {
@@ -168,6 +183,26 @@ describe('bookings: GET /v1/bookings', () => {
       expect(response.status, query).toBe(422);
       expect((response.body as { code: string }).code, query).toBe('VALIDATION_FAILED');
     }
+  });
+
+  it('gives a lab member with no assigned site an empty list', async () => {
+    const response = await list(siteless, '?limit=100');
+    expect(response.status).toBe(200);
+    expect(idsOf(response.body)).toEqual([]);
+  });
+
+  it('names the field when the scope is of the other side', async () => {
+    const response = await list(w.customerA.user('CUSTOMER_ADMIN'), '?scope=lab');
+    expect(response.status).toBe(422);
+    const body = response.body as { errors?: { path: string; message: string }[] };
+    expect(body.errors?.[0]?.path).toBe('scope');
+    expect(body.errors?.[0]?.message).toBeTruthy();
+  });
+
+  it('refuses a user with no membership with 403', async () => {
+    const session = await t.signIn(t.newEmail('no-membership'));
+    const response = await t.api.get('/v1/bookings', { token: session.accessToken });
+    expect(response.status).toBe(403);
   });
 
   it('refuses platform staff with 403: they read bookings in the admin console', async () => {

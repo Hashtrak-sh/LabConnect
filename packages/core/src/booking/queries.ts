@@ -237,7 +237,6 @@ export async function listBookings(
   if (input.scope !== undefined && input.scope !== visibility.party) {
     throw new BookingError('VALIDATION_FAILED', {
       detail: `scope must be ${visibility.party} for the active membership.`,
-      meta: { errors: [{ path: 'scope', code: 'SCOPE_MISMATCH' }] },
     });
   }
   const limit = input.limit ?? BOOKING_LIST_LIMITS.default;

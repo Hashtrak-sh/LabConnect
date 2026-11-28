@@ -20,8 +20,8 @@ export const BOOKING_ENGINE = Symbol('BOOKING_ENGINE');
 /**
  * Bookings, HTTP side (ADR-020, I3-SHR-01). It owns the process's booking engine, built with the
  * same registry as the worker's (`createBookingEngine`), so a transition runs the same guards and
- * effects whichever process fires it; payments takes it from here. The reads are
- * `listBookings` and `getBooking` (`BookingsController`).
+ * effects whichever process fires it; payments takes it from here. The read so far is
+ * `listBookings` (`BookingsController`); `getBooking` follows.
  */
 @Module({
   // IdentityModule exports TenantScope, the API's only door to the database (P3-04).

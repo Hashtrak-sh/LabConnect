@@ -4,11 +4,13 @@ import {
   type BookingListInput,
   type BookingSlotView,
   type BookingSummaryView,
+  bookingVisibility,
   type CurrentActor,
   listBookings,
   TenantScope,
 } from '@labconnect/core';
 import { CURRENCY, paiseToJson } from '@labconnect/shared';
+import { DomainError } from '../../common/domain-error.js';
 
 type Schemas = components['schemas'];
 export type BookingListBody = Schemas['BookingList'];
@@ -60,6 +62,21 @@ export class BookingsService {
   constructor(private readonly scope: TenantScope) {}
 
   async list(actor: CurrentActor, input: BookingListInput): Promise<BookingListBody> {
+    // A platform membership is 403 first; then a scope of the other side is 422 with the field
+    // named in `errors[]` (ERROR_HANDLING §2). The booking module checks it again.
+    const party = bookingVisibility(actor).party;
+    if (input.scope !== undefined && input.scope !== party) {
+      throw new DomainError('VALIDATION_FAILED', {
+        detail: 'Some parameters are not valid.',
+        errors: [
+          {
+            path: 'scope',
+            code: 'INVALID_VALUE',
+            message: `The active membership acts as ${party}.`,
+          },
+        ],
+      });
+    }
     const result = await this.scope.run(actor, (tx) => listBookings(tx, actor, input));
     return { data: result.data.map(toBookingSummaryBody), page: result.page };
   }
