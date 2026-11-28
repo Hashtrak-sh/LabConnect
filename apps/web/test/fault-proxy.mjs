@@ -8,6 +8,7 @@
 import { createServer } from 'node:http';
 
 const TARGET = process.env.TARGET ?? 'http://localhost:57301';
+const TARGET_ORIGIN = new URL(TARGET).origin;
 const PORT = Number(process.env.PORT ?? 57302);
 const READS = /^\/v1\/(lab\/claims(\/[0-9a-f-]{36})?|admin\/claims\/[0-9a-f-]{36})(\?.*)?$/i;
 let failing = false;
@@ -33,7 +34,15 @@ createServer(async (req, res) => {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
   const body = Buffer.concat(chunks);
-  const upstream = await fetch(new URL(req.url ?? '/', TARGET), {
+  // Only the path and the query of the request are used, on the fixed origin of TARGET: a request
+  // line that names another host (`//other.example/x`, an absolute URL) must not send this proxy
+  // anywhere else.
+  const target = new URL(url.pathname + url.search, TARGET_ORIGIN);
+  if (target.origin !== TARGET_ORIGIN) {
+    res.writeHead(400).end();
+    return;
+  }
+  const upstream = await fetch(target, {
     method: req.method,
     headers,
     redirect: 'manual',
@@ -57,4 +66,4 @@ createServer(async (req, res) => {
     console.log(`${req.method} ${url.pathname} -> ${upstream.status}`);
   res.writeHead(upstream.status, out);
   res.end(Buffer.from(await upstream.arrayBuffer()));
-}).listen(PORT, () => console.log(`fault proxy on ${PORT} -> ${TARGET}`));
+}).listen(PORT, '127.0.0.1', () => console.log(`fault proxy on 127.0.0.1:${PORT} -> ${TARGET}`));

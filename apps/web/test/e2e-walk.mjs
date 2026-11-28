@@ -115,7 +115,16 @@ const decode = (text) =>
     .replaceAll('&gt;', '>')
     .replaceAll('&amp;', '&');
 /** The page without its inline scripts: the framework's payload repeats every string passed to a client component, so a text check must not read it. */
-const stripScripts = (html) => html.replaceAll(/<script[\s\S]*?<\/script>/g, '');
+const stripScripts = (html) => {
+  // Repeated until nothing changes, in any letter case and with anything inside the closing tag:
+  // one pass can leave a new "<script" behind where two pieces meet.
+  let text = html;
+  for (;;) {
+    const next = text.replace(/<script\b[^>]*>[\s\S]*?<\/script[^>]*>/gi, '');
+    if (next === text) return text;
+    text = next;
+  }
+};
 const textOf = (html) =>
   decode(
     stripScripts(html)
