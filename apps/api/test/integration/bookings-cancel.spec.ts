@@ -96,17 +96,26 @@ describe('bookings: the customer cancels before handover', () => {
     expect(await pendingTimers(booking.id)).toBe(0);
   });
 
-  it('cancels an accepted booking: the booked place given back', async () => {
+  it('cancels an accepted booking: the booked place given back, the payment timer cancelled', async () => {
     const booking = await make('ACCEPTED');
     const hold = await holdOf(booking.id);
     expect(hold?.kind).toBe('CONFIRMED');
     const before = await countsOf(hold?.slot_id ?? '');
+    // The fixture schedules no timers: add the payment deadline T-03 would have scheduled.
+    await t.owner(
+      (tx) =>
+        tx.$executeRaw`INSERT INTO timer (id, timer_type, aggregate_type, aggregate_id, due_at)
+                     VALUES (${randomUUID()}::uuid, 'PAYMENT_DUE', 'booking', ${booking.id}::uuid,
+                             ${new Date(t.clock.now().getTime() + 86_400_000)})`,
+    );
+    expect(await pendingTimers(booking.id)).toBe(1);
     const response = await cancel(admin(), booking.id, { body: { reasonCode: 'OTHER' } });
     expect(response.status).toBe(200);
     expect((response.body as ViewBody).cancellation?.notes).toBeNull();
     expect((await countsOf(hold?.slot_id ?? ''))?.booked_count).toBe(
       (before?.booked_count ?? 0) - 1,
     );
+    expect(await pendingTimers(booking.id)).toBe(0);
   });
 
   it('cancels a countered booking and closes the pending counter-offer as EXPIRED', async () => {
@@ -136,6 +145,8 @@ describe('bookings: the customer cancels before handover', () => {
     for (const user of [
       w.labA.user('LAB_CHECKER'),
       w.customerA.user('CUSTOMER_FINANCE'),
+      // A requester of the same organisation who did not place it (not the owner).
+      w.dual.inA,
       w.platform.user('PLATFORM_OPS'),
     ]) {
       expect((await cancel(user, booking.id, { ifMatch: '"0"' })).status, user.role).toBe(403);

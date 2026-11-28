@@ -248,7 +248,7 @@ export class BookingsService {
     if (actor.orgType !== 'CUSTOMER' || role === undefined) {
       throw new DomainError('FORBIDDEN', {
         detail:
-          'Before handover the customer cancels; a lab Checker cancels from handover, Ops in the admin console.',
+          'Before handover only the customer cancels here; lab and Ops cancellations are not available on this route yet.',
       });
     }
     return role;
