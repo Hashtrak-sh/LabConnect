@@ -83,7 +83,19 @@ const INBOX_FOR_LAB_MEMBERS =
   'to any role but LAB_MAKER and LAB_CHECKER, so getLabInbox refuses Ops before any booking is ' +
   'read (I3-LAB-01).';
 
+const CANCEL_BEFORE_HANDOVER =
+  'booking.cancel is conditional for LAB_CHECKER (after payment, from handover: T-26/T-27, ' +
+  'not built yet) and for PLATFORM_OPS (with a reason, through /admin/bookings/{id}/cancel); ' +
+  'the customer route builds T-25 only, so BookingsService.cancel refuses both with 403 before ' +
+  'the booking is read (I3-LAB-01).';
+
 export const HANDLER_REFUSALS: readonly HandlerRefusal[] = [
+  ...(['LAB_CHECKER', 'PLATFORM_OPS'] as const).map((role) => ({
+    route: 'POST /v1/bookings/:id/cancel',
+    role,
+    permission: 'booking.cancel',
+    reason: CANCEL_BEFORE_HANDOVER,
+  })),
   {
     route: 'GET /v1/lab/inbox',
     role: 'PLATFORM_OPS',

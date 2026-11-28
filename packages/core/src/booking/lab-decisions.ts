@@ -56,14 +56,30 @@ function counterInput(context: TransitionContext): CounterOfferInput {
 }
 
 /** The node id of an active REJECTION_REASON code, or `null` (the caller answers 422). */
-export async function rejectionReasonNodeId(
+export function rejectionReasonNodeId(
   tx: Prisma.TransactionClient,
+  code: string,
+): Promise<string | null> {
+  return activeReasonNodeId(tx, 'REJECTION_REASON', code);
+}
+
+/** The node id of an active CANCELLATION_REASON code, or `null` (the caller answers 422). */
+export function cancellationReasonNodeId(
+  tx: Prisma.TransactionClient,
+  code: string,
+): Promise<string | null> {
+  return activeReasonNodeId(tx, 'CANCELLATION_REASON', code);
+}
+
+async function activeReasonNodeId(
+  tx: Prisma.TransactionClient,
+  taxonomy: 'REJECTION_REASON' | 'CANCELLATION_REASON',
   code: string,
 ): Promise<string | null> {
   const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
     SELECT n.id::text AS id
       FROM md_node n JOIN md_taxonomy t ON t.id = n.taxonomy_id
-     WHERE t.code = 'REJECTION_REASON' AND n.code = ${code} AND n.status = 'ACTIVE'`);
+     WHERE t.code = ${taxonomy} AND n.code = ${code} AND n.status = 'ACTIVE'`);
   return rows[0]?.id ?? null;
 }
 
