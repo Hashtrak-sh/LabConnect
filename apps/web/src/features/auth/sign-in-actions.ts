@@ -4,7 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { cookies, headers as nextHeaders } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { formatTime } from '@labconnect/ui';
-import { apiBaseUrl } from '@/lib/api';
+import { toAccessUser } from '@/features/access/roles';
+import { landingPath } from '@/features/lab-desk/desk-model';
+import { api, apiBaseUrl } from '@/lib/api';
 import {
   ACCESS_COOKIE,
   apiRefreshCookieHeader,
@@ -92,6 +94,19 @@ function retryAt(response: Response): string | undefined {
   return formatTime(new Date(Date.now() + seconds * 1000).toISOString());
 }
 
+/**
+ * Where a user with no page to return to lands: lab members on the lab dashboard, Platform Ops on
+ * the claim requests, everyone else on the home page (I3-LAB-02). If `/me` cannot be read, home.
+ */
+async function homeOf(accessToken: string): Promise<string> {
+  try {
+    const { data } = await api(accessToken).GET('/me');
+    return data === undefined ? '/' : landingPath(toAccessUser(data));
+  } catch {
+    return '/';
+  }
+}
+
 /** Stores a full session and returns to the page the user came from. Never returns. */
 async function startSession(response: Response, body: SessionBody): Promise<never> {
   const jar = await cookies();
@@ -101,7 +116,7 @@ async function startSession(response: Response, body: SessionBody): Promise<neve
   jar.delete(MFA_COOKIE);
   const back = safeReturnPath(jar.get(RETURN_COOKIE)?.value);
   jar.delete(RETURN_COOKIE);
-  redirect(back);
+  redirect(back === '/' ? await homeOf(body.accessToken) : back);
 }
 
 async function sendCode(email: string): Promise<SignInState> {
