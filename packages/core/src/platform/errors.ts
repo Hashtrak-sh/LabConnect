@@ -1,5 +1,12 @@
 import { type ErrorCode, httpStatusOf } from '@labconnect/shared';
 
+/** One field problem of a `VALIDATION_FAILED` (ERROR_HANDLING.md §2: `errors[]`). */
+export interface CoreErrorIssue {
+  path: string;
+  code: string;
+  message: string;
+}
+
 export interface CoreErrorOptions {
   /** Safe for end users. Never put SQL, stack traces, secrets or other tenants' data here. */
   detail?: string;
@@ -7,6 +14,8 @@ export interface CoreErrorOptions {
   meta?: Record<string, unknown>;
   /** For `RATE_LIMITED` and `OTP_LOCKED`: becomes the `Retry-After` header. */
   retryAfterSeconds?: number;
+  /** The fields at fault, for `VALIDATION_FAILED`: the problem body's `errors[]`. */
+  errors?: readonly CoreErrorIssue[];
   cause?: unknown;
 }
 
@@ -23,6 +32,7 @@ export class CoreError extends Error {
   readonly detail: string | undefined;
   readonly meta: Record<string, unknown> | undefined;
   readonly retryAfterSeconds: number | undefined;
+  readonly errors: readonly CoreErrorIssue[] | undefined;
 
   constructor(
     readonly code: ErrorCode,
@@ -36,5 +46,6 @@ export class CoreError extends Error {
     this.detail = options.detail;
     this.meta = options.meta;
     this.retryAfterSeconds = options.retryAfterSeconds;
+    this.errors = options.errors;
   }
 }

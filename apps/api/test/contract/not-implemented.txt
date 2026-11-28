@@ -5,7 +5,6 @@
 # - An operation added to the contract must be listed here until it is implemented.
 # - Every line names an operationId that exists in the contract.
 # Regenerate: pnpm --filter @labconnect/api contract:update-not-implemented
-acceptBooking
 acceptBookingCounter
 addAdminChangeItem
 addDisputeEvidence
@@ -24,7 +23,6 @@ checkBookingDuplicates
 commitAdminImport
 commitLabPriceListImport
 confirmReceiptDiscrepancy
-counterBooking
 createAdminChangeSet
 createAdminImport
 createAdminImportUploadUrl
@@ -128,7 +126,6 @@ publishReportVersion
 raiseDispute
 rateBooking
 rejectAdminChangeSet
-rejectBooking
 rejectBreakGlassGrant
 rejectUnfitSample
 releaseAdminPayout

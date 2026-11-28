@@ -10,4 +10,5 @@ export * from './timer-handlers.js';
 export * from './types.js';
 export * from './notification-context.js';
 export * from './detail.js';
+export * from './lab-decisions.js';
 export * from './queries.js';

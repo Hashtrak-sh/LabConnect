@@ -71,7 +71,19 @@ export const SESSION_ONLY_REFUSALS: readonly SessionOnlyRefusal[] = [
   },
 ];
 
+const OPS_CANNOT_DECIDE =
+  'booking.decide is held by PLATFORM_OPS only to override an undecided request ' +
+  '(OPS_OVERRIDE_UNDECIDED); Ops cannot accept, reject or counter for a lab (OQ-24, the contract: ' +
+  "a LAB_CHECKER assigned to the booking's site), so BookingsService.decide refuses every role " +
+  'but LAB_CHECKER (I3-LAB-01).';
+
 export const HANDLER_REFUSALS: readonly HandlerRefusal[] = [
+  ...['accept', 'reject', 'counter'].map((action) => ({
+    route: `POST /v1/bookings/:id/${action}`,
+    role: 'PLATFORM_OPS' as const,
+    permission: 'booking.decide',
+    reason: OPS_CANNOT_DECIDE,
+  })),
   {
     route: 'GET /v1/admin/claims',
     role: 'PLATFORM_FINANCE',

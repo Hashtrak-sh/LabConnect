@@ -71,6 +71,49 @@ describe('tenant isolation on the booking routes', () => {
     });
   });
 
+  /** The calls of one decision on a booking id, and a check that bookingOfB did not change. */
+  const decision = (action: 'accept' | 'reject' | 'counter') => {
+    const body =
+      action === 'reject'
+        ? { reasonCode: 'NO_CAPACITY', notes: 'x' }
+        : action === 'counter'
+          ? { proposedSlotId: randomUUID(), message: 'x' }
+          : undefined;
+    const call = (id: string) => (client: Client) =>
+      client.post(`/v1/bookings/${id}/${action}`, {
+        headers: { 'If-Match': '"0"' },
+        ...(body !== undefined && { body }),
+      });
+    return {
+      as: clientOf(w.labA.user('LAB_CHECKER')),
+      resourceOf: w.labB,
+      resourceId: bookingOfB,
+      request: call(bookingOfB),
+      unknownRequest: call(randomUUID()),
+    };
+  };
+  const unchanged = async () => {
+    const status = await t
+      .db()
+      .query<{ status: string }>('SELECT status FROM booking WHERE id = $1', [bookingOfB]);
+    expect(status.rows[0]?.status).toBe('REQUESTED');
+  };
+
+  it("POST /bookings/{id}/accept on another lab's booking: 404, like an unknown id", async () => {
+    await expectIsolated({ route: 'POST /v1/bookings/:id/accept', ...decision('accept') });
+    await unchanged();
+  });
+
+  it("POST /bookings/{id}/reject on another lab's booking: 404, like an unknown id", async () => {
+    await expectIsolated({ route: 'POST /v1/bookings/:id/reject', ...decision('reject') });
+    await unchanged();
+  });
+
+  it("POST /bookings/{id}/counter on another lab's booking: 404, like an unknown id", async () => {
+    await expectIsolated({ route: 'POST /v1/bookings/:id/counter', ...decision('counter') });
+    await unchanged();
+  });
+
   it('GET /bookings/{id} at a site the Maker is not assigned to: 404, like an unknown id', async () => {
     const maker = clientOf(w.siteMaker);
     const response = await maker.get(`/v1/bookings/${atSecondSite}`);

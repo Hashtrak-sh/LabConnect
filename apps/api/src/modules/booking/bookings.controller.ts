@@ -1,10 +1,28 @@
-import { Controller, Get, Param, Query, Res } from '@nestjs/common';
-import type { Response } from 'express';
-import { formatEtag } from '../../common/etag.js';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
+import type { Request, Response } from 'express';
+import { formatEtag, parseIfMatch } from '../../common/etag.js';
+import { Idempotent } from '../../common/idempotency.interceptor.js';
+import { requestMeta } from '../identity/auth.controller.js';
 import { Authorised } from '../identity/authorised.decorator.js';
 import { CurrentActor } from '../identity/current-actor.js';
 import type { BookingViewBody } from './booking-view.js';
-import { parseBookingListQuery, requireBookingId } from './bookings.dto.js';
+import {
+  parseBookingCounter,
+  parseBookingListQuery,
+  parseBookingReject,
+  requireBookingId,
+} from './bookings.dto.js';
 import { type BookingListBody, BookingsService } from './bookings.service.js';
 
 /**
@@ -45,5 +63,99 @@ export class BookingsController {
     response.setHeader('ETag', formatEtag(lockVersion));
     response.setHeader('Cache-Control', 'no-store');
     return body;
+  }
+
+  /** `acceptBooking` (T-03): needs `If-Match`; the lab's view after the decision. */
+  @Post(':id/accept')
+  @HttpCode(200)
+  @Authorised({ permission: 'booking.decide' })
+  @Idempotent()
+  async acceptBooking(
+    @Param('id') id: string,
+    @Headers('if-match') ifMatch: string | string[] | undefined,
+    @CurrentActor() actor: CurrentActor,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<BookingViewBody> {
+    this.bookings.assertDecider(actor);
+    const bookingId = requireBookingId(id);
+    const version = parseIfMatch(ifMatch);
+    return this.answer(
+      response,
+      await this.bookings.decide(
+        actor,
+        { transitionId: 'T-03' },
+        bookingId,
+        version,
+        requestMeta(request),
+      ),
+    );
+  }
+
+  /** `rejectBooking` (T-05): a REJECTION_REASON code and an explanation. */
+  @Post(':id/reject')
+  @HttpCode(200)
+  @Authorised({ permission: 'booking.decide' })
+  @Idempotent()
+  async rejectBooking(
+    @Param('id') id: string,
+    @Headers('if-match') ifMatch: string | string[] | undefined,
+    @Body() body: unknown,
+    @CurrentActor() actor: CurrentActor,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<BookingViewBody> {
+    this.bookings.assertDecider(actor);
+    const bookingId = requireBookingId(id);
+    const version = parseIfMatch(ifMatch);
+    const input = parseBookingReject(body);
+    return this.answer(
+      response,
+      await this.bookings.decide(
+        actor,
+        { transitionId: 'T-05', ...input },
+        bookingId,
+        version,
+        requestMeta(request),
+      ),
+    );
+  }
+
+  /** `counterBooking` (T-04): another slot and/or more sample, never a price or a method. */
+  @Post(':id/counter')
+  @HttpCode(200)
+  @Authorised({ permission: 'booking.decide' })
+  @Idempotent()
+  async counterBooking(
+    @Param('id') id: string,
+    @Headers('if-match') ifMatch: string | string[] | undefined,
+    @Body() body: unknown,
+    @CurrentActor() actor: CurrentActor,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<BookingViewBody> {
+    this.bookings.assertDecider(actor);
+    const bookingId = requireBookingId(id);
+    const version = parseIfMatch(ifMatch);
+    const input = parseBookingCounter(body);
+    return this.answer(
+      response,
+      await this.bookings.decide(
+        actor,
+        { transitionId: 'T-04', ...input },
+        bookingId,
+        version,
+        requestMeta(request),
+      ),
+    );
+  }
+
+  private answer(
+    response: Response,
+    result: { body: BookingViewBody; lockVersion: number },
+  ): BookingViewBody {
+    response.setHeader('ETag', formatEtag(result.lockVersion));
+    response.setHeader('Cache-Control', 'no-store');
+    return result.body;
   }
 }

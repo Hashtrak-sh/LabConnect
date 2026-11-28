@@ -727,12 +727,13 @@ export async function getBookingDetail(
             respondedAt: counter.responded_at,
           },
     cancellation:
-      row.cancelled_by_party === null
+      // A cancelled booking always has its reason code and party (CHECK on `booking`, C-44).
+      row.cancelled_by_party === null || row.cancellation_code === null
         ? null
         : {
-            reason: node(row.cancellation_code, row.cancellation_name) ?? {
-              code: 'UNSPECIFIED',
-              name: 'Not given',
+            reason: {
+              code: row.cancellation_code,
+              name: row.cancellation_name ?? row.cancellation_code,
             },
             byParty: row.cancelled_by_party,
             notes: row.cancellation_notes,
