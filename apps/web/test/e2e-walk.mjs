@@ -117,7 +117,11 @@ const decode = (text) =>
 /** The page without its inline scripts: the framework's payload repeats every string passed to a client component, so a text check must not read it. */
 const stripScripts = (html) => html.replaceAll(/<script[\s\S]*?<\/script>/g, '');
 const textOf = (html) =>
-  decode(stripScripts(html).replaceAll(/<[^>]*>/g, ' ').replaceAll(/\s+/g, ' '));
+  decode(
+    stripScripts(html)
+      .replaceAll(/<[^>]*>/g, ' ')
+      .replaceAll(/\s+/g, ' '),
+  );
 
 function attrsOf(tag) {
   const out = {};
@@ -924,7 +928,8 @@ let opsKey;
   );
   const lateApprove = await submit(ops, opsAForm, { button: 'Approve claim' });
   check(
-    /isn't waiting for a decision/.test(textOf(lateApprove.html)) && /Rejected/.test(textOf(lateApprove.html)) &&
+    /isn't waiting for a decision/.test(textOf(lateApprove.html)) &&
+      /Rejected/.test(textOf(lateApprove.html)) &&
       !lateApprove.url.includes('decided=approved'),
     'Ops A presses approve after Ops B rejected: "already decided", nothing approved',
     textOf(lateApprove.html).slice(0, 220),
@@ -1056,7 +1061,9 @@ step('D. the claimant after approval');
   const page = await customer.go('GET', '/lab/claim');
   const t = textOf(page.html);
   check(
-    t.includes('Your labs') && t.includes('Lab Checker') && t.includes((labNameA ?? '?').split(',')[0]),
+    t.includes('Your labs') &&
+      t.includes('Lab Checker') &&
+      t.includes((labNameA ?? '?').split(',')[0]),
     'the claim page now shows the approved lab and the Checker role',
   );
   check(
