@@ -150,6 +150,46 @@ export class BookingsController {
     );
   }
 
+  /** `acceptBookingCounter` (T-07): the owner or a `CUSTOMER_ADMIN`; needs `If-Match`. */
+  @Post(':id/counter/accept')
+  @HttpCode(200)
+  @Authorised({ permission: 'counter.respond' })
+  @Idempotent()
+  async acceptBookingCounter(
+    @Param('id') id: string,
+    @Headers('if-match') ifMatch: string | string[] | undefined,
+    @CurrentActor() actor: CurrentActor,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<BookingViewBody> {
+    const bookingId = requireBookingId(id);
+    const version = parseIfMatch(ifMatch);
+    return this.answer(
+      response,
+      await this.bookings.respondToCounter(actor, 'T-07', bookingId, version, requestMeta(request)),
+    );
+  }
+
+  /** `declineBookingCounter` (T-08): the owner only; needs `If-Match`. */
+  @Post(':id/counter/decline')
+  @HttpCode(200)
+  @Authorised({ permission: 'counter.respond' })
+  @Idempotent()
+  async declineBookingCounter(
+    @Param('id') id: string,
+    @Headers('if-match') ifMatch: string | string[] | undefined,
+    @CurrentActor() actor: CurrentActor,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<BookingViewBody> {
+    const bookingId = requireBookingId(id);
+    const version = parseIfMatch(ifMatch);
+    return this.answer(
+      response,
+      await this.bookings.respondToCounter(actor, 'T-08', bookingId, version, requestMeta(request)),
+    );
+  }
+
   private answer(
     response: Response,
     result: { body: BookingViewBody; lockVersion: number },

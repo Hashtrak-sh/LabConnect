@@ -114,6 +114,34 @@ describe('tenant isolation on the booking routes', () => {
     await unchanged();
   });
 
+  const counterAnswer = (action: 'accept' | 'decline') => {
+    const call = (id: string) => (client: Client) =>
+      client.post(`/v1/bookings/${id}/counter/${action}`, { headers: { 'If-Match': '"0"' } });
+    return {
+      as: clientOf(w.customerA.user('CUSTOMER_ADMIN')),
+      resourceOf: w.customerB,
+      resourceId: bookingOfB,
+      request: call(bookingOfB),
+      unknownRequest: call(randomUUID()),
+    };
+  };
+
+  it("POST /bookings/{id}/counter/accept on another customer's booking: 404, like an unknown id", async () => {
+    await expectIsolated({
+      route: 'POST /v1/bookings/:id/counter/accept',
+      ...counterAnswer('accept'),
+    });
+    await unchanged();
+  });
+
+  it("POST /bookings/{id}/counter/decline on another customer's booking: 404, like an unknown id", async () => {
+    await expectIsolated({
+      route: 'POST /v1/bookings/:id/counter/decline',
+      ...counterAnswer('decline'),
+    });
+    await unchanged();
+  });
+
   it('GET /bookings/{id} at a site the Maker is not assigned to: 404, like an unknown id', async () => {
     const maker = clientOf(w.siteMaker);
     const response = await maker.get(`/v1/bookings/${atSecondSite}`);

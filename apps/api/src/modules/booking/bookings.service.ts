@@ -22,7 +22,7 @@ import {
 } from '@labconnect/core';
 import { type BookingViewBody, toBookingViewBody, toPublicSlotBody } from './booking-view.js';
 import type { Prisma } from '@labconnect/database';
-import { CURRENCY, paiseToJson } from '@labconnect/shared';
+import { CURRENCY, paiseToJson, type RoleCode } from '@labconnect/shared';
 import { DomainError } from '../../common/domain-error.js';
 import { BOOKING_ENGINE } from './booking-engine.token.js';
 
@@ -54,6 +54,17 @@ export function toBookingSummaryBody(booking: BookingSummaryView): BookingSummar
     expectedReportDate:
       booking.expectedReportDate === null ? null : isoDate(booking.expectedReportDate),
     createdAt: booking.createdAt.toISOString(),
+  };
+}
+
+/** The customer roles that may answer for the organisation (the engine narrows it further). */
+const CUSTOMER_ROLES = new Set<RoleCode>(['CUSTOMER_ADMIN', 'CUSTOMER_REQUESTER']);
+
+function requestContextOf(meta: RequestMeta) {
+  return {
+    ...(meta.requestId !== undefined && { requestId: meta.requestId }),
+    ...(meta.ipAddress !== undefined && { ip: meta.ipAddress }),
+    ...(meta.userAgent !== undefined && { userAgent: meta.userAgent }),
   };
 }
 
@@ -171,6 +182,54 @@ export class BookingsService {
   }
 
   /**
+   * The customer's answer to a counter-offer (I3-LAB-01): T-07 accept (the owner or a
+   * `CUSTOMER_ADMIN`), T-08 decline (the owner only), through the booking engine, which checks
+   * the actor against the transition table (403), the state (409) and `If-Match` (412). The
+   * booking is read in the caller's scope first: out of scope is 404, a requester's colleague's
+   * booking 403. The answer is the customer's view after the transition.
+   */
+  async respondToCounter(
+    actor: CurrentActor,
+    transitionId: 'T-07' | 'T-08',
+    bookingId: string,
+    ifMatch: number,
+    meta: RequestMeta,
+  ): Promise<{ body: BookingViewBody; lockVersion: number }> {
+    const role = actor.roles.find((code) => CUSTOMER_ROLES.has(code));
+    if (actor.orgType !== 'CUSTOMER' || role === undefined) {
+      throw new DomainError('FORBIDDEN', {
+        detail: 'The customer who placed the booking answers a counter-offer.',
+      });
+    }
+    const read = await this.scope.run(actor, async (tx) => {
+      await getBookingDetail(tx, actor, bookingId);
+      await this.engine.transition(tx, {
+        bookingId,
+        transitionId,
+        actor: {
+          kind: 'USER',
+          userId: actor.userId,
+          role,
+          ...(actor.membershipId !== null && { membershipId: actor.membershipId }),
+          ...(actor.orgId !== null && { orgId: actor.orgId }),
+        },
+        expectedLockVersion: ifMatch,
+        input: {},
+        requestContext: requestContextOf(meta),
+      });
+      return this.readView(tx, actor, bookingId);
+    });
+    return {
+      body: toBookingViewBody(read.detail, {
+        holdCase: read.holdCase,
+        ownRating: read.ownRating,
+        labContact: null,
+      }),
+      lockVersion: read.detail.common.lockVersion,
+    };
+  }
+
+  /**
    * Who decides on a request: a `LAB_CHECKER` of a lab. Checked before the request is read, so a
    * role that holds `booking.decide` only conditionally (`PLATFORM_OPS`) is 403 whatever it sends.
    */
@@ -243,11 +302,7 @@ export class BookingsService {
         },
         expectedLockVersion: ifMatch,
         input,
-        requestContext: {
-          ...(meta.requestId !== undefined && { requestId: meta.requestId }),
-          ...(meta.ipAddress !== undefined && { ip: meta.ipAddress }),
-          ...(meta.userAgent !== undefined && { userAgent: meta.userAgent }),
-        },
+        requestContext: requestContextOf(meta),
       });
       return this.readView(tx, actor, bookingId);
     });

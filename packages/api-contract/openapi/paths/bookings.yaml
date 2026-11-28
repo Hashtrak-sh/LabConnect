@@ -671,6 +671,11 @@ counter-accept:
           application/json:
             schema:
               $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+        description: >-
+          `If-Match` is missing or is not one ETag (API_CONVENTIONS §4, OQ-209: the catalogue has
+          no 428), or `Idempotency-Key` is missing.
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'
@@ -726,6 +731,11 @@ counter-decline:
           application/json:
             schema:
               $ref: '../components/schemas/bookings.yaml#/BookingView'
+      '400':
+        $ref: '../components/responses.yaml#/BadRequest'
+        description: >-
+          `If-Match` is missing or is not one ETag (API_CONVENTIONS §4, OQ-209: the catalogue has
+          no 428), or `Idempotency-Key` is missing.
       '401':
         $ref: '../components/responses.yaml#/Unauthenticated'
         description: '`UNAUTHENTICATED`.'
