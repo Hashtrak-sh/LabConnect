@@ -15,8 +15,7 @@ import { BOOKING_LIST_LIMITS, bookingVisibility, visibleBookingsSql } from './qu
 // Order, most urgent first: the deadline that belongs to the state (the lab's decision for
 // REQUESTED, the counter-offer's expiry for COUNTERED, payment for ACCEPTED, the drop for PAID
 // and HANDOVER_SET), earliest first; bookings with no such deadline after them, the oldest status
-// change first; then the id. The cursor holds only the last booking's id, and its position is
-// computed again among the bookings the caller may see (as `listBookings` does).
+// change first; then the id. The cursor holds the last row's sort position (see `encodeCursor`).
 //
 // About the customer only the organisation's display name leaves this query.
 
@@ -64,20 +63,49 @@ const INBOX_ROLES = new Set(['LAB_MAKER', 'LAB_CHECKER']);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function encodeCursor(bookingId: string): string {
-  return Buffer.from(JSON.stringify({ i: bookingId }), 'utf8').toString('base64url');
+/** The sort position of an inbox row: microseconds since the epoch, and the booking id. */
+interface InboxPosition {
+  dueUs: string;
+  changedUs: string;
+  id: string;
 }
 
-function decodeCursor(raw: string): string {
+const MICROS = /^-?\d{1,19}$/;
+
+/**
+ * The cursor holds the last row's sort position itself, not only its id: the position of a
+ * booking moves when it changes state (a Checker acting on the last row of a page), and a cursor
+ * that looked it up again would skip or repeat rows. It names no customer and no personal data;
+ * a forged position only moves the start of a page among the caller's own rows.
+ */
+function encodeCursor(row: InboxPosition): string {
+  return Buffer.from(
+    JSON.stringify({ d: row.dueUs, s: row.changedUs, i: row.id }),
+    'utf8',
+  ).toString('base64url');
+}
+
+function decodeCursor(raw: string): InboxPosition {
   let parsed: unknown;
   try {
     parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
   } catch {
     parsed = undefined;
   }
-  const id =
-    typeof parsed === 'object' && parsed !== null ? (parsed as { i?: unknown }).i : undefined;
-  if (typeof id === 'string' && UUID.test(id)) return id.toLowerCase();
+  const { d, s, i } =
+    typeof parsed === 'object' && parsed !== null
+      ? (parsed as { d?: unknown; s?: unknown; i?: unknown })
+      : {};
+  if (
+    typeof d === 'string' &&
+    MICROS.test(d) &&
+    typeof s === 'string' &&
+    MICROS.test(s) &&
+    typeof i === 'string' &&
+    UUID.test(i)
+  ) {
+    return { dueUs: d, changedUs: s, id: i.toLowerCase() };
+  }
   throw new BookingError('VALIDATION_FAILED', { detail: 'The cursor cannot be read.' });
 }
 
@@ -104,30 +132,39 @@ interface InboxRow {
   expected_report_date: Date | null;
   pending_approval: LabInboxPendingApproval | null;
   pending_maker_user_id: string | null;
+  due_us: string;
+  changed_us: string;
 }
 
+/** No deadline sorts after every deadline. */
+const NO_DEADLINE_US = '9223372036854775807';
+
 /**
- * The inbox rows, one per visible booking, with the urgency key (`due_key`) and the approval
- * waiting for a Checker. A booking has at most one undecided receipt record at a time and at most
- * one open report version (`uq_report_version_open`); a receipt is listed before a report.
+ * The inbox rows of the visible bookings that `filter` keeps, with the sort position (`due_us`,
+ * `changed_us`, `id`) and the approval waiting for a Checker. The newest undecided receipt record
+ * and the open report version (`uq_report_version_open`: at most one) are read; a receipt is
+ * listed before a report. A COUNTERED booking sorts by its latest counter-offer's expiry, also
+ * once that offer has lapsed and the timer has not yet moved the booking on.
  */
-function inboxSql(visibility: Prisma.Sql): Prisma.Sql {
+function inboxSql(visibility: Prisma.Sql, filter: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`
-    SELECT b.id, b.booking_no, b.status, b.status_changed_at,
+    SELECT b.id::text AS id, b.booking_no, b.status, b.status_changed_at,
            s.id::text AS site_id, s.site_code, s.name AS site_name,
            o.display_name AS customer_display_name, b.item_name, b.batch_no,
            (SELECT count(*)::int FROM booking_line l WHERE l.booking_id = b.id) AS line_count,
            b.declared_package_count, b.total_paise,
            sl.starts_at AS slot_starts_at, sl.ends_at AS slot_ends_at, b.preferred_drop_date,
            b.lab_decision_due_at, b.payment_due_at, b.drop_deadline_at, b.expected_report_date,
-           COALESCE(CASE b.status
+           COALESCE((extract(epoch FROM CASE b.status
                       WHEN 'REQUESTED' THEN b.lab_decision_due_at
-                      WHEN 'COUNTERED' THEN (SELECT max(co.expires_at) FROM counter_offer co
-                                              WHERE co.booking_id = b.id AND co.status = 'PENDING')
+                      WHEN 'COUNTERED' THEN (SELECT co.expires_at FROM counter_offer co
+                                              WHERE co.booking_id = b.id
+                                              ORDER BY co.created_at DESC, co.id DESC LIMIT 1)
                       WHEN 'ACCEPTED' THEN b.payment_due_at
                       WHEN 'PAID' THEN b.drop_deadline_at
                       WHEN 'HANDOVER_SET' THEN b.drop_deadline_at
-                    END, 'infinity'::timestamptz) AS due_key,
+                    END) * 1000000)::bigint, ${NO_DEADLINE_US}::bigint) AS due_us,
+           (extract(epoch FROM b.status_changed_at) * 1000000)::bigint AS changed_us,
            CASE WHEN rr.id IS NOT NULL THEN 'RECEIPT'
                 WHEN rv.id IS NOT NULL THEN 'REPORT' END AS pending_approval,
            COALESCE(rr.maker_user_id, rv.maker_user_id)::text AS pending_maker_user_id
@@ -141,7 +178,7 @@ function inboxSql(visibility: Prisma.Sql): Prisma.Sql {
       LEFT JOIN LATERAL (SELECT v.id, v.maker_user_id FROM report_version v
                           WHERE v.booking_id = b.id AND v.status = 'IN_REVIEW'
                           ORDER BY v.version_no DESC LIMIT 1) rv ON true
-     WHERE ${visibility}`;
+     WHERE ${visibility} AND ${filter}`;
 }
 
 /**
@@ -176,36 +213,41 @@ export async function getLabInbox(
       ? Prisma.empty
       : Prisma.sql`AND b.lab_site_id = ${input.siteId}::uuid`;
   const visible = Prisma.sql`${visibleBookingsSql(visibility)} ${siteFilter}`;
+  // Filtered on the booking table itself, before the per-row reads, so the closed history of a
+  // site is not read on every request.
   const statusFilter =
     input.statuses === undefined || input.statuses.length === 0
-      ? Prisma.sql`(i.status <> ALL(${[...TERMINAL_BOOKING_STATUSES]}::booking_status[])
-                    OR i.pending_approval IS NOT NULL)`
-      : Prisma.sql`i.status = ANY(${[...input.statuses]}::booking_status[])`;
+      ? Prisma.sql`(b.status <> ALL(${[...TERMINAL_BOOKING_STATUSES]}::booking_status[])
+                    OR EXISTS (SELECT 1 FROM receipt_record r
+                                WHERE r.booking_id = b.id AND r.decision IS NULL)
+                    OR EXISTS (SELECT 1 FROM report_version v
+                                WHERE v.booking_id = b.id AND v.status = 'IN_REVIEW'))`
+      : Prisma.sql`b.status = ANY(${[...input.statuses]}::booking_status[])`;
   const cursorFilter =
     after === undefined
       ? Prisma.empty
-      : // The cursor's booking, looked up among the caller's inbox rows: any other id matches no
-        // row, the comparison is NULL and the page is empty.
-        Prisma.sql`AND (i.due_key, i.status_changed_at, i.id) >
-                       (SELECT c.due_key, c.status_changed_at, c.id FROM inbox c
-                         WHERE c.id = ${after}::uuid)`;
+      : Prisma.sql`WHERE (i.due_us, i.changed_us, i.id::uuid) >
+                         (${after.dueUs}::bigint, ${after.changedUs}::bigint, ${after.id}::uuid)`;
   const rows = await tx.$queryRaw<InboxRow[]>(Prisma.sql`
-    WITH inbox AS (${inboxSql(visible)})
-    SELECT i.id::text AS id, i.booking_no, i.status, i.status_changed_at, i.site_id, i.site_code,
-           i.site_name, i.customer_display_name, i.item_name, i.batch_no,
-           i.line_count, i.declared_package_count, i.total_paise, i.slot_starts_at,
-           i.slot_ends_at, i.preferred_drop_date, i.lab_decision_due_at, i.payment_due_at,
-           i.drop_deadline_at, i.expected_report_date, i.pending_approval, i.pending_maker_user_id
-      FROM inbox i
-     WHERE ${statusFilter} ${cursorFilter}
-     ORDER BY i.due_key, i.status_changed_at, i.id
+    SELECT i.id, i.booking_no, i.status, i.status_changed_at, i.site_id, i.site_code,
+           i.site_name, i.customer_display_name, i.item_name, i.batch_no, i.line_count,
+           i.declared_package_count, i.total_paise, i.slot_starts_at, i.slot_ends_at,
+           i.preferred_drop_date, i.lab_decision_due_at, i.payment_due_at, i.drop_deadline_at,
+           i.expected_report_date, i.pending_approval, i.pending_maker_user_id,
+           i.due_us::text AS due_us, i.changed_us::text AS changed_us
+      FROM (${inboxSql(visible, statusFilter)}) i
+     ${cursorFilter}
+     ORDER BY i.due_us, i.changed_us, i.id::uuid
      LIMIT ${limit + 1}`);
   const page = rows.slice(0, limit);
   const last = page.at(-1);
   return {
     data: page.map((row) => toItem(row, actor.userId)),
     page: {
-      nextCursor: rows.length > limit && last !== undefined ? encodeCursor(last.id) : null,
+      nextCursor:
+        rows.length > limit && last !== undefined
+          ? encodeCursor({ dueUs: last.due_us, changedUs: last.changed_us, id: last.id })
+          : null,
       limit,
     },
   };

@@ -88,11 +88,29 @@ describe('lab inbox: GET /v1/lab/inbox', () => {
         'lab_decision_due_at',
         at(30),
       );
+      // A lapsed or pending counter-offer: the booking sorts by the latest offer's expiry.
+      const countered = await make('countered', 'COUNTERED', atA1);
+      await tx.$executeRaw`UPDATE counter_offer SET expires_at = ${at(90)} WHERE booking_id = ${countered}::uuid`;
       await set(await make('accepted', 'ACCEPTED', atA1), 'payment_due_at', at(120));
+      await set(await make('paid', 'PAID', atA1), 'drop_deadline_at', at(150));
       await set(await make('handover', 'HANDOVER_SET', atA1), 'drop_deadline_at', at(180));
       await set(await make('sample', 'SAMPLE_RECORDED', atA1), 'status_changed_at', at(-120));
       await set(await make('report', 'REPORT_IN_REVIEW', atA1), 'status_changed_at', at(-60));
       await make('completed', 'COMPLETED', atA1);
+      // A completed booking with an amendment of its released report in review: terminal, but
+      // listed while the amendment waits for a Checker.
+      const amended = await make('amended', 'COMPLETED', atA1);
+      await set(amended, 'status_changed_at', at(-180));
+      await tx.$executeRaw`
+        INSERT INTO report_version (id, booking_id, customer_org_id, lab_org_id, report_id,
+               version_no, status, is_amendment, amendment_reason, issue_date, original_file_id,
+               original_sha256, bound_package_id, bind_event_id, maker_user_id, submitted_at,
+               verification_code, signing_key_id)
+        SELECT ${randomUUID()}::uuid, booking_id, customer_org_id, lab_org_id, report_id,
+               version_no + 1, 'IN_REVIEW', true, 'DEMO correction', issue_date, original_file_id,
+               original_sha256, bound_package_id, bind_event_id, maker_user_id, now(),
+               ${randomUUID().slice(0, 16).replaceAll('-', 'X').toUpperCase()}, signing_key_id
+          FROM report_version WHERE booking_id = ${amended}::uuid AND status = 'RELEASED'`;
       await make('rejected', 'REJECTED', atA1);
       await make('atLabB', 'REQUESTED', { customer: customerA, lab: labB });
     });
@@ -102,8 +120,11 @@ describe('lab inbox: GET /v1/lab/inbox', () => {
   const expected = () => [
     ids.requestedA2,
     ids.requested,
+    ids.countered,
     ids.accepted,
+    ids.paid,
     ids.handover,
+    ids.amended,
     ids.sample,
     ids.report,
   ];
@@ -132,6 +153,10 @@ describe('lab inbox: GET /v1/lab/inbox', () => {
       pendingApproval: 'REPORT',
       viewerWasMaker: false,
     });
+    expect(itemOf(checker.body, ids.amended)).toMatchObject({
+      booking: { status: 'COMPLETED' },
+      pendingApproval: 'REPORT',
+    });
     // The Maker made both, so another Checker must approve them (EC-54).
     const maker = await inbox(w.labA.user('LAB_MAKER'), '?limit=100');
     expect(maker.status).toBe(200);
@@ -151,7 +176,12 @@ describe('lab inbox: GET /v1/lab/inbox', () => {
     const checker = w.labA.user('LAB_CHECKER');
     const requested = await inbox(checker, '?status=REQUESTED,COMPLETED');
     expect(requested.status).toBe(200);
-    expect(idsOf(requested.body)).toEqual([ids.requestedA2, ids.requested, ids.completed]);
+    expect(idsOf(requested.body)).toEqual([
+      ids.requestedA2,
+      ids.requested,
+      ids.completed,
+      ids.amended,
+    ]);
     const site2 = await inbox(checker, `?siteId=${siteA2Id}`);
     expect(idsOf(site2.body)).toEqual([ids.requestedA2]);
   });
@@ -179,11 +209,37 @@ describe('lab inbox: GET /v1/lab/inbox', () => {
     } while (cursor !== null);
     expect(seen).toEqual(expected());
 
-    // A cursor naming another lab's booking cannot be placed: nothing follows.
-    const foreign = Buffer.from(JSON.stringify({ i: ids.atLabB }), 'utf8').toString('base64url');
-    const empty = await inbox(checker, `?cursor=${foreign}`);
-    expect(empty.status).toBe(200);
-    expect(idsOf(empty.body)).toEqual([]);
+    // A cursor with only an id (no position) is not a cursor of this list.
+    const idOnly = Buffer.from(JSON.stringify({ i: ids.atLabB }), 'utf8').toString('base64url');
+    const refused = await inbox(checker, `?cursor=${idOnly}`, 'cursor is not valid');
+    expect(refused.status).toBe(422);
+    // A forged position only moves the start among the caller's own rows.
+    const forged = Buffer.from(
+      JSON.stringify({ d: '0', s: '0', i: '00000000-0000-0000-0000-000000000000' }),
+      'utf8',
+    ).toString('base64url');
+    const all = await inbox(checker, `?limit=100&cursor=${forged}`);
+    expect(idsOf(all.body)).toEqual(expected());
+  });
+
+  it('keeps its place when the last booking of a page changes before the next page', async () => {
+    const checker = w.labA.user('LAB_CHECKER');
+    const first = await inbox(checker, '?limit=2');
+    expect(idsOf(first.body)).toEqual([ids.requestedA2, ids.requested]);
+    const cursor = (first.body as InboxBody).page.nextCursor;
+    // The Checker acts on the last row: its deadline and status time move.
+    const moved = (sql: string) => t.owner((tx) => tx.$executeRawUnsafe(sql, ids.requested ?? ''));
+    await moved(
+      `UPDATE booking SET lab_decision_due_at = now() + interval '30 days', status_changed_at = now() WHERE id = $1::uuid`,
+    );
+    try {
+      const second = await inbox(checker, `?limit=2&cursor=${String(cursor)}`);
+      expect(idsOf(second.body)).toEqual([ids.countered, ids.accepted]);
+    } finally {
+      await moved(
+        `UPDATE booking SET lab_decision_due_at = '2026-12-01T05:30:00Z' WHERE id = $1::uuid`,
+      );
+    }
   });
 
   it('refuses bad parameters with 422', async () => {
