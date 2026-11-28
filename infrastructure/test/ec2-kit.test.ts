@@ -137,7 +137,7 @@ describe('one-server kit: settings and scripts', () => {
     const required = [...compose.matchAll(/\$\{([A-Z0-9_]+)(?:[}:])/g)].map((m) => m[1] ?? '');
     for (const key of new Set(required)) {
       if (['PLATFORM_ADMIN_EMAIL', 'PLATFORM_ADMIN_NAME'].includes(key)) continue;
-      expect(makeEnv, key).toMatch(new RegExp(`${key}`));
+      expect(makeEnv, key).toMatch(new RegExp(key));
     }
   });
 

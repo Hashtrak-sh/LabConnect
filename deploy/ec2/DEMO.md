@@ -82,6 +82,33 @@ Use `README.md` steps 1 to 3 as they are. Then, from `deploy/ec2`:
 developer machine only** (`uat.localhost`, Caddy's own certificate, ports 58080 and 58443); `up.sh` and the other scripts
 refuse that mode for any other name.
 
+## A server that was set up before this change
+
+`./make-env.sh` refuses to overwrite an existing `.env`, and it must: new secrets would lock the running database out and
+end every session. So on a server that already runs the kit, add the new settings to the existing `deploy/ec2/.env` by
+hand **before** the next `./update.sh` or `docker compose up`. Without them the proxy does not start: the gate fails
+closed. (These steps were written from the settings `make-env.sh` writes; they were **not run** on a server.)
+
+```bash
+cd deploy/ec2
+read -rs GATE_PASSWORD        # type the shared password; nothing is shown
+hash=$(printf '%s
+' "$GATE_PASSWORD" | docker run --rm -i caddy:2.10.0-alpine caddy hash-password | tr -d '
+')
+{
+  echo "TLS_MODE=auto"
+  echo "ACCESS_GATE=on"
+  echo "GATE_USER=demo"
+  echo "GATE_PASSWORD_HASH='$hash'"
+} >> .env
+unset GATE_PASSWORD hash
+```
+
+For the fixed demo code, add one more line with your six digits, `DEMO_OTP_CODE=......`; leave the line out for no demo
+code (the API refuses the variable when it is present but empty). A server whose `.env` was made with the old `--ip`
+option has `SITE_ADDRESS=:80`, which is no longer supported: set `SITE_ADDRESS` to the domain and `WEB_ORIGIN` to
+`https://<domain>` in `.env` as well.
+
 ## The demonstration
 
 Sign in with the published demo accounts and your code. **Enrol the Platform Ops authenticator yourself, and keep its
