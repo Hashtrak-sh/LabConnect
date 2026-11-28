@@ -159,7 +159,7 @@ the order of 10 to 15 GB (the `migrate` image is large because it carries the bu
 database, logs and a few updates. Measured how: `preflight.sh` reads `/proc/meminfo` and `df`; `status.sh` prints the
 container figures.
 
-## Sign-in limits (OQ-240, OQ-264)
+## Sign-in limits (OQ-240, OQ-272)
 
 The API refuses a new one-time code when **20 have been requested from one address in an hour** (all purposes: sign-in and
 lab-claim codes together) or **5 for one e-mail address and purpose in 15 minutes**. Since the sign-in actions pass the
