@@ -116,6 +116,15 @@ describe('the slot hold is released by the timer transitions', () => {
     h.clock.set('2026-11-25T10:00:00Z');
     const id = await h.placeBooking('COUNTERED');
     const slotId = await holdFor(id, 'SOFT');
+    // The offer the timer answers (this harness places the booking without one).
+    await h.db().query(
+      `INSERT INTO counter_offer (id, booking_id, customer_org_id, lab_org_id, per_line_quantity,
+                                  message, expires_at, proposed_by_user_id)
+       SELECT $1, id, customer_org_id, lab_org_id, '[]'::jsonb, 'DEMO counter', $2,
+              requester_user_id
+         FROM booking WHERE id = $3`,
+      [uuid(), new Date('2026-11-26T10:00:00Z'), id],
+    );
     await schedule(id, 'COUNTER_RESPONSE_DUE', new Date('2026-11-26T10:00:00Z'));
     h.clock.set('2026-11-26T10:00:01Z');
     await runDueTimers(h.worker(), h.clock, handlers());
@@ -125,6 +134,13 @@ describe('the slot hold is released by the timer transitions', () => {
       held_count: 0,
       booked_count: 0,
     });
+    // ExpireCounter answers the offer itself: EXPIRED, by no user.
+    expect(
+      await rows<{ status: string; responded_by_user_id: string | null }>(
+        'SELECT status, responded_by_user_id FROM counter_offer WHERE booking_id = $1',
+        [id],
+      ),
+    ).toEqual([{ status: 'EXPIRED', responded_by_user_id: null }]);
   });
 
   it('T-10: an unpaid acceptance expires and its confirmed place is given back', async () => {

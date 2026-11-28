@@ -5,7 +5,7 @@ import type { CoreErrorIssue } from '../platform/errors.js';
 import { BookingError } from './errors.js';
 import type { TransitionRegistry } from './registry.js';
 import { addMinutes, BOOKING_CONFIG_KEYS } from './status-columns.js';
-import type { TransitionContext } from './types.js';
+import type { EffectContext, TransitionContext } from './types.js';
 
 // The lab's decision on a request (I3-LAB-01, BOOKING_STATE_MACHINE §3) and the slot hold it moves:
 // - T-03 AcceptBooking: guard "site still bookable"; the hold converts to a booking (SOFT to
@@ -67,6 +67,45 @@ export async function rejectionReasonNodeId(
   return rows[0]?.id ?? null;
 }
 
+/**
+ * The booking's place in its slot becomes a booked one (T-03, and T-07 without another slot): a
+ * SOFT hold is confirmed (held to booked). A booking with a slot whose hold is gone (released by
+ * expiry) takes a place again, or is refused with `SLOT_UNAVAILABLE`, so an accepted booking
+ * always counts in its slot (BR-011). No slot: nothing to do.
+ */
+export async function confirmSlotHold(context: EffectContext, fullDetail: string): Promise<void> {
+  const hold = await context.tx.slotHold.findFirst({
+    where: { bookingId: context.updated.id, releasedAt: null },
+  });
+  if (hold === null) {
+    const slotId = context.updated.slotId;
+    if (slotId === null) return;
+    const slot = await lockSlot(context.tx, slotId);
+    if (slot === null || !slotHasRoom(slot, context.now)) {
+      throw new BookingError('SLOT_UNAVAILABLE', { detail: fullDetail });
+    }
+    await context.tx.slotHold.create({
+      data: {
+        id: uuidv7(),
+        bookingId: context.updated.id,
+        customerOrgId: context.updated.customerOrgId,
+        labOrgId: context.updated.labOrgId,
+        slotId,
+        kind: 'CONFIRMED',
+      },
+    });
+    await moveSlotPlace(context.tx, slotId, 'book');
+    return;
+  }
+  if (hold.kind === 'CONFIRMED') return;
+  await lockSlot(context.tx, hold.slotId);
+  const changed = await context.tx.slotHold.updateMany({
+    where: { id: hold.id, releasedAt: null, kind: 'SOFT' },
+    data: { kind: 'CONFIRMED', expiresAt: null },
+  });
+  if (changed.count === 1) await moveSlotPlace(context.tx, hold.slotId, 'confirm');
+}
+
 export function registerLabDecisionRules(registry: TransitionRegistry): TransitionRegistry {
   registry.addGuard('T-03', {
     name: 'booking.site-still-bookable',
@@ -87,42 +126,8 @@ export function registerLabDecisionRules(registry: TransitionRegistry): Transiti
 
   registry.addEffect('T-03', {
     name: 'booking.confirm-slot-hold',
-    async run(context) {
-      const hold = await context.tx.slotHold.findFirst({
-        where: { bookingId: context.updated.id, releasedAt: null },
-      });
-      if (hold === null) {
-        // A booking with a slot whose hold is gone (released by expiry): take a place again, or
-        // refuse, so an accepted booking always counts in its slot (BR-011). No slot: nothing to do.
-        const slotId = context.updated.slotId;
-        if (slotId === null) return;
-        const slot = await lockSlot(context.tx, slotId);
-        if (slot === null || !slotHasRoom(slot, context.now)) {
-          throw new BookingError('SLOT_UNAVAILABLE', {
-            detail: 'The booked slot is closed or full: counter with another slot.',
-          });
-        }
-        await context.tx.slotHold.create({
-          data: {
-            id: uuidv7(),
-            bookingId: context.updated.id,
-            customerOrgId: context.updated.customerOrgId,
-            labOrgId: context.updated.labOrgId,
-            slotId,
-            kind: 'CONFIRMED',
-          },
-        });
-        await moveSlotPlace(context.tx, slotId, 'book');
-        return;
-      }
-      if (hold.kind === 'CONFIRMED') return;
-      await lockSlot(context.tx, hold.slotId);
-      const changed = await context.tx.slotHold.updateMany({
-        where: { id: hold.id, releasedAt: null, kind: 'SOFT' },
-        data: { kind: 'CONFIRMED', expiresAt: null },
-      });
-      if (changed.count === 1) await moveSlotPlace(context.tx, hold.slotId, 'confirm');
-    },
+    run: (context) =>
+      confirmSlotHold(context, 'The booked slot is closed or full: counter with another slot.'),
   });
 
   registry.addEffect([...RELEASE_ON], {
@@ -207,6 +212,15 @@ export function registerLabDecisionRules(registry: TransitionRegistry): Transiti
               path: `${path}.unitCode`,
               code: 'INVALID_VALUE',
               message: `The line's unit is ${unit}.`,
+            });
+          } else if (
+            Math.abs(quantity.sampleQty * 1000 - Math.round(quantity.sampleQty * 1000)) >= 1e-6
+          ) {
+            // The line stores DECIMAL(12,3): a finer quantity would be rounded on T-07.
+            issues.push({
+              path: `${path}.sampleQty`,
+              code: 'INVALID_VALUE',
+              message: 'At most three decimals.',
             });
           } else if (quantity.sampleQty <= (quantityOf.get(quantity.lineId.toLowerCase()) ?? 0)) {
             issues.push({
