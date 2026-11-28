@@ -1,11 +1,8 @@
 import type { GatewayCode } from '@labconnect/database';
-import { BookingEngine } from '../booking/engine.js';
-import { registerDefaultBookingEffects } from '../booking/default-effects.js';
-import { TransitionRegistry } from '../booking/registry.js';
+import type { BookingEngine } from '../booking/engine.js';
 import type { BookingEngineServices } from '../booking/types.js';
 import { AesGcmSecretCipher } from '../identity/cipher.js';
 import { parseSecretBytes } from '../identity/hasher.js';
-import { registerPaymentBookingGuards } from './booking-guards.js';
 import { createPaymentGateway, selectGatewayCode, type GatewayEnv } from './gateway-factory.js';
 import type { PaymentGateway } from './gateway.js';
 import { PaymentService } from './service.js';
@@ -32,11 +29,10 @@ export class PaymentsRuntime {
     private readonly env: GatewayEnv,
     private readonly services: BookingEngineServices,
     /**
-     * The booking engine to move bookings with. The worker passes the one engine it builds for
-     * the whole process (default effects and the T-09 guard); without it the runtime builds an
-     * engine of its own, which is what the API does.
+     * The booking engine to move bookings with: the one engine the process builds with the full
+     * registry (`createBookingEngine`, so the T-09 guard and the default effects are there).
      */
-    private readonly sharedEngine?: BookingEngine,
+    private readonly engine: BookingEngine,
   ) {}
 
   /** Fails (throws) if the configured gateway does not exist or may not run here. No secrets needed. */
@@ -63,14 +59,7 @@ export class PaymentsRuntime {
       const cipher = new AesGcmSecretCipher(
         parseSecretBytes(key, 'PAYMENT_PAYLOAD_ENCRYPTION_KEY'),
       );
-      // The engine the payments module moves bookings with: the default booking effects (they
-      // cancel the payment timers when T-09 leaves ACCEPTED) and the T-09 guard.
-      const engine =
-        this.sharedEngine ??
-        new BookingEngine(
-          this.services,
-          registerPaymentBookingGuards(registerDefaultBookingEffects(new TransitionRegistry())),
-        );
+      const engine = this.engine;
       this.serviceInstance = new PaymentService({
         gateway: this.gateway,
         cipher,

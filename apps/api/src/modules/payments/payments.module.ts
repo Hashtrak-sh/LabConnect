@@ -1,12 +1,14 @@
 import { Inject, Module, type OnModuleInit } from '@nestjs/common';
 import {
   AuditService,
+  type BookingEngine,
   ConfigParameters,
   OutboxService,
   PaymentsRuntime,
   TimerService,
   type Clock,
 } from '@labconnect/core';
+import { BOOKING_ENGINE, BookingModule } from '../booking/booking.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { CLOCK } from '../platform/platform.providers.js';
 import { PlatformModule } from '../platform/platform.module.js';
@@ -27,7 +29,8 @@ export type PaymentsEnv = Record<string, string | undefined>;
  */
 @Module({
   // IdentityModule exports TenantScope, the API's only door to the database (P3-04).
-  imports: [PlatformModule, IdentityModule],
+  // BookingModule gives the process's one booking engine (the full transition registry).
+  imports: [PlatformModule, IdentityModule, BookingModule],
   controllers: [PaymentWebhookController],
   providers: [
     { provide: PAYMENTS_ENV, useFactory: (): PaymentsEnv => process.env },
@@ -40,8 +43,17 @@ export type PaymentsEnv = Record<string, string | undefined>;
         outbox: OutboxService,
         timers: TimerService,
         config: ConfigParameters,
-      ) => new PaymentsRuntime(env, { clock, audit, outbox, timers, config }),
-      inject: [PAYMENTS_ENV, CLOCK, AuditService, OutboxService, TimerService, ConfigParameters],
+        engine: BookingEngine,
+      ) => new PaymentsRuntime(env, { clock, audit, outbox, timers, config }, engine),
+      inject: [
+        PAYMENTS_ENV,
+        CLOCK,
+        AuditService,
+        OutboxService,
+        TimerService,
+        ConfigParameters,
+        BOOKING_ENGINE,
+      ],
     },
   ],
   exports: [PaymentsRuntime],

@@ -4,15 +4,13 @@ import {
   type BookingEngineServices,
   type Clock,
   ConfigParameters,
+  createBookingEngine,
   createBookingTimerHandlers,
   createHasPendingPayment,
   OutboxService,
   registerBookingTimerHandlers,
-  registerDefaultBookingEffects,
-  registerPaymentBookingGuards,
   TimerHandlerRegistry,
   TimerService,
-  TransitionRegistry,
 } from '@labconnect/core';
 import { Inject, Injectable, Module, type OnModuleInit } from '@nestjs/common';
 import { CLOCK, PlatformWorkerModule, TIMER_HANDLERS } from '../platform/platform-worker.module.js';
@@ -23,15 +21,12 @@ export const BOOKING_SERVICES = Symbol('BOOKING_SERVICES');
 export const BOOKING_ENGINE = Symbol('BOOKING_ENGINE');
 
 /**
- * The worker's single booking engine. One `TransitionRegistry` holds the default booking
- * effects (they schedule and cancel the booking timers) and the T-09 payment guard (the booking
- * module cannot import payments, so the app adds it, as `PaymentsRuntime` does for the API).
+ * The worker's single booking engine, with the same registry as the API's
+ * (`createBookingEngine`: the default effects, which schedule and cancel the booking timers, and
+ * the T-09 payment guard).
  */
 export function createWorkerBookingEngine(services: BookingEngineServices): BookingEngine {
-  return new BookingEngine(
-    services,
-    registerPaymentBookingGuards(registerDefaultBookingEffects(new TransitionRegistry())),
-  );
+  return createBookingEngine(services);
 }
 
 /**
