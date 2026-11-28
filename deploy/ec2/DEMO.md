@@ -92,9 +92,7 @@ closed. (These steps were written from the settings `make-env.sh` writes; they w
 ```bash
 cd deploy/ec2
 read -rs GATE_PASSWORD        # type the shared password; nothing is shown
-hash=$(printf '%s
-' "$GATE_PASSWORD" | docker run --rm -i caddy:2.10.0-alpine caddy hash-password | tr -d '
-')
+hash=$(printf '%s\n' "$GATE_PASSWORD" | docker run --rm -i caddy:2.10.0-alpine caddy hash-password | tr -d '\r\n')
 {
   echo "TLS_MODE=auto"
   echo "ACCESS_GATE=on"
