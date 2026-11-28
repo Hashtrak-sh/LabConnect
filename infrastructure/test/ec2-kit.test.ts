@@ -169,6 +169,11 @@ describe('one-server kit: settings and scripts', () => {
     const body = /\nensure_build_space\(\) \{\n([\s\S]*?)\n\}/.exec(lib)?.[1] ?? '';
     expect(body).toContain('docker builder prune -af');
     expect(body.indexOf(' die ', body.indexOf('docker builder prune -af'))).toBeGreaterThan(-1);
+    // --fresh always clears before the build; anything else is refused.
+    expect(update).toContain('--fresh) build_mode=fresh ;;');
+    expect(update).toContain('ensure_build_space "$build_mode"');
+    expect(update).toMatch(/\*\) die "unknown option/);
+    expect(body).toMatch(/"\$mode" == fresh[\s\S]*docker builder prune -af/);
   });
 
   it('makes reset-demo ask for an explicit flag, say what it destroys, and keep the certificates', () => {
