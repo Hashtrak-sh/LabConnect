@@ -1,8 +1,12 @@
-import type { components } from '@labconnect/api-contract';
+import { cleanEtag, etagOf } from '@/features/common/problem';
 import { api } from '@/lib/api';
-import { type AdminClaim, type ClaimPage, type ClaimStatus, findClaim } from './ops-model';
-
-type PublicLabSite = components['schemas']['PublicLabSite'];
+import {
+  type AdminClaim,
+  type ClaimPage,
+  type ClaimReadFailure,
+  type ClaimStatus,
+  claimReadFailure,
+} from './ops-model';
 
 export const PAGE_SIZE = 25;
 
@@ -28,22 +32,27 @@ export async function loadClaimPage(
   }
 }
 
-/** One claim and its current version, found through the list (the API has no single read). */
-export function loadClaim(token: string, id: string): Promise<AdminClaim | null> {
-  return findClaim((cursor) => loadClaimPage(token, { status: null, cursor, limit: 100 }), id);
-}
+export type ClaimRead =
+  { kind: 'ok'; claim: AdminClaim; etag: string } | { kind: ClaimReadFailure };
 
 /**
- * The public profile of the claim's site, to show a name and a certificate number where Ops
- * would otherwise see only ids. A listed site is public data; any failure is "unavailable".
+ * `getAdminLabClaim`: one claim with the lab and the claimant, and its `ETag`, which is what
+ * approve and reject expect in `If-Match`. The `ETag` is the one the API sent; the claim's own
+ * `lockVersion` (the same number, as the contract says) is used only if the header is missing.
+ * A claim that cannot be read is never "not found" unless the API said 404.
  */
-export async function loadSite(siteId: string): Promise<PublicLabSite | null> {
+export async function loadClaim(token: string, id: string): Promise<ClaimRead> {
   try {
-    const { data } = await api().GET('/public/lab-sites/{siteId}', {
-      params: { path: { siteId } },
+    const { data, response } = await api(token).GET('/admin/claims/{id}', {
+      params: { path: { id } },
     });
-    return data ?? null;
+    if (data === undefined) return { kind: claimReadFailure(response.status) };
+    return {
+      kind: 'ok',
+      claim: data,
+      etag: cleanEtag(response.headers.get('etag')) ?? etagOf(data.lockVersion),
+    };
   } catch {
-    return null;
+    return { kind: 'unavailable' };
   }
 }

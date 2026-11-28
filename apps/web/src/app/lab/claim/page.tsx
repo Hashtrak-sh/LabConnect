@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { Alert, Card, formatDateTime } from '@labconnect/ui';
+import { Alert, Card } from '@labconnect/ui';
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import messages from '../../../../messages/en.json';
-import { roleLabel, gate } from '@/features/access/access';
+import { gate, roleLabel } from '@/features/access/access';
 import { isPlatformStaff, labMemberships } from '@/features/access/roles';
-import { loadJar } from '@/features/claim/claim-jar';
-import { ClaimStatusBadge } from '@/features/claim/ClaimStatusBadge';
+import { loadMyClaims } from '@/features/claim/claim-data';
+import { ClaimList } from '@/features/claim/ClaimList';
+import { hasLegacyClaimsCookie } from '@/features/claim/legacy-cookie';
 import { StartClaimForm } from '@/features/claim/StartClaimForm';
 import { t } from '@/lib/i18n';
 
@@ -15,16 +16,32 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/** The API's cursor from the address: opaque, one value, never longer than a cursor can be. */
+function readCursor(raw: string | string[] | undefined): string | null {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return value !== undefined && value !== '' && value.length <= 500 ? value : null;
+}
+
 /**
  * Claim a lab (board H4), for any signed-in user who is not platform staff: the certificate number
- * form, the claims this browser knows, and the labs the user already belongs to (what an approved
- * claim becomes). A signed-out visitor gets the sign-in panel of board G3, which returns here.
+ * form, the claims the API lists for this person (`listMyLabClaims`, the same on every device),
+ * and the labs the user already belongs to (what an approved claim becomes). Platform staff are
+ * told they cannot claim and the claimant reads are not called for them (the API would answer
+ * 403). A signed-out visitor gets the sign-in panel of board G3, which returns here.
  */
-export default async function ClaimPage() {
+export default async function ClaimPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // The claims record of the earlier build (a cookie) is deleted once; nothing reads it.
+  if (await hasLegacyClaimsCookie()) redirect('/lab/claim/forget-old-copy');
   const access = await gate();
   if (!access.ok) return access.panel;
   const { user } = access;
-  const jar = await loadJar(user.id);
+  const cursor = readCursor((await searchParams).cursor);
+  const staff = isPlatformStaff(user);
+  const page = staff ? null : await loadMyClaims(access.token, cursor);
   const labs = labMemberships(user);
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 py-6">
@@ -48,46 +65,28 @@ export default async function ClaimPage() {
           </ul>
         </section>
       )}
-      <Card className="p-5">
-        {isPlatformStaff(user) ? (
+      {staff ? (
+        <Card className="p-5">
           <Alert tone="warning" title={t('claim.staffTitle')}>
             {t('claim.staff')}
           </Alert>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold">{t('claim.findTitle')}</h2>
-            <StartClaimForm text={messages.claim} initialKey={randomUUID()} />
-          </div>
-        )}
-      </Card>
-      <section aria-labelledby="your-claims" className="flex flex-col gap-2">
-        <h2 id="your-claims" className="text-lg font-semibold">
-          {t('claim.yourClaims')}
-        </h2>
-        {jar.claims.length === 0 ? (
-          <p className="text-text-muted">{t('claim.noClaims')}</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {jar.claims.map((claim) => (
-              <li key={claim.id}>
-                <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <Link href={`/lab/claim/${claim.id}`} className="font-medium">
-                      {claim.siteName}
-                    </Link>
-                    <p className="text-sm text-text-muted">
-                      {t('claim.certificate', { number: claim.certificateNo })} ·{' '}
-                      {formatDateTime(claim.createdAt)}
-                    </p>
-                  </div>
-                  <ClaimStatusBadge status={claim.status} />
-                </Card>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="text-sm text-text-muted">{t('claim.knownHere')}</p>
-      </section>
+        </Card>
+      ) : (
+        <>
+          <Card className="p-5">
+            <div className="flex flex-col gap-4">
+              <h2 className="text-lg font-semibold">{t('claim.findTitle')}</h2>
+              <StartClaimForm text={messages.claim} initialKey={randomUUID()} />
+            </div>
+          </Card>
+          <section aria-labelledby="your-claims" className="flex flex-col gap-2">
+            <h2 id="your-claims" className="text-lg font-semibold">
+              {t('claim.yourClaims')}
+            </h2>
+            {page !== null && <ClaimList page={page} cursor={cursor} />}
+          </section>
+        </>
+      )}
     </div>
   );
 }

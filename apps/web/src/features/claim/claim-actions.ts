@@ -1,30 +1,27 @@
 'use server';
 
 import { randomUUID } from 'node:crypto';
-import type { components } from '@labconnect/api-contract';
 import { formatTime } from '@labconnect/ui';
 import { redirect } from 'next/navigation';
 import { actionGate } from '@/features/access/access';
 import { isPlatformStaff } from '@/features/access/roles';
-import { cleanEtag, formKey, isUuid, type Problem, readProblem } from '@/features/common/problem';
+import { cleanEtag, formKey, isUuid, readProblem } from '@/features/common/problem';
 import { api } from '@/lib/api';
-import { loadJar, saveJar } from './claim-jar';
+import { loadMyClaim } from './claim-data';
 import {
-  type ClaimRecord,
   checkLetterhead,
   readCertificate,
   readClaimCode,
-  removeClaim,
+  type ReloadNotice,
+  reloadFor,
   type StartOutcome,
   startOutcome,
   submitOutcome,
   type UploadOutcome,
   uploadOutcome,
-  upsertClaim,
   verifyOutcome,
 } from './claim-model';
-
-type LabClaim = components['schemas']['LabClaim'];
+import { dropLegacyClaimsCookie } from './legacy-cookie';
 
 function retryAt(seconds: number | undefined): string | undefined {
   return seconds === undefined
@@ -41,19 +38,14 @@ function field(form: FormData, name: string): string {
   return typeof value === 'string' ? value : '';
 }
 
-function toRecord(claim: LabClaim, etag: string, certificateNo: string): ClaimRecord {
-  return {
-    id: claim.id,
-    etag,
-    status: claim.status,
-    method: claim.method,
-    otpSentTo: claim.otpSentTo,
-    siteName: claim.labSite.name,
-    certificateNo,
-    createdAt: claim.createdAt,
-    reviewedAt: claim.reviewedAt,
-    decisionNotes: claim.decisionNotes,
-  };
+/**
+ * Leaves the form for the claim's own page, which reads the claim from the API again. `notice`
+ * says why (`changed`: the version moved since the page was loaded; `moved`: the claim is in
+ * another state than the form was for). The page shows the state as it is now. Nothing personal
+ * is in the address.
+ */
+function showClaim(id: string, notice: ReloadNotice | null): never {
+  redirect(notice === null ? `/lab/claim/${id}` : `/lab/claim/${id}?n=${notice}`);
 }
 
 // ---- Start: the certificate number -----------------------------------------------------------
@@ -65,22 +57,21 @@ export interface StartState {
   retryAt?: string;
   /** What was typed, kept when something went wrong. */
   certificateNo: string;
-  /** For `own-review`: the claim of this browser that is already in review. */
-  ownClaimId?: string;
   key: string;
 }
 
 /**
  * `startLabClaim`: finds the lab by certificate number and sends a code to the address NABL has on
- * record (the API shows it masked; this screen shows it exactly as returned). The answer is saved
- * as a record of this browser and the page is left for the claim's own page, so a reload of it
- * never posts the form again.
+ * record (the API shows it masked; this screen shows it exactly as returned). On success the page
+ * is left for the claim's own page, so a reload of it never posts the form again. Nothing is
+ * remembered in the browser: the claim list comes from the API.
  */
 export async function startClaimAction(_previous: StartState, form: FormData): Promise<StartState> {
   const typed = field(form, 'certificateNo');
   const next = (state: Omit<StartState, 'key'>): StartState => ({ ...state, key: randomUUID() });
   const gate = await actionGate();
   if (!gate.ok) return next({ notice: 'signed-out', certificateNo: typed });
+  await dropLegacyClaimsCookie();
   if (isPlatformStaff(gate.user)) return next({ notice: 'staff', certificateNo: typed });
   const certificate = readCertificate(typed);
   if (!certificate.ok) return next({ notice: 'invalid', certificateNo: typed });
@@ -89,148 +80,114 @@ export async function startClaimAction(_previous: StartState, form: FormData): P
     params: { header: { 'Idempotency-Key': keyOf(form) } },
     body: { certificateNo: certificate.value },
   });
-  const etag = cleanEtag(response.headers.get('etag'));
-  if (data !== undefined && etag !== null) {
-    const jar = await loadJar(gate.user.id);
-    await saveJar(upsertClaim(jar, toRecord(data, etag, certificate.value)));
-    redirect(`/lab/claim/${data.id}`);
-  }
-  if (data !== undefined) return next({ notice: 'failed', certificateNo: certificate.value });
+  if (data !== undefined) showClaim(data.id, null);
   const problem = readProblem(response, error);
   const outcome = startOutcome(problem);
   const at = outcome === 'rate-limited' ? retryAt(problem.retryAfterSeconds) : undefined;
-  const own =
-    outcome === 'own-review'
-      ? (await loadJar(gate.user.id)).claims.find(
-          (claim) => claim.certificateNo === certificate.value,
-        )
-      : undefined;
   return next({
     notice: outcome,
     certificateNo: certificate.value,
     ...(at === undefined ? {} : { retryAt: at }),
-    ...(own === undefined ? {} : { ownClaimId: own.id }),
   });
 }
 
-// ---- One claim: the code, a new code, reloading, the letterhead -------------------------------
+// ---- One claim: the code, a new code, the letterhead -----------------------------------------
 
 /** The forms on a claim's page (board H4 steps 2 and 3). */
 export interface ClaimState {
   notice?:
     | 'signed-out'
     | 'code-sent'
-    | 'reloaded'
     | 'code-invalid'
     | 'code-expired'
     | 'locked'
     | 'rate-limited'
     | 'cap'
-    | 'changed'
-    | 'in-review'
-    | 'expired'
-    | 'not-open'
+    | 'cert-invalid'
+    | 'cert-not-found'
     | 'not-found'
     | 'scanning'
     | 'failed';
   retryAt?: string;
+  /**
+   * The version of the claim as the API gave it with the last answer, so the next form of the
+   * page goes back with the version that is true now (a wrong code does not change the claim, a
+   * new code does).
+   */
+  etag?: string;
   key: string;
 }
 
-/** The record of this claim in this browser, for the signed-in user only; else `null`. */
-async function ownRecord(userId: string, id: string): Promise<ClaimRecord | null> {
-  if (!isUuid(id)) return null;
-  return (await loadJar(userId)).claims.find((claim) => claim.id === id) ?? null;
-}
+type Next = (notice: ClaimState['notice'], retry?: string, etag?: string | null) => ClaimState;
 
-/** Writes what a refused call taught us about the claim's state, then shows the claim again. */
-async function learn(
-  userId: string,
-  record: ClaimRecord,
-  status: ClaimRecord['status'] | null,
-): Promise<void> {
-  const jar = await loadJar(userId);
-  await saveJar(
-    status === null ? removeClaim(jar, record.id) : upsertClaim(jar, { ...record, status }),
-  );
+/**
+ * The version of the claim as the API has it now, for the form to carry on with; `undefined`
+ * when it cannot be read (the form then keeps the one it had and a 412 would say so).
+ */
+async function freshEtag(token: string, id: string): Promise<string | undefined> {
+  const read = await loadMyClaim(token, id);
+  return read.kind === 'ok' && read.etag !== null ? read.etag : undefined;
 }
-
-type Next = (notice: ClaimState['notice'], retry?: string) => ClaimState;
 
 async function verify(
-  userId: string,
   token: string,
-  record: ClaimRecord,
+  claimId: string,
   form: FormData,
   next: Next,
 ): Promise<ClaimState> {
   const code = readClaimCode(field(form, 'code'));
   if (code === null) return next('code-invalid');
-  // The version of the claim as the page loaded it (a hidden field); only a strong ETag goes on.
+  // The version of the claim as the page read it (a hidden field); only a strong ETag goes on.
   const etag = cleanEtag(field(form, 'etag'));
-  if (etag === null) return next('changed');
+  if (etag === null) return showClaim(claimId, 'changed');
   const { data, response, error } = await api(token).POST('/lab/claims/{id}/verify-otp', {
     params: {
-      path: { id: record.id },
+      path: { id: claimId },
       header: { 'Idempotency-Key': keyOf(form), 'If-Match': etag },
     },
     body: { code },
   });
-  const fresh = cleanEtag(response.headers.get('etag'));
-  if (data !== undefined && fresh !== null) {
-    const jar = await loadJar(userId);
-    await saveJar(upsertClaim(jar, toRecord(data, fresh, record.certificateNo)));
-    redirect(`/lab/claim/${record.id}`);
-  }
-  if (data !== undefined) return next('failed');
+  if (data !== undefined) return showClaim(claimId, null);
   const problem = readProblem(response, error);
   const outcome = verifyOutcome(problem);
-  if (outcome === 'in-review') await learn(userId, record, 'PENDING_REVIEW');
-  if (outcome === 'expired') await learn(userId, record, 'EXPIRED');
-  if (outcome === 'not-found') await learn(userId, record, null);
+  const reload = reloadFor(outcome);
+  if (reload !== null) return showClaim(claimId, reload);
   if (outcome === 'locked' || outcome === 'rate-limited')
     return next(outcome, retryAt(problem.retryAfterSeconds));
-  if (outcome === 'signed-out') return next('signed-out');
-  return next(outcome === 'not-open' ? 'not-open' : outcome);
+  if (outcome === 'code-invalid' || outcome === 'code-expired')
+    return next(outcome, undefined, await freshEtag(token, claimId));
+  return next(outcome === 'signed-out' ? 'signed-out' : 'failed');
 }
 
 /**
- * A new code, or "reload the claim": the API can only be asked about a claim by starting it again
- * with its certificate number (it has no read operation), which sends a new code for the caller's
- * own open claim and returns it with its current version. Used for "Send a new code" and after a
- * 412 (the claim changed since the page was loaded).
+ * A new code. The claim does not say which certificate it was started with (OQ-259), so the
+ * person types it again and the claim is started again by it: for their own open claim that sends
+ * a new code and returns the same claim; for a certificate of another lab it starts that claim
+ * and the page goes there. Nothing is read from the browser.
  */
-async function restart(
-  userId: string,
+async function resend(
   token: string,
-  record: ClaimRecord,
+  claimId: string,
   form: FormData,
   next: Next,
-  after: 'code-sent' | 'reloaded',
 ): Promise<ClaimState> {
+  const certificate = readCertificate(field(form, 'certificateNo'));
+  if (!certificate.ok) return next('cert-invalid');
   const { data, response, error } = await api(token).POST('/lab/claims', {
     params: { header: { 'Idempotency-Key': keyOf(form) } },
-    body: { certificateNo: record.certificateNo },
+    body: { certificateNo: certificate.value },
   });
-  const etag = cleanEtag(response.headers.get('etag'));
-  if (data !== undefined && etag !== null) {
-    const jar = await loadJar(userId);
-    await saveJar(upsertClaim(jar, toRecord(data, etag, record.certificateNo)));
-    // 201: the old claim had expired and this is a new one with its own page.
-    if (data.id !== record.id) redirect(`/lab/claim/${data.id}`);
-    return next(after);
+  if (data !== undefined) {
+    // 201: another claim (the old one had expired, or another lab); it has its own page.
+    if (data.id !== claimId) return showClaim(data.id, null);
+    return next('code-sent', undefined, cleanEtag(response.headers.get('etag')));
   }
-  if (data !== undefined) return next('failed');
-  const problem: Problem = readProblem(response, error);
+  const problem = readProblem(response, error);
   const outcome = startOutcome(problem);
-  if (outcome === 'own-review') {
-    await learn(userId, record, 'PENDING_REVIEW');
-    return next('in-review');
-  }
-  if (outcome === 'claimed') {
-    await learn(userId, record, null);
-    return next('not-open');
-  }
+  // For `startLabClaim` "not found" is the 422 of an unknown certificate, not a missing claim.
+  if (outcome === 'not-found') return next('cert-not-found');
+  const reload = reloadFor(outcome);
+  if (reload !== null) return showClaim(claimId, reload);
   if (outcome === 'rate-limited') return next('rate-limited', retryAt(problem.retryAfterSeconds));
   if (outcome === 'cap') return next('cap');
   if (outcome === 'signed-out') return next('signed-out');
@@ -238,61 +195,56 @@ async function restart(
 }
 
 async function submitLetter(
-  userId: string,
   token: string,
-  record: ClaimRecord,
+  claimId: string,
   form: FormData,
   next: Next,
 ): Promise<ClaimState> {
   const fileId = field(form, 'fileId');
   const etag = cleanEtag(field(form, 'etag'));
   if (!isUuid(fileId)) return next('failed');
-  if (etag === null) return next('changed');
+  if (etag === null) return showClaim(claimId, 'changed');
   const { data, response, error } = await api(token).POST('/lab/claims/{id}/manual', {
     params: {
-      path: { id: record.id },
+      path: { id: claimId },
       header: { 'Idempotency-Key': keyOf(form), 'If-Match': etag },
     },
     body: { fileId },
   });
-  const fresh = cleanEtag(response.headers.get('etag'));
-  if (data !== undefined && fresh !== null) {
-    const jar = await loadJar(userId);
-    await saveJar(upsertClaim(jar, toRecord(data, fresh, record.certificateNo)));
-    redirect(`/lab/claim/${record.id}`);
-  }
-  if (data !== undefined) return next('failed');
+  if (data !== undefined) return showClaim(claimId, null);
   const outcome = submitOutcome(readProblem(response, error));
-  if (outcome === 'in-review') await learn(userId, record, 'PENDING_REVIEW');
-  if (outcome === 'expired') await learn(userId, record, 'EXPIRED');
-  if (outcome === 'not-found') await learn(userId, record, null);
-  return next(outcome);
+  const reload = reloadFor(outcome);
+  if (reload !== null) return showClaim(claimId, reload);
+  return next(
+    outcome === 'scanning' ? 'scanning' : outcome === 'signed-out' ? 'signed-out' : 'failed',
+  );
 }
 
 /**
- * The forms of a claim's page, one server action; `intent` is `verify`, `resend`, `reload` or
- * `submit`. The claim is the one this browser remembers for the signed-in user, looked up by the
- * id in the form; any other id is "not found" here, and the API answers 404 for it as well.
+ * The forms of a claim's page, one server action; `intent` is `verify`, `resend` or `submit`.
+ * The claim id comes from the form and is only ever passed on as a path to the API, which answers
+ * 404 for a claim that is not the caller's (the same answer as for one that does not exist). A
+ * `412` or `409` is never patched up here: the page is shown again from a fresh read.
  */
 export async function claimAction(_previous: ClaimState, form: FormData): Promise<ClaimState> {
-  const next: Next = (notice, retry) => ({
+  const next: Next = (notice, retry, etag) => ({
     ...(notice === undefined ? {} : { notice }),
     ...(retry === undefined ? {} : { retryAt: retry }),
+    ...(etag === undefined || etag === null ? {} : { etag }),
     key: randomUUID(),
   });
   const gate = await actionGate();
   if (!gate.ok) return next('signed-out');
-  const record = await ownRecord(gate.user.id, field(form, 'claimId'));
-  if (record === null) return next('not-found');
+  await dropLegacyClaimsCookie();
+  const claimId = field(form, 'claimId');
+  if (!isUuid(claimId)) return next('not-found');
   switch (field(form, 'intent')) {
     case 'verify':
-      return verify(gate.user.id, gate.token, record, form, next);
+      return verify(gate.token, claimId, form, next);
     case 'resend':
-      return restart(gate.user.id, gate.token, record, form, next, 'code-sent');
-    case 'reload':
-      return restart(gate.user.id, gate.token, record, form, next, 'reloaded');
+      return resend(gate.token, claimId, form, next);
     case 'submit':
-      return submitLetter(gate.user.id, gate.token, record, form, next);
+      return submitLetter(gate.token, claimId, form, next);
     default:
       return next(undefined);
   }
@@ -312,12 +264,12 @@ export type UploadTicket =
  * to storage (FILES_AND_REPORTS §1: "files never pass through the app servers"), so this server
  * never sees it and cannot look inside; the scan and validation behind the URL do.
  * The URL is returned to the caller only: never logged, stored or put in a cookie or address.
+ * A claim that is not the caller's is a 404 from the API, shown as "not open any more".
  */
 export async function requestLetterheadUploadAction(request: UploadRequest): Promise<UploadTicket> {
   const gate = await actionGate();
   if (!gate.ok) return { ok: false, reason: 'signed-out' };
-  const record = await ownRecord(gate.user.id, request.claimId);
-  if (record === null) return { ok: false, reason: 'not-found' };
+  if (!isUuid(request.claimId)) return { ok: false, reason: 'not-found' };
   const checked = checkLetterhead({
     contentType: request.contentType,
     sizeBytes: request.sizeBytes,
@@ -326,7 +278,7 @@ export async function requestLetterheadUploadAction(request: UploadRequest): Pro
   const { data, response, error } = await api(gate.token).POST(
     '/lab/claims/{id}/manual/upload-url',
     {
-      params: { path: { id: record.id }, header: { 'Idempotency-Key': randomUUID() } },
+      params: { path: { id: request.claimId }, header: { 'Idempotency-Key': randomUUID() } },
       body: { contentType: checked.contentType, sizeBytes: checked.sizeBytes },
     },
   );
@@ -342,8 +294,5 @@ export async function requestLetterheadUploadAction(request: UploadRequest): Pro
       ),
     };
   }
-  const outcome = uploadOutcome(readProblem(response, error));
-  if (outcome === 'in-review') await learn(gate.user.id, record, 'PENDING_REVIEW');
-  if (outcome === 'expired') await learn(gate.user.id, record, 'EXPIRED');
-  return { ok: false, reason: outcome };
+  return { ok: false, reason: uploadOutcome(readProblem(response, error)) };
 }

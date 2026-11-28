@@ -1,32 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
-  type AdminClaim,
+  approvalBlockers,
+  certificateNumbers,
+  claimReadFailure,
   approvalNotes,
   decisionOutcome,
   downloadOutcome,
-  findClaim,
   isFollowableUrl,
+  lineBreaks,
   readRejectReason,
   readStatusFilter,
   rejectionNotes,
 } from './ops-model';
-
-function claim(id: string): AdminClaim {
-  return {
-    id,
-    organisationId: 'o',
-    labSiteId: 's',
-    requestedByUserId: 'u',
-    method: 'EMAIL_OTP',
-    status: 'PENDING_REVIEW',
-    authorisationFileId: null,
-    reviewedByUserId: null,
-    reviewedAt: null,
-    decisionNotes: null,
-    createdAt: '2026-11-27T05:00:00.000Z',
-    lockVersion: 2,
-  };
-}
 
 describe('decision outcomes', () => {
   it('maps the refused states the Ops screens show', () => {
@@ -87,33 +72,6 @@ describe('the list and its filter', () => {
     expect(readStatusFilter('DROP TABLE')).toBeNull();
     expect(readStatusFilter(undefined)).toBeNull();
   });
-
-  it('walks the pages until it finds the claim', async () => {
-    const pages: Record<string, { data: AdminClaim[]; nextCursor: string | null }> = {
-      start: { data: [claim('a'), claim('b')], nextCursor: 'c1' },
-      c1: { data: [claim('c')], nextCursor: 'c2' },
-      c2: { data: [claim('d')], nextCursor: null },
-    };
-    const seen: (string | null)[] = [];
-    const fetchPage = (cursor: string | null) => {
-      seen.push(cursor);
-      return Promise.resolve(pages[cursor ?? 'start'] ?? null);
-    };
-    expect((await findClaim(fetchPage, 'c'))?.id).toBe('c');
-    expect(seen).toEqual([null, 'c1']);
-    expect(await findClaim(fetchPage, 'zzz')).toBeNull();
-  });
-
-  it('stops after the page limit and when a page cannot be read', async () => {
-    let calls = 0;
-    const endless = () => {
-      calls++;
-      return Promise.resolve({ data: [claim('a')], nextCursor: 'more' });
-    };
-    expect(await findClaim(endless, 'nope', 3)).toBeNull();
-    expect(calls).toBe(3);
-    expect(await findClaim(() => Promise.resolve(null), 'a')).toBeNull();
-  });
 });
 
 describe('notes', () => {
@@ -141,5 +99,45 @@ describe('notes', () => {
     expect(approvalNotes('')).toBeUndefined();
     expect(approvalNotes('  ok ')).toBe('ok');
     expect(approvalNotes('x'.repeat(2001))).toBeNull();
+  });
+});
+
+describe('reading one claim', () => {
+  it('tells not found, no access and an unavailable service apart', () => {
+    expect(claimReadFailure(401)).toBe('signed-out');
+    expect(claimReadFailure(403)).toBe('forbidden');
+    expect(claimReadFailure(404)).toBe('not-found');
+    expect(claimReadFailure(422)).toBe('not-found');
+    // A service that does not answer is never worded as "not found".
+    expect(claimReadFailure(500)).toBe('unavailable');
+    expect(claimReadFailure(503)).toBe('unavailable');
+    expect(claimReadFailure(429)).toBe('unavailable');
+    expect(claimReadFailure(undefined)).toBe('unavailable');
+  });
+});
+
+describe('what the claim already says about the approval', () => {
+  it('names a claimant who belongs to a lab or to the platform', () => {
+    expect(approvalBlockers([])).toEqual([]);
+    expect(approvalBlockers(['CUSTOMER'])).toEqual([]);
+    expect(approvalBlockers(['CUSTOMER', 'LAB'])).toEqual(['LAB']);
+    expect(approvalBlockers(['PLATFORM'])).toEqual(['PLATFORM']);
+    expect(approvalBlockers(['LAB', 'PLATFORM'])).toEqual(['LAB', 'PLATFORM']);
+  });
+
+  it('writes the certificate numbers as one line, or nothing', () => {
+    expect(certificateNumbers(['TC-1', 'TC-2'])).toBe('TC-1, TC-2');
+    expect(certificateNumbers([])).toBeNull();
+  });
+});
+
+describe('line breaks in notes', () => {
+  it('counts the CRLF a browser sends as one character, so 2,000 characters with breaks fit', () => {
+    const typed = `a\r\nb\r\n${'x'.repeat(1996)}`;
+    expect(typed.length).toBe(2000 + 2);
+    expect(lineBreaks(typed)).toBe(`a\nb\n${'x'.repeat(1996)}`);
+    expect(rejectionNotes(null, typed).ok).toBe(true);
+    expect(rejectionNotes(null, `${typed}y`).ok).toBe(false);
+    expect(approvalNotes(typed)).toBe(lineBreaks(typed));
   });
 });

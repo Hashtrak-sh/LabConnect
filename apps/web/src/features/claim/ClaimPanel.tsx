@@ -207,12 +207,16 @@ export function ClaimPanel({
         : undefined;
   const expired = state.notice === 'code-expired';
   const locked = state.notice === 'locked';
+  const certError =
+    state.notice === 'cert-invalid'
+      ? text.certInvalid
+      : state.notice === 'cert-not-found'
+        ? text.resendNotFound
+        : undefined;
 
   const banner =
     state.notice === 'code-sent' ? (
       <Alert tone="success">{text.codeResent}</Alert>
-    ) : state.notice === 'reloaded' ? (
-      <Alert tone="info">{text.reloaded}</Alert>
     ) : state.notice === 'locked' ? (
       <Alert tone="danger" title={text.lockedTitle}>
         {retry === undefined ? text.lockedNoTime : fill(text.locked, retry)}
@@ -225,10 +229,6 @@ export function ClaimPanel({
       <Alert tone="warning" title={text.capTitle}>
         {text.cap}
       </Alert>
-    ) : state.notice === 'changed' ? (
-      <Alert tone="warning" title={text.changedTitle}>
-        {text.changed}
-      </Alert>
     ) : state.notice === 'scanning' ? (
       <Alert tone="warning">{text.letterScanning}</Alert>
     ) : state.notice === 'signed-out' ? (
@@ -238,17 +238,16 @@ export function ClaimPanel({
       </Alert>
     ) : state.notice === 'failed' ? (
       <Alert tone="danger">{text.failed}</Alert>
-    ) : state.notice === 'in-review' ||
-      state.notice === 'expired' ||
-      state.notice === 'not-open' ||
-      state.notice === 'not-found' ? (
+    ) : state.notice === 'not-found' ? (
       <Alert tone="info">{text.movedOn}</Alert>
     ) : null;
 
+  // The version the last answer gave, else the one the page was read with (`If-Match`).
+  const currentEtag = state.etag ?? etag;
   const hidden = (
     <>
       <input type="hidden" name="claimId" value={claimId} />
-      <input type="hidden" name="etag" value={etag} />
+      <input type="hidden" name="etag" value={currentEtag} />
       <input type="hidden" name="key" value={state.key} />
     </>
   );
@@ -300,21 +299,38 @@ export function ClaimPanel({
                 {pending ? text.verifying : text.verify}
               </Button>
             )}
-            <Button
-              type="submit"
-              name="intent"
-              value="resend"
-              variant={expired ? 'primary' : 'secondary'}
-              formNoValidate
-            >
-              {expired ? text.sendNew : text.resend}
-            </Button>
-            {state.notice === 'changed' && (
-              <Button type="submit" name="intent" value="reload" variant="secondary" formNoValidate>
-                {text.reload}
-              </Button>
-            )}
           </div>
+        </form>
+      )}
+      {otpSentTo !== null && (
+        <form action={action} className="flex flex-col gap-3 rounded-md border border-border p-4">
+          <h2 className="font-medium text-text">{text.resendTitle}</h2>
+          <p className="text-sm text-text-muted">{text.resendHelp}</p>
+          {hidden}
+          <Field
+            id="resend-certificate"
+            label={text.certLabel}
+            {...(certError === undefined ? {} : { error: certError })}
+          >
+            <Input
+              {...fieldProps('resend-certificate', {
+                ...(certError === undefined ? {} : { error: certError }),
+              })}
+              name="certificateNo"
+              autoComplete="off"
+              maxLength={50}
+              className="max-w-sm"
+            />
+          </Field>
+          <Button
+            type="submit"
+            name="intent"
+            value="resend"
+            variant={expired ? 'primary' : 'secondary'}
+            className="self-start"
+          >
+            {text.resend}
+          </Button>
         </form>
       )}
       <details open={otpSentTo === null || locked} className="rounded-md border border-border p-4">
@@ -325,7 +341,7 @@ export function ClaimPanel({
           <Letterhead
             text={text}
             claimId={claimId}
-            etag={etag}
+            etag={currentEtag}
             stateKey={state.key}
             action={action}
             pending={pending}
