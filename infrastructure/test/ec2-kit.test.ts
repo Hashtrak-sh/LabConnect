@@ -155,6 +155,22 @@ describe('one-server kit: settings and scripts', () => {
     }
   });
 
+  it('records the script process id in the lock, so a live script is told apart from a dead one', () => {
+    expect(lib).toContain('echo $$ >"$lock/pid"');
+    expect(lib).toContain('kill -0 "$owner"');
+  });
+
+  it('checks the free disk space before building on update', () => {
+    const update = scripts.find((s) => s.name === 'update.sh')?.text ?? '';
+    const check = update.indexOf('\nensure_build_space');
+    expect(check).toBeGreaterThan(-1);
+    expect(check).toBeLessThan(update.indexOf('\ndc build'));
+    // Bounded to the function body: `\n}` ends it, so a `die` of a later function does not count.
+    const body = /\nensure_build_space\(\) \{\n([\s\S]*?)\n\}/.exec(lib)?.[1] ?? '';
+    expect(body).toContain('docker builder prune -af');
+    expect(body.indexOf(' die ', body.indexOf('docker builder prune -af'))).toBeGreaterThan(-1);
+  });
+
   it('makes reset-demo ask for an explicit flag, say what it destroys, and keep the certificates', () => {
     const reset = scripts.find((s) => s.name === 'reset-demo.sh')?.text ?? '';
     expect(reset).toContain('--yes-destroy-the-database');

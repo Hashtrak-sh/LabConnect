@@ -17,7 +17,7 @@ Only Caddy is published. The API, the database and the rest are reachable only i
 
 | Item | Suggestion |
 |---|---|
-| EC2 instance | **t3.large** (2 vCPU, 8 GB) or bigger, **Ubuntu 24.04**, 30 GB gp3 disk, region ap-south-1 |
+| EC2 instance | **t3.large** (2 vCPU, 8 GB) or bigger, **Ubuntu 24.04**, 50 GB gp3 disk (30 GB filled up after a few updates), region ap-south-1 |
 | Elastic IP | Attach one, so the address survives a stop and start |
 | Security group | 22 from the developers' addresses only; **443 from the listed addresses only; 80 from everyone** (certificate challenge and redirect only, and renewal needs it): the table is in `DEMO.md` |
 | Domain (required) | An A record, e.g. `uat.labconnect.<yours>` → the Elastic IP. The server runs HTTPS only; there is no plain-HTTP mode |

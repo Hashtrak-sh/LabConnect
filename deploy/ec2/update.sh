@@ -2,7 +2,9 @@
 # Brings the server to the latest commit of the branch it is on, with the old containers kept
 # running while the new images are built:
 #   1. git pull --ff-only          (SKIP_PULL=yes to skip, e.g. for a local change)
-#   2. build the images            (the running containers are untouched; a failed build stops here)
+#   2. check the free disk space   (below MIN_BUILD_GB, default 15: delete the build cache and
+#                                    unused images, and stop if that is still not enough)
+#      build the images            (the running containers are untouched; a failed build stops here)
 #   3. apply the migrations        (the old code keeps running for these seconds)
 #   4. recreate only what changed, then wait for health
 #   5. delete dangling images and build cache older than three days
@@ -19,6 +21,8 @@ else
   git -C "$KIT" pull --ff-only
 fi
 git -C "$KIT" log -1 --format='    now at %h %s' 2>/dev/null || true
+
+ensure_build_space
 
 step "building the new images while the old containers keep running"
 export COMPOSE_PARALLEL_LIMIT=1
