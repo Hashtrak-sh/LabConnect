@@ -449,7 +449,7 @@ export class LabDirectoryService {
  * organisation claimed with KYC verified, a `TESTING` accreditation in force, and a `PUBLISHED`
  * list in effect.
  */
-async function bookablePriceList(
+export async function bookablePriceList(
   tx: Prisma.TransactionClient,
   siteId: string,
   now: Date,

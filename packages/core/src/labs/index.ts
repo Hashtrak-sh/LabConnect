@@ -9,3 +9,4 @@ export * from './model.js';
 export * from './public-directory.js';
 export * from './site-contact.js';
 export * from './capacity.js';
+export * from './working-hours.js';

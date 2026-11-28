@@ -58,7 +58,17 @@ const BOOKINGS_FOR_PARTIES =
   '/admin/bookings (contract: 403 for a platform membership), so bookingVisibility refuses them ' +
   'before any booking is read (I3-SHR-01).';
 
+const BOOKING_PRECHECKS_FOR_CUSTOMERS =
+  'The estimate and the duplicate warning are for any member of a customer organisation (contract: ' +
+  '403 when the active membership is not a customer membership); SubmissionService.assertCustomer ' +
+  'refuses a lab or platform membership before the body is read (I3-CUS-01).';
+
 export const SESSION_ONLY_REFUSALS: readonly SessionOnlyRefusal[] = [
+  ...['POST /v1/bookings/estimate', 'POST /v1/bookings/duplicate-check'].map((route) => ({
+    route,
+    roles: NOT_A_CUSTOMER,
+    reason: BOOKING_PRECHECKS_FOR_CUSTOMERS,
+  })),
   { route: 'GET /v1/bookings', roles: PLATFORM_ROLES, reason: BOOKINGS_FOR_PARTIES },
   { route: 'GET /v1/bookings/:id', roles: PLATFORM_ROLES, reason: BOOKINGS_FOR_PARTIES },
   { route: 'GET /v1/lab/claims', roles: PLATFORM_ROLES, reason: NO_CLAIM_FOR_STAFF },
@@ -89,7 +99,19 @@ const CANCEL_BEFORE_HANDOVER =
   'the customer route builds T-25 only, so BookingsService.cancel refuses both with 403 before ' +
   'the booking is read (I3-LAB-01).';
 
+const OPS_BOOKS_LATER =
+  'booking.create_edit is held by PLATFORM_OPS only to book on behalf of a customer ' +
+  '(OPS_ON_BEHALF_OF_CUSTOMER, onBehalfOf, FR-ADM-07), which is not built yet (decided ' +
+  '2026-11-29); SubmissionService.bookerOf refuses every role but CUSTOMER_ADMIN and ' +
+  'CUSTOMER_REQUESTER before the body is read (I3-CUS-01).';
+
 export const HANDLER_REFUSALS: readonly HandlerRefusal[] = [
+  ...['POST /v1/bookings', 'PATCH /v1/bookings/:id'].map((route) => ({
+    route,
+    role: 'PLATFORM_OPS' as const,
+    permission: 'booking.create_edit',
+    reason: OPS_BOOKS_LATER,
+  })),
   ...(['LAB_CHECKER', 'PLATFORM_OPS'] as const).map((role) => ({
     route: 'POST /v1/bookings/:id/cancel',
     role,

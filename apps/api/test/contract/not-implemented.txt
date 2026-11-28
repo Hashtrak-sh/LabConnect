@@ -17,7 +17,6 @@ approveReceipt
 assignAdminDispute
 cancelAdminBooking
 cancelAdminChangeSet
-checkBookingDuplicates
 commitAdminImport
 commitLabPriceListImport
 confirmReceiptDiscrepancy
@@ -28,7 +27,6 @@ createAdminMappingTemplate
 createAdminNotificationTemplate
 createAdminPlatformUser
 createAdminSettlementUploadUrl
-createBooking
 createBookingAttachmentUploadUrl
 createBreakGlassDownloadUrl
 createCustomerInvitation
@@ -55,7 +53,6 @@ deleteLabSiteClosure
 discardAdminImport
 discardLabPriceList
 discardLabPriceListImport
-estimateBooking
 exportAdminAccountingCsv
 getAdminBooking
 getAdminChangeSet
@@ -153,7 +150,6 @@ updateAdminLead
 updateAdminMappingTemplate
 updateAdminNotificationTemplate
 updateAdminPlatformUser
-updateBooking
 updateBookingExpectedReportDate
 updateCustomerOrganisation
 updateCustomerSettings
