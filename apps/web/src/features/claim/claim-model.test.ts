@@ -1,38 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
-  type ClaimRecord,
   checkLetterhead,
-  MAX_RECORDS,
+  mayReadClaims,
   readCertificate,
   readClaimCode,
-  readJar,
-  removeClaim,
+  readFailure,
+  readReloadNotice,
+  reasonForClaimant,
+  reloadFor,
   sniffLetterhead,
   startOutcome,
   submitOutcome,
   uploadOutcome,
-  upsertClaim,
   verifyOutcome,
-  writeJar,
 } from './claim-model';
-
-const ID = '01930000-0000-7000-8000-0000000000aa';
-
-function record(overrides: Partial<ClaimRecord> = {}): ClaimRecord {
-  return {
-    id: ID,
-    etag: '"1"',
-    status: 'PENDING_OTP',
-    method: 'EMAIL_OTP',
-    otpSentTo: 's***@***.test',
-    siteName: 'DEMO Testing Laboratory 005',
-    certificateNo: 'DEMO-TC-0005-1',
-    createdAt: '2026-11-27T05:00:00.000Z',
-    reviewedAt: null,
-    decisionNotes: null,
-    ...overrides,
-  };
-}
 
 describe('start outcomes', () => {
   it('maps every answer the contract documents', () => {
@@ -142,40 +123,93 @@ describe('the letterhead limits', () => {
   });
 });
 
-describe('the claims cookie', () => {
-  it('round trips a record for the same user', () => {
-    const jar = upsertClaim({ userId: 'u1', claims: [] }, record());
-    expect(readJar(writeJar(jar), 'u1').claims).toEqual([record()]);
+describe('reading the claims', () => {
+  it('says what a refused read means', () => {
+    expect(readFailure(401, 'one')).toBe('signed-out');
+    expect(readFailure(403, 'list')).toBe('staff');
+    expect(readFailure(404, 'one')).toBe('not-found');
+    expect(readFailure(422, 'one')).toBe('not-found');
+    expect(readFailure(422, 'list')).toBe('bad-page');
   });
 
-  it("never shows one user's claims to another", () => {
-    const jar = upsertClaim({ userId: 'u1', claims: [] }, record());
-    expect(readJar(writeJar(jar), 'u2').claims).toEqual([]);
+  it('never words a service that does not answer as "not found" or "no claims"', () => {
+    for (const status of [500, 502, 503, 504, 429, undefined]) {
+      expect(readFailure(status, 'one')).toBe('unavailable');
+      expect(readFailure(status, 'list')).toBe('unavailable');
+    }
   });
 
-  it('reads garbage, a missing cookie and forged records as nothing', () => {
-    expect(readJar(undefined, 'u1').claims).toEqual([]);
-    expect(readJar('not json', 'u1').claims).toEqual([]);
-    expect(readJar(JSON.stringify({ u: 'u1', c: [{ id: '../x' }] }), 'u1').claims).toEqual([]);
+  it('does not call the claimant reads for platform staff', () => {
+    expect(mayReadClaims({ memberships: [{ orgType: 'PLATFORM' }] })).toBe(false);
+    expect(mayReadClaims({ memberships: [{ orgType: 'CUSTOMER' }, { orgType: 'PLATFORM' }] })).toBe(
+      false,
+    );
+    expect(mayReadClaims({ memberships: [{ orgType: 'CUSTOMER' }, { orgType: 'LAB' }] })).toBe(
+      true,
+    );
+    expect(mayReadClaims({ memberships: [] })).toBe(true);
+  });
+});
+
+describe('the reason shown to the claimant', () => {
+  it('is the rejection reason, as text, and only for a rejected claim', () => {
     expect(
-      readJar(JSON.stringify({ u: 'u1', c: [{ ...record(), etag: '3' }] }), 'u1').claims,
-    ).toEqual([]);
-    expect(
-      readJar(JSON.stringify({ u: 'u1', c: [{ ...record(), status: 'APPROVED!' }] }), 'u1').claims,
-    ).toEqual([]);
+      reasonForClaimant({ status: 'REJECTED', decisionNotes: 'Upload a signed letter.' }),
+    ).toBe('Upload a signed letter.');
+    expect(reasonForClaimant({ status: 'REJECTED', decisionNotes: '  ok  ' })).toBe('ok');
   });
 
-  it('puts the newest first, replaces by id, caps the list and removes', () => {
-    let jar = { userId: 'u1', claims: [] as ClaimRecord[] };
-    for (let n = 0; n < MAX_RECORDS + 2; n++)
-      jar = upsertClaim(jar, record({ id: `01930000-0000-7000-8000-00000000000${String(n)}` }));
-    expect(jar.claims).toHaveLength(MAX_RECORDS);
-    expect(jar.claims[0]?.id.endsWith(String(MAX_RECORDS + 1))).toBe(true);
-    const first = jar.claims[0];
-    if (first === undefined) throw new Error('unreachable');
-    jar = upsertClaim(jar, { ...first, status: 'PENDING_REVIEW' });
-    expect(jar.claims).toHaveLength(MAX_RECORDS);
-    expect(jar.claims[0]?.status).toBe('PENDING_REVIEW');
-    expect(removeClaim(jar, first.id).claims).toHaveLength(MAX_RECORDS - 1);
+  it('never shows approval notes, even if the API were to send them', () => {
+    for (const status of ['PENDING_OTP', 'PENDING_REVIEW', 'APPROVED', 'EXPIRED'] as const)
+      expect(reasonForClaimant({ status, decisionNotes: 'Internal: looks fine' })).toBeNull();
+  });
+
+  it('keeps HTML, line breaks and a link as plain characters and cuts only the absurd', () => {
+    const html = '<img src=x onerror=alert(1)>\nSee https://example.test/a?b=1&c=2';
+    expect(reasonForClaimant({ status: 'REJECTED', decisionNotes: html })).toBe(html);
+    const long = 'x'.repeat(2000);
+    expect(reasonForClaimant({ status: 'REJECTED', decisionNotes: long })).toBe(long);
+    const absurd = reasonForClaimant({ status: 'REJECTED', decisionNotes: 'y'.repeat(9000) });
+    expect(absurd?.length).toBe(4001);
+    expect(absurd?.endsWith('…')).toBe(true);
+  });
+
+  it('is nothing for a blank or missing reason', () => {
+    expect(reasonForClaimant({ status: 'REJECTED', decisionNotes: '   ' })).toBeNull();
+    expect(reasonForClaimant({ status: 'REJECTED', decisionNotes: null })).toBeNull();
+  });
+});
+
+describe('reloading a claim after a form', () => {
+  it('reloads from the API on a changed version or a claim in another state', () => {
+    expect(reloadFor('changed')).toBe('changed');
+    for (const outcome of [
+      'in-review',
+      'own-review',
+      'expired',
+      'not-open',
+      'claimed',
+      'not-found',
+    ] as const)
+      expect(reloadFor(outcome)).toBe('moved');
+  });
+
+  it('leaves the answers about the form itself on the form', () => {
+    for (const outcome of [
+      'code-invalid',
+      'code-expired',
+      'locked',
+      'rate-limited',
+      'scanning',
+      'failed',
+    ] as const)
+      expect(reloadFor(outcome)).toBeNull();
+  });
+
+  it('reads the notice from the address and nothing else', () => {
+    expect(readReloadNotice('changed')).toBe('changed');
+    expect(readReloadNotice(['moved', 'changed'])).toBe('moved');
+    expect(readReloadNotice('<script>')).toBeNull();
+    expect(readReloadNotice(undefined)).toBeNull();
   });
 });

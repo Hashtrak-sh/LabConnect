@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { gate } from '@/features/access/access';
 import { CLAIM_REVIEW_ROLES } from '@/features/access/roles';
 import { ClaimStatusBadge } from '@/features/claim/ClaimStatusBadge';
-import { loadClaimPage, loadSite, PAGE_SIZE } from '@/features/ops-claims/ops-data';
+import { loadClaimPage, PAGE_SIZE } from '@/features/ops-claims/ops-data';
+import { ORG_TYPE_KEYS } from '@/features/ops-claims/org-labels';
 import {
+  certificateNumbers,
   type ClaimStatus,
   readStatusFilter,
   STATUS_FILTERS,
@@ -48,10 +50,6 @@ export default async function AdminClaimsPage({
   const cursor = single(params.cursor) || null;
   const page = await loadClaimPage(access.token, { status, cursor, limit: PAGE_SIZE });
 
-  const siteIds = [...new Set(page?.data.map((claim) => claim.labSiteId) ?? [])];
-  const sites = new Map(
-    await Promise.all(siteIds.map(async (siteId) => [siteId, await loadSite(siteId)] as const)),
-  );
   const filterHref = (value: string) => `/admin/claims?status=${value}`;
 
   return (
@@ -94,21 +92,34 @@ export default async function AdminClaimsPage({
       ) : (
         <ul className="flex flex-col gap-3">
           {page.data.map((claim) => {
-            const site = sites.get(claim.labSiteId);
+            const { labSite, claimant } = claim;
+            const certificates = certificateNumbers(labSite.certificateNos);
             return (
               <li key={claim.id}>
                 <Card className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
                   <div className="flex min-w-0 flex-col gap-1">
-                    <Link href={`/admin/claims/${claim.id}`} className="font-medium">
-                      {site?.name ?? t('ops.labUnavailable')}
+                    <Link href={`/admin/claims/${claim.id}`} className="break-words font-medium">
+                      {labSite.name}
                     </Link>
                     <p className="text-sm text-text-muted">
-                      {site === null || site === undefined
-                        ? t('ops.certificateUnknown')
-                        : t('claim.certificate', {
-                            number: site.accreditations.map((a) => a.certificateNo).join(', '),
-                          })}{' '}
-                      · {claim.method === 'MANUAL' ? t('ops.methodManual') : t('ops.methodCode')} ·{' '}
+                      {[labSite.city, labSite.stateCode].filter((part) => part !== '').join(', ')}
+                      {' · '}
+                      {t('ops.certificateLine', {
+                        numbers: certificates ?? t('ops.noCertificates'),
+                      })}
+                    </p>
+                    <p className="break-words text-sm text-text-muted">
+                      {claimant.fullName} · {claimant.emailMasked} ·{' '}
+                      {claimant.organisationTypes.length === 0
+                        ? t('ops.otherOrgsNone')
+                        : t('ops.alsoIn', {
+                            types: claimant.organisationTypes
+                              .map((type) => t(ORG_TYPE_KEYS[type]))
+                              .join(', '),
+                          })}
+                    </p>
+                    <p className="text-sm text-text-muted">
+                      {claim.method === 'MANUAL' ? t('ops.methodManual') : t('ops.methodCode')} ·{' '}
                       {formatDateTime(claim.createdAt)}
                     </p>
                   </div>

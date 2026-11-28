@@ -48,9 +48,7 @@ export function StartClaimForm({ text, initialKey }: { text: StartText; initialK
     ) : state.notice === 'own-review' ? (
       <Alert tone="info" title={text.ownReviewTitle}>
         <p>{text.ownReview}</p>
-        {state.ownClaimId !== undefined && (
-          <Link href={`/lab/claim/${state.ownClaimId}`}>{text.openClaim}</Link>
-        )}
+        <Link href="#your-claims">{text.openClaim}</Link>
       </Alert>
     ) : state.notice === 'cap' ? (
       <Alert tone="warning" title={text.capTitle}>

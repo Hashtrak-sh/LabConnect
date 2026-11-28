@@ -1,3 +1,4 @@
+import type { components } from '@labconnect/api-contract';
 import type { Problem } from '@/features/common/problem';
 
 export type ClaimStatus = 'PENDING_OTP' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
@@ -17,47 +18,52 @@ export function readStatusFilter(raw: string | string[] | undefined): ClaimStatu
   return STATUS_FILTERS.find((status) => status === value) ?? null;
 }
 
-/** The claim as Ops see it (`AdminLabClaim`): ids, method, state, version. No name, no address. */
-export interface AdminClaim {
-  id: string;
-  organisationId: string;
-  labSiteId: string;
-  requestedByUserId: string;
-  method: 'EMAIL_OTP' | 'MANUAL';
-  status: ClaimStatus;
-  authorisationFileId: string | null;
-  reviewedByUserId: string | null;
-  reviewedAt: string | null;
-  decisionNotes: string | null;
-  createdAt: string;
-  lockVersion: number;
-}
+/** The claim as Ops see it: `getAdminLabClaim`, and each row of `listAdminLabClaims`. */
+export type AdminClaim = components['schemas']['AdminLabClaim'];
 
 export interface ClaimPage {
   data: AdminClaim[];
   nextCursor: string | null;
 }
 
+export type ClaimReadFailure = 'signed-out' | 'forbidden' | 'not-found' | 'unavailable';
+
 /**
- * Finds one claim by id. The API has no "read one claim" operation (the detail needs the claim's
- * version for `If-Match`), so this walks the list, oldest first, until the id is found: at most
- * `maxPages` pages of 100. `null` means not found in what was read.
+ * Why `getAdminLabClaim` gave no claim. 404 (and a malformed id, 422) is "not found"; 403 is a
+ * role that may not review; anything else (a 5xx, a 429, no answer) is "unavailable", which the
+ * screen must not word as "not found".
  */
-export async function findClaim(
-  fetchPage: (cursor: string | null) => Promise<ClaimPage | null>,
-  id: string,
-  maxPages = 20,
-): Promise<AdminClaim | null> {
-  let cursor: string | null = null;
-  for (let page = 0; page < maxPages; page++) {
-    const result = await fetchPage(cursor);
-    if (result === null) return null;
-    const claim = result.data.find((candidate) => candidate.id === id);
-    if (claim !== undefined) return claim;
-    if (result.nextCursor === null) return null;
-    cursor = result.nextCursor;
+export function claimReadFailure(status: number | undefined): ClaimReadFailure {
+  switch (status) {
+    case 401:
+      return 'signed-out';
+    case 403:
+      return 'forbidden';
+    case 404:
+    case 422:
+      return 'not-found';
+    default:
+      return 'unavailable';
   }
-  return null;
+}
+
+export type OrgType = AdminClaim['claimant']['organisationTypes'][number];
+
+/**
+ * The reasons an approval would be refused that the claim already shows (RR-2: one lab role per
+ * user, so a claimant who belongs to a lab; RR-5: platform staff hold no lab role). The API stays
+ * the authority and the approve action still handles its refusal.
+ */
+export function approvalBlockers(types: readonly OrgType[]): ('LAB' | 'PLATFORM')[] {
+  const blockers: ('LAB' | 'PLATFORM')[] = [];
+  if (types.includes('LAB')) blockers.push('LAB');
+  if (types.includes('PLATFORM')) blockers.push('PLATFORM');
+  return blockers;
+}
+
+/** The certificate numbers of a site as one line, or `null` when there are none. */
+export function certificateNumbers(numbers: readonly string[]): string | null {
+  return numbers.length === 0 ? null : numbers.join(', ');
 }
 
 export type DecisionOutcome =
@@ -136,6 +142,15 @@ export function readRejectReason(raw: unknown): RejectReason | null {
 const MAX_NOTES = 2000;
 
 /**
+ * A browser sends the line breaks of a text area as CRLF, while its `maxlength` counts each as
+ * one character: a reason of 2,000 characters with line breaks would be refused as too long. The
+ * notes are measured, stored and shown with plain line feeds.
+ */
+export function lineBreaks(text: string): string {
+  return text.replaceAll('\r\n', '\n');
+}
+
+/**
  * The text sent as `decisionNotes`: the chosen reason (its text, unless "other") written at the
  * start, then the notes (J9: "Reason list has no contract field: written at the start of
  * decisionNotes"). Notes are required and not blank; the total is at most 2000 characters.
@@ -144,7 +159,7 @@ export function rejectionNotes(
   reasonText: string | null,
   rawNotes: unknown,
 ): { ok: true; value: string } | { ok: false; reason: 'notes-required' | 'too-long' } {
-  const notes = typeof rawNotes === 'string' ? rawNotes.trim() : '';
+  const notes = typeof rawNotes === 'string' ? lineBreaks(rawNotes).trim() : '';
   if (notes === '') return { ok: false, reason: 'notes-required' };
   const value = reasonText === null ? notes : `${reasonText}: ${notes}`;
   return value.length > MAX_NOTES ? { ok: false, reason: 'too-long' } : { ok: true, value };
@@ -153,7 +168,7 @@ export function rejectionNotes(
 /** A decision's optional notes on approval: trimmed, at most 2000 characters, or `undefined`. */
 export function approvalNotes(raw: unknown): string | undefined | null {
   if (typeof raw !== 'string') return undefined;
-  const notes = raw.trim();
+  const notes = lineBreaks(raw).trim();
   if (notes === '') return undefined;
   return notes.length > MAX_NOTES ? null : notes;
 }

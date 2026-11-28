@@ -1,128 +1,94 @@
-import { cleanEtag, isUuid, type Problem } from '@/features/common/problem';
+import type { components } from '@labconnect/api-contract';
+import type { Problem } from '@/features/common/problem';
 
 /** The abuse limits of CLAIM_LIMITS (packages/core/src/labs/claim-limits.ts), for the texts. */
 export const CLAIM_LIMITS = { openClaims: 3, uploadsPerClaim: 5, codeValidHours: 24 } as const;
 
-export type ClaimStatus = 'PENDING_OTP' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
-const STATUSES: readonly ClaimStatus[] = [
-  'PENDING_OTP',
-  'PENDING_REVIEW',
-  'APPROVED',
-  'REJECTED',
-  'EXPIRED',
-];
+export type LabClaim = components['schemas']['LabClaim'];
+export type ClaimStatus = LabClaim['status'];
+
+// ---- What a read of the API means for a screen -----------------------------------------------
 
 /**
- * A claim as the API last told this browser (the start, verify and submit answers). The API has
- * no operation that reads a claim (OQ-49, OQ-209), so the web keeps this small record in a cookie
- * bound to the signed-in user. It holds no secret: ids, states, the masked address the API itself
- * returned, and the public certificate number the user typed.
+ * Why `listMyLabClaims` or `getLabClaim` gave no claim. `unavailable` is every answer that is not
+ * about the claim itself (a 5xx, a 429, no answer at all): the screen then says the service is not
+ * answering and never "no claims" or "not found".
  */
-export interface ClaimRecord {
-  id: string;
-  /** The `ETag` of the claim as last seen, `"<lockVersion>"`, sent back as `If-Match`. */
-  etag: string;
-  status: ClaimStatus;
-  method: 'EMAIL_OTP' | 'MANUAL';
-  /** Exactly as the API returned it (already masked), or `null`: no address on record. */
-  otpSentTo: string | null;
-  siteName: string;
-  certificateNo: string;
-  createdAt: string;
-  reviewedAt: string | null;
-  decisionNotes: string | null;
-}
-
-/** The most claims kept in the cookie: a person holds at most three open ones (CLAIM_LIMITS). */
-export const MAX_RECORDS = 5;
-
-export interface ClaimJar {
-  userId: string;
-  claims: ClaimRecord[];
-}
-
-function str(value: unknown, max: number): string | null {
-  return typeof value === 'string' && value.length <= max ? value : null;
-}
-
-/** A string, `null`, or `undefined` for anything else (so `null` can be a valid value). */
-function nullableStr(value: unknown, max: number): string | null | undefined {
-  if (value === null) return null;
-  return typeof value === 'string' && value.length <= max ? value : undefined;
-}
-
-function readRecord(value: unknown): ClaimRecord | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const v = value as Record<string, unknown>;
-  const etag = cleanEtag(v.etag);
-  const siteName = str(v.siteName, 300);
-  const certificateNo = str(v.certificateNo, 50);
-  const createdAt = str(v.createdAt, 40);
-  const status = STATUSES.find((candidate) => candidate === v.status);
-  const method = v.method === 'EMAIL_OTP' || v.method === 'MANUAL' ? v.method : null;
-  const otpSentTo = nullableStr(v.otpSentTo, 100);
-  const reviewedAt = nullableStr(v.reviewedAt, 40);
-  const decisionNotes = nullableStr(v.decisionNotes, 2000);
-  if (
-    !isUuid(v.id) ||
-    etag === null ||
-    siteName === null ||
-    certificateNo === null ||
-    createdAt === null ||
-    status === undefined ||
-    method === null ||
-    otpSentTo === undefined ||
-    reviewedAt === undefined ||
-    decisionNotes === undefined
-  )
-    return null;
-  return {
-    id: v.id,
-    etag,
-    status,
-    method,
-    otpSentTo,
-    siteName,
-    certificateNo,
-    createdAt,
-    reviewedAt,
-    decisionNotes,
-  };
-}
+export type ReadFailure = 'signed-out' | 'staff' | 'not-found' | 'bad-page' | 'unavailable';
 
 /**
- * The claims this browser remembers for `userId`. A cookie written for another user (a shared
- * browser), or one that cannot be read, gives none: a claim is never shown to anyone but the
- * person it was made for.
+ * The status of a refused read as a failure. 404 is one answer for another user's claim and for an
+ * id that does not exist. A 422 is a cursor that cannot be read (the list) or an id that is not a
+ * UUID (one claim, which is the same "not found" to the person). 403 is platform staff (RR-5).
  */
-export function readJar(raw: string | undefined, userId: string): ClaimJar {
-  const empty: ClaimJar = { userId, claims: [] };
-  if (raw === undefined) return empty;
-  try {
-    const parsed = JSON.parse(raw) as { u?: unknown; c?: unknown };
-    if (parsed.u !== userId || !Array.isArray(parsed.c)) return empty;
-    const claims = (parsed.c as unknown[])
-      .map(readRecord)
-      .filter((record): record is ClaimRecord => record !== null)
-      .slice(0, MAX_RECORDS);
-    return { userId, claims };
-  } catch {
-    return empty;
+export function readFailure(status: number | undefined, read: 'list' | 'one'): ReadFailure {
+  switch (status) {
+    case 401:
+      return 'signed-out';
+    case 403:
+      return 'staff';
+    case 404:
+      return 'not-found';
+    case 422:
+      return read === 'list' ? 'bad-page' : 'not-found';
+    default:
+      return 'unavailable';
   }
 }
 
-export function writeJar(jar: ClaimJar): string {
-  return JSON.stringify({ u: jar.userId, c: jar.claims });
+/** Most of a reason that is shown; the API's own limit is 2000, so this never cuts a real one. */
+export const MAX_REASON_CHARS = 4000;
+
+/**
+ * The reason Ops gave for a rejection, for the claimant. Only a `REJECTED` claim has one: the
+ * notes of an approval are the reviewer's own, and the API sends `null` for them, but this screen
+ * does not depend on that. Always text (the page never renders it as HTML). `null` when there is
+ * no reason to show.
+ */
+export function reasonForClaimant(
+  claim: Pick<LabClaim, 'status' | 'decisionNotes'>,
+): string | null {
+  if (claim.status !== 'REJECTED' || typeof claim.decisionNotes !== 'string') return null;
+  const notes = claim.decisionNotes.trim();
+  if (notes === '') return null;
+  return notes.length > MAX_REASON_CHARS ? `${notes.slice(0, MAX_REASON_CHARS)}…` : notes;
 }
 
-/** Puts a record first (newest first), replacing the one with the same id, and keeps the cap. */
-export function upsertClaim(jar: ClaimJar, record: ClaimRecord): ClaimJar {
-  const others = jar.claims.filter((claim) => claim.id !== record.id);
-  return { userId: jar.userId, claims: [record, ...others].slice(0, MAX_RECORDS) };
+/** Why a claim page was reloaded after a form: the claim changed, or it moved to another state. */
+export type ReloadNotice = 'changed' | 'moved';
+
+/** `?n=` of a claim page (nothing personal in it). */
+export function readReloadNotice(raw: string | string[] | undefined): ReloadNotice | null {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return value === 'changed' || value === 'moved' ? value : null;
 }
 
-export function removeClaim(jar: ClaimJar, id: string): ClaimJar {
-  return { userId: jar.userId, claims: jar.claims.filter((claim) => claim.id !== id) };
+/** Whether the claimant reads may be called at all: platform staff hold no claim (RR-5). */
+export function mayReadClaims(user: { memberships: readonly { orgType: string }[] }): boolean {
+  return !user.memberships.some((membership) => membership.orgType === 'PLATFORM');
+}
+
+/**
+ * What a form that met a claim that is not as the page showed it does: reload the page from the
+ * API (`changed`: the version moved, `moved`: the state is not the one the form was for), or
+ * nothing when the answer is about the form itself.
+ */
+export function reloadFor(
+  outcome: VerifyOutcome | SubmitOutcome | UploadOutcome | StartOutcome,
+): ReloadNotice | null {
+  switch (outcome) {
+    case 'changed':
+      return 'changed';
+    case 'in-review':
+    case 'own-review':
+    case 'expired':
+    case 'not-open':
+    case 'claimed':
+    case 'not-found':
+      return 'moved';
+    default:
+      return null;
+  }
 }
 
 // ---- The certificate number and the code ----------------------------------------------------
