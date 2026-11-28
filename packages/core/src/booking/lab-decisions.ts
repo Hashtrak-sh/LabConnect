@@ -1,5 +1,5 @@
 import { Prisma, uuidv7 } from '@labconnect/database';
-import { lockSlot, moveSlotPlace, slotHasRoom } from '../labs/capacity.js';
+import { lockSlot, moveSlotPlace, readSlot, slotHasRoom } from '../labs/capacity.js';
 import { configParsers } from '../platform/config-parameters.js';
 import type { CoreErrorIssue } from '../platform/errors.js';
 import { BookingError } from './errors.js';
@@ -16,8 +16,10 @@ import type { TransitionContext } from './types.js';
 //   default effect schedules `COUNTER_RESPONSE_DUE`; this writes the `counter_offer` row.
 // - T-05 RejectBooking: the engine writes the reason; the hold is released here.
 // The hold is also released when the request expires undecided (T-06), the counter is declined or
-// expires (T-08), the payment window expires (T-10) and on cancellation before payment (T-25), as
-// the table says for each ("Hold released", "Slot released").
+// expires (T-08), the payment window expires (T-10), the sample is not dropped (T-12), and on every
+// cancellation (T-25 to T-28), as the table says for each ("Hold released", "Slot released").
+// A hold is changed only where it is still live (`released_at IS NULL`), and a count moves only when
+// that change happened, so no path can release or confirm the same place twice.
 
 /** What `counterBooking` sends to the engine (`command.input`). */
 export interface CounterOfferInput {
@@ -26,7 +28,17 @@ export interface CounterOfferInput {
   message: string;
 }
 
-const RELEASE_ON = ['T-05', 'T-06', 'T-08', 'T-10', 'T-25'] as const;
+const RELEASE_ON = [
+  'T-05',
+  'T-06',
+  'T-08',
+  'T-10',
+  'T-12',
+  'T-25',
+  'T-26',
+  'T-27',
+  'T-28',
+] as const;
 
 function invalid(issues: CoreErrorIssue[]): BookingError {
   return new BookingError('VALIDATION_FAILED', {
@@ -79,13 +91,37 @@ export function registerLabDecisionRules(registry: TransitionRegistry): Transiti
       const hold = await context.tx.slotHold.findFirst({
         where: { bookingId: context.updated.id, releasedAt: null },
       });
-      if (hold === null || hold.kind === 'CONFIRMED') return;
+      if (hold === null) {
+        // A booking with a slot whose hold is gone (released by expiry): take a place again, or
+        // refuse, so an accepted booking always counts in its slot (BR-011). No slot: nothing to do.
+        const slotId = context.updated.slotId;
+        if (slotId === null) return;
+        const slot = await lockSlot(context.tx, slotId);
+        if (slot === null || !slotHasRoom(slot, context.now)) {
+          throw new BookingError('SLOT_UNAVAILABLE', {
+            detail: 'The booked slot is closed or full: counter with another slot.',
+          });
+        }
+        await context.tx.slotHold.create({
+          data: {
+            id: uuidv7(),
+            bookingId: context.updated.id,
+            customerOrgId: context.updated.customerOrgId,
+            labOrgId: context.updated.labOrgId,
+            slotId,
+            kind: 'CONFIRMED',
+          },
+        });
+        await moveSlotPlace(context.tx, slotId, 'book');
+        return;
+      }
+      if (hold.kind === 'CONFIRMED') return;
       await lockSlot(context.tx, hold.slotId);
-      await context.tx.slotHold.update({
-        where: { id: hold.id },
+      const changed = await context.tx.slotHold.updateMany({
+        where: { id: hold.id, releasedAt: null, kind: 'SOFT' },
         data: { kind: 'CONFIRMED', expiresAt: null },
       });
-      await moveSlotPlace(context.tx, hold.slotId, 'confirm');
+      if (changed.count === 1) await moveSlotPlace(context.tx, hold.slotId, 'confirm');
     },
   });
 
@@ -97,10 +133,11 @@ export function registerLabDecisionRules(registry: TransitionRegistry): Transiti
       });
       if (hold === null) return;
       await lockSlot(context.tx, hold.slotId);
-      await context.tx.slotHold.update({
-        where: { id: hold.id },
+      const changed = await context.tx.slotHold.updateMany({
+        where: { id: hold.id, releasedAt: null },
         data: { releasedAt: context.now },
       });
+      if (changed.count !== 1) return;
       await moveSlotPlace(
         context.tx,
         hold.slotId,
@@ -122,30 +159,39 @@ export function registerLabDecisionRules(registry: TransitionRegistry): Transiti
         });
       }
       if (input.proposedSlotId !== undefined) {
-        const slot = await lockSlot(context.tx, input.proposedSlotId);
+        // A read, not a lock: the proposed slot is not held (it is checked again on T-07).
+        const slot = await readSlot(context.tx, input.proposedSlotId);
         if (slot === null || slot.labSiteId !== context.booking.labSiteId) {
           issues.push({
             path: 'proposedSlotId',
             code: 'INVALID_VALUE',
             message: 'Propose a slot of the same site.',
           });
-        } else if (!slotHasRoom(slot)) {
+        } else if (!slotHasRoom(slot, context.now)) {
           throw new BookingError('SLOT_UNAVAILABLE', {
-            detail: 'The proposed slot is closed or full.',
+            detail: 'The proposed slot is closed, full or already started.',
           });
         }
       }
       const quantities = input.perLineQuantity ?? [];
       if (quantities.length > 0) {
-        // The unit of each line: the stored snapshot's, else the price item's.
-        const lines = await context.tx.$queryRaw<{ id: string; unit_code: string }[]>(Prisma.sql`
+        // The unit and the quantity the lab needs now of each line: an agreed counter's, else the
+        // stored snapshot's, else the price item's. A counter only asks for more (BR-017).
+        const lines = await context.tx.$queryRaw<
+          { id: string; unit_code: string; current_qty: string }[]
+        >(Prisma.sql`
           SELECT bl.id::text AS id,
-                 COALESCE(bl.snapshot->'sampleUnit'->>'code', un.code) AS unit_code
+                 COALESCE(bl.snapshot->'sampleUnit'->>'code', un.code) AS unit_code,
+                 COALESCE(bl.required_sample_qty,
+                          CASE WHEN jsonb_typeof(bl.snapshot->'sampleQty') = 'number'
+                               THEN (bl.snapshot->>'sampleQty')::numeric END,
+                          pi.sample_qty)::text AS current_qty
             FROM booking_line bl
             JOIN price_item pi ON pi.id = bl.price_item_id
             JOIN md_node un ON un.id = pi.sample_unit_node_id
            WHERE bl.booking_id = ${context.booking.id}::uuid`);
         const unitOf = new Map(lines.map((line) => [line.id, line.unit_code]));
+        const quantityOf = new Map(lines.map((line) => [line.id, Number(line.current_qty)]));
         const seen = new Set<string>();
         quantities.forEach((quantity, index) => {
           const path = `perLineQuantity[${String(index)}]`;
@@ -161,6 +207,12 @@ export function registerLabDecisionRules(registry: TransitionRegistry): Transiti
               path: `${path}.unitCode`,
               code: 'INVALID_VALUE',
               message: `The line's unit is ${unit}.`,
+            });
+          } else if (quantity.sampleQty <= (quantityOf.get(quantity.lineId.toLowerCase()) ?? 0)) {
+            issues.push({
+              path: `${path}.sampleQty`,
+              code: 'INVALID_VALUE',
+              message: 'A counter-offer can only ask for more sample than the line needs now.',
             });
           }
           if (seen.has(quantity.lineId.toLowerCase())) {

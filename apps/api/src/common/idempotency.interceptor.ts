@@ -100,7 +100,7 @@ function storedProblemOf(error: unknown): { status: number; body: StoredProblem 
       code: error.code,
       ...(error.detail !== undefined && { detail: error.detail }),
       ...(error.meta !== undefined && { meta: error.meta }),
-      ...(error instanceof DomainError && error.errors !== undefined && { errors: error.errors }),
+      ...(error.errors !== undefined && { errors: error.errors }),
     },
   };
 }

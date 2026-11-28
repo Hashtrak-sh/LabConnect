@@ -195,7 +195,12 @@ export function parseBookingCounter(body: unknown): {
         }
         const { lineId, sampleQty, unitCode } = item;
         const okLine = typeof lineId === 'string' && UUID.test(lineId);
-        const okQty = typeof sampleQty === 'number' && Number.isFinite(sampleQty) && sampleQty > 0;
+        // More than 0, and what `booking_line.required_sample_qty` (DECIMAL(12,3)) can hold.
+        const okQty =
+          typeof sampleQty === 'number' &&
+          Number.isFinite(sampleQty) &&
+          sampleQty > 0 &&
+          sampleQty < 1_000_000_000;
         const okUnit =
           typeof unitCode === 'string' && unitCode.length >= 1 && unitCode.length <= 100;
         if (!okLine)

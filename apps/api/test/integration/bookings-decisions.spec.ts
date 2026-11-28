@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
+  addMember,
   bookingInState,
+  createUser,
   type BookingFixture,
   loadReference,
 } from '@labconnect/database/test-utils';
@@ -26,7 +28,7 @@ interface ViewBody {
     proposedSlot: { id: string } | null;
     perLineQuantity: { lineId: string; sampleQty: number; unitCode: string }[];
   } | null;
-  lines: { id: string; snapshot: { sampleUnit: { code: string } } }[];
+  lines: { id: string; snapshot: { sampleQty: number; sampleUnit: { code: string } } }[];
   statusHistory: { transitionId: string }[];
 }
 
@@ -240,11 +242,16 @@ describe('bookings: the lab decides (accept, reject, counter)', () => {
       await t.api.get(`/v1/bookings/${booking.id}`, { token: await tokenOf(checker()) })
     ).body as ViewBody;
     const line = view.lines[0];
+    const more = (line?.snapshot.sampleQty ?? 0) + 1;
     const response = await decide(checker(), 'counter', booking.id, {
       body: {
         proposedSlotId: slotId,
         perLineQuantity: [
-          { lineId: line?.id ?? '', sampleQty: 3, unitCode: line?.snapshot.sampleUnit.code ?? '' },
+          {
+            lineId: line?.id ?? '',
+            sampleQty: more,
+            unitCode: line?.snapshot.sampleUnit.code ?? '',
+          },
         ],
         message: 'We need more sample for the retest.',
       },
@@ -256,7 +263,7 @@ describe('bookings: the lab decides (accept, reject, counter)', () => {
       status: 'PENDING',
       message: 'We need more sample for the retest.',
       proposedSlot: { id: slotId },
-      perLineQuantity: [{ lineId: line?.id, sampleQty: 3 }],
+      perLineQuantity: [{ lineId: line?.id, sampleQty: more }],
     });
     expect(await timersOf(booking.id)).toContain('COUNTER_RESPONSE_DUE');
     // The proposed slot is not held (it is checked again when the customer accepts).
@@ -329,5 +336,124 @@ describe('bookings: the lab decides (accept, reject, counter)', () => {
       .db()
       .query<{ status: string }>('SELECT status FROM booking WHERE id = $1', [booking.id]);
     expect(status.rows[0]?.status).toBe('REQUESTED');
+  });
+
+  it('replays a stored 422 with its field list', async () => {
+    const booking = await newBooking();
+    const key = randomUUID();
+    const body = { reasonCode: 'NOT_A_REASON', notes: 'x' };
+    const first = await decide(checker(), 'reject', booking.id, { key, body });
+    const again = await decide(checker(), 'reject', booking.id, { key, body });
+    expect(first.status).toBe(422);
+    expect(again.status).toBe(422);
+    expect((again.body as { errors?: { path: string }[] }).errors?.[0]?.path).toBe('reasonCode');
+  });
+
+  it('refuses a counter with a slot that has already started, or less sample than now (BR-017)', async () => {
+    const booking = await newBooking();
+    const past = randomUUID();
+    const startsAt = new Date(t.clock.now().getTime() - 26 * 3_600_000);
+    await t.owner(async (tx) => {
+      await tx.$executeRaw`INSERT INTO slot (id, organisation_id, lab_site_id, slot_date, starts_at, ends_at, capacity)
+        VALUES (${past}::uuid, ${w.fixtures.labA.organisationId}::uuid, ${siteA1}::uuid,
+                ${startsAt.toISOString().slice(0, 10)}::date, ${startsAt}, ${new Date(startsAt.getTime() + 3_600_000)}, 5)`;
+    });
+    const started = await decide(checker(), 'counter', booking.id, {
+      body: { proposedSlotId: past, message: 'x' },
+    });
+    expect(started.status).toBe(409);
+    expect((started.body as { code: string }).code).toBe('SLOT_UNAVAILABLE');
+    // Closed again, so the factory does not give this past slot to the next bookings.
+    await t.owner(async (tx) => {
+      await tx.$executeRaw`UPDATE slot SET status = 'CLOSED' WHERE id = ${past}::uuid`;
+    });
+
+    const view = (
+      await t.api.get(`/v1/bookings/${booking.id}`, { token: await tokenOf(checker()) })
+    ).body as ViewBody;
+    const line = view.lines[0];
+    const less = await decide(checker(), 'counter', booking.id, {
+      body: {
+        perLineQuantity: [
+          {
+            lineId: line?.id,
+            sampleQty: line?.snapshot.sampleQty ?? 1,
+            unitCode: line?.snapshot.sampleUnit.code,
+          },
+        ],
+        message: 'x',
+      },
+    });
+    expect(less.status).toBe(422);
+    expect((less.body as { errors: { path: string }[] }).errors[0]?.path).toBe(
+      'perLineQuantity[0].sampleQty',
+    );
+  });
+
+  it('takes a place again when the hold has gone, and refuses when the slot is closed', async () => {
+    const release = async (bookingId: string) =>
+      t.owner(async (tx) => {
+        const hold = await tx.slotHold.findFirst({ where: { bookingId, releasedAt: null } });
+        if (!hold) throw new Error('no hold');
+        await tx.slotHold.update({ where: { id: hold.id }, data: { releasedAt: new Date() } });
+        await tx.slot.update({ where: { id: hold.slotId }, data: { heldCount: { decrement: 1 } } });
+        return hold.slotId;
+      });
+    const booking = await newBooking();
+    const slotId = await release(booking.id);
+    const before = await countsOf(slotId);
+    const accepted = await decide(checker(), 'accept', booking.id);
+    expect(accepted.status).toBe(200);
+    const live = await t
+      .db()
+      .query<{ kind: string }>(
+        'SELECT kind FROM slot_hold WHERE booking_id = $1 AND released_at IS NULL',
+        [booking.id],
+      );
+    expect(live.rows.map((row) => row.kind)).toEqual(['CONFIRMED']);
+    expect((await countsOf(slotId))?.booked_count).toBe((before?.booked_count ?? 0) + 1);
+
+    const closedOne = await newBooking();
+    const closedSlot = await release(closedOne.id);
+    await t.owner(async (tx) => {
+      await tx.$executeRaw`UPDATE slot SET status = 'CLOSED' WHERE id = ${closedSlot}::uuid`;
+    });
+    const refused = await decide(checker(), 'accept', closedOne.id);
+    expect(refused.status).toBe(409);
+    expect((refused.body as { code: string }).code).toBe('SLOT_UNAVAILABLE');
+  });
+
+  it("answers 404 to a Checker of the lab who is not assigned to the booking's site (RR-3)", async () => {
+    const booking = await newBooking();
+    const siteA2 = w.fixtures.labA.sites[1]?.id ?? '';
+    const email = `checker.site2.${randomUUID().slice(0, 8)}@demo.labconnect.test`;
+    const created = await t.owner(async (tx) => {
+      const userId = await createUser(tx, { email, fullName: 'DEMO Site 2 Checker' });
+      const membershipId = await addMember(
+        tx,
+        userId,
+        w.fixtures.labA.organisationId,
+        'LAB_CHECKER',
+        [siteA2],
+      );
+      return { userId, membershipId };
+    });
+    const siteTwoChecker: TenantUser = {
+      id: created.userId,
+      email,
+      role: 'LAB_CHECKER',
+      organisationId: w.fixtures.labA.organisationId,
+      membershipId: created.membershipId,
+    };
+    for (const [action, body] of [
+      ['accept', undefined],
+      ['reject', { reasonCode: 'NO_CAPACITY', notes: 'x' }],
+      ['counter', { proposedSlotId: randomUUID(), message: 'x' }],
+    ] as const) {
+      const response = await decide(siteTwoChecker, action, booking.id, {
+        ...(body !== undefined && { body }),
+      });
+      expect(response.status, action).toBe(404);
+    }
   });
 });
