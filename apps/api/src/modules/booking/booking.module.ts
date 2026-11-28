@@ -14,14 +14,15 @@ import { PlatformModule } from '../platform/platform.module.js';
 import { BookingsController } from './bookings.controller.js';
 import { BookingsService } from './bookings.service.js';
 
-/** The API's one `BookingEngine`: every module that moves a booking in this process uses it. */
-export const BOOKING_ENGINE = Symbol('BOOKING_ENGINE');
+import { BOOKING_ENGINE } from './booking-engine.token.js';
+
+export { BOOKING_ENGINE };
 
 /**
  * Bookings, HTTP side (ADR-020, I3-SHR-01). It owns the process's booking engine, built with the
  * same registry as the worker's (`createBookingEngine`), so a transition runs the same guards and
- * effects whichever process fires it; payments takes it from here. The read so far is
- * `listBookings` (`BookingsController`); `getBooking` follows.
+ * effects whichever process fires it; payments takes it from here. The routes are the
+ * reads (`listBookings`, `getBooking`) and the lab's decisions (`BookingsController`).
  */
 @Module({
   // IdentityModule exports TenantScope, the API's only door to the database (P3-04).

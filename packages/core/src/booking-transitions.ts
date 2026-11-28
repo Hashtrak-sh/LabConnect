@@ -1,5 +1,6 @@
 import { registerDefaultBookingEffects } from './booking/default-effects.js';
 import { BookingEngine } from './booking/engine.js';
+import { registerLabDecisionRules } from './booking/lab-decisions.js';
 import { TransitionRegistry } from './booking/registry.js';
 import type { BookingEngineServices } from './booking/types.js';
 import { registerPaymentBookingGuards } from './payments/booking-guards.js';
@@ -15,7 +16,9 @@ import { registerPaymentBookingGuards } from './payments/booking-guards.js';
 
 /** Every guard, effect and column of the booking transitions, in one registry. */
 export function createBookingTransitionRegistry(): TransitionRegistry {
-  return registerPaymentBookingGuards(registerDefaultBookingEffects(new TransitionRegistry()));
+  return registerPaymentBookingGuards(
+    registerLabDecisionRules(registerDefaultBookingEffects(new TransitionRegistry())),
+  );
 }
 
 /** A `BookingEngine` with the full registry. Each process builds one and shares it. */

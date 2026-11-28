@@ -90,3 +90,141 @@ export function requireBookingId(id: string): string {
     errors: [{ path: 'id', code: 'INVALID_VALUE', message: 'Give a UUID.' }],
   });
 }
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+function text(
+  raw: Record<string, unknown>,
+  field: string,
+  max: number,
+  issues: ProblemIssue[],
+): string | undefined {
+  const value = raw[field];
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    issues.push({ path: field, code: 'REQUIRED', message: 'This field is required.' });
+    return undefined;
+  }
+  if (value.length > max) {
+    issues.push({
+      path: field,
+      code: 'TOO_LONG',
+      message: `At most ${String(max)} characters.`,
+    });
+    return undefined;
+  }
+  return value.trim();
+}
+
+/** `BookingRejectRequest`: a REJECTION_REASON code and an explanation, both required. */
+export function parseBookingReject(body: unknown): { reasonCode: string; notes: string } {
+  if (!isRecord(body)) fail([{ path: '', code: 'INVALID_TYPE', message: 'Send a JSON object.' }]);
+  const issues: ProblemIssue[] = [];
+  for (const field of Object.keys(body)) {
+    if (field !== 'reasonCode' && field !== 'notes') {
+      issues.push({ path: field, code: 'UNKNOWN_FIELD', message: 'This field is not allowed.' });
+    }
+  }
+  const reasonCode = text(body, 'reasonCode', 100, issues);
+  const notes = text(body, 'notes', 2000, issues);
+  if (issues.length > 0 || reasonCode === undefined || notes === undefined) fail(issues);
+  return { reasonCode, notes };
+}
+
+/**
+ * `BookingCounterCreate` (BR-017, CD-08): another slot and/or more sample per line, and a message.
+ * A field whose name starts with `price` or `method` is `COUNTER_FIELD_NOT_ALLOWED`; any other
+ * unknown field is `VALIDATION_FAILED`.
+ */
+export function parseBookingCounter(body: unknown): {
+  proposedSlotId?: string;
+  perLineQuantity?: { lineId: string; sampleQty: number; unitCode: string }[];
+  message: string;
+} {
+  if (!isRecord(body)) fail([{ path: '', code: 'INVALID_TYPE', message: 'Send a JSON object.' }]);
+  const forbidden = Object.keys(body).filter((field) => /^(price|method)/i.test(field));
+  if (forbidden.length > 0) {
+    throw new DomainError('COUNTER_FIELD_NOT_ALLOWED', {
+      detail: 'A counter-offer cannot change the price or the method (CD-08).',
+      errors: forbidden.map((field) => ({
+        path: field,
+        code: 'NOT_ALLOWED',
+        message: 'Only the slot and the sample quantity can be countered.',
+      })),
+    });
+  }
+  const issues: ProblemIssue[] = [];
+  for (const field of Object.keys(body)) {
+    if (!['proposedSlotId', 'perLineQuantity', 'message'].includes(field)) {
+      issues.push({ path: field, code: 'UNKNOWN_FIELD', message: 'This field is not allowed.' });
+    }
+  }
+  const message = text(body, 'message', 2000, issues);
+  const result: ReturnType<typeof parseBookingCounter> = { message: message ?? '' };
+  if (body.proposedSlotId !== undefined) {
+    if (typeof body.proposedSlotId === 'string' && UUID.test(body.proposedSlotId)) {
+      result.proposedSlotId = body.proposedSlotId.toLowerCase();
+    } else {
+      issues.push({ path: 'proposedSlotId', code: 'INVALID_VALUE', message: 'Give a UUID.' });
+    }
+  }
+  if (body.perLineQuantity !== undefined) {
+    const items = body.perLineQuantity;
+    if (!Array.isArray(items) || items.length < 1 || items.length > 100) {
+      issues.push({
+        path: 'perLineQuantity',
+        code: 'INVALID_VALUE',
+        message: 'One to 100 lines.',
+      });
+    } else {
+      const quantities: { lineId: string; sampleQty: number; unitCode: string }[] = [];
+      items.forEach((item: unknown, index) => {
+        const path = `perLineQuantity[${String(index)}]`;
+        if (!isRecord(item)) {
+          issues.push({ path, code: 'INVALID_TYPE', message: 'An object.' });
+          return;
+        }
+        for (const field of Object.keys(item)) {
+          if (!['lineId', 'sampleQty', 'unitCode'].includes(field)) {
+            issues.push({
+              path: `${path}.${field}`,
+              code: 'UNKNOWN_FIELD',
+              message: 'This field is not allowed.',
+            });
+          }
+        }
+        const { lineId, sampleQty, unitCode } = item;
+        const okLine = typeof lineId === 'string' && UUID.test(lineId);
+        // More than 0, and what `booking_line.required_sample_qty` (DECIMAL(12,3)) can hold.
+        const okQty =
+          typeof sampleQty === 'number' &&
+          Number.isFinite(sampleQty) &&
+          sampleQty > 0 &&
+          sampleQty < 1_000_000_000;
+        const okUnit =
+          typeof unitCode === 'string' && unitCode.length >= 1 && unitCode.length <= 100;
+        if (!okLine)
+          issues.push({ path: `${path}.lineId`, code: 'INVALID_VALUE', message: 'Give a UUID.' });
+        if (!okQty)
+          issues.push({
+            path: `${path}.sampleQty`,
+            code: 'INVALID_VALUE',
+            message: 'More than 0.',
+          });
+        if (!okUnit)
+          issues.push({ path: `${path}.unitCode`, code: 'INVALID_VALUE', message: 'A unit code.' });
+        if (okLine && okQty && okUnit) quantities.push({ lineId, sampleQty, unitCode });
+      });
+      result.perLineQuantity = quantities;
+    }
+  }
+  if (result.proposedSlotId === undefined && body.perLineQuantity === undefined) {
+    issues.push({
+      path: 'proposedSlotId',
+      code: 'REQUIRED',
+      message: 'Propose another slot, more sample, or both.',
+    });
+  }
+  if (issues.length > 0) fail(issues);
+  return result;
+}

@@ -8,3 +8,4 @@ export * from './errors.js';
 export * from './model.js';
 export * from './public-directory.js';
 export * from './site-contact.js';
+export * from './capacity.js';

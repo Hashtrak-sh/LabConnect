@@ -98,8 +98,7 @@ export function toProblem(exception: unknown, requestId: string): Problem {
       // The detail of a 5xx is never shown to users (ERROR_HANDLING.md §3).
       ...(exception.detail !== undefined && status < 500 && { detail: exception.detail }),
       requestId,
-      ...(exception instanceof DomainError &&
-        exception.errors !== undefined && { errors: exception.errors }),
+      ...(exception.errors !== undefined && { errors: exception.errors }),
       ...(exception.meta !== undefined && { meta: exception.meta }),
     };
   }

@@ -1,7 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { components } from '@labconnect/api-contract';
 import {
+  type BookingEngine,
   type BookingListInput,
+  BookingError,
+  type CounterOfferInput,
+  rejectionReasonNodeId,
+  type RequestMeta,
   bookingRating,
   type BookingSummaryView,
   bookingVisibility,
@@ -13,8 +18,10 @@ import {
   TenantScope,
 } from '@labconnect/core';
 import { type BookingViewBody, toBookingViewBody, toPublicSlotBody } from './booking-view.js';
+import type { Prisma } from '@labconnect/database';
 import { CURRENCY, paiseToJson } from '@labconnect/shared';
 import { DomainError } from '../../common/domain-error.js';
+import { BOOKING_ENGINE } from './booking-engine.token.js';
 
 type Schemas = components['schemas'];
 export type BookingListBody = Schemas['BookingList'];
@@ -52,7 +59,22 @@ export function toBookingSummaryBody(booking: BookingSummaryView): BookingSummar
  */
 @Injectable()
 export class BookingsService {
-  constructor(private readonly scope: TenantScope) {}
+  constructor(
+    private readonly scope: TenantScope,
+    @Inject(BOOKING_ENGINE) private readonly engine: BookingEngine,
+  ) {}
+
+  /** The booking module's view plus the hold case and the own side's rating, in one transaction. */
+  private async readView(tx: Prisma.TransactionClient, actor: CurrentActor, bookingId: string) {
+    const detail = await getBookingDetail(tx, actor, bookingId);
+    const holdCase = await latestBookingHoldCase(tx, bookingId);
+    const ownRating = await bookingRating(
+      tx,
+      bookingId,
+      detail.party === 'customer' ? 'CUSTOMER_TO_LAB' : 'LAB_TO_CUSTOMER',
+    );
+    return { detail, holdCase, ownRating };
+  }
 
   async list(actor: CurrentActor, input: BookingListInput): Promise<BookingListBody> {
     // A platform membership is 403 first; then a scope of the other side is 422 with the field
@@ -84,16 +106,7 @@ export class BookingsService {
     actor: CurrentActor,
     bookingId: string,
   ): Promise<{ body: BookingViewBody; lockVersion: number }> {
-    const read = await this.scope.run(actor, async (tx) => {
-      const detail = await getBookingDetail(tx, actor, bookingId);
-      const holdCase = await latestBookingHoldCase(tx, bookingId);
-      const ownRating = await bookingRating(
-        tx,
-        bookingId,
-        detail.party === 'customer' ? 'CUSTOMER_TO_LAB' : 'LAB_TO_CUSTOMER',
-      );
-      return { detail, holdCase, ownRating };
-    });
+    const read = await this.scope.run(actor, (tx) => this.readView(tx, actor, bookingId));
     const { detail } = read;
     const labContact =
       detail.party === 'customer' && detail.paid
@@ -109,6 +122,97 @@ export class BookingsService {
         labContact,
       }),
       lockVersion: detail.common.lockVersion,
+    };
+  }
+
+  /**
+   * Who decides on a request: a `LAB_CHECKER` of a lab. Checked before the request is read, so a
+   * role that holds `booking.decide` only conditionally (`PLATFORM_OPS`) is 403 whatever it sends.
+   */
+  assertDecider(actor: CurrentActor): void {
+    if (actor.orgType !== 'LAB' || !actor.roles.includes('LAB_CHECKER')) {
+      throw new DomainError('FORBIDDEN', {
+        detail: "Only a Checker of the booking's site decides on a request.",
+      });
+    }
+  }
+
+  /**
+   * The lab's decision on a request (I3-LAB-01): T-03 accept, T-04 counter, T-05 reject, through
+   * the booking engine. Who: a `LAB_CHECKER` assigned to the booking's site. The route needs
+   * `booking.decide`, which `PLATFORM_OPS` holds only to override an undecided request; Ops
+   * cannot decide for a lab (OQ-24), so any role but `LAB_CHECKER` is 403 here. The booking is
+   * looked up within the actor's organisation and sites first (404 otherwise, like an unknown id);
+   * the engine then checks the state (409), `If-Match` (412) and the site of the Checker. The
+   * answer is the lab's view of the booking after the decision, from the same transaction.
+   */
+  async decide(
+    actor: CurrentActor,
+    command:
+      | { transitionId: 'T-03' }
+      | { transitionId: 'T-05'; reasonCode: string; notes: string }
+      | ({ transitionId: 'T-04' } & CounterOfferInput),
+    bookingId: string,
+    ifMatch: number,
+    meta: RequestMeta,
+  ): Promise<{ body: BookingViewBody; lockVersion: number }> {
+    this.assertDecider(actor);
+    const read = await this.scope.run(actor, async (tx) => {
+      // 404 before anything else when the booking is out of the Checker's organisation or sites.
+      await getBookingDetail(tx, actor, bookingId);
+      let input: Record<string, unknown> = {};
+      if (command.transitionId === 'T-05') {
+        const nodeId = await rejectionReasonNodeId(tx, command.reasonCode);
+        if (nodeId === null) {
+          throw new BookingError('VALIDATION_FAILED', {
+            detail: 'Some fields are missing or not valid.',
+            errors: [
+              {
+                path: 'reasonCode',
+                code: 'INVALID_VALUE',
+                message: 'An active rejection reason code.',
+              },
+            ],
+          });
+        }
+        input = { rejectionReasonNodeId: nodeId, rejectionNotes: command.notes };
+      } else if (command.transitionId === 'T-04') {
+        input = {
+          ...(command.proposedSlotId !== undefined && { proposedSlotId: command.proposedSlotId }),
+          ...(command.perLineQuantity !== undefined && {
+            perLineQuantity: command.perLineQuantity,
+          }),
+          message: command.message,
+        };
+      }
+      await this.engine.transition(tx, {
+        bookingId,
+        transitionId: command.transitionId,
+        actor: {
+          kind: 'USER',
+          userId: actor.userId,
+          role: 'LAB_CHECKER',
+          ...(actor.membershipId !== null && { membershipId: actor.membershipId }),
+          ...(actor.orgId !== null && { orgId: actor.orgId }),
+          labSiteIds: actor.siteIds,
+        },
+        expectedLockVersion: ifMatch,
+        input,
+        requestContext: {
+          ...(meta.requestId !== undefined && { requestId: meta.requestId }),
+          ...(meta.ipAddress !== undefined && { ip: meta.ipAddress }),
+          ...(meta.userAgent !== undefined && { userAgent: meta.userAgent }),
+        },
+      });
+      return this.readView(tx, actor, bookingId);
+    });
+    return {
+      body: toBookingViewBody(read.detail, {
+        holdCase: read.holdCase,
+        ownRating: read.ownRating,
+        labContact: null,
+      }),
+      lockVersion: read.detail.common.lockVersion,
     };
   }
 }
