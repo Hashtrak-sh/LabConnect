@@ -53,7 +53,13 @@ const CUSTOMER_SITES_FOR_MEMBERS =
   'membership is not a customer membership); a lab or platform membership has no customer sites, ' +
   'so requireCustomerOrganisation refuses it before any site is read (I2-CUS-03).';
 
+const BOOKINGS_FOR_PARTIES =
+  'A booking is read by a member of its customer or its lab organisation; platform staff use ' +
+  '/admin/bookings (contract: 403 for a platform membership), so bookingVisibility refuses them ' +
+  'before any booking is read (I3-SHR-01).';
+
 export const SESSION_ONLY_REFUSALS: readonly SessionOnlyRefusal[] = [
+  { route: 'GET /v1/bookings', roles: PLATFORM_ROLES, reason: BOOKINGS_FOR_PARTIES },
   { route: 'GET /v1/lab/claims', roles: PLATFORM_ROLES, reason: NO_CLAIM_FOR_STAFF },
   { route: 'GET /v1/lab/claims/:id', roles: PLATFORM_ROLES, reason: NO_CLAIM_FOR_STAFF },
   { route: 'GET /v1/customer/sites', roles: NOT_A_CUSTOMER, reason: CUSTOMER_SITES_FOR_MEMBERS },

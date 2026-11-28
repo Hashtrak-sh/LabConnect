@@ -16,8 +16,8 @@ describe('PaymentsWorkerModule', () => {
       .compile();
     const engine = moduleRef.get<BookingEngine>(BOOKING_ENGINE, { strict: false });
     const runtime = moduleRef.get(PaymentsRuntime);
-    // `sharedEngine` is private to the runtime; this is the only way to see which engine it holds.
-    expect((runtime as unknown as { sharedEngine: unknown }).sharedEngine).toBe(engine);
+    // `engine` is private to the runtime; this is the only way to see which engine it holds.
+    expect((runtime as unknown as { engine: unknown }).engine).toBe(engine);
     await moduleRef.close();
   });
 });

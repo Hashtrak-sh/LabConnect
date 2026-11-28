@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BookingModule } from './modules/booking/booking.module.js';
 import { CustomersModule } from './modules/customers/customers.module.js';
 import { FilesModule } from './modules/files/files.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
@@ -17,6 +18,7 @@ import { PlatformModule } from './modules/platform/platform.module.js';
     PlatformModule,
     IdentityModule,
     FilesModule,
+    BookingModule,
     PaymentsModule,
     NotificationsModule,
     SearchModule,

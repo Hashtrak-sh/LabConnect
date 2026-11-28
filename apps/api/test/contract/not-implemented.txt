@@ -109,7 +109,6 @@ listAdminRecordVersions
 listAdminRefunds
 listAdminSettlementLines
 listAdminTaxonomies
-listBookings
 listBreakGlassGrants
 listCustomerInvitations
 listCustomerUsers

@@ -6,6 +6,8 @@
 import type { INestApplication } from '@nestjs/common';
 import {
   addMember,
+  type CustomerFixture,
+  type LabFixture,
   createCatalogue,
   createCustomer,
   createLab,
@@ -62,6 +64,13 @@ export interface World {
   siteMaker: TenantUser;
   /** One user per role, each in its own tenant (customer A, lab A, platform). */
   byRole(role: RoleCode): TenantUser;
+  /** The factory fixtures behind the tenants, for tests that add bookings (`bookingInState`). */
+  fixtures: {
+    customerA: CustomerFixture;
+    customerB: CustomerFixture;
+    labA: LabFixture;
+    labB: LabFixture;
+  };
 }
 
 const PATIENT = { timeout: 240_000, maxWait: 60_000 };
@@ -222,6 +231,12 @@ export async function buildWorld(t: IdentityApp): Promise<World> {
     platform,
     dual: { user: inA, inA, inB },
     siteMaker,
+    fixtures: {
+      customerA: created.customerA,
+      customerB: created.customerB,
+      labA: created.labA,
+      labB: created.labB,
+    },
     byRole(role) {
       const tenant = byRoleTenants.find((candidate) => ROLES[role].orgType === candidate.orgType);
       if (!tenant) throw new Error(`no tenant for ${role}`);
