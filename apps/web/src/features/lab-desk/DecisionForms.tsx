@@ -289,7 +289,7 @@ export function CounterForm({
         <p className="text-sm text-text-muted">{text.qtyHelp}</p>
         {lines.map((line) => {
           const id = `qty-${line.lineId}`;
-          const error = errors.includes(`qty:${line.lineId}`) ? text.qtyHelp : undefined;
+          const error = errors.includes(`qty:${line.lineId}`) ? text.qtyTooLow : undefined;
           const help = text.qtyNow
             .replace('{qty}', String(line.current))
             .replace('{unit}', line.unitName);

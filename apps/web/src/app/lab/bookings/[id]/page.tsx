@@ -186,7 +186,7 @@ export default async function LabBookingPage({
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 py-6">
-      <nav aria-label="Breadcrumb" className="text-sm">
+      <nav aria-label={t('lab.breadcrumb')} className="text-sm">
         <Link href="/lab/inbox">{t('labDesk.detailBack')}</Link> ›{' '}
         <span className="font-mono">{booking.bookingNo}</span>
       </nav>
@@ -195,7 +195,7 @@ export default async function LabBookingPage({
         <BookingStatusBadge status={booking.status} />
       </div>
       <p className="text-text-muted">{booking.customerDisplayName}</p>
-      {decided !== undefined && decided in DECIDED && (
+      {decided !== undefined && Object.hasOwn(DECIDED, decided) && (
         <Alert tone="success">{t(DECIDED[decided as keyof typeof DECIDED])}</Alert>
       )}
       {booking.status === 'REQUESTED' && (

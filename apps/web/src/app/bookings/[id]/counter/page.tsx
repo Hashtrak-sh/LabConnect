@@ -90,14 +90,14 @@ export default async function CounterPage({
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 py-6">
-      <nav aria-label="Breadcrumb" className="text-sm">
+      <nav aria-label={t('lab.breadcrumb')} className="text-sm">
         <span className="font-mono">{booking.bookingNo}</span> › {t('counter.title')}
       </nav>
       <h1 className="text-2xl font-semibold">{t('counter.decision')}</h1>
       <Alert tone="warning">{t('counter.answerBy', { time: deadline(offer.expiresAt) })}</Alert>
       <Card className="flex flex-col gap-2 p-4">
         <h2 className="font-semibold">{t('counter.message')}</h2>
-        <p>“{offer.message}”</p>
+        <p>{t('labDesk.quoted', { text: offer.message })}</p>
       </Card>
       <Card className="flex flex-col gap-3 p-4">
         <h2 className="text-lg font-semibold">{t('counter.whatChanges')}</h2>

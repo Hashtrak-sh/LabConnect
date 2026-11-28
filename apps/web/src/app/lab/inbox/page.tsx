@@ -80,7 +80,7 @@ function Rows({ tab, rows, decider }: { tab: InboxTab; rows: InboxItem[]; decide
           <tr className="border-b border-border text-text-muted">
             {head.map((label, index) => (
               <th key={index} scope="col" className={CELL}>
-                {label}
+                {label === '' ? <span className="sr-only">{t('labDesk.colActions')}</span> : label}
               </th>
             ))}
           </tr>

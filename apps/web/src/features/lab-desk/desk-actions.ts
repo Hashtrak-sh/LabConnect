@@ -76,12 +76,12 @@ export async function rejectAction(
   form: FormData,
 ): Promise<DecisionState> {
   const values = { reason: field(form, 'reason'), message: field(form, 'message') };
+  const ready = await prepare(form);
+  if (!ready.ok) return { ...ready.state, values };
   const errors: string[] = [];
   if (values.reason === '') errors.push('reason');
   if (values.message.trim() === '' || values.message.length > 2000) errors.push('message');
   if (errors.length > 0) return refused(undefined, { errors, values });
-  const ready = await prepare(form);
-  if (!ready.ok) return { ...ready.state, values };
   const { response, error } = await api(ready.token).POST('/bookings/{id}/reject', {
     params: { path: { id: ready.id }, header: ready.headers },
     body: { reasonCode: values.reason, notes: values.message.trim() },
@@ -114,6 +114,8 @@ export async function counterAction(
     message: field(form, 'message'),
     ...Object.fromEntries(Object.entries(quantities).map(([id, qty]) => [`qty:${id}`, qty])),
   };
+  const ready = await prepare(form);
+  if (!ready.ok) return { ...ready.state, values };
   const slotId = values.slotId ?? '';
   if (slotId !== '' && !isUuid(slotId)) return refused('invalid', { values });
   const current = field(form, 'currentSlotId');
@@ -123,8 +125,6 @@ export async function counterAction(
     isUuid(current) ? current : null,
   );
   if (!counter.ok) return refused(undefined, { errors: counter.errors, values });
-  const ready = await prepare(form);
-  if (!ready.ok) return { ...ready.state, values };
   const { response, error } = await api(ready.token).POST('/bookings/{id}/counter', {
     params: { path: { id: ready.id }, header: ready.headers },
     body: counter.body,
