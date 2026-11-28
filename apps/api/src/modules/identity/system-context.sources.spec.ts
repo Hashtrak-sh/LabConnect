@@ -65,6 +65,12 @@ describe('who may open the system database context', () => {
       // the caller (the system context bypasses the policies, so that filter is the only guard,
       // tested by deliberately removing it). One call each. Two more.
       'apps/api/src/modules/labs/lab-claims.service.ts': 6,
+      // getBooking (I3-SHR-01): the lab site's public contact for the customer of a paid booking.
+      // `lab_site_private` is visible to the lab only (app_is_org), and the customer may see this one
+      // field once the booking is paid. It runs after the tenant-scoped read has shown that the
+      // caller may see the booking, reads one row by that booking's lab site, and returns only the
+      // name, phone and email of `public_contact`. One call.
+      'apps/api/src/modules/booking/bookings.service.ts': 1,
       // The gateway's server-to-server callback: no user, and no tenant until it is matched.
       'apps/api/src/modules/payments/payment-webhook.controller.ts': 1,
     });

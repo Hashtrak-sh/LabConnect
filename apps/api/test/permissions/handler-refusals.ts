@@ -60,6 +60,7 @@ const BOOKINGS_FOR_PARTIES =
 
 export const SESSION_ONLY_REFUSALS: readonly SessionOnlyRefusal[] = [
   { route: 'GET /v1/bookings', roles: PLATFORM_ROLES, reason: BOOKINGS_FOR_PARTIES },
+  { route: 'GET /v1/bookings/:id', roles: PLATFORM_ROLES, reason: BOOKINGS_FOR_PARTIES },
   { route: 'GET /v1/lab/claims', roles: PLATFORM_ROLES, reason: NO_CLAIM_FOR_STAFF },
   { route: 'GET /v1/lab/claims/:id', roles: PLATFORM_ROLES, reason: NO_CLAIM_FOR_STAFF },
   { route: 'GET /v1/customer/sites', roles: NOT_A_CUSTOMER, reason: CUSTOMER_SITES_FOR_MEMBERS },

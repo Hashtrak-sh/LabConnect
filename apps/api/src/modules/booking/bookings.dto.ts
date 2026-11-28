@@ -79,3 +79,14 @@ export function parseBookingListQuery(query: Record<string, unknown>): BookingLi
   if (issues.length > 0) fail(issues);
   return result;
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The booking id of the path: not a UUID is `422`, as for the other ids of the API. */
+export function requireBookingId(id: string): string {
+  if (UUID.test(id)) return id.toLowerCase();
+  throw new DomainError('VALIDATION_FAILED', {
+    detail: 'The booking id is not valid.',
+    errors: [{ path: 'id', code: 'INVALID_VALUE', message: 'Give a UUID.' }],
+  });
+}
