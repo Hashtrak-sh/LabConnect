@@ -2,33 +2,26 @@ import { Injectable } from '@nestjs/common';
 import type { components } from '@labconnect/api-contract';
 import {
   type BookingListInput,
-  type BookingSlotView,
+  bookingRating,
   type BookingSummaryView,
   bookingVisibility,
   type CurrentActor,
+  getBookingDetail,
+  labSitePublicContact,
+  latestBookingHoldCase,
   listBookings,
   TenantScope,
 } from '@labconnect/core';
+import { type BookingViewBody, toBookingViewBody, toPublicSlotBody } from './booking-view.js';
 import { CURRENCY, paiseToJson } from '@labconnect/shared';
 import { DomainError } from '../../common/domain-error.js';
 
 type Schemas = components['schemas'];
 export type BookingListBody = Schemas['BookingList'];
 type BookingSummaryBody = Schemas['BookingSummary'];
-type PublicSlotBody = Schemas['PublicSlot'];
 
 const isoDate = (date: Date): string => date.toISOString().slice(0, 10);
 const isoOrNull = (date: Date | null): string | null => (date === null ? null : date.toISOString());
-
-export function toPublicSlotBody(slot: BookingSlotView): PublicSlotBody {
-  return {
-    id: slot.id,
-    date: isoDate(slot.date),
-    startsAt: slot.startsAt.toISOString(),
-    endsAt: slot.endsAt.toISOString(),
-    discipline: slot.discipline,
-  };
-}
 
 export function toBookingSummaryBody(booking: BookingSummaryView): BookingSummaryBody {
   return {
@@ -79,5 +72,43 @@ export class BookingsService {
     }
     const result = await this.scope.run(actor, (tx) => listBookings(tx, actor, input));
     return { data: result.data.map(toBookingSummaryBody), page: result.page };
+  }
+
+  /**
+   * `getBooking`: the booking module's part, then what custody (hold case) and disputes (the
+   * caller's own side's rating) own, in the same tenant transaction. The lab contact is read under
+   * a system scope (RLS keeps `lab_site_private` to the lab), and only for the customer of a paid
+   * booking, after the tenant read has shown that the caller may see the booking.
+   */
+  async get(
+    actor: CurrentActor,
+    bookingId: string,
+  ): Promise<{ body: BookingViewBody; lockVersion: number }> {
+    const read = await this.scope.run(actor, async (tx) => {
+      const detail = await getBookingDetail(tx, actor, bookingId);
+      const holdCase = await latestBookingHoldCase(tx, bookingId);
+      const ownRating = await bookingRating(
+        tx,
+        bookingId,
+        detail.party === 'customer' ? 'CUSTOMER_TO_LAB' : 'LAB_TO_CUSTOMER',
+      );
+      return { detail, holdCase, ownRating };
+    });
+    const { detail } = read;
+    const labContact =
+      detail.party === 'customer' && detail.paid
+        ? await this.scope.runAsSystem(
+            'booking: lab contact for the customer of a paid booking',
+            (tx) => labSitePublicContact(tx, detail.refs.labSiteId),
+          )
+        : null;
+    return {
+      body: toBookingViewBody(detail, {
+        holdCase: read.holdCase,
+        ownRating: read.ownRating,
+        labContact,
+      }),
+      lockVersion: detail.common.lockVersion,
+    };
   }
 }

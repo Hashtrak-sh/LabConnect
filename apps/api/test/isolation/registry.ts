@@ -25,6 +25,10 @@ export interface Exemption {
 /** Cases for the routes of the real app. */
 export const REAL_APP_CASES: readonly IsolationCase[] = [
   {
+    route: 'GET /v1/bookings/:id',
+    spec: 'test/integration/isolation/bookings.spec.ts',
+  },
+  {
     route: 'POST /v1/me/notifications/:id/read',
     spec: 'test/integration/isolation/notifications.spec.ts',
   },

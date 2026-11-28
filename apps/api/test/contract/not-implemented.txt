@@ -72,7 +72,6 @@ getAdminNotificationTemplate
 getAdminOpsBoard
 getAdminPlatformUser
 getAdminTaxonomy
-getBooking
 getBookingCustodyTrail
 getBookingHandover
 getBookingLabels

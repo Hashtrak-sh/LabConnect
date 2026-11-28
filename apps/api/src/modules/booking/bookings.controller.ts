@@ -1,8 +1,10 @@
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { formatEtag } from '../../common/etag.js';
 import { Authorised } from '../identity/authorised.decorator.js';
 import { CurrentActor } from '../identity/current-actor.js';
-import { parseBookingListQuery } from './bookings.dto.js';
+import type { BookingViewBody } from './booking-view.js';
+import { parseBookingListQuery, requireBookingId } from './bookings.dto.js';
 import { type BookingListBody, BookingsService } from './bookings.service.js';
 
 /**
@@ -26,5 +28,22 @@ export class BookingsController {
     const result = await this.bookings.list(actor, input);
     response.setHeader('Cache-Control', 'no-store');
     return result;
+  }
+
+  /**
+   * `getBooking`: the view of the caller's party, with its `ETag`. Out of scope is 404 like an
+   * unknown id; a requester reading a colleague's booking is 403.
+   */
+  @Get(':id')
+  @Authorised({ noPermissionRequired: true })
+  async getBooking(
+    @Param('id') id: string,
+    @CurrentActor() actor: CurrentActor,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<BookingViewBody> {
+    const { body, lockVersion } = await this.bookings.get(actor, requireBookingId(id));
+    response.setHeader('ETag', formatEtag(lockVersion));
+    response.setHeader('Cache-Control', 'no-store');
+    return body;
   }
 }

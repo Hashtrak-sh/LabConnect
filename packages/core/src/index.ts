@@ -2,6 +2,8 @@
 // (ADR-020). Nest-free: the apps wrap it in providers.
 export * from './booking/index.js';
 export * from './booking-transitions.js';
+export * from './custody/index.js';
+export * from './disputes/index.js';
 export * from './files/index.js';
 export * from './platform/index.js';
 export * from './identity/index.js';
