@@ -160,7 +160,7 @@ loudly, at the start and at the end. `WALK_SCRIPT=<path>` points at another copy
 | `./seed-demo.sh` | migrate, load the demo data, refresh the planner's statistics. Safe to repeat. |
 | `./status.sh` | services, health, memory, disk |
 | `docker compose logs -f api web caddy` | logs |
-| `./update.sh` | `git pull --ff-only`, build the new images **while the old containers keep running**, migrate, replace what changed, clean up. A failed build leaves the running demo untouched. |
+| `./update.sh` | `git pull --ff-only`, build the new images **while the old containers keep running**, migrate, replace what changed, clean up. A failed build leaves the running demo untouched. `--fresh` clears the build cache and unused images first (build from scratch). |
 | `./reset-demo.sh --yes-destroy-the-database` | destroys the database volume and loads a fresh seeded one (between rehearsals). Without the flag it only prints what it would destroy. Certificates are kept. |
 | `./backup.sh` | `pg_dump` to `backups/lc-<time>.dump` (owner only). Nothing runs it for you. |
 | `./restore-check.sh <file>` | restores a backup into a scratch database, counts, drops it |
@@ -195,8 +195,8 @@ failed with "no space left on device": an update needs room for a second set of 
 running ones; after clearing the cache it rebuilt from nothing with about 12 GB free. **Use 50 GB.** `update.sh` now
 checks before building (below `MIN_BUILD_GB`, default 10 GB free, it deletes the build cache and unused images, and
 stops if that is still not enough: a full disk would also stop the running database from writing). `./update.sh --fresh`
-always deletes them first and builds from scratch: slower, but it frees the most space; with less than about 12 GB free
-after the clean-up, grow the disk rather than risk it. Measured how: `preflight.sh` reads `/proc/meminfo` and `df`; `status.sh` prints the
+always deletes them first and builds from scratch: slower, but it frees the most space. With less than 12 GB free after
+a clean-up the script warns but goes on (the bar is 10 GB for now): grow the disk rather than rely on it. Measured how: `preflight.sh` reads `/proc/meminfo` and `df`; `status.sh` prints the
 container figures.
 
 ## Sign-in limits (OQ-240, OQ-272)

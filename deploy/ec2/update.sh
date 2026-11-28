@@ -11,10 +11,13 @@
 #
 # Usage: ./update.sh            build with the cache (only what changed is rebuilt)
 #        ./update.sh --fresh    delete the build cache and unused images first, then build from
-#                               scratch (slower; frees the most space before the build)
+#                               scratch (slower; frees the most space before the build). Run it
+#                               with the stack up: images of stopped services would be deleted
+#                               too and downloaded again.
 . "$(dirname "$0")/lib.sh"
 
 build_mode=""
+[[ $# -le 1 ]] || die "too many arguments. Usage: ./update.sh [--fresh]"
 case "${1:-}" in
   "") ;;
   --fresh) build_mode=fresh ;;
