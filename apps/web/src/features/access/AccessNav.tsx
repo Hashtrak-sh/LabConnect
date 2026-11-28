@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { t } from '@/lib/i18n';
 import { loadAccess } from './access';
+import { LAB_DESK_ROLES } from '@/features/lab-desk/desk-model';
 import { CLAIM_REVIEW_ROLES, hasAnyRole, isPlatformStaff } from './roles';
 
 const LINK =
@@ -20,6 +21,11 @@ export async function AccessNav() {
       {!isPlatformStaff(access.user) && (
         <Link href="/lab/claim" className={LINK}>
           {t('access.navClaim')}
+        </Link>
+      )}
+      {hasAnyRole(access.user, LAB_DESK_ROLES) && (
+        <Link href="/lab/inbox" className={LINK}>
+          {t('labDesk.navInbox')}
         </Link>
       )}
       {hasAnyRole(access.user, CLAIM_REVIEW_ROLES) && (
