@@ -34,3 +34,5 @@
 | **I4** | Pay and hand over | Payment (Fake → ICICI sandbox), receipts, handover page, labels | Expected drops, counter label printing | Refund approvals, reconciliation v1 |
 | **I5** | Receive, test, report | Status timeline, hold decision, report download, share, verification | Scanner (offline queue), receipt, approval, testing, report upload, bind, review, publish, amendment | Break-glass, audit viewer |
 | **I6** | Close the loop | Disputes, ratings, financial documents | Dispute response, settlement advice | Disputes, payouts, holds, exports, config, templates |
+
+**Change of order (2026-11-28, solo period):** while @Hashtrak-sh is away, @akshit-anand builds both slices and takes the customer and lab slices of the booking journey (I3 to I5) first, on the onboarded demo labs, so the whole journey can be shown early. The rest of I2 (lab onboarding and the admin KYC and bank verification) follows, then the Ops slices of I3 to I5 and I6. The task list and what is left are in `TASK_TRACKER.md`, "Solo period: the booking journey first".

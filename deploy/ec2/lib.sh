@@ -158,6 +158,37 @@ after_seed() {
   fi
 }
 
+# Free space, in whole GB, where Docker keeps its images and build cache. Empty when unknown.
+docker_free_gb() {
+  local root
+  root=$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)
+  [[ -d "$root" ]] || root=/
+  df -Pk "$root" 2>/dev/null | awk 'NR==2 {print int($4/1024/1024)}'
+}
+
+# A build puts a second set of the application images next to the ones the running containers
+# use, plus its build cache: a 28 GB disk with 4 GB free failed half-way ("no space left on
+# device", 2026-11-28). Below MIN_BUILD_GB free, delete the build cache and the images no
+# container uses (the running containers and the database volume are not touched; the next build
+# is slower), then check again and stop before building if it is still too little.
+ensure_build_space() {
+  local want="${MIN_BUILD_GB:-10}" free
+  step "checking the free disk space for the build"
+  free=$(docker_free_gb)
+  if [[ -z "$free" ]]; then
+    warn "free disk space unknown: not checked"
+    return 0
+  fi
+  info "${free} GB free for Docker (${want} GB wanted)"
+  [[ $free -ge $want ]] && return 0
+  info "too little: deleting the build cache and the images no container uses"
+  docker builder prune -af >/dev/null
+  docker image prune -af >/dev/null
+  free=$(docker_free_gb)
+  info "${free} GB free after the clean-up"
+  [[ $free -ge $want ]] || die "only ${free} GB free and a build needs about ${want} GB. The running site is unchanged. Grow the disk (DEMO.md, \"Disk\") or free space, then run this again."
+}
+
 # One script at a time.
 take_lock() {
   # Outside the kit folder: the folder is part of the image build context (a file that changes on
@@ -173,7 +204,7 @@ take_lock() {
     rm -rf "$lock"
   fi
   mkdir "$lock" 2>/dev/null || die "another script of this kit is starting at the same moment."
-  echo $ >"$lock/pid"
+  echo $$ >"$lock/pid"
   # on_exit (the EXIT trap) removes it, also when a script installs its own trap that calls on_exit.
   LOCK_DIR="$lock"
 }

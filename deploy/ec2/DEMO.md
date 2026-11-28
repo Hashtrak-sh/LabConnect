@@ -189,8 +189,11 @@ image build is the peak: `pnpm install`, the TypeScript build and `next build` r
 for verification (shared with other work, so its numbers are not clean) the build never failed; a clean figure for a
 4 GiB instance is **not measured**, which is why this kit recommends 8 GiB (`t3.large`) and, below that, requires memory
 plus swap of 5.5 GB in `preflight.sh`. Disk: `docker system df` after a first build showed the images and build cache in
-the order of 10 to 15 GB (the `migrate` image is large because it carries the build tools): 30 GB leaves room for the
-database, logs and a few updates. Measured how: `preflight.sh` reads `/proc/meminfo` and `df`; `status.sh` prints the
+the order of 10 to 15 GB (the `migrate` image is large because it carries the build tools). On the UAT server after
+several updates (2026-11-28) it was 11.1 GB of images and 6.9 GB of build cache on a 28 GB disk, and the next build
+failed with "no space left on device": an update needs room for a second set of the application images next to the
+running ones. **Use 50 GB.** `update.sh` now checks before building (below `MIN_BUILD_GB`, default 10 GB free, it
+deletes the build cache and unused images, and stops if that is still not enough). Measured how: `preflight.sh` reads `/proc/meminfo` and `df`; `status.sh` prints the
 container figures.
 
 ## Sign-in limits (OQ-240, OQ-272)
@@ -225,8 +228,13 @@ would matter for the later increments (bookings with deadlines, e-mails, reports
 healthy within about 25 seconds of the database starting, no re-seed (the 200 demo labs were still there), and the safe
 check passed.
 - **Disk.** Container logs are not rotated by this kit's compose file (Docker's default json-file driver keeps them
-  without limit): see the review notes; `update.sh` prunes dangling images and build cache older than three days. Watch
-  `docker system df` (`./status.sh`).
+  without limit): see the review notes; `update.sh` prunes dangling images and build cache older than three days, and
+  before building clears all build cache and unused images when less than `MIN_BUILD_GB` (10) GB is free. Watch
+  `docker system df` (`./status.sh`). After an update, `docker builder prune -af` and `docker image prune -af` are safe
+  at any time (the running containers and the database volume are kept; the next build only takes longer).
+  **Growing the disk** without stopping the server: EC2 → Volumes → the root volume → Modify → the new size; when it
+  shows "optimizing", run `lsblk` (the root disk is usually `nvme0n1`), `sudo growpart /dev/nvme0n1 1`,
+  `sudo resize2fs /dev/root`, and check with `df -h /`.
 - **The `.env` file** holds every secret and is owner only (`up.sh` refuses to run if other users can read it). `docker inspect`
   shows container environments, so never paste its output into a chat; do not copy `.env` into backups or tickets.
 - **A visitor who uses the bare IP** or another name gets a TLS failure on 443 (no certificate for it; and 443 is closed to

@@ -46,12 +46,10 @@ else
 fi
 
 step "Disk"
-root=$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)
-[[ -d "$root" ]] || root=/
-free_gb=$(df -Pk "$root" 2>/dev/null | awk 'NR==2 {print int($4/1024/1024)}')
+free_gb=$(docker_free_gb)
 if [[ -n "$free_gb" ]]; then
-  info "${free_gb} GB free under $root"
-  [[ $free_gb -ge $MIN_DISK_GB ]] || fail "only ${free_gb} GB free under $root; ${MIN_DISK_GB} GB are needed (30 GB disk recommended)"
+  info "${free_gb} GB free for Docker"
+  [[ $free_gb -ge $MIN_DISK_GB ]] || fail "only ${free_gb} GB free for Docker; ${MIN_DISK_GB} GB are needed (50 GB disk recommended)"
 fi
 
 step "Ports"

@@ -163,6 +163,39 @@ I2-CUS-02 is done (#71, landed with #80). `POST /v1/customer/organisations` crea
 
 I2-CUS-03 is done (#79; review fixes included). `/v1/customer/sites` lists (by name, cursor, `status` filter), creates, reads and updates (`If-Match`; `status: INACTIVE` retires a site, which also drops its default billing flag and the default search site when it was that one). At most one active site is the default billing site: a new default clears the others, serialised on the organisation's settings row. Every member of a customer organisation reads; only `CUSTOMER_ADMIN` changes (`org_user.manage`, which `LAB_CHECKER` and platform staff also hold for their own users, so the service refuses any non-customer membership with 403). A site of another organisation is 404. Audited as `customer_site.create` and `customer_site.update`. The web sign-up now has J1 step 5, "Your default site" (`/sign-up/site`): a name and an address, made the default billing site, or "Skip for now". Left out: the board's map pin, which the contract has no field for (OQ-261), so sites have `location: null` until a geocoder runs; the settings operations and the default search site (with J2, I2-CUS-04); `Idempotency-Key` (OQ-87).
 
+### Solo period: the booking journey first (A, from 2026-11-28)
+@Hashtrak-sh is away for a while. Until H is back, **A works on both the customer and the lab slices** (and the shared and admin pieces they need), and merges his own pull requests after an independent review and green CI (GitHub does not let an author approve his own pull request). Shared changes are still flagged in each pull request description, so H can catch up.
+
+**Change of order (ROADMAP, "Breadth-first increments"):** the booking journey is built first, on the onboarded demo labs (the `demo` seed, `pnpm --filter @labconnect/database run seed demo` or `deploy/ec2/seed-demo.sh`: 3 labs, 4 bookable sites with published prices, slots, receiving hours, Makers and Checkers), so that the whole journey can be shown early: a customer books, the lab accepts, the customer pays with the fake gateway, drops the sample, the lab records and approves receipt, tests, uploads the report, a Checker publishes it, the customer downloads it. Lab onboarding (the rest of I2) comes right after, then the remaining items below. Booking code reads only what onboarding will write (the site's bookable flag, the published price list, open slots, memberships), never the demo labs' ids, so the later I2 work needs no change to it. The demo slots cover 120 days from the seed: lab onboarding (slots) lands before they run out, or the server is seeded again.
+
+Plan: one pull request per task, in this order, each reviewed and green before the next.
+
+| ID | Task | Roadmap items | Depends | Status |
+|---|---|---|---|---|
+| I3-SHR-01 | Booking foundation: the `bookings` API module, one shared builder of the booking transition registry (API and worker), `listBookings` and `getBooking` (customer and lab views) | I3 | — | ☐ |
+| I3-LAB-01 | Lab decisions and the customer's answers (API): `getLabInbox`, accept (T-03, hold becomes HARD), reject (T-05), counter (T-04), the customer's accept or decline of a counter (T-07, T-08), `updateBooking` (T-02), `cancelBooking` (T-25 to T-27) | I3 lab; I3 customer: counter response, edit, cancel | I3-SHR-01 | ☐ |
+| I3-LAB-02 | Lab screens: lab users land on `/lab` (E2 Maker, E3 Checker home), Ops on `/admin/claims`; inbox (F5, K8) with the decision dialogs (K9), lab booking detail; the customer's counter screen (C4) | I3 lab | I3-LAB-01 | ☐ |
+| I3-CUS-01 | Booking create (API): `estimateBooking`, `checkBookingDuplicates`, `createBooking` (T-01) with the price-list snapshot, SOFT hold, TRF, booking number (`LC-YYMM-NNNNNNN`), BR-010, BR-015, BR-016, and the `LAB_DECISION_DUE` timer (OQ-96) | I3 customer | I3-SHR-01 | ☐ |
+| I3-CUS-02 | Customer booking screens: "Book" on the lab page and the result cards, C3 and K1 to K3 (tests, slot, sample details, review), K4, "My bookings" (E1) and booking detail (C7, M1) | I3 customer | I3-CUS-01, I3-LAB-02 | ☐ |
+| I4-SHR-01 | EC2 kit: the worker (payment notifications, timers, outbox, e-mail) | — | — | ☐ |
+| I4-CUS-01 | Payment and handover (API): `createPaymentOrder`, `listPaymentOrders`, `getPaymentReturnStatus`, a non-production fake-payment operation (contract first); T-11 after T-09, packages with signed QR codes; `getBookingHandover`, `getBookingLabels` | I4 customer | I3-CUS-01 | ☐ |
+| I4-CUS-02 | Pay and handover screens: L1, the test checkout page, the return page, C6 handover with labels (L4), L2 unpaid and no-show states | I4 customer | I4-CUS-01 | ☐ |
+| I5-SHR-01 | EC2 kit: S3-compatible file storage and the fake file scanner on UAT | — | I4-SHR-01 | ☐ |
+| I5-LAB-01 | Custody (API): `scanCustodyCode` (online), receipt photo upload, `submitReceipt` (T-13), a receipts read for the Checker (contract first), `approveReceipt` (T-14, not the Maker), discrepancy (T-15), unfit sample (T-28), the customer's hold decision (T-16, T-27) | I5 lab; I5 customer: hold decision | I4-CUS-01 | ☐ |
+| I5-LAB-02 | Receipt screens: D1 scanner (camera or short code, M2), M3 receipt form, D2 receipt approval, the customer's hold decision (C7) | I5 lab | I5-LAB-01 | ☐ |
+| I5-LAB-03 | Testing: start testing (T-18), expected report date, line status; M4 | I5 lab | I5-LAB-01 | ☐ |
+| I5-LAB-04 | Report (API): upload, version bound to a package, submit (T-19), return (T-20), publish (T-21, authenticator within 5 minutes, not the Maker, stamped copy), `getBookingReport`, download, `getBookingTimeline` | I5 lab; I5 customer: download, timeline | I5-LAB-03 | ☐ |
+| I5-LAB-05 | Report screens: F6, M5, M6 upload; D3, M7 review and publish; M9 customer report and download; C7 timeline | I5 lab and customer | I5-LAB-04 | ☐ |
+| I5-SHR-02 | Close: T-23 (COMPLETED after 72 hours) from the existing timer; public `verifyReport` (B3) if time allows | I5 customer: verification | I5-LAB-04 | ☐ |
+| I2-LAB-01 | Lab onboarding overview, KYC documents, bank account (authenticator step, masked number), lab users and invitations; Ops verification of KYC and bank (F4, J3, J4, J5, J9) | I2 lab; I2 admin: KYC and bank verification | I5-SHR-01 | ☐ |
+| I2-LAB-02 | Site settings: receiving hours, closures, slot templates, the worker job that turns templates into slots, retention, scope availability (J6, J7) | I2 lab | I2-LAB-01 | ☐ |
+| I2-LAB-03 | Price lists: draft, edit, publish (F7, J8); CSV import later | I2 lab | I2-LAB-01 | ☐ |
+| I2-LAB-04 | Bookability: `is_bookable`, listing status and reasons, `lab_site.bookability_changed` for search (J10) | I2 lab | I2-LAB-02, I2-LAB-03 | ☐ |
+
+**Still to do after the journey** (not covered by the tasks above): I2-CUS-04; I1-CUS-09; I1-LAB-05; I2 price-list CSV import; I3 SLA reminders, the Ops board v1 and overrides; I4 the ICICI sandbox (needs the bank's documents), the lab's expected drops and counter label printing, refund approvals and reconciliation v1; I5 report sharing, the scanner's offline queue, report amendment, break-glass and the audit viewer; all of I6.
+
+**Parked (found 2026-11-28):** the worker's `search-reindex` job can exceed the 5-second transaction limit at start-up (P2028); do not merge Dependabot #29 (PostgreSQL 16 to 17) without a plan for the existing data.
+
 ## Phase 6–7
 | ID | Task | Owner | Status |
 |---|---|---|---|
