@@ -4,6 +4,7 @@ import {
   type BookingEngine,
   type BookingListInput,
   BookingError,
+  cancellationReasonNodeId,
   type CounterOfferInput,
   rejectionReasonNodeId,
   type RequestMeta,
@@ -217,6 +218,80 @@ export class BookingsService {
         },
         expectedLockVersion: ifMatch,
         input: {},
+        requestContext: requestContextOf(meta),
+      });
+      return this.readView(tx, actor, bookingId);
+    });
+    return {
+      body: toBookingViewBody(read.detail, {
+        holdCase: read.holdCase,
+        ownRating: read.ownRating,
+        labContact: null,
+      }),
+      lockVersion: read.detail.common.lockVersion,
+    };
+  }
+
+  /**
+   * `cancelBooking` before handover (T-25, free, BR-070): the owner or a `CUSTOMER_ADMIN`.
+   * T-26 and T-27 (after handover, with refunds) need the payments module and are not built yet:
+   * those states answer 409 from the engine. A lab Checker cancels only after handover, and Ops
+   * through `/admin/bookings/{id}/cancel`, so both are 403 before the booking is read.
+   */
+  /**
+   * Who cancels on this route: a customer member (the engine narrows it to the owner or a
+   * `CUSTOMER_ADMIN`). Checked before the body is read, so a refused role is 403 whatever it
+   * sends. Returns the role that acts (the widest one).
+   */
+  assertCanceller(actor: CurrentActor): RoleCode {
+    const role = CUSTOMER_ROLES.find((code) => actor.roles.includes(code));
+    if (actor.orgType !== 'CUSTOMER' || role === undefined) {
+      throw new DomainError('FORBIDDEN', {
+        detail:
+          'Before handover the customer cancels; a lab Checker cancels from handover, Ops in the admin console.',
+      });
+    }
+    return role;
+  }
+
+  async cancel(
+    actor: CurrentActor,
+    bookingId: string,
+    ifMatch: number,
+    input: { reasonCode: string; notes?: string },
+    meta: RequestMeta,
+  ): Promise<{ body: BookingViewBody; lockVersion: number }> {
+    const role = this.assertCanceller(actor);
+    const read = await this.scope.run(actor, async (tx) => {
+      await getBookingDetail(tx, actor, bookingId);
+      const nodeId = await cancellationReasonNodeId(tx, input.reasonCode);
+      if (nodeId === null) {
+        throw new DomainError('VALIDATION_FAILED', {
+          detail: 'Some fields are missing or not valid.',
+          errors: [
+            {
+              path: 'reasonCode',
+              code: 'INVALID_VALUE',
+              message: 'An active cancellation reason code.',
+            },
+          ],
+        });
+      }
+      await this.engine.transition(tx, {
+        bookingId,
+        transitionId: 'T-25',
+        actor: {
+          kind: 'USER',
+          userId: actor.userId,
+          role,
+          ...(actor.membershipId !== null && { membershipId: actor.membershipId }),
+          ...(actor.orgId !== null && { orgId: actor.orgId }),
+        },
+        expectedLockVersion: ifMatch,
+        input: {
+          cancellationCodeNodeId: nodeId,
+          ...(input.notes !== undefined && { cancellationNotes: input.notes }),
+        },
         requestContext: requestContextOf(meta),
       });
       return this.readView(tx, actor, bookingId);

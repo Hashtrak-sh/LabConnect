@@ -142,6 +142,23 @@ describe('tenant isolation on the booking routes', () => {
     await unchanged();
   });
 
+  it("POST /bookings/{id}/cancel on another customer's booking: 404, like an unknown id", async () => {
+    const call = (id: string) => (client: Client) =>
+      client.post(`/v1/bookings/${id}/cancel`, {
+        headers: { 'If-Match': '"0"' },
+        body: { reasonCode: 'CUSTOMER_REQUEST' },
+      });
+    await expectIsolated({
+      route: 'POST /v1/bookings/:id/cancel',
+      as: clientOf(w.customerA.user('CUSTOMER_ADMIN')),
+      resourceOf: w.customerB,
+      resourceId: bookingOfB,
+      request: call(bookingOfB),
+      unknownRequest: call(randomUUID()),
+    });
+    await unchanged();
+  });
+
   it('GET /bookings/{id} at a site the Maker is not assigned to: 404, like an unknown id', async () => {
     const maker = clientOf(w.siteMaker);
     const response = await maker.get(`/v1/bookings/${atSecondSite}`);

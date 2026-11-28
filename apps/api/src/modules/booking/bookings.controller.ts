@@ -18,6 +18,7 @@ import { Authorised } from '../identity/authorised.decorator.js';
 import { CurrentActor } from '../identity/current-actor.js';
 import type { BookingViewBody } from './booking-view.js';
 import {
+  parseBookingCancel,
   parseBookingCounter,
   parseBookingListQuery,
   parseBookingReject,
@@ -187,6 +188,29 @@ export class BookingsController {
     return this.answer(
       response,
       await this.bookings.respondToCounter(actor, 'T-08', bookingId, version, requestMeta(request)),
+    );
+  }
+
+  /** `cancelBooking`: T-25 before handover (free); a reason code, optional notes, `If-Match`. */
+  @Post(':id/cancel')
+  @HttpCode(200)
+  @Authorised({ permission: 'booking.cancel' })
+  @Idempotent()
+  async cancelBooking(
+    @Param('id') id: string,
+    @Headers('if-match') ifMatch: string | string[] | undefined,
+    @Body() body: unknown,
+    @CurrentActor() actor: CurrentActor,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<BookingViewBody> {
+    this.bookings.assertCanceller(actor);
+    const bookingId = requireBookingId(id);
+    const version = parseIfMatch(ifMatch);
+    const input = parseBookingCancel(body);
+    return this.answer(
+      response,
+      await this.bookings.cancel(actor, bookingId, version, input, requestMeta(request)),
     );
   }
 

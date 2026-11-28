@@ -13,7 +13,8 @@ import type { EffectContext, TransitionContext } from './types.js';
 //   quantities are written to the lines (`required_sample_qty`). The engine sets `payment_due_at`
 //   and the default effects schedule the payment timers.
 // - T-08 DeclineCounter (the owner) or ExpireCounter (the timer): the offer becomes DECLINED or
-//   EXPIRED; the hold is released by `booking.release-slot-hold` (lab-decisions.ts).
+//   EXPIRED; the hold is released by `booking.release-slot-hold` (lab-decisions.ts). A T-25
+//   cancellation of a COUNTERED booking also closes its offer as EXPIRED.
 // The offer answered is the booking's latest one; a booking is COUNTERED once (T-04 is from
 // REQUESTED only), so there is at most one PENDING offer.
 
@@ -117,7 +118,8 @@ export function registerCounterResponseRules(registry: TransitionRegistry): Tran
     },
   });
 
-  registry.addEffect('T-08', {
+  // T-25 from COUNTERED: the booking is cancelled before the customer answered; the offer lapses.
+  registry.addEffect(['T-08', 'T-25'], {
     name: 'booking.close-counter-offer',
     async run(context) {
       const offer = await pendingOffer(context.tx, context.updated.id);
@@ -128,7 +130,9 @@ export function registerCounterResponseRules(registry: TransitionRegistry): Tran
       await answerOffer(
         context,
         offer.id,
-        context.command.actor.kind === 'USER' && !lapsed ? 'DECLINED' : 'EXPIRED',
+        context.transition.id === 'T-08' && context.command.actor.kind === 'USER' && !lapsed
+          ? 'DECLINED'
+          : 'EXPIRED',
       );
     },
   });

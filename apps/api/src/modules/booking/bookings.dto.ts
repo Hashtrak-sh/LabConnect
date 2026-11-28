@@ -265,3 +265,23 @@ function atMostThreeDecimals(value: number): boolean {
   const thousandths = value * 1000;
   return Math.abs(thousandths - Math.round(thousandths)) < 1e-6;
 }
+
+/** `BookingCancelRequest`: a CANCELLATION_REASON code, and optional notes. */
+export function parseBookingCancel(body: unknown): { reasonCode: string; notes?: string } {
+  if (!isRecord(body)) fail([{ path: '', code: 'INVALID_TYPE', message: 'Send a JSON object.' }]);
+  const issues: ProblemIssue[] = [];
+  for (const field of Object.keys(body)) {
+    if (field !== 'reasonCode' && field !== 'notes') {
+      issues.push({ path: field, code: 'UNKNOWN_FIELD', message: 'This field is not allowed.' });
+    }
+  }
+  const reasonCode = text(body, 'reasonCode', 100, issues);
+  let notes: string | undefined;
+  if (body.notes !== undefined) {
+    if (typeof body.notes !== 'string' || body.notes.length > 2000) {
+      issues.push({ path: 'notes', code: 'INVALID_VALUE', message: 'At most 2000 characters.' });
+    } else if (body.notes.trim().length > 0) notes = body.notes.trim();
+  }
+  if (issues.length > 0 || reasonCode === undefined) fail(issues);
+  return { reasonCode, ...(notes !== undefined && { notes }) };
+}

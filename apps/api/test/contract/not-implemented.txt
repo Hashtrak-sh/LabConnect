@@ -17,7 +17,6 @@ approveReceipt
 assignAdminDispute
 cancelAdminBooking
 cancelAdminChangeSet
-cancelBooking
 checkBookingDuplicates
 commitAdminImport
 commitLabPriceListImport
