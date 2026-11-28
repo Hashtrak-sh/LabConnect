@@ -2,13 +2,27 @@
 # Brings the server to the latest commit of the branch it is on, with the old containers kept
 # running while the new images are built:
 #   1. git pull --ff-only          (SKIP_PULL=yes to skip, e.g. for a local change)
-#   2. check the free disk space   (below MIN_BUILD_GB, default 15: delete the build cache and
+#   2. check the free disk space   (below MIN_BUILD_GB, default 10: delete the build cache and
 #                                    unused images, and stop if that is still not enough)
 #      build the images            (the running containers are untouched; a failed build stops here)
 #   3. apply the migrations        (the old code keeps running for these seconds)
 #   4. recreate only what changed, then wait for health
 #   5. delete dangling images and build cache older than three days
+#
+# Usage: ./update.sh            build with the cache (only what changed is rebuilt)
+#        ./update.sh --fresh    delete the build cache and unused images first, then build from
+#                               scratch (slower; frees the most space before the build). Run it
+#                               with the stack up: images of stopped services would be deleted
+#                               too and downloaded again.
 . "$(dirname "$0")/lib.sh"
+
+build_mode=""
+[[ $# -le 1 ]] || die "too many arguments. Usage: ./update.sh [--fresh]"
+case "${1:-}" in
+  "") ;;
+  --fresh) build_mode=fresh ;;
+  *) die "unknown option '$1'. Usage: ./update.sh [--fresh]" ;;
+esac
 
 need_docker
 validate_env
@@ -22,7 +36,7 @@ else
 fi
 git -C "$KIT" log -1 --format='    now at %h %s' 2>/dev/null || true
 
-ensure_build_space
+ensure_build_space "$build_mode"
 
 step "building the new images while the old containers keep running"
 export COMPOSE_PARALLEL_LIMIT=1

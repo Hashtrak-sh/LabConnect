@@ -65,6 +65,9 @@ cd ~/LabConnect && git pull
 cd deploy/ec2 && ./update.sh     # builds first, then migrates and replaces; see DEMO.md
 ```
 
+Before building it checks the free disk space (10 GB, `MIN_BUILD_GB`). `./update.sh --fresh` deletes the
+build cache and unused images first and builds from scratch: slower, but it frees the most space.
+
 ## Day to day
 
 | Task | Command (in `deploy/ec2`) |

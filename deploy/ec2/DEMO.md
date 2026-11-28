@@ -160,7 +160,7 @@ loudly, at the start and at the end. `WALK_SCRIPT=<path>` points at another copy
 | `./seed-demo.sh` | migrate, load the demo data, refresh the planner's statistics. Safe to repeat. |
 | `./status.sh` | services, health, memory, disk |
 | `docker compose logs -f api web caddy` | logs |
-| `./update.sh` | `git pull --ff-only`, build the new images **while the old containers keep running**, migrate, replace what changed, clean up. A failed build leaves the running demo untouched. |
+| `./update.sh` | `git pull --ff-only`, build the new images **while the old containers keep running**, migrate, replace what changed, clean up. A failed build leaves the running demo untouched. `--fresh` clears the build cache and unused images first (build from scratch). |
 | `./reset-demo.sh --yes-destroy-the-database` | destroys the database volume and loads a fresh seeded one (between rehearsals). Without the flag it only prints what it would destroy. Certificates are kept. |
 | `./backup.sh` | `pg_dump` to `backups/lc-<time>.dump` (owner only). Nothing runs it for you. |
 | `./restore-check.sh <file>` | restores a backup into a scratch database, counts, drops it |
@@ -193,8 +193,10 @@ the order of 10 to 15 GB (the `migrate` image is large because it carries the bu
 several updates (2026-11-28) it was 11.1 GB of images and 6.9 GB of build cache on a 28 GB disk, and the next build
 failed with "no space left on device": an update needs room for a second set of the application images next to the
 running ones; after clearing the cache it rebuilt from nothing with about 12 GB free. **Use 50 GB.** `update.sh` now
-checks before building (below `MIN_BUILD_GB`, default 15 GB free, it deletes the build cache and unused images, and
-stops if that is still not enough: a full disk would also stop the running database from writing). Measured how: `preflight.sh` reads `/proc/meminfo` and `df`; `status.sh` prints the
+checks before building (below `MIN_BUILD_GB`, default 10 GB free, it deletes the build cache and unused images, and
+stops if that is still not enough: a full disk would also stop the running database from writing). `./update.sh --fresh`
+always deletes them first and builds from scratch: slower, but it frees the most space. With less than 12 GB free after
+a clean-up the script warns but goes on (the bar is 10 GB for now): grow the disk rather than rely on it. Measured how: `preflight.sh` reads `/proc/meminfo` and `df`; `status.sh` prints the
 container figures.
 
 ## Sign-in limits (OQ-240, OQ-272)
@@ -230,7 +232,7 @@ healthy within about 25 seconds of the database starting, no re-seed (the 200 de
 check passed.
 - **Disk.** Container logs are not rotated by this kit's compose file (Docker's default json-file driver keeps them
   without limit): see the review notes; `update.sh` prunes dangling images and build cache older than three days, and
-  before building clears all build cache and unused images when less than `MIN_BUILD_GB` (15) GB is free. Watch
+  before building clears all build cache and unused images when less than `MIN_BUILD_GB` (10) GB is free, or always with `--fresh`. Watch
   `docker system df` (`./status.sh`). `docker builder prune -af` and `docker image prune -af` are safe **while the stack
   is up and no script of this kit is running** (the running containers' images and the database volume are kept; the
   next build only takes longer). With the stack down, the image prune also removes the database, proxy and mail images,

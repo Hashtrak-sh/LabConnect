@@ -1,4 +1,5 @@
 import { readFileSync, readdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
@@ -169,6 +170,73 @@ describe('one-server kit: settings and scripts', () => {
     const body = /\nensure_build_space\(\) \{\n([\s\S]*?)\n\}/.exec(lib)?.[1] ?? '';
     expect(body).toContain('docker builder prune -af');
     expect(body.indexOf(' die ', body.indexOf('docker builder prune -af'))).toBeGreaterThan(-1);
+    // The options are read before anything touches Docker; anything but --fresh is refused.
+    expect(update.indexOf('--fresh) build_mode=fresh ;;')).toBeGreaterThan(-1);
+    expect(update.indexOf('--fresh) build_mode=fresh ;;')).toBeLessThan(
+      update.indexOf('\nneed_docker'),
+    );
+    expect(update).toContain('ensure_build_space "$build_mode"');
+    expect(update).toMatch(/\*\) die "unknown option/);
+  });
+
+  // Runs the real function under bash with `docker` and `df` replaced by stubs. CI runs on Linux;
+  // on Windows `bash` may be WSL's, which cannot see this path, so it is skipped there.
+  describe.skipIf(process.platform === 'win32')('ensure_build_space under bash', () => {
+    const functions = ['docker_free_gb', 'ensure_build_space']
+      .map((name) => new RegExp(String.raw`\n(${name}\(\) \{\n[\s\S]*?\n\})`).exec(lib)?.[1] ?? '')
+      .join('\n');
+
+    /** Free GB that `df` reports on each call, in order; returns what the run printed. */
+    function run(freeGb: (number | 'fail')[], mode = '', minBuildGb?: string) {
+      const script = [
+        'set -euo pipefail',
+        // `df` runs in a command substitution (a subshell): the call count lives in a file.
+        `seq=(${freeGb.join(' ')}); counter=$(mktemp); echo 0 >"$counter"`,
+        // The prune calls send stdout to /dev/null: the stub reports on stderr, merged in order.
+        'exec 2>&1',
+        'docker() { case "$1" in info) echo /var/lib/docker ;; *) echo "DOCKER $*" >&2 ;; esac; }',
+        'df() { local i v; i=$(<"$counter"); v=${seq[$i]}; echo $((i + 1)) >"$counter";',
+        '  [[ $v == fail ]] && return 1;',
+        "  printf 'F 1 U A C M\\n/dev/root 1 1 %s 1%% /\\n' $((v * 1024 * 1024)); }",
+        'step() { :; }; info() { echo "INFO $*"; }; warn() { echo "WARN $*"; }',
+        'die() { echo "DIE $*"; exit 1; }',
+        functions,
+        `ensure_build_space '${mode}' && echo BUILD`,
+      ].join('\n');
+      const result = spawnSync('bash', ['-c', script], {
+        encoding: 'utf8',
+        env: { ...process.env, MIN_BUILD_GB: minBuildGb ?? '' },
+      });
+      return result.stdout;
+    }
+
+    it('builds with the cache when there is room', () => {
+      const out = run([25]);
+      expect(out).toContain('BUILD');
+      expect(out).not.toContain('DOCKER builder prune');
+    });
+
+    it('clears and builds when the clean-up frees enough, and warns below 12 GB', () => {
+      expect(run([6, 14])).toMatch(/DOCKER builder prune -af[\s\S]*BUILD/);
+      expect(run([6, 11])).toMatch(/WARN building from scratch with 11 GB[\s\S]*BUILD/);
+    });
+
+    it('stops before building when the clean-up does not free enough', () => {
+      const out = run([6, 8]);
+      expect(out).toContain('DIE only 8 GB free');
+      expect(out).not.toContain('BUILD');
+    });
+
+    it('always clears with --fresh, even with room or an unknown free space', () => {
+      expect(run([25, 32], 'fresh')).toMatch(/DOCKER builder prune -af[\s\S]*BUILD/);
+      expect(run(['fail'], 'fresh')).toMatch(/DOCKER builder prune -af[\s\S]*BUILD/);
+    });
+
+    it('refuses a MIN_BUILD_GB that is not a whole number, before deleting anything', () => {
+      const out = run([4], '', '10GB');
+      expect(out).toContain('DIE MIN_BUILD_GB must be a whole number');
+      expect(out).not.toContain('DOCKER');
+    });
   });
 
   it('makes reset-demo ask for an explicit flag, say what it destroys, and keep the certificates', () => {

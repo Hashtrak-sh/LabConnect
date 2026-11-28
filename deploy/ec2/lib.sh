@@ -169,22 +169,35 @@ docker_free_gb() {
 # A build puts a second set of the application images next to the ones the running containers
 # use, plus its build cache: a 28 GB disk with 4 GB free failed half-way ("no space left on
 # device", 2026-11-28; after clearing the cache, the same server rebuilt from nothing with about
-# 12 GB free). Below MIN_BUILD_GB free, delete the build cache and the images no container uses
-# (the running containers and the database volume are not touched; the next build is slower),
-# then check again and stop before building if it is still too little. The bar holds for a build
-# with no cache: a full disk also stops the running database from writing, so it errs high.
+# 12 GB free). Below MIN_BUILD_GB free (default 10, chosen for the 28 GB UAT disk until it is
+# grown), delete the build cache and the images no container uses (the running containers and the
+# database volume are not touched; the build then starts from scratch and is slower), then check
+# again and stop before building if it is still too little. With "fresh" as the first argument
+# the clean-up always runs first (a build from scratch). A full disk also stops the running
+# database from writing: a build from scratch is safer with 12 GB or more, so below that it warns
+# (the bar stays MIN_BUILD_GB, the owner's choice for now).
 ensure_build_space() {
-  local want="${MIN_BUILD_GB:-15}" free
+  local mode="${1:-}" want="${MIN_BUILD_GB:-10}" safe_fresh=12 free
   [[ "$want" =~ ^[0-9]+$ ]] || die "MIN_BUILD_GB must be a whole number of GB (it is '$want')."
   step "checking the free disk space for the build"
   free=$(docker_free_gb)
   if [[ -z "$free" ]]; then
     warn "free disk space unknown: not checked"
+    if [[ "$mode" == fresh ]]; then
+      info "build from scratch (--fresh): deleting the build cache and the images no container uses"
+      docker builder prune -af >/dev/null
+      docker image prune -af >/dev/null
+    fi
     return 0
   fi
   info "${free} GB free for Docker (${want} GB wanted)"
-  if [[ $free -ge $want ]]; then return 0; fi
-  info "too little: deleting the build cache and the images no container uses"
+  if [[ "$mode" == fresh ]]; then
+    info "build from scratch (--fresh): deleting the build cache and the images no container uses"
+  elif [[ $free -ge $want ]]; then
+    return 0
+  else
+    info "too little: deleting the build cache and the images no container uses"
+  fi
   docker builder prune -af >/dev/null
   docker image prune -af >/dev/null
   free=$(docker_free_gb)
@@ -194,6 +207,9 @@ ensure_build_space() {
   fi
   info "${free} GB free after the clean-up"
   [[ $free -ge $want ]] || die "only ${free} GB free and a build needs about ${want} GB. The running site is unchanged. Grow the disk (DEMO.md, \"Disk\") or free space, then run this again."
+  if [[ $free -lt $safe_fresh ]]; then
+    warn "building from scratch with ${free} GB free (${safe_fresh} GB or more is safer: a full disk also stops the running database writing). Grow the disk soon (DEMO.md, \"Disk\")."
+  fi
 }
 
 # One script at a time.
