@@ -155,16 +155,19 @@ after_seed() {
 
 # One script at a time.
 take_lock() {
-  if [[ -d "$KIT/.lock" ]]; then
+  # Outside the kit folder: the folder is part of the image build context (a file that changes on
+  # every run would invalidate the build cache, and end up inside the migrate image).
+  local lock="${TMPDIR:-/tmp}/labconnect-uat-kit-$(id -u).lock"
+  if [[ -d "$lock" ]]; then
     local owner
-    owner=$(cat "$KIT/.lock/pid" 2>/dev/null || true)
+    owner=$(cat "$lock/pid" 2>/dev/null || true)
     if [[ -n "$owner" ]] && kill -0 "$owner" 2>/dev/null; then
       die "another script of this kit is running (process $owner)."
     fi
     warn "removing the lock of a script that died (process ${owner:-unknown})"
-    rm -rf "$KIT/.lock"
+    rm -rf "$lock"
   fi
-  mkdir "$KIT/.lock" 2>/dev/null || die "another script of this kit is starting at the same moment."
-  echo $$ >"$KIT/.lock/pid"
-  trap 'rm -rf "$KIT/.lock"; on_exit' EXIT
+  mkdir "$lock" 2>/dev/null || die "another script of this kit is starting at the same moment."
+  echo $$ >"$lock/pid"
+  trap "rm -rf '$lock'; on_exit" EXIT
 }
