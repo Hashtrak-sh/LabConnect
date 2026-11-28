@@ -575,7 +575,7 @@ async function rehearsal() {
     check(
       false,
       'the walk script exists',
-      `${walk} is not here. It is on the branch feature/web-enrol-claim-ops until that is merged; set WALK_SCRIPT.`,
+      `${walk} is not here. Run the check from a checkout of the repository, or set WALK_SCRIPT.`,
     );
     return;
   }

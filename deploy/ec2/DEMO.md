@@ -94,6 +94,8 @@ cd deploy/ec2
 read -rs GATE_PASSWORD        # type the shared password; nothing is shown
 hash=$(printf '%s\n' "$GATE_PASSWORD" | docker run --rm -i caddy:2.10.0-alpine caddy hash-password | tr -d '\r\n')
 {
+  echo "HTTP_PORT=80"
+  echo "HTTPS_PORT=443"
   echo "TLS_MODE=auto"
   echo "ACCESS_GATE=on"
   echo "GATE_USER=demo"
@@ -109,8 +111,13 @@ option has `SITE_ADDRESS=:80`, which is no longer supported: set `SITE_ADDRESS` 
 
 ## The demonstration
 
-Sign in with the published demo accounts and your code. **Enrol the Platform Ops authenticator yourself, and keep its
-recovery codes, before anyone else can reach the site** (until then the first person to sign in as Ops owns it).
+Sign in with the published demo accounts and your code. **Every demo account whose role needs an authenticator is owned by
+the first person who enrols one for it**, and the demo code lets anyone past the gate try. Before anyone else can reach
+the site, enrol (and keep the recovery codes of) each one you will use, at least Platform Ops `ops.demo@…`; the others are
+Platform Admin `admin.demo@…`, Data Steward `steward.demo@…`, Platform Finance `finance.demo@…`, every lab Checker
+(`checker1.0001@…`, `checker2.0001@…`, `checker1.0002@…`, `checker1.0003@…`) and the customer Finance users
+(`customer.finance.demo2@…`, `customer.finance.demo3@…`), all at `demo.labconnect.test`. A reset makes them fresh again.
+With the gate on, Mailpit has no password of its own: everyone you give the gate password to can read every sign-in code.
 
 1. Without signing in: search for a test with the typeahead (`TDS`), results with the map, filters, a lab page with prices and slots.
 2. Sign in as a demo customer (`customer.admin.demo1@demo.labconnect.test`) with the code; sign up a new organisation.
@@ -143,8 +150,7 @@ browser on one session, at once. One safe run makes **one** sign-in.
 `apps/web/test/e2e-walk.mjs` (claim a lab by certificate number, Platform Ops enrols with a computed authenticator code,
 approval). It **uses up demo data**: afterwards Platform Ops is enrolled with a secret nobody holds and labs are claimed, so
 **`./reset-demo.sh --yes-destroy-the-database` must run afterwards**, before the real demonstration; the check says so,
-loudly, at the start and at the end. The walk file exists once `feature/web-enrol-claim-ops` is merged (the check says
-so if it is missing; `WALK_SCRIPT=<path>` points at another copy).
+loudly, at the start and at the end. `WALK_SCRIPT=<path>` points at another copy of the walk.
 
 ## Day to day (scripts in `deploy/ec2`)
 
@@ -165,8 +171,11 @@ database use `docker compose exec`; there is no tunnel helper because nothing ne
 
 **Restore** over the real database (manual, destructive): `docker compose stop web api`, `docker compose rm -sfv postgres`,
 remove the `<project>_postgres-data` volume, `docker compose up -d postgres`, `docker compose run --rm --no-deps migrate`
-(the roles come from it), `docker compose exec -T postgres pg_restore -U labconnect -d labconnect --no-owner < backups/<file>`,
-then `./up.sh`.
+(the database roles come from it; it also creates the tables and reference rows), then
+`docker compose exec -T postgres pg_restore -U labconnect -d labconnect --clean --if-exists --no-owner < backups/<file>`
+(`--clean --if-exists` drops what the migration created and loads the backup's own copy; without it the restore stops on
+"already exists" and duplicate rows), then `./up.sh`. `./restore-check.sh` proves the file restores into an empty
+database; it does not rehearse this sequence.
 
 **Take it down.** `docker compose down` stops and removes the containers and keeps the data; `--volumes` also destroys the
 database **and the certificates** (re-issuing counts against the certificate authority's rate limits). Then terminate the
@@ -201,17 +210,12 @@ customer each time: 5 in 15 minutes is the limit).
 
 **None of the three acts needs the worker or object storage.** Confirmed by running the whole story on this stack (no
 worker, no S3): the end-to-end walk passed the claim by certificate number, Platform Ops's enrolment with a computed
-authenticator code, the claims list, the approval, and the claimant's sign-in after it (the one failing check of the walk
-is a stale lab name, see "Known failing check" below). What does not happen without the worker, seen in the database after
+authenticator code, the claims list, the approval, and the claimant's sign-in after it. What does not happen without the worker, seen in the database after
 that run: the **outbox events are never relayed** (8 rows stayed unpublished), so no **notification or e-mail** is
 created (for example, the claimant is not told that the claim was approved; the `notification` table stayed empty); the
 **audit log is written but never sealed** (33 rows, no sealing job), and **timers never fire**. File uploads need S3 and
 the scanner (the letterhead path of a claim), which are not here either. All of this is invisible in the three acts; it
 would matter for the later increments (bookings with deadlines, e-mails, reports).
-
-**Known failing check of the walk.** The walk's check "the claim page now shows the approved lab and the Checker role" looks
-for the lab name `DEMO Laboratory 0005`; the demo seed on `main` gives the labs realistic names (there is no lab with that
-name), so that one check fails on every stack. The other 82 of the 83 checks pass.
 
 ## Operating notes
 

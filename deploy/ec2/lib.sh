@@ -18,8 +18,11 @@ info() { echo "    $*"; }
 warn() { echo "WARNING: $*" >&2; }
 die() { echo "ERROR: $*" >&2; exit 1; }
 
+# The exit code is passed in by a trap that runs other commands first (they would reset $?).
+LOCK_DIR=""
 on_exit() {
-  local code=$?
+  local code=${1:-$?}
+  [[ -n "$LOCK_DIR" ]] && rm -rf "$LOCK_DIR"
   if [[ $code -ne 0 ]]; then
     echo >&2
     echo "FAILED: $SCRIPT stopped at step \"$STEP\" (exit code $code). Nothing after it was run." >&2
@@ -55,7 +58,9 @@ validate_env() {
   origin=$(envval WEB_ORIGIN)
   tls=$(envval TLS_MODE)
   gate=$(envval ACCESS_GATE)
+  # A .env made before HTTP_PORT and HTTPS_PORT existed has neither: compose uses 80 and 443.
   https_port=$(envval HTTPS_PORT)
+  https_port=${https_port:-443}
   code=$(envval DEMO_OTP_CODE)
   [[ "$site" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]] || die "SITE_ADDRESS '$site' must be a plain domain name. Plain HTTP (':80') no longer exists: the server has a domain."
   case "$tls" in
@@ -168,6 +173,7 @@ take_lock() {
     rm -rf "$lock"
   fi
   mkdir "$lock" 2>/dev/null || die "another script of this kit is starting at the same moment."
-  echo $$ >"$lock/pid"
-  trap "rm -rf '$lock'; on_exit" EXIT
+  echo $ >"$lock/pid"
+  # on_exit (the EXIT trap) removes it, also when a script installs its own trap that calls on_exit.
+  LOCK_DIR="$lock"
 }

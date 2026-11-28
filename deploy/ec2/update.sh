@@ -29,6 +29,10 @@ dc run --rm --no-deps migrate
 
 step "replacing the changed containers"
 dc up -d
+# The Caddyfile and snippets are bind mounts: a pull that changes only them recreates nothing, so
+# load them now. A broken config fails here, with the operator watching, not at the next reboot.
+step "reloading the proxy configuration"
+dc exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 
 wait_healthy 420
 

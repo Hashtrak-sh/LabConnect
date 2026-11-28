@@ -6,6 +6,7 @@
 
 need_docker
 validate_env
+take_lock
 
 umask 077
 dir="$KIT/backups"

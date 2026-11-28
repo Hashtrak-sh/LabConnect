@@ -6,6 +6,7 @@
 
 need_docker
 validate_env
+take_lock
 
 step "making sure the database is up"
 dc up -d postgres

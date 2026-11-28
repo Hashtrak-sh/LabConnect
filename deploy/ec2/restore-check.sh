@@ -7,6 +7,7 @@
 
 need_docker
 validate_env
+take_lock
 [[ $# -eq 1 && -f "$1" ]] || die "usage: ./restore-check.sh <backup file>"
 file="$1"
 user="$(envval POSTGRES_USER)"
@@ -17,7 +18,7 @@ psql_scratch() { dc exec -T postgres psql -U "$user" -d "$scratch" -At "$@"; }
 step "creating scratch database $scratch"
 psql_admin -c "CREATE DATABASE $scratch"
 cleanup() { psql_admin -c "DROP DATABASE IF EXISTS $scratch" >/dev/null 2>&1 || true; }
-trap 'cleanup; on_exit' EXIT
+trap 'code=$?; cleanup; on_exit "$code"' EXIT
 
 step "restoring into it"
 # Ownership and grants are skipped: the scratch copy is only read.
