@@ -40,7 +40,7 @@ Legend: ✔ allowed · ○ own records only · ◐ condition applies (see note) 
 | Pay | ✔ | ◐³ | ✔ | — | — | — | — | — | — |
 | View QR labels and drop instructions | ✔ | ○ | — | ✔ | ✔ | ✔ | — | — | — |
 | Print labels | ✔ | ○ | — | ✔ | ✔ | — | — | — | — |
-| View lab inbox | — | — | — | ✔ | ✔ | ✔ | — | — | — |
+| View lab inbox | — | — | — | ✔ | ✔ | ◐¹¹ | — | — | — |
 | Accept / reject / counter | — | — | — | — | ✔ | ◐⁴ | — | — | — |
 | Manage profile, prices, slots, hours | — | — | — | — | ✔ | ◐⁵ | — | — | — |
 | Manage lab users | — | — | — | — | ✔ | ✔ | — | — | — |
@@ -76,6 +76,7 @@ Notes:
 8. Ops can place a hold. `PLATFORM_FINANCE` releases payouts and approves refunds above a configurable threshold.
 9. A different steward or `PLATFORM_ADMIN` must approve (RR-6).
 10. Bank verification needs `PLATFORM_FINANCE`.
+11. Ops see lab bookings in the admin console (`/admin/bookings`). The lab inbox (`getLabInbox`) lists the bookings of the caller's assigned lab sites and answers 403 to any role but `LAB_MAKER` and `LAB_CHECKER`, as the contract says (decided 2026-11-28, I3-LAB-01).
 
 ## 3. Enforcement layers
 1. **API guards:** `@RequirePermission('booking.decide')`. Membership and role are resolved from the session, never from the request body.

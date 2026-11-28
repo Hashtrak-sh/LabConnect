@@ -12,6 +12,9 @@ import {
   bookingVisibility,
   type CurrentActor,
   getBookingDetail,
+  getLabInbox,
+  type LabInboxInput,
+  type LabInboxItemView,
   labSitePublicContact,
   latestBookingHoldCase,
   listBookings,
@@ -26,6 +29,8 @@ import { BOOKING_ENGINE } from './booking-engine.token.js';
 type Schemas = components['schemas'];
 export type BookingListBody = Schemas['BookingList'];
 type BookingSummaryBody = Schemas['BookingSummary'];
+export type LabInboxListBody = Schemas['LabInboxList'];
+type LabInboxItemBody = Schemas['LabInboxItem'];
 
 const isoDate = (date: Date): string => date.toISOString().slice(0, 10);
 const isoOrNull = (date: Date | null): string | null => (date === null ? null : date.toISOString());
@@ -49,6 +54,40 @@ export function toBookingSummaryBody(booking: BookingSummaryView): BookingSummar
     expectedReportDate:
       booking.expectedReportDate === null ? null : isoDate(booking.expectedReportDate),
     createdAt: booking.createdAt.toISOString(),
+  };
+}
+
+export function toLabInboxItemBody(item: LabInboxItemView): LabInboxItemBody {
+  const { booking } = item;
+  return {
+    booking: {
+      id: booking.id,
+      bookingNo: booking.bookingNo,
+      status: booking.status,
+      statusChangedAt: booking.statusChangedAt.toISOString(),
+      labSite: booking.labSite,
+      customerDisplayName: booking.customerDisplayName,
+      itemName: booking.itemName,
+      batchNo: booking.batchNo,
+      lineCount: booking.lineCount,
+      declaredPackageCount: booking.declaredPackageCount,
+      total: { amountPaise: paiseToJson(booking.totalPaise), currency: CURRENCY },
+      slot:
+        booking.slot === null
+          ? null
+          : {
+              startsAt: booking.slot.startsAt.toISOString(),
+              endsAt: booking.slot.endsAt.toISOString(),
+            },
+      preferredDropDate: isoDate(booking.preferredDropDate),
+      labDecisionDueAt: isoOrNull(booking.labDecisionDueAt),
+      paymentDueAt: isoOrNull(booking.paymentDueAt),
+      dropDeadlineAt: isoOrNull(booking.dropDeadlineAt),
+      expectedReportDate:
+        booking.expectedReportDate === null ? null : isoDate(booking.expectedReportDate),
+    },
+    pendingApproval: item.pendingApproval,
+    viewerWasMaker: item.viewerWasMaker,
   };
 }
 
@@ -94,6 +133,12 @@ export class BookingsService {
     }
     const result = await this.scope.run(actor, (tx) => listBookings(tx, actor, input));
     return { data: result.data.map(toBookingSummaryBody), page: result.page };
+  }
+
+  /** `getLabInbox`: the caller's assigned sites only, in the tenant transaction. */
+  async labInbox(actor: CurrentActor, input: LabInboxInput): Promise<LabInboxListBody> {
+    const result = await this.scope.run(actor, (tx) => getLabInbox(tx, actor, input));
+    return { data: result.data.map(toLabInboxItemBody), page: result.page };
   }
 
   /**

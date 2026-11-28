@@ -166,6 +166,11 @@ export const PERMISSION_CONDITIONS = {
     note: 10,
     description: 'Bank verification needs PLATFORM_FINANCE.',
   },
+  OPS_VIA_ADMIN_CONSOLE: {
+    note: 11,
+    description:
+      'Ops see lab bookings in the admin console (/admin/bookings). The lab inbox (getLabInbox) is scoped to the assigned lab sites of the caller and answers 403 to any role but LAB_MAKER and LAB_CHECKER.',
+  },
 } as const satisfies Record<string, { note: number; description: string }>;
 
 export type PermissionCondition = keyof typeof PERMISSION_CONDITIONS;
@@ -227,7 +232,11 @@ export const PERMISSION_MATRIX: Readonly<
     PLATFORM_OPS: ALL,
   },
   'label.print': { CUSTOMER_ADMIN: ALL, CUSTOMER_REQUESTER: OWN, LAB_MAKER: ALL, LAB_CHECKER: ALL },
-  'lab_inbox.view': { LAB_MAKER: ALL, LAB_CHECKER: ALL, PLATFORM_OPS: ALL },
+  'lab_inbox.view': {
+    LAB_MAKER: ALL,
+    LAB_CHECKER: ALL,
+    PLATFORM_OPS: when('OPS_VIA_ADMIN_CONSOLE'),
+  },
   'booking.decide': { LAB_CHECKER: ALL, PLATFORM_OPS: when('OPS_OVERRIDE_UNDECIDED') },
   'lab_profile.manage': { LAB_CHECKER: ALL, PLATFORM_OPS: when('OPS_MAP_PIN_REVIEW_ONLY') },
   'lab_user.manage': { LAB_CHECKER: ALL, PLATFORM_OPS: ALL },

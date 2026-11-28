@@ -12,3 +12,4 @@ export * from './notification-context.js';
 export * from './detail.js';
 export * from './lab-decisions.js';
 export * from './queries.js';
+export * from './lab-inbox.js';

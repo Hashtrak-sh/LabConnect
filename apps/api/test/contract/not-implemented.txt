@@ -80,7 +80,6 @@ getCustomerOrganisation
 getCustomerSettings
 getDispute
 getFinancialDocumentDownloadUrl
-getLabInbox
 getLabOnboarding
 getLabPriceListImport
 getLabRetentionRules
